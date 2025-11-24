@@ -58,6 +58,11 @@ func (p *ArubaCloudProvider) Schema(ctx context.Context, req provider.SchemaRequ
 }
 
 func (p *ArubaCloudProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
+
+	// Default values to environment variables, but override with Terraform configuration value if set.
+	apiKey := os.Getenv("ARUBACLOUD_API_KEY")
+	apiSecret := os.Getenv("ARUBACLOUD_API_SECRET")
+
 	// Retrieve provider data from configuration
 	var config ArubaCloudProviderModel
 	diags := req.Config.Get(ctx, &config)
@@ -66,8 +71,15 @@ func (p *ArubaCloudProvider) Configure(ctx context.Context, req provider.Configu
 		return
 	}
 
-	// Check for unknown values
-	if config.ApiKey.IsUnknown() {
+	if !config.ApiKey.IsNull() {
+		apiKey = config.ApiKey.ValueString()
+	}
+
+	if !config.ApiSecret.IsNull() {
+		apiSecret = config.ApiSecret.ValueString()
+	}
+
+	if apiKey == "" {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("api_key"),
 			"Unknown ArubaCloud API Key",
@@ -75,47 +87,13 @@ func (p *ArubaCloudProvider) Configure(ctx context.Context, req provider.Configu
 				"Either target apply the source of the value first, set the value statically in the configuration, or use the ARUBACLOUD_API_KEY environment variable.",
 		)
 	}
-	if config.ApiSecret.IsUnknown() {
+
+	if apiSecret == "" {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("api_secret"),
 			"Unknown ArubaCloud API Secret",
 			"The provider cannot create the ArubaCloud API client as there is an unknown configuration value for the API secret. "+
 				"Either target apply the source of the value first, set the value statically in the configuration, or use the ARUBACLOUD_API_SECRET environment variable.",
-		)
-	}
-
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	// Default values to environment variables, but override with Terraform configuration value if set.
-	apiKey := os.Getenv("ARUBACLOUD_API_KEY")
-	apiSecret := os.Getenv("ARUBACLOUD_API_SECRET")
-
-	if !config.ApiKey.IsNull() {
-		apiKey = config.ApiKey.ValueString()
-	}
-	if !config.ApiSecret.IsNull() {
-		apiSecret = config.ApiSecret.ValueString()
-	}
-
-	// If any of the expected configurations are missing, return errors with provider-specific guidance.
-	if apiKey == "" {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("api_key"),
-			"Missing ArubaCloud API Key",
-			"The provider cannot create the ArubaCloud API client as there is a missing or empty value for the API key. "+
-				"Set the api_key value in the configuration or use the ARUBACLOUD_API_KEY environment variable. "+
-				"If either is already set, ensure the value is not empty.",
-		)
-	}
-	if apiSecret == "" {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("api_secret"),
-			"Missing ArubaCloud API Secret",
-			"The provider cannot create the ArubaCloud API client as there is a missing or empty value for the API secret. "+
-				"Set the api_secret value in the configuration or use the ARUBACLOUD_API_SECRET environment variable. "+
-				"If either is already set, ensure the value is not empty.",
 		)
 	}
 
@@ -140,7 +118,15 @@ type ArubaCloudClient struct {
 }
 
 func (p *ArubaCloudProvider) Resources(ctx context.Context) []func() resource.Resource {
-	return []func() resource.Resource{}
+	return []func() resource.Resource{
+		NewProjectResource,
+		NewElasticIPResource,
+		NewVPCResource,
+		NewSubnetResource,
+		NewSecurityGroupResource,
+		NewSecurityRuleResource,
+	}
+
 }
 
 func (p *ArubaCloudProvider) EphemeralResources(ctx context.Context) []func() ephemeral.EphemeralResource {
