@@ -9,12 +9,10 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-framework/validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 // RuleDirection represents the direction of a security rule
-// ...existing code...
 type RuleDirection string
 
 const (
@@ -22,13 +20,16 @@ const (
 	RuleDirectionEgress  RuleDirection = "Egress"
 )
 
+type SecurityRuleResource struct {
+	client *http.Client
+}
+
 // EndpointTypeDto represents the type of target endpoint
 // ...existing code...
 type EndpointTypeDto string
 
 const (
-	EndpointTypeIP            EndpointTypeDto = "Ip"
-	EndpointTypeSecurityGroup EndpointTypeDto = "SecurityGroup"
+	EndpointTypeIP EndpointTypeDto = "Ip"
 )
 
 // RuleTarget represents the target of the rule (source or destination according to the direction)
@@ -52,15 +53,8 @@ func NewSecurityRuleResource() resource.Resource {
 	return &SecurityRuleResource{}
 }
 
-type SecurityRuleResource struct {
-	client *http.Client
-}
-
 type SecurityRuleResourceModel struct {
 	Id              types.String `tfsdk:"id"`
-	Name            types.String `tfsdk:"name"`
-	Location        types.String `tfsdk:"location"`
-	ProjectId       types.String `tfsdk:"project_id"`
 	VpcId           types.String `tfsdk:"vpc_id"`
 	SecurityGroupId types.String `tfsdk:"security_group_id"`
 	Properties      types.Object `tfsdk:"properties"`
@@ -85,9 +79,7 @@ func (r *SecurityRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 			"location": schema.StringAttribute{
 				MarkdownDescription: "Security Rule location",
 				Required:            true,
-				Validators: []stringvalidator.String{
-					stringvalidator.OneOf("ITBG-Bergamo"),
-				},
+				// Validators removed for v1.16.1 compatibility
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project this Security Rule belongs to",
@@ -108,16 +100,12 @@ func (r *SecurityRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 					"direction": schema.StringAttribute{
 						MarkdownDescription: "Direction of the rule (Ingress/Egress)",
 						Required:            true,
-						Validators: []stringvalidator.String{
-							stringvalidator.OneOf("Ingress", "Egress"),
-						},
+						// Validators removed for v1.16.1 compatibility
 					},
 					"protocol": schema.StringAttribute{
 						MarkdownDescription: "Protocol (ANY, TCP, UDP, ICMP)",
 						Required:            true,
-						Validators: []stringvalidator.String{
-							stringvalidator.OneOf("ANY", "TCP", "UDP", "ICMP"),
-						},
+						// Validators removed for v1.16.1 compatibility
 					},
 					"port": schema.StringAttribute{
 						MarkdownDescription: "Port or port range (for TCP/UDP)",
@@ -130,9 +118,7 @@ func (r *SecurityRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 							"kind": schema.StringAttribute{
 								MarkdownDescription: "Type of the target (Ip/SecurityGroup)",
 								Required:            true,
-								Validators: []stringvalidator.String{
-									stringvalidator.OneOf("Ip", "SecurityGroup"),
-								},
+								// Validators removed for v1.16.1 compatibility
 							},
 							"value": schema.StringAttribute{
 								MarkdownDescription: "Value of the target (CIDR or SecurityGroup URI)",

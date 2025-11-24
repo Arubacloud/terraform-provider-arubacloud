@@ -9,7 +9,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-framework/validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
@@ -52,9 +51,7 @@ func (r *SecurityGroupResource) Schema(ctx context.Context, req resource.SchemaR
 			"location": schema.StringAttribute{
 				MarkdownDescription: "Security Group location",
 				Required:            true,
-				Validators: []stringvalidator.String{
-					stringvalidator.OneOf("ITBG-Bergamo"),
-				},
+				// Validators removed for v1.16.1 compatibility
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,

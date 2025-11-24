@@ -12,7 +12,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-		"github.com/hashicorp/terraform-plugin-framework/validators/stringvalidator"
 var _ resource.Resource = &ElasticIPResource{}
 var _ resource.ResourceWithImportState = &ElasticIPResource{}
 
@@ -30,7 +29,7 @@ type ElasticIPResourceModel struct {
 	Location      types.String `tfsdk:"location"`
 	Tags          types.List   `tfsdk:"tags"`
 	BillingPeriod types.String `tfsdk:"billing_period"`
-	Address	   	  types.String `tfsdk:"address"`
+	Address       types.String `tfsdk:"address"`
 	ProjectId     types.String `tfsdk:"project_id"`
 }
 
@@ -40,7 +39,7 @@ func (r *ElasticIPResource) Metadata(ctx context.Context, req resource.MetadataR
 
 func (r *ElasticIPResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Project resource",		
+		MarkdownDescription: "Project resource",
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Elastic IP name",
@@ -49,9 +48,7 @@ func (r *ElasticIPResource) Schema(ctx context.Context, req resource.SchemaReque
 			"location": schema.StringAttribute{
 				MarkdownDescription: "Elastic IP location",
 				Required:            true,
-				Validators: []stringvalidator.String{
-					stringvalidator.OneOf("ITBG-Bergamo"),
-				},
+				// Validators removed for v1.16.1 compatibility
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
@@ -61,9 +58,7 @@ func (r *ElasticIPResource) Schema(ctx context.Context, req resource.SchemaReque
 			"billing_period": schema.StringAttribute{
 				MarkdownDescription: "Billing period for the Elastic IP (only 'hourly' allowed)",
 				Required:            true,
-				Validators: []schema.StringValidator{
-					stringvalidator.OneOf("hourly"),
-				},
+				// Validators removed for v1.16.1 compatibility
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project this Elastic IP belongs to",
@@ -76,7 +71,7 @@ func (r *ElasticIPResource) Schema(ctx context.Context, req resource.SchemaReque
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Project Identifier",
 				Computed:            true,
-			},			
+			},
 		},
 	}
 }
@@ -104,7 +99,7 @@ func (r *ElasticIPResource) Create(ctx context.Context, req resource.CreateReque
 	}
 	// Simulate API response
 	data.Id = types.StringValue("elasticip-id")
-	data.IpAddress = types.StringValue("203.0.113.1")
+	data.Address = types.StringValue("203.0.113.1")
 	tflog.Trace(ctx, "created an elastic IP resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

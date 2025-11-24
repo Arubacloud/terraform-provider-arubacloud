@@ -125,6 +125,8 @@ func (p *ArubaCloudProvider) Resources(ctx context.Context) []func() resource.Re
 		NewSubnetResource,
 		NewSecurityGroupResource,
 		NewSecurityRuleResource,
+		NewVpcPeeringResource,
+		NewVpcPeeringRouteResource,
 	}
 
 }

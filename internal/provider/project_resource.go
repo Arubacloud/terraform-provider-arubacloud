@@ -22,7 +22,6 @@ func NewProjectResource() resource.Resource {
 type ProjectResource struct {
 	client *http.Client
 }
-
 type ProjectResourceModel struct {
 	Name        types.String `tfsdk:"name"`
 	Description types.String `tfsdk:"description"`

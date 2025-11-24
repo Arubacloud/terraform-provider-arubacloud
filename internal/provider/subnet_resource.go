@@ -9,7 +9,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-framework/validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
@@ -76,9 +75,7 @@ func (r *SubnetResource) Schema(ctx context.Context, req resource.SchemaRequest,
 			"location": schema.StringAttribute{
 				MarkdownDescription: "Subnet location",
 				Required:            true,
-				Validators: []stringvalidator.String{
-					stringvalidator.OneOf("ITBG-Bergamo"),
-				},
+				// Validators removed for v1.16.1 compatibility
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
@@ -96,9 +93,7 @@ func (r *SubnetResource) Schema(ctx context.Context, req resource.SchemaRequest,
 			"type": schema.StringAttribute{
 				MarkdownDescription: "Subnet type (Basic or Advanced)",
 				Required:            true,
-				Validators: []stringvalidator.String{
-					stringvalidator.OneOf("Basic", "Advanced"),
-				},
+				// Validators removed for v1.16.1 compatibility
 			},
 			"network": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{

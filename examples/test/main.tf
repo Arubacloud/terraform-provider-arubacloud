@@ -3,10 +3,5 @@ terraform {
       arubacloud = {
         source  = "hashicorp/arubacloud"
       }
-    }
-    
+    }    
 }
-
-
-
-
