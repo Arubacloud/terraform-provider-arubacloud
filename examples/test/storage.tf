@@ -1,3 +1,4 @@
+# Block Storage Resource Example
 resource "arubacloud_blockstorage" "example" {
   name       = "example-block-storage"
   project_id = arubacloud_project.example.id
@@ -12,10 +13,32 @@ resource "arubacloud_blockstorage" "example" {
   }
 }
 
+#Snapshot Resource Example
 resource "arubacloud_snapshot" "example" {
   name          = "example-snapshot"
   project_id    = arubacloud_project.example.id
   location      = "ITBG-Bergamo"
   billing_period = "Hour"
   volume_id     = arubacloud_blockstorage.example.id
+}
+
+#Backup Resource Example
+resource "arubacloud_backup" "example" {
+  name           = "example-backup"
+  location       = "ITBG-Bergamo"
+  tags           = ["backup", "test"]
+  project_id     = arubacloud_project.example.id
+  type           = "Full"
+  volume_id      = arubacloud_blockstorage.example.id
+  retention_days = 30
+  billing_period = "Hour"
+}
+
+#Restore Resource Example
+resource "arubacloud_restore" "example" {
+  name        = "example-restore"
+  location    = "ITBG-Bergamo"
+  tags        = ["restore", "test"]
+  project_id  = arubacloud_project.example.id
+  volume_id   = arubacloud_blockstorage.example.id
 }

@@ -118,6 +118,7 @@ type ArubaCloudClient struct {
 }
 
 func (p *ArubaCloudProvider) Resources(ctx context.Context) []func() resource.Resource {
+
 	return []func() resource.Resource{
 		NewProjectResource,
 		NewElasticIPResource,
@@ -127,6 +128,18 @@ func (p *ArubaCloudProvider) Resources(ctx context.Context) []func() resource.Re
 		NewSecurityRuleResource,
 		NewVpcPeeringResource,
 		NewVpcPeeringRouteResource,
+		NewKaaSResource,
+		NewContainerRegistryResource,
+		NewBackupResource,
+		NewRestoreResource,
+		NewDBaaSResource,
+		NewDatabaseResource,
+		NewDatabaseGrantResource,
+		NewDatabaseBackupResource,
+		NewDBaaSUserResource,
+		NewScheduleJobResource,
+		NewKMSResource,
+		NewKMIPResource,
 	}
 
 }
