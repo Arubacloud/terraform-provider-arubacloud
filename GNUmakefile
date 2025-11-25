@@ -11,6 +11,8 @@ lint:
 
 generate:
 	cd tools; go generate ./...
+	git add docs/
+	git commit -m "Update generated documentation" || echo "No changes to commit."
 
 fmt:
 	gofmt -s -w -e .
