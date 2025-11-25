@@ -57,84 +57,84 @@ func (d *KaaSDataSource) Metadata(ctx context.Context, req datasource.MetadataRe
 }
 
 func (d *KaaSDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
-	 resp.Schema = schema.Schema{
-	 MarkdownDescription: "KaaS data source",
-	 Attributes: map[string]schema.Attribute{
-	 "id": schema.StringAttribute{
-	 MarkdownDescription: "KaaS identifier",
-	 Computed:            true,
-	 },
-	 "name": schema.StringAttribute{
-	 MarkdownDescription: "KaaS name",
-	 Required:            true,
-	 },
-	 "location": schema.StringAttribute{
-	 MarkdownDescription: "KaaS location",
-	 Required:            true,
-	 },
-	 "tags": schema.ListAttribute{
-	 ElementType:         types.StringType,
-	 MarkdownDescription: "List of tags for the KaaS resource",
-	 Optional:            true,
-	 },
-	 "project_id": schema.StringAttribute{
-	 MarkdownDescription: "ID of the project this KaaS resource belongs to",
-	 Required:            true,
-	 },
-	 "preset": schema.BoolAttribute{
-	 MarkdownDescription: "Whether to use a preset configuration",
-	 Required:            true,
-	 },
-	 "vpc_id": schema.StringAttribute{
-	 MarkdownDescription: "VPC ID for the KaaS resource",
-	 Required:            true,
-	 },
-	 "subnet_id": schema.StringAttribute{
-	 MarkdownDescription: "Subnet ID for the KaaS resource",
-	 Required:            true,
-	 },
-	 "node_cidr": schema.SingleNestedAttribute{
-	 Attributes: map[string]schema.Attribute{
-	 "address": schema.StringAttribute{
-	 MarkdownDescription: "Node CIDR address",
-	 Required:            true,
-	 },
-	 "subnet_name": schema.StringAttribute{
-	 MarkdownDescription: "Node CIDR subnet name",
-	 Required:            true,
-	 },
-	 },
-	 Required: true,
-	 },
-	 "security_group_name": schema.StringAttribute{
-	 MarkdownDescription: "Security group name",
-	 Required:            true,
-	 },
-	 "version": schema.StringAttribute{
-	 MarkdownDescription: "Kubernetes version",
-	 Required:            true,
-	 },
-	 "node_pools": schema.ListNestedAttribute{
-	 NestedObject: schema.NestedAttributeObject{
-	 Attributes: map[string]schema.Attribute{
-	 "node_pool_name": schema.StringAttribute{Required: true},
-	 "replicas":       schema.Int64Attribute{Required: true},
-	 "type":           schema.StringAttribute{Required: true},
-	 "zone":           schema.StringAttribute{Required: true},
-	 },
-	 },
-	 Required: true,
-	 },
-	 "ha": schema.BoolAttribute{
-	 MarkdownDescription: "High availability",
-	 Required:            true,
-	 },
-	 "billing_period": schema.StringAttribute{
-	 MarkdownDescription: "Billing period",
-	 Required:            true,
-	 },
-	 },
-	 }
+	resp.Schema = schema.Schema{
+		MarkdownDescription: "KaaS data source",
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				MarkdownDescription: "KaaS identifier",
+				Computed:            true,
+			},
+			"name": schema.StringAttribute{
+				MarkdownDescription: "KaaS name",
+				Required:            true,
+			},
+			"location": schema.StringAttribute{
+				MarkdownDescription: "KaaS location",
+				Required:            true,
+			},
+			"tags": schema.ListAttribute{
+				ElementType:         types.StringType,
+				MarkdownDescription: "List of tags for the KaaS resource",
+				Optional:            true,
+			},
+			"project_id": schema.StringAttribute{
+				MarkdownDescription: "ID of the project this KaaS resource belongs to",
+				Required:            true,
+			},
+			"preset": schema.BoolAttribute{
+				MarkdownDescription: "Whether to use a preset configuration",
+				Required:            true,
+			},
+			"vpc_id": schema.StringAttribute{
+				MarkdownDescription: "VPC ID for the KaaS resource",
+				Required:            true,
+			},
+			"subnet_id": schema.StringAttribute{
+				MarkdownDescription: "Subnet ID for the KaaS resource",
+				Required:            true,
+			},
+			"node_cidr": schema.SingleNestedAttribute{
+				Attributes: map[string]schema.Attribute{
+					"address": schema.StringAttribute{
+						MarkdownDescription: "Node CIDR address",
+						Required:            true,
+					},
+					"subnet_name": schema.StringAttribute{
+						MarkdownDescription: "Node CIDR subnet name",
+						Required:            true,
+					},
+				},
+				Required: true,
+			},
+			"security_group_name": schema.StringAttribute{
+				MarkdownDescription: "Security group name",
+				Required:            true,
+			},
+			"version": schema.StringAttribute{
+				MarkdownDescription: "Kubernetes version",
+				Required:            true,
+			},
+			"node_pools": schema.ListNestedAttribute{
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"node_pool_name": schema.StringAttribute{Required: true},
+						"replicas":       schema.Int64Attribute{Required: true},
+						"type":           schema.StringAttribute{Required: true},
+						"zone":           schema.StringAttribute{Required: true},
+					},
+				},
+				Required: true,
+			},
+			"ha": schema.BoolAttribute{
+				MarkdownDescription: "High availability",
+				Required:            true,
+			},
+			"billing_period": schema.StringAttribute{
+				MarkdownDescription: "Billing period",
+				Required:            true,
+			},
+		},
+	}
 }
 
 func (d *KaaSDataSource) Configure(ctx context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
