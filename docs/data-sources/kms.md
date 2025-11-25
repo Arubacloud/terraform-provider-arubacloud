@@ -25,6 +25,7 @@ data "arubacloud_kms" "example" {
 
 ## Attribute reference
 
+* `id` - (Computed)[string] The ID of the KMS instance.
 * `name` - (Computed)[string] The name of the KMS instance.
-* `project_id` - (Computed)[string] The project ID.
-* ...other attributes...
+* `description` - (Computed)[string] The description of the KMS instance.
+* `endpoint` - (Computed)[string] The endpoint of the KMS instance.

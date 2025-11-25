@@ -21,10 +21,12 @@ data "arubacloud_securitygroup" "example" {
 
 ## Argument reference
 
-* `id` - (Required)[string] The ID of the security group to query.
+* `id` - (Required)[string] The ID of the Security Group to query.
 
 ## Attribute reference
 
-* `name` - (Computed)[string] The name of the security group.
-* `project_id` - (Computed)[string] The project ID.
-* ...other attributes...
+* `name` - [string] The name of the Security Group.
+* `location` - [string] The location of the Security Group.
+* `tags` - [list(string)] List of tags for the Security Group.
+* `project_id` - [string] The project ID.
+* `vpc_id` - [string] The VPC ID.

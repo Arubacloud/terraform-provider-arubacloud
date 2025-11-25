@@ -4,12 +4,12 @@ layout: "arubacloud"
 page_title: "ArubaCloud: arubacloud_backup"
 sidebar_current: "docs-resource-backup"
 description: |-
-  Backup allows you to create point-in-time copies of your data for disaster recovery.
+  Backup provides scheduled or manual backups of block storage volumes for data protection.
 ---
 
 # arubacloud_backup
 
-Backups can be scheduled or created manually for block storage volumes.
+Backups allow you to protect and restore block storage volumes.
 
 ## Usage example
 
@@ -29,9 +29,13 @@ resource "arubacloud_backup" "example" {
 ## Argument reference
 
 * `name` - (Required)[string] The name of the backup.
+* `location` - (Required)[string] The location for the backup.
+* `tags` - (Optional)[list(string)] Tags for the backup resource.
 * `project_id` - (Required)[string] The project ID.
-* `volume_id` - (Required)[string] The block storage volume ID.
-* ...other arguments...
+* `type` - (Required)[string] Type of backup ("Full", "Incremental").
+* `volume_id` - (Required)[string] The ID of the block storage volume to back up.
+* `retention_days` - (Optional)[int] Number of days to retain the backup.
+* `billing_period` - (Required)[string] Billing period.
 
 ## Attribute reference
 

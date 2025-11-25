@@ -1,5 +1,3 @@
-// Copyright (c) HashiCorp, Inc.
-
 package provider
 
 import (
@@ -52,7 +50,7 @@ func (d *DBaaSUserDataSource) Schema(ctx context.Context, req datasource.SchemaR
 			},
 			"password": schema.StringAttribute{
 				MarkdownDescription: "Password for the DBaaS user",
-				Computed:            true,
+				Required:            true,
 				Sensitive:           true,
 			},
 		},

@@ -4,12 +4,12 @@ layout: "arubacloud"
 page_title: "ArubaCloud: arubacloud_dbaas"
 sidebar_current: "docs-resource-dbaas"
 description: |-
-  DBaaS (Database as a Service) provides managed database instances in ArubaCloud.
+  DBaaS provides managed database instances for scalable and reliable data storage.
 ---
 
 # arubacloud_dbaas
 
-DBaaS allows you to deploy, scale, and manage cloud databases easily.
+DBaaS allows you to deploy, scale, and manage database instances easily.
 
 ## Usage example
 
@@ -41,9 +41,23 @@ resource "arubacloud_dbaas" "example" {
 ## Argument reference
 
 * `name` - (Required)[string] The name of the DBaaS instance.
+* `location` - (Required)[string] The location for the DBaaS instance.
+* `tags` - (Optional)[list(string)] Tags for the DBaaS resource.
 * `project_id` - (Required)[string] The project ID.
-* `engine` - (Required)[string] The database engine.
-* ...other arguments...
+* `engine` - (Required)[string] Database engine (e.g., "mysql-8.0", "mssql-2022-web").
+* `zone` - (Required)[string] Zone (e.g., "ITBG-1").
+* `flavor` - (Required)[string] Flavor type.
+* `storage_size` - (Required)[int] Storage size in GB.
+* `billing_period` - (Required)[string] Billing period.
+* `network` - (Required)[object] Network configuration:
+  * `vpc_id` - (Required)[string] VPC ID.
+  * `subnet_id` - (Required)[string] Subnet ID.
+  * `security_group_id` - (Required)[string] Security Group ID.
+  * `elastic_ip_id` - (Required)[string] Elastic IP ID.
+* `autoscaling` - (Required)[object] Autoscaling configuration:
+  * `enabled` - (Required)[bool] Whether autoscaling is enabled.
+  * `available_space` - (Required)[int] Available space for autoscaling.
+  * `step_size` - (Required)[int] Step size for autoscaling.
 
 ## Attribute reference
 

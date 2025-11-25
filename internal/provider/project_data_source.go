@@ -1,5 +1,3 @@
-// Copyright (c) HashiCorp, Inc.
-
 package provider
 
 import (
@@ -7,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -24,8 +23,10 @@ type ProjectDataSource struct {
 }
 
 type ProjectDataSourceModel struct {
-	Name types.String `tfsdk:"name"`
-	Id   types.String `tfsdk:"id"`
+	Id          types.String `tfsdk:"id"`
+	Name        types.String `tfsdk:"name"`
+	Description types.String `tfsdk:"description"`
+	Tags        types.List   `tfsdk:"tags"`
 }
 
 func (d *ProjectDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -36,12 +37,21 @@ func (d *ProjectDataSource) Schema(ctx context.Context, req datasource.SchemaReq
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Project data source",
 		Attributes: map[string]schema.Attribute{
-			"name": schema.StringAttribute{
-				MarkdownDescription: "Project name",
-				Optional:            true,
-			},
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Project identifier",
+				Required:            true,
+			},
+			"name": schema.StringAttribute{
+				MarkdownDescription: "Project name",
+				Computed:            true,
+			},
+			"description": schema.StringAttribute{
+				MarkdownDescription: "Project description",
+				Computed:            true,
+			},
+			"tags": schema.ListAttribute{
+				ElementType:         types.StringType,
+				MarkdownDescription: "List of tags for the project",
 				Computed:            true,
 			},
 		},
@@ -69,8 +79,13 @@ func (d *ProjectDataSource) Read(ctx context.Context, req datasource.ReadRequest
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	// TODO: Implement actual API call to fetch project info
-	data.Id = types.StringValue("project-id")
+	// Simulate API response for all attributes
+	data.Name = types.StringValue("example-project")
+	data.Description = types.StringValue("Example project description")
+	data.Tags = types.ListValueMust(types.StringType, []attr.Value{
+		types.StringValue("tag1"),
+		types.StringValue("tag2"),
+	})
 	tflog.Trace(ctx, "read project data source")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

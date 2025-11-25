@@ -4,12 +4,12 @@ layout: "arubacloud"
 page_title: "ArubaCloud: arubacloud_snapshot"
 sidebar_current: "docs-resource-snapshot"
 description: |-
-  Snapshot allows you to capture the state of a block storage volume at a specific point in time.
+  Snapshot provides point-in-time copies of block storage volumes for backup and recovery.
 ---
 
 # arubacloud_snapshot
 
-Snapshots can be used to restore block storage volumes or create new volumes from a saved state.
+Snapshots allow you to back up and restore block storage volumes.
 
 ## Usage example
 
@@ -27,8 +27,9 @@ resource "arubacloud_snapshot" "example" {
 
 * `name` - (Required)[string] The name of the snapshot.
 * `project_id` - (Required)[string] The project ID.
-* `volume_id` - (Required)[string] The block storage volume ID.
-* ...other arguments...
+* `location` - (Required)[string] The location for the snapshot.
+* `billing_period` - (Required)[string] Billing period (only "Hour" allowed).
+* `volume_id` - (Required)[string] The ID of the block storage volume to snapshot.
 
 ## Attribute reference
 

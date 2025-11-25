@@ -25,6 +25,10 @@ data "arubacloud_elasticip" "example" {
 
 ## Attribute reference
 
+* `id` - (Computed)[string] The ID of the Elastic IP.
+* `name` - (Computed)[string] The name of the Elastic IP.
+* `location` - (Computed)[string] The location of the Elastic IP.
+* `tags` - (Computed)[list(string)] The tags associated with the Elastic IP.
+* `billing_period` - (Computed)[string] The billing period for the Elastic IP.
 * `address` - (Computed)[string] The Elastic IP address.
-* `project_id` - (Computed)[string] The project ID.
-* ...other attributes...
+* `project_id` - (Computed)[string] The project ID associated with the Elastic IP.

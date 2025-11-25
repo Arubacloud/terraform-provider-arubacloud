@@ -1,5 +1,3 @@
-// Copyright (c) HashiCorp, Inc.
-
 package provider
 
 import (
@@ -40,19 +38,27 @@ func (d *SnapshotDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Snapshot identifier",
-				Required:            true,
+				Computed:            true,
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Snapshot name",
-				Computed:            true,
+				Required:            true,
 			},
-			"description": schema.StringAttribute{
-				MarkdownDescription: "Snapshot description",
-				Computed:            true,
+			"project_id": schema.StringAttribute{
+				MarkdownDescription: "ID of the project this Snapshot belongs to",
+				Required:            true,
 			},
-			"created_at": schema.StringAttribute{
-				MarkdownDescription: "Snapshot creation timestamp",
-				Computed:            true,
+			"location": schema.StringAttribute{
+				MarkdownDescription: "Snapshot location",
+				Required:            true,
+			},
+			"billing_period": schema.StringAttribute{
+				MarkdownDescription: "Billing period (only 'Hour' allowed)",
+				Required:            true,
+			},
+			"volume_id": schema.StringAttribute{
+				MarkdownDescription: "ID of the volume this snapshot is for",
+				Required:            true,
 			},
 		},
 	}

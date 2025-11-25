@@ -27,7 +27,7 @@ resource "arubacloud_kmip" "example" {
 
 * `name` - (Required)[string] The name of the KMIP instance.
 * `project_id` - (Required)[string] The project ID.
-* ...other arguments...
+* `kms_id` - (Required)[string] The ID of the associated KMS instance.
 
 ## Attribute reference
 

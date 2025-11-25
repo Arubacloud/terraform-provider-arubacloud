@@ -4,12 +4,12 @@ layout: "arubacloud"
 page_title: "ArubaCloud: arubacloud_databasebackup"
 sidebar_current: "docs-resource-databasebackup"
 description: |-
-  Database Backup allows you to create backups of your databases for disaster recovery.
+  Database Backup provides backups for individual databases within DBaaS instances.
 ---
 
 # arubacloud_databasebackup
 
-Database Backups can be scheduled or created manually for databases in DBaaS clusters.
+Database Backups allow you to protect and restore individual databases.
 
 ## Usage example
 
@@ -28,9 +28,12 @@ resource "arubacloud_databasebackup" "example" {
 ## Argument reference
 
 * `name` - (Required)[string] The name of the database backup.
-* `dbaas_id` - (Required)[string] The DBaaS instance ID.
-* `database` - (Required)[string] The database ID.
-* ...other arguments...
+* `location` - (Required)[string] The location for the database backup.
+* `tags` - (Optional)[list(string)] Tags for the database backup resource.
+* `zone` - (Required)[string] Zone for the database backup.
+* `dbaas_id` - (Required)[string] The ID of the DBaaS instance this backup belongs to.
+* `database` - (Required)[string] The ID of the database to back up.
+* `billing_period` - (Required)[string] Billing period.
 
 ## Attribute reference
 

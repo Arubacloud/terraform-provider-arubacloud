@@ -21,10 +21,12 @@ data "arubacloud_restore" "example" {
 
 ## Argument reference
 
-* `id` - (Required)[string] The ID of the restore to query.
+* `id` - (Required)[string] The ID of the Restore to query.
 
 ## Attribute reference
 
-* `name` - (Computed)[string] The name of the restore.
+* `name` - (Computed)[string] The name of the Restore.
+* `location` - (Computed)[string] The location of the Restore.
 * `project_id` - (Computed)[string] The project ID.
-* ...other attributes...
+* `volume_id` - (Computed)[string] Volume ID to restore.
+* `tags` - (Computed)[list(string)] Tags for the Restore.

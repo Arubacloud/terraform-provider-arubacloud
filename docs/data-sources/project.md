@@ -25,5 +25,6 @@ data "arubacloud_project" "example" {
 
 ## Attribute reference
 
-* `name` - (Computed)[string] The name of the project.
-* ...other attributes...
+* `name` - [string] The name of the project.
+* `description` - [string] The description of the project.
+* `tags` - [list(string)] List of tags for the project.

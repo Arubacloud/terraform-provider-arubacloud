@@ -25,6 +25,7 @@ data "arubacloud_kmip" "example" {
 
 ## Attribute reference
 
+* `id` - (Computed)[string] The ID of the KMIP instance.
 * `name` - (Computed)[string] The name of the KMIP instance.
-* `project_id` - (Computed)[string] The project ID.
-* ...other attributes...
+* `description` - (Computed)[string] The description of the KMIP instance.
+* `endpoint` - (Computed)[string] The endpoint of the KMIP instance.

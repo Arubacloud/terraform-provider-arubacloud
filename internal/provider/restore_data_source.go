@@ -1,5 +1,3 @@
-// Copyright (c) HashiCorp, Inc.
-
 package provider
 
 import (
@@ -39,15 +37,28 @@ func (d *RestoreDataSource) Schema(ctx context.Context, req datasource.SchemaReq
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Restore identifier",
-				Required:            true,
+				Computed:            true,
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Restore name",
-				Computed:            true,
+				Required:            true,
 			},
-			"description": schema.StringAttribute{
-				MarkdownDescription: "Restore description",
-				Computed:            true,
+			"location": schema.StringAttribute{
+				MarkdownDescription: "Restore location",
+				Required:            true,
+			},
+			"tags": schema.ListAttribute{
+				ElementType:         types.StringType,
+				MarkdownDescription: "List of tags for the restore resource",
+				Optional:            true,
+			},
+			"project_id": schema.StringAttribute{
+				MarkdownDescription: "ID of the project this restore belongs to",
+				Required:            true,
+			},
+			"volume_id": schema.StringAttribute{
+				MarkdownDescription: "Volume ID to restore",
+				Required:            true,
 			},
 		},
 	}

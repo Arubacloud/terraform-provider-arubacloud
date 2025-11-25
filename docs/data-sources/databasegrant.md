@@ -21,11 +21,10 @@ data "arubacloud_databasegrant" "example" {
 
 ## Argument reference
 
-* `id` - (Required)[string] The ID of the database grant to query.
+* `id` - (Required)[string] The ID of the Database Grant to query.
 
 ## Attribute reference
 
-* `database` - (Computed)[string] The database ID.
-* `user_id` - (Computed)[string] The user ID.
-* `role` - (Computed)[string] The role assigned.
-* ...other attributes...
+* `database` - [string] Database name or ID.
+* `user_id` - [string] User ID to grant access.
+* `role` - [string] Role to grant (e.g., read, write, admin).

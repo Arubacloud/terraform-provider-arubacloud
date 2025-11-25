@@ -21,10 +21,17 @@ data "arubacloud_containerregistry" "example" {
 
 ## Argument reference
 
-* `id` - (Required)[string] The ID of the container registry to query.
+* `id` - (Required)[string] The ID of the Container Registry to query.
 
 ## Attribute reference
 
-* `name` - (Computed)[string] The name of the container registry.
+* `name` - (Computed)[string] The name of the Container Registry.
+* `location` - (Computed)[string] The location of the Container Registry.
 * `project_id` - (Computed)[string] The project ID.
-* ...other attributes...
+* `elasticip_id` - (Computed)[string] Elastic IP ID.
+* `subnet_id` - (Computed)[string] Subnet ID.
+* `security_group_id` - (Computed)[string] Security Group ID.
+* `block_storage_id` - (Computed)[string] Block Storage ID.
+* `billing_period` - (Computed)[string] Billing period.
+* `admin_user` - (Computed)[string] Admin user for the Container Registry.
+* `tags` - (Computed)[list(string)] Tags for the Container Registry.

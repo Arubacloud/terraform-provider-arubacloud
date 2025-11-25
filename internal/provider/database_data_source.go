@@ -1,5 +1,3 @@
-// Copyright (c) HashiCorp, Inc.
-
 package provider
 
 import (
@@ -24,8 +22,9 @@ type DatabaseDataSource struct {
 }
 
 type DatabaseDataSourceModel struct {
-	Id   types.String `tfsdk:"id"`
-	Name types.String `tfsdk:"name"`
+	Id      types.String `tfsdk:"id"`
+	DBaaSID types.String `tfsdk:"dbaas_id"`
+	Name    types.String `tfsdk:"name"`
 }
 
 func (d *DatabaseDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -38,11 +37,15 @@ func (d *DatabaseDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Database identifier",
+				Computed:            true,
+			},
+			"dbaas_id": schema.StringAttribute{
+				MarkdownDescription: "DBaaS ID this database belongs to",
 				Required:            true,
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Database name",
-				Computed:            true,
+				Required:            true,
 			},
 		},
 	}

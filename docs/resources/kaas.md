@@ -50,9 +50,24 @@ resource "arubacloud_kaas" "example" {
 ## Argument reference
 
 * `name` - (Required)[string] The name of the KaaS cluster.
+* `location` - (Required)[string] The location for the cluster.
+* `tags` - (Optional)[list(string)] Tags for the cluster.
 * `project_id` - (Required)[string] The project ID.
-* `vpc_id` - (Required)[string] The VPC ID.
-* ...other arguments...
+* `preset` - (Required)[bool] Whether to use a preset configuration.
+* `vpc_id` - (Required)[string] VPC ID for the cluster.
+* `subnet_id` - (Required)[string] Subnet ID for the cluster.
+* `node_cidr` - (Required)[object] Node CIDR configuration:
+  * `address` - (Required)[string] Node CIDR address.
+  * `subnet_name` - (Required)[string] Node CIDR subnet name.
+* `security_group_name` - (Required)[string] Security group name.
+* `version` - (Required)[string] Kubernetes version.
+* `node_pools` - (Required)[list(object)] Node pool configuration:
+  * `node_pool_name` - (Required)[string] Name of the node pool.
+  * `replicas` - (Required)[int] Number of nodes in the pool.
+  * `type` - (Required)[string] Instance type for nodes.
+  * `zone` - (Required)[string] Zone for the node pool.
+* `ha` - (Required)[bool] Enable high availability.
+* `billing_period` - (Required)[string] Billing period.
 
 ## Attribute reference
 

@@ -21,10 +21,17 @@ data "arubacloud_blockstorage" "example" {
 
 ## Argument reference
 
-* `id` - (Required)[string] The ID of the block storage to query.
+* `id` - (Required)[string] The ID of the Block Storage to query.
 
 ## Attribute reference
 
-* `name` - (Computed)[string] The name of the block storage.
+* `name` - (Computed)[string] The name of the Block Storage.
 * `project_id` - (Computed)[string] The project ID.
-* ...other attributes...
+* `properties` - (Computed)[object] Block Storage properties:
+  * `size_gb` - (Computed)[int] Size of the block storage in GB.
+  * `billing_period` - (Computed)[string] Billing period (only 'Hour' allowed).
+  * `zone` - (Computed)[string] Zone of the block storage.
+  * `type` - (Computed)[string] Type of block storage (Standard, Performance).
+  * `snapshot_id` - (Computed)[string] Snapshot ID for the block storage.
+  * `bootable` - (Computed)[bool] Whether the block storage is bootable.
+  * `image` - (Computed)[string] Image for the block storage.

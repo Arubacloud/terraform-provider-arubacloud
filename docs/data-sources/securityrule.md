@@ -21,10 +21,19 @@ data "arubacloud_securityrule" "example" {
 
 ## Argument reference
 
-* `id` - (Required)[string] The ID of the security rule to query.
+* `id` - (Required)[string] The ID of the Security Rule to query.
 
 ## Attribute reference
 
-* `name` - (Computed)[string] The name of the security rule.
-* `project_id` - (Computed)[string] The project ID.
-* ...other attributes...
+* `name` - [string] The name of the Security Rule.
+* `location` - [string] The location of the Security Rule.
+* `project_id` - [string] The project ID.
+* `vpc_id` - [string] The VPC ID.
+* `security_group_id` - [string] The Security Group ID.
+* `properties` - [object]
+  * `direction` - [string] Direction of the rule (Ingress/Egress).
+  * `protocol` - [string] Protocol (ANY, TCP, UDP, ICMP).
+  * `port` - [string] Port or port range (for TCP/UDP).
+  * `target` - [object]
+  * `kind` - [string] Type of the target (Ip/SecurityGroup).
+  * `value` - [string] Value of the target (CIDR or SecurityGroup URI).

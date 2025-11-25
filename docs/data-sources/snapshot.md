@@ -21,10 +21,12 @@ data "arubacloud_snapshot" "example" {
 
 ## Argument reference
 
-* `id` - (Required)[string] The ID of the snapshot to query.
+* `id` - (Required)[string] The ID of the Snapshot to query.
 
 ## Attribute reference
 
-* `name` - (Computed)[string] The name of the snapshot.
+* `name` - (Computed)[string] The name of the Snapshot.
 * `project_id` - (Computed)[string] The project ID.
-* ...other attributes...
+* `location` - (Computed)[string] The location of the Snapshot.
+* `billing_period` - (Computed)[string] Billing period (only 'Hour' allowed).
+* `volume_id` - (Computed)[string] ID of the volume this snapshot is for.

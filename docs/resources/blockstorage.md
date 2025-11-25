@@ -33,8 +33,14 @@ resource "arubacloud_blockstorage" "example" {
 
 * `name` - (Required)[string] The name of the block storage volume.
 * `project_id` - (Required)[string] The project ID.
-* `properties` - (Required)[map] Block storage properties.
-* ...other arguments...
+* `properties` - (Required)[object] Block storage properties:
+  * `size_gb` - (Required)[int] Size of the block storage in GB.
+  * `billing_period` - (Required)[string] Billing period (only "Hour" allowed).
+  * `zone` - (Required)[string] Zone where block storage will be created.
+  * `type` - (Required)[string] Type of block storage ("Standard", "Performance").
+  * `snapshot_id` - (Optional)[string] Snapshot ID to restore from.
+  * `bootable` - (Optional)[bool] Whether the block storage is bootable.
+  * `image` - (Optional)[string] Image for the block storage.
 
 ## Attribute reference
 

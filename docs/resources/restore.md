@@ -9,7 +9,7 @@ description: |-
 
 # arubacloud_restore
 
-Restores can be used to recover block storage volumes from backups or snapshots.
+Restores allow you to recover block storage volumes to a previous state.
 
 ## Usage example
 
@@ -26,9 +26,10 @@ resource "arubacloud_restore" "example" {
 ## Argument reference
 
 * `name` - (Required)[string] The name of the restore operation.
+* `location` - (Required)[string] The location for the restore.
+* `tags` - (Optional)[list(string)] Tags for the restore resource.
 * `project_id` - (Required)[string] The project ID.
-* `volume_id` - (Required)[string] The block storage volume ID.
-* ...other arguments...
+* `volume_id` - (Required)[string] The ID of the block storage volume to restore.
 
 ## Attribute reference
 
@@ -36,7 +37,7 @@ resource "arubacloud_restore" "example" {
 
 ## Import
 
-To import a restore operation, define an empty resource in your plan:
+To import a restore, define an empty resource in your plan:
 
 ```
 resource "arubacloud_restore" "example" {

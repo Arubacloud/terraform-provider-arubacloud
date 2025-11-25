@@ -31,8 +31,15 @@ resource "arubacloud_containerregistry" "example" {
 ## Argument reference
 
 * `name` - (Required)[string] The name of the container registry.
+* `location` - (Required)[string] The location for the registry.
+* `tags` - (Optional)[list(string)] Tags for the registry.
 * `project_id` - (Required)[string] The project ID.
-* ...other arguments...
+* `elasticip_id` - (Required)[string] Elastic IP ID.
+* `subnet_id` - (Required)[string] Subnet ID.
+* `security_group_id` - (Required)[string] Security Group ID.
+* `block_storage_id` - (Required)[string] Block Storage ID.
+* `billing_period` - (Required)[string] Billing period.
+* `admin_user` - (Required)[string] Admin user for the registry.
 
 ## Attribute reference
 

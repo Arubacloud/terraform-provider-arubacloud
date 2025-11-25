@@ -1,5 +1,5 @@
 ---
-subcategory: "Schedule"
+subcategory: "Automation"
 layout: "arubacloud"
 page_title: "ArubaCloud: arubacloud_schedulejob"
 sidebar_current: "docs-resource-schedulejob"
@@ -15,13 +15,26 @@ Schedule Job enables automated execution of operations on resources at defined t
 
 ```hcl
 resource "arubacloud_schedulejob" "example" {
-  name        = "daily-backup"
-  project_id  = arubacloud_project.example.id
-  resource_id = arubacloud_blockstorage.example.id
-  action      = "backup"
-  schedule    = "0 2 * * *"
-  enabled     = true
-  tags        = ["automation", "backup"]
+  name       = "example-job"
+  project_id = "example-project-id"
+  location   = "eu-central-1"
+  tags       = ["nightly", "backup"]
+  properties = {
+    enabled           = true
+    schedule_job_type = "OneShot"              # or "Recurring"
+    schedule_at       = "2025-12-01T02:00:00Z" # Only for OneShot
+    execute_until     = null                   # Only for Recurring
+    cron              = null                   # Only for Recurring
+    steps = [
+      {
+        name         = "Backup Step"
+        resource_uri = ""
+        action_uri   = ""
+        http_verb    = "POST"
+        body         = "{\"example\":\"example\"}"
+      }
+    ]
+  }
 }
 ```
 
@@ -29,11 +42,20 @@ resource "arubacloud_schedulejob" "example" {
 
 * `name` - (Required)[string] The name of the schedule job.
 * `project_id` - (Required)[string] The project ID.
-* `resource_id` - (Required)[string] The target resource ID.
-* `action` - (Required)[string] The action to perform (e.g., "backup").
-* `schedule` - (Required)[string] Cron expression for the schedule.
-* `enabled` - (Optional)[bool] Whether the job is enabled.
-* ...other arguments...
+* `location` - (Required)[string] The location for the job.
+* `tags` - (Optional)[list(string)] Tags for the job.
+* `properties` - (Required)[object] Schedule job properties:
+  * `enabled` - (Optional)[bool] Whether the job is enabled.
+  * `schedule_job_type` - (Required)[string] Type of job ("OneShot", "Recurring").
+  * `schedule_at` - (Optional)[string] Date and time when the job should run (for OneShot).
+  * `execute_until` - (Optional)[string] End date until which the job can run (for Recurring).
+  * `cron` - (Optional)[string] CRON expression for recurrence (for Recurring).
+  * `steps` - (Optional)[list(object)] Steps to execute:
+    * `name` - (Optional)[string] Descriptive name of the step.
+    * `resource_uri` - (Required)[string] URI of the resource.
+    * `action_uri` - (Required)[string] URI of the action to execute.
+    * `http_verb` - (Required)[string] HTTP verb to use (GET, POST, etc.).
+    * `body` - (Optional)[string] Optional HTTP request body.
 
 ## Attribute reference
 

@@ -1,5 +1,3 @@
-// Copyright (c) HashiCorp, Inc.
-
 package provider
 
 import (
@@ -24,8 +22,17 @@ type ContainerRegistryDataSource struct {
 }
 
 type ContainerRegistryDataSourceModel struct {
-	Id   types.String `tfsdk:"id"`
-	Name types.String `tfsdk:"name"`
+	Id              types.String `tfsdk:"id"`
+	Name            types.String `tfsdk:"name"`
+	Location        types.String `tfsdk:"location"`
+	Tags            types.List   `tfsdk:"tags"`
+	ProjectID       types.String `tfsdk:"project_id"`
+	ElasticIPID     types.String `tfsdk:"elasticip_id"`
+	SubnetID        types.String `tfsdk:"subnet_id"`
+	SecurityGroupID types.String `tfsdk:"security_group_id"`
+	BlockStorageID  types.String `tfsdk:"block_storage_id"`
+	BillingPeriod   types.String `tfsdk:"billing_period"`
+	AdminUser       types.String `tfsdk:"admin_user"`
 }
 
 func (d *ContainerRegistryDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -38,11 +45,48 @@ func (d *ContainerRegistryDataSource) Schema(ctx context.Context, req datasource
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Container Registry identifier",
-				Required:            true,
+				Computed:            true,
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Container Registry name",
-				Computed:            true,
+				Required:            true,
+			},
+			"location": schema.StringAttribute{
+				MarkdownDescription: "Container Registry location",
+				Required:            true,
+			},
+			"tags": schema.ListAttribute{
+				ElementType:         types.StringType,
+				MarkdownDescription: "List of tags for the Container Registry resource",
+				Optional:            true,
+			},
+			"project_id": schema.StringAttribute{
+				MarkdownDescription: "ID of the project this Container Registry belongs to",
+				Required:            true,
+			},
+			"elasticip_id": schema.StringAttribute{
+				MarkdownDescription: "Elastic IP ID",
+				Required:            true,
+			},
+			"subnet_id": schema.StringAttribute{
+				MarkdownDescription: "Subnet ID",
+				Required:            true,
+			},
+			"security_group_id": schema.StringAttribute{
+				MarkdownDescription: "Security Group ID",
+				Required:            true,
+			},
+			"block_storage_id": schema.StringAttribute{
+				MarkdownDescription: "Block Storage ID",
+				Required:            true,
+			},
+			"billing_period": schema.StringAttribute{
+				MarkdownDescription: "Billing period",
+				Required:            true,
+			},
+			"admin_user": schema.StringAttribute{
+				MarkdownDescription: "Admin user for the Container Registry",
+				Required:            true,
 			},
 		},
 	}

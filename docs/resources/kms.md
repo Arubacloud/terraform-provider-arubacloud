@@ -19,7 +19,7 @@ resource "arubacloud_kms" "example" {
   project_id = arubacloud_project.example.id
   location   = "ITBG-Bergamo"
   tags       = ["security", "kms"]
-  description = "KMS for sensitive workloads"
+  billing_period = "monthly"
 }
 ```
 
@@ -27,7 +27,9 @@ resource "arubacloud_kms" "example" {
 
 * `name` - (Required)[string] The name of the KMS instance.
 * `project_id` - (Required)[string] The project ID.
-* ...other arguments...
+* `location` - (Required)[string] The location for the KMS instance.
+* `tags` - (Optional)[list(string)] Tags for the KMS instance.
+* `billing_period` - (Required)[string] Billing period for the KMS instance.
 
 ## Attribute reference
 

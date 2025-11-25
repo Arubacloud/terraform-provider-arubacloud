@@ -4,12 +4,12 @@ layout: "arubacloud"
 page_title: "ArubaCloud: arubacloud_database"
 sidebar_current: "docs-resource-database"
 description: |-
-  Database resource represents a database instance within a DBaaS cluster.
+  Database provides individual databases within a managed DBaaS instance.
 ---
 
 # arubacloud_database
 
-Databases can be created and managed within a DBaaS cluster.
+Databases allow you to create and manage individual databases within a DBaaS instance.
 
 ## Usage example
 
@@ -22,9 +22,8 @@ resource "arubacloud_database" "example" {
 
 ## Argument reference
 
-* `dbaas_id` - (Required)[string] The DBaaS instance ID.
+* `dbaas_id` - (Required)[string] The ID of the DBaaS instance this database belongs to.
 * `name` - (Required)[string] The name of the database.
-* ...other arguments...
 
 ## Attribute reference
 

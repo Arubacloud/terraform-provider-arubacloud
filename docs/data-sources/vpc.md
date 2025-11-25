@@ -26,4 +26,5 @@ data "arubacloud_vpc" "example" {
 ## Attribute reference
 
 * `name` - (Computed)[string] The name of the VPC.
-* ...other attributes...
+* `location` - (Computed)[string] The location of the VPC.
+* `tags` - (Computed)[list(string)] Tags for the VPC.

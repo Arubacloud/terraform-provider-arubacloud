@@ -24,7 +24,7 @@ resource "arubacloud_project" "example" {
 
 ## Argument reference
 
-* `id` - (Computed)[string] The ID of the Project.
+* `id` - [string] The ID of the Project.
 * `name` - (Required)[string] The name of the Project.
 * ...other arguments...
 

@@ -21,10 +21,15 @@ data "arubacloud_backup" "example" {
 
 ## Argument reference
 
-* `id` - (Required)[string] The ID of the backup to query.
+* `id` - (Required)[string] The ID of the Backup to query.
 
 ## Attribute reference
 
-* `name` - (Computed)[string] The name of the backup.
+* `name` - (Computed)[string] The name of the Backup.
+* `location` - (Computed)[string] The location of the Backup.
 * `project_id` - (Computed)[string] The project ID.
-* ...other attributes...
+* `type` - (Computed)[string] Type of backup (Full, Incremental).
+* `volume_id` - (Computed)[string] Volume ID for the Backup.
+* `billing_period` - (Computed)[string] Billing period.
+* `retention_days` - (Computed)[int] Retention days for the Backup.
+* `tags` - (Computed)[list(string)] Tags for the Backup.

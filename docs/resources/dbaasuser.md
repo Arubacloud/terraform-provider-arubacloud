@@ -4,12 +4,12 @@ layout: "arubacloud"
 page_title: "ArubaCloud: arubacloud_dbaasuser"
 sidebar_current: "docs-resource-dbaasuser"
 description: |-
-  DBaaS User resource manages database users for DBaaS clusters.
+  DBaaS User provides user accounts for managed database instances.
 ---
 
 # arubacloud_dbaasuser
 
-DBaaS Users can be created and managed for database access.
+DBaaS Users allow you to create and manage database users for DBaaS instances.
 
 ## Usage example
 
@@ -23,10 +23,9 @@ resource "arubacloud_dbaasuser" "example" {
 
 ## Argument reference
 
-* `dbaas_id` - (Required)[string] The DBaaS instance ID.
-* `username` - (Required)[string] The username for the database user.
-* `password` - (Required)[string] The password for the database user.
-* ...other arguments...
+* `dbaas_id` - (Required)[string] The ID of the DBaaS instance this user belongs to.
+* `username` - (Required)[string] The username for the DBaaS user.
+* `password` - (Required)[string] The password for the DBaaS user.
 
 ## Attribute reference
 

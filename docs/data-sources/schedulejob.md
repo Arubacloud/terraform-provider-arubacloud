@@ -21,10 +21,11 @@ data "arubacloud_schedulejob" "example" {
 
 ## Argument reference
 
-* `id` - (Required)[string] The ID of the schedule job to query.
+* `id` - (Required)[string] The ID of the Schedule Job to query.
 
 ## Attribute reference
 
-* `name` - (Computed)[string] The name of the schedule job.
-* `project_id` - (Computed)[string] The project ID.
-* ...other attributes...
+* `id` - (Computed)[string] The ID of the Schedule Job.
+* `name` - (Computed)[string] The name of the Schedule Job.
+* `description` - (Computed)[string] The description of the Schedule Job.
+* `cron` - (Computed)[string] The cron expression for the Schedule Job.

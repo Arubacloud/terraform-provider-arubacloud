@@ -4,12 +4,12 @@ layout: "arubacloud"
 page_title: "ArubaCloud: arubacloud_databasegrant"
 sidebar_current: "docs-resource-databasegrant"
 description: |-
-  Database Grant resource manages user privileges for databases.
+  Database Grant provides access control for users on databases.
 ---
 
 # arubacloud_databasegrant
 
-Database Grants allow you to assign roles and privileges to users for specific databases.
+Database Grants allow you to assign roles to users for specific databases.
 
 ## Usage example
 
@@ -23,10 +23,9 @@ resource "arubacloud_databasegrant" "example" {
 
 ## Argument reference
 
-* `database` - (Required)[string] The database ID.
-* `user_id` - (Required)[string] The user ID.
-* `role` - (Required)[string] The role to assign.
-* ...other arguments...
+* `database` - (Required)[string] The ID of the database to grant access to.
+* `user_id` - (Required)[string] The ID of the user to grant access.
+* `role` - (Required)[string] The role to assign (e.g., "admin", "read", "write").
 
 ## Attribute reference
 

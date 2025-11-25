@@ -21,10 +21,9 @@ data "arubacloud_database" "example" {
 
 ## Argument reference
 
-* `id` - (Required)[string] The ID of the database to query.
+* `id` - (Required)[string] The ID of the Database to query.
 
 ## Attribute reference
 
-* `name` - (Computed)[string] The name of the database.
-* `dbaas_id` - (Computed)[string] The DBaaS ID.
-* ...other attributes...
+* `dbaas_id` - (Computed)[string] The DBaaS ID this database belongs to.
+* `name` - (Computed)[string] The name of the Database.

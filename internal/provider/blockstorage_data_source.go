@@ -1,5 +1,3 @@
-// Copyright (c) HashiCorp, Inc.
-
 package provider
 
 import (
@@ -24,8 +22,20 @@ type BlockStorageDataSource struct {
 }
 
 type BlockStorageDataSourceModel struct {
-	Id   types.String `tfsdk:"id"`
-	Name types.String `tfsdk:"name"`
+	Id         types.String                `tfsdk:"id"`
+	Name       types.String                `tfsdk:"name"`
+	ProjectId  types.String                `tfsdk:"project_id"`
+	Properties BlockStoragePropertiesModel `tfsdk:"properties"`
+}
+
+type BlockStoragePropertiesModel struct {
+	SizeGB        types.Int64  `tfsdk:"size_gb"`
+	BillingPeriod types.String `tfsdk:"billing_period"`
+	Zone          types.String `tfsdk:"zone"`
+	Type          types.String `tfsdk:"type"`
+	SnapshotId    types.String `tfsdk:"snapshot_id"`
+	Bootable      types.Bool   `tfsdk:"bootable"`
+	Image         types.String `tfsdk:"image"`
 }
 
 func (d *BlockStorageDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -38,11 +48,49 @@ func (d *BlockStorageDataSource) Schema(ctx context.Context, req datasource.Sche
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Block Storage identifier",
-				Required:            true,
+				Computed:            true,
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Block Storage name",
-				Computed:            true,
+				Required:            true,
+			},
+			"project_id": schema.StringAttribute{
+				MarkdownDescription: "ID of the project this Block Storage belongs to",
+				Required:            true,
+			},
+			"properties": schema.SingleNestedAttribute{
+				MarkdownDescription: "Properties of the Block Storage",
+				Required:            true,
+				Attributes: map[string]schema.Attribute{
+					"size_gb": schema.Int64Attribute{
+						MarkdownDescription: "Size of the block storage in GB",
+						Required:            true,
+					},
+					"billing_period": schema.StringAttribute{
+						MarkdownDescription: "Billing period of the block storage (only 'Hour' allowed)",
+						Required:            true,
+					},
+					"zone": schema.StringAttribute{
+						MarkdownDescription: "Zone of the block storage",
+						Required:            true,
+					},
+					"type": schema.StringAttribute{
+						MarkdownDescription: "Type of block storage (Standard, Performance)",
+						Required:            true,
+					},
+					"snapshot_id": schema.StringAttribute{
+						MarkdownDescription: "Snapshot ID for the block storage",
+						Optional:            true,
+					},
+					"bootable": schema.BoolAttribute{
+						MarkdownDescription: "Whether the block storage is bootable",
+						Optional:            true,
+					},
+					"image": schema.StringAttribute{
+						MarkdownDescription: "Image for the block storage",
+						Optional:            true,
+					},
+				},
 			},
 		},
 	}

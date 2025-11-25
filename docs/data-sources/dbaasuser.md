@@ -21,10 +21,10 @@ data "arubacloud_dbaasuser" "example" {
 
 ## Argument reference
 
-* `id` - (Required)[string] The ID of the DBaaS user to query.
+* `id` - (Required)[string] The ID of the DBaaS User to query.
 
 ## Attribute reference
 
-* `username` - (Computed)[string] The username of the DBaaS user.
-* `dbaas_id` - (Computed)[string] The DBaaS ID.
-* ...other attributes...
+* `dbaas_id` - (Computed)[string] The DBaaS ID this user belongs to.
+* `username` - (Computed)[string] The username for the DBaaS user.
+* `password` - (Computed, Sensitive)[string] The password for the DBaaS user.
