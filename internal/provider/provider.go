@@ -1,5 +1,4 @@
 // Copyright (c) HashiCorp, Inc.
-// SPDX-License-Identifier: MPL-2.0
 
 package provider
 
@@ -151,6 +150,28 @@ func (p *ArubaCloudProvider) EphemeralResources(ctx context.Context) []func() ep
 func (p *ArubaCloudProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
 		NewProjectDataSource,
+		NewVPCDataSource,
+		NewSubnetDataSource,
+		NewElasticIPDataSource,
+		NewSecurityGroupDataSource,
+		NewSecurityRuleDataSource,
+		NewVPCPeeringDataSource,
+		NewVPCPeeringRouteDataSource,
+		NewKaaSDataSource,
+		NewContainerRegistryDataSource,
+		NewBackupDataSource,
+		NewBlockStorageDataSource,
+		NewDatabaseDataSource,
+		NewDatabaseBackupDataSource,
+		NewDatabaseGrantDataSource,
+		NewDBaaSDataSource,
+		NewKMIPDataSource,
+		NewKMSDataSource,
+		NewRestoreDataSource,
+		NewScheduleJobDataSource,
+		NewSnapshotDataSource,
+		NewVPNRouteDataSource,
+		NewVPNTunnelDataSource,
 	}
 }
 
