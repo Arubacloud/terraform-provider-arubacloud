@@ -24,8 +24,17 @@ type SubnetDataSource struct {
 }
 
 type SubnetDataSourceModel struct {
-	Id   types.String `tfsdk:"id"`
-	Name types.String `tfsdk:"name"`
+	Id        types.String `tfsdk:"id"`
+	Name      types.String `tfsdk:"name"`
+	Location  types.String `tfsdk:"location"`
+	Tags      types.List   `tfsdk:"tags"`
+	ProjectId types.String `tfsdk:"project_id"`
+	VpcId     types.String `tfsdk:"vpc_id"`
+	Type      types.String `tfsdk:"type"`
+	Network   types.Object `tfsdk:"network"`
+	Dhcp      types.Object `tfsdk:"dhcp"`
+	Routes    types.List   `tfsdk:"routes"`
+	Dns       types.List   `tfsdk:"dns"`
 }
 
 func (d *SubnetDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -42,6 +51,78 @@ func (d *SubnetDataSource) Schema(ctx context.Context, req datasource.SchemaRequ
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Subnet name",
+				Computed:            true,
+			},
+			"location": schema.StringAttribute{
+				MarkdownDescription: "Subnet location",
+				Computed:            true,
+			},
+			"tags": schema.ListAttribute{
+				ElementType:         types.StringType,
+				MarkdownDescription: "List of tags for the subnet",
+				Computed:            true,
+			},
+			"project_id": schema.StringAttribute{
+				MarkdownDescription: "ID of the project this subnet belongs to",
+				Computed:            true,
+			},
+			"vpc_id": schema.StringAttribute{
+				MarkdownDescription: "ID of the VPC this subnet belongs to",
+				Computed:            true,
+			},
+			"type": schema.StringAttribute{
+				MarkdownDescription: "Subnet type (Basic or Advanced)",
+				Computed:            true,
+			},
+			"network": schema.SingleNestedAttribute{
+				Attributes: map[string]schema.Attribute{
+					"address": schema.StringAttribute{
+						MarkdownDescription: "Address of the network in CIDR notation (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)",
+						Computed:            true,
+					},
+				},
+				Computed: true,
+			},
+			"dhcp": schema.SingleNestedAttribute{
+				Attributes: map[string]schema.Attribute{
+					"enabled": schema.BoolAttribute{
+						MarkdownDescription: "Enable DHCP",
+						Computed:            true,
+					},
+					"range": schema.SingleNestedAttribute{
+						Attributes: map[string]schema.Attribute{
+							"start": schema.StringAttribute{
+								MarkdownDescription: "Starting IP address",
+								Computed:            true,
+							},
+							"count": schema.Int64Attribute{
+								MarkdownDescription: "Number of available IP addresses",
+								Computed:            true,
+							},
+						},
+						Computed: true,
+					},
+				},
+				Computed: true,
+			},
+			"routes": schema.ListNestedAttribute{
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"address": schema.StringAttribute{
+							MarkdownDescription: "IP address of the route",
+							Computed:            true,
+						},
+						"gateway": schema.StringAttribute{
+							MarkdownDescription: "Gateway",
+							Computed:            true,
+						},
+					},
+				},
+				Computed: true,
+			},
+			"dns": schema.ListAttribute{
+				ElementType:         types.StringType,
+				MarkdownDescription: "List of DNS IP addresses",
 				Computed:            true,
 			},
 		},

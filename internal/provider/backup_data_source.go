@@ -24,8 +24,15 @@ type BackupDataSource struct {
 }
 
 type BackupDataSourceModel struct {
-	Id   types.String `tfsdk:"id"`
-	Name types.String `tfsdk:"name"`
+	Id            types.String `tfsdk:"id"`
+	Name          types.String `tfsdk:"name"`
+	Location      types.String `tfsdk:"location"`
+	Tags          types.List   `tfsdk:"tags"`
+	ProjectID     types.String `tfsdk:"project_id"`
+	Type          types.String `tfsdk:"type"`
+	VolumeID      types.String `tfsdk:"volume_id"`
+	RetentionDays types.Int64  `tfsdk:"retention_days"`
+	BillingPeriod types.String `tfsdk:"billing_period"`
 }
 
 func (d *BackupDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -38,11 +45,40 @@ func (d *BackupDataSource) Schema(ctx context.Context, req datasource.SchemaRequ
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Backup identifier",
-				Required:            true,
+				Computed:            true,
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Backup name",
-				Computed:            true,
+				Required:            true,
+			},
+			"location": schema.StringAttribute{
+				MarkdownDescription: "Backup location",
+				Required:            true,
+			},
+			"tags": schema.ListAttribute{
+				ElementType:         types.StringType,
+				MarkdownDescription: "List of tags for the backup resource",
+				Optional:            true,
+			},
+			"project_id": schema.StringAttribute{
+				MarkdownDescription: "ID of the project this backup belongs to",
+				Required:            true,
+			},
+			"type": schema.StringAttribute{
+				MarkdownDescription: "Type of backup (Full, Incremental)",
+				Required:            true,
+			},
+			"volume_id": schema.StringAttribute{
+				MarkdownDescription: "Volume ID for the backup",
+				Required:            true,
+			},
+			"retention_days": schema.Int64Attribute{
+				MarkdownDescription: "Retention days for the backup",
+				Optional:            true,
+			},
+			"billing_period": schema.StringAttribute{
+				MarkdownDescription: "Billing period",
+				Required:            true,
 			},
 		},
 	}

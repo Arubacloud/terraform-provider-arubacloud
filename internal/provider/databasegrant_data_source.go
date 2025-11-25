@@ -24,8 +24,10 @@ type DatabaseGrantDataSource struct {
 }
 
 type DatabaseGrantDataSourceModel struct {
-	Id   types.String `tfsdk:"id"`
-	Name types.String `tfsdk:"name"`
+	Id       types.String `tfsdk:"id"`
+	Database types.String `tfsdk:"database"`
+	UserID   types.String `tfsdk:"user_id"`
+	Role     types.String `tfsdk:"role"`
 }
 
 func (d *DatabaseGrantDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -40,8 +42,16 @@ func (d *DatabaseGrantDataSource) Schema(ctx context.Context, req datasource.Sch
 				MarkdownDescription: "Database Grant identifier",
 				Required:            true,
 			},
-			"name": schema.StringAttribute{
-				MarkdownDescription: "Database Grant name",
+			"database": schema.StringAttribute{
+				MarkdownDescription: "Database name or ID",
+				Computed:            true,
+			},
+			"user_id": schema.StringAttribute{
+				MarkdownDescription: "User ID to grant access",
+				Computed:            true,
+			},
+			"role": schema.StringAttribute{
+				MarkdownDescription: "Role to grant (e.g., read, write, admin)",
 				Computed:            true,
 			},
 		},
@@ -69,7 +79,10 @@ func (d *DatabaseGrantDataSource) Read(ctx context.Context, req datasource.ReadR
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	data.Name = types.StringValue("example-databasegrant")
+	// Simulate API response for all attributes
+	data.Database = types.StringValue("example-database")
+	data.UserID = types.StringValue("example-user-id")
+	data.Role = types.StringValue("read")
 	tflog.Trace(ctx, "read a Database Grant data source")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

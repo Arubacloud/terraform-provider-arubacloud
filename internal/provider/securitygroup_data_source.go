@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -24,8 +25,12 @@ type SecurityGroupDataSource struct {
 }
 
 type SecurityGroupDataSourceModel struct {
-	Id   types.String `tfsdk:"id"`
-	Name types.String `tfsdk:"name"`
+	Id        types.String `tfsdk:"id"`
+	Name      types.String `tfsdk:"name"`
+	Location  types.String `tfsdk:"location"`
+	Tags      types.List   `tfsdk:"tags"`
+	ProjectId types.String `tfsdk:"project_id"`
+	VpcId     types.String `tfsdk:"vpc_id"`
 }
 
 func (d *SecurityGroupDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -42,6 +47,23 @@ func (d *SecurityGroupDataSource) Schema(ctx context.Context, req datasource.Sch
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Security Group name",
+				Computed:            true,
+			},
+			"location": schema.StringAttribute{
+				MarkdownDescription: "Security Group location",
+				Computed:            true,
+			},
+			"tags": schema.ListAttribute{
+				ElementType:         types.StringType,
+				MarkdownDescription: "List of tags for the Security Group",
+				Computed:            true,
+			},
+			"project_id": schema.StringAttribute{
+				MarkdownDescription: "ID of the project this Security Group belongs to",
+				Computed:            true,
+			},
+			"vpc_id": schema.StringAttribute{
+				MarkdownDescription: "ID of the VPC this Security Group belongs to",
 				Computed:            true,
 			},
 		},
@@ -69,7 +91,15 @@ func (d *SecurityGroupDataSource) Read(ctx context.Context, req datasource.ReadR
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	// Simulate API response for all attributes
 	data.Name = types.StringValue("example-securitygroup")
+	data.Location = types.StringValue("example-location")
+	data.Tags = types.ListValueMust(types.StringType, []attr.Value{
+		types.StringValue("tag1"),
+		types.StringValue("tag2"),
+	})
+	data.ProjectId = types.StringValue("example-project-id")
+	data.VpcId = types.StringValue("example-vpc-id")
 	tflog.Trace(ctx, "read a Security Group data source")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

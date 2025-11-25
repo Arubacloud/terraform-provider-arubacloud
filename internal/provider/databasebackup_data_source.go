@@ -24,8 +24,14 @@ type DatabaseBackupDataSource struct {
 }
 
 type DatabaseBackupDataSourceModel struct {
-	Id   types.String `tfsdk:"id"`
-	Name types.String `tfsdk:"name"`
+	Id            types.String `tfsdk:"id"`
+	Name          types.String `tfsdk:"name"`
+	Location      types.String `tfsdk:"location"`
+	Tags          types.List   `tfsdk:"tags"`
+	Zone          types.String `tfsdk:"zone"`
+	DBaaSID       types.String `tfsdk:"dbaas_id"`
+	Database      types.String `tfsdk:"database"`
+	BillingPeriod types.String `tfsdk:"billing_period"`
 }
 
 func (d *DatabaseBackupDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -38,11 +44,36 @@ func (d *DatabaseBackupDataSource) Schema(ctx context.Context, req datasource.Sc
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Database Backup identifier",
-				Required:            true,
+				Computed:            true,
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Database Backup name",
-				Computed:            true,
+				Required:            true,
+			},
+			"location": schema.StringAttribute{
+				MarkdownDescription: "Database Backup location",
+				Required:            true,
+			},
+			"tags": schema.ListAttribute{
+				ElementType:         types.StringType,
+				MarkdownDescription: "List of tags for the Database Backup resource",
+				Optional:            true,
+			},
+			"zone": schema.StringAttribute{
+				MarkdownDescription: "Zone for the Database Backup",
+				Required:            true,
+			},
+			"dbaas_id": schema.StringAttribute{
+				MarkdownDescription: "DBaaS ID this backup belongs to",
+				Required:            true,
+			},
+			"database": schema.StringAttribute{
+				MarkdownDescription: "Database to backup (ID or name)",
+				Required:            true,
+			},
+			"billing_period": schema.StringAttribute{
+				MarkdownDescription: "Billing period",
+				Required:            true,
 			},
 		},
 	}

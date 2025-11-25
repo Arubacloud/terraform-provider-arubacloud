@@ -24,8 +24,10 @@ type VPCDataSource struct {
 }
 
 type VPCDataSourceModel struct {
-	Id   types.String `tfsdk:"id"`
-	Name types.String `tfsdk:"name"`
+	Id       types.String `tfsdk:"id"`
+	Name     types.String `tfsdk:"name"`
+	Location types.String `tfsdk:"location"`
+	Tags     types.List   `tfsdk:"tags"`
 }
 
 func (d *VPCDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -42,6 +44,15 @@ func (d *VPCDataSource) Schema(ctx context.Context, req datasource.SchemaRequest
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "VPC name",
+				Computed:            true,
+			},
+			"location": schema.StringAttribute{
+				MarkdownDescription: "VPC location",
+				Computed:            true,
+			},
+			"tags": schema.ListAttribute{
+				ElementType:         types.StringType,
+				MarkdownDescription: "List of tags for the VPC",
 				Computed:            true,
 			},
 		},
