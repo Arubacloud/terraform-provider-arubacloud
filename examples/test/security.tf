@@ -1,3 +1,5 @@
+# Copyright (c) HashiCorp, Inc.
+
 ## KMS Example Resource
 resource "arubacloud_kms" "example" {
   name           = "example-kms"

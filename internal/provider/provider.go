@@ -111,7 +111,7 @@ func (p *ArubaCloudProvider) Configure(ctx context.Context, req provider.Configu
 	resp.ResourceData = client
 }
 
-// TODO: put here ArubaCloud API client
+// TODO: put here ArubaCloud API client.
 type ArubaCloudClient struct {
 	ApiKey    string
 	ApiSecret string

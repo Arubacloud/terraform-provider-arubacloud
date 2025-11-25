@@ -1,3 +1,5 @@
+# Copyright (c) HashiCorp, Inc.
+
 # Block Storage Resource Example
 resource "arubacloud_blockstorage" "example" {
   name       = "example-block-storage"
@@ -15,11 +17,11 @@ resource "arubacloud_blockstorage" "example" {
 
 #Snapshot Resource Example
 resource "arubacloud_snapshot" "example" {
-  name          = "example-snapshot"
-  project_id    = arubacloud_project.example.id
-  location      = "ITBG-Bergamo"
+  name           = "example-snapshot"
+  project_id     = arubacloud_project.example.id
+  location       = "ITBG-Bergamo"
   billing_period = "Hour"
-  volume_id     = arubacloud_blockstorage.example.id
+  volume_id      = arubacloud_blockstorage.example.id
 }
 
 #Backup Resource Example
@@ -36,9 +38,9 @@ resource "arubacloud_backup" "example" {
 
 #Restore Resource Example
 resource "arubacloud_restore" "example" {
-  name        = "example-restore"
-  location    = "ITBG-Bergamo"
-  tags        = ["restore", "test"]
-  project_id  = arubacloud_project.example.id
-  volume_id   = arubacloud_blockstorage.example.id
+  name       = "example-restore"
+  location   = "ITBG-Bergamo"
+  tags       = ["restore", "test"]
+  project_id = arubacloud_project.example.id
+  volume_id  = arubacloud_blockstorage.example.id
 }

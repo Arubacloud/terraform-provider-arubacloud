@@ -1,3 +1,5 @@
+# Copyright (c) HashiCorp, Inc.
+
 # DBaaS Example
 resource "arubacloud_dbaas" "example" {
   name           = "example-dbaas"

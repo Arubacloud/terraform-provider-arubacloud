@@ -1,3 +1,5 @@
+// Copyright (c) HashiCorp, Inc.
+
 package provider
 
 import (
@@ -130,6 +132,7 @@ func (r *VpcPeeringRouteResource) Delete(ctx context.Context, req resource.Delet
 	var data VpcPeeringRouteResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
+		return
 	}
 }
 

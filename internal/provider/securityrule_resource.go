@@ -1,3 +1,5 @@
+// Copyright (c) HashiCorp, Inc.
+
 package provider
 
 import (
@@ -12,7 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-// RuleDirection represents the direction of a security rule
+// RuleDirection represents the direction of a security rule.
 type RuleDirection string
 
 const (
@@ -32,13 +34,13 @@ const (
 	EndpointTypeIP EndpointTypeDto = "Ip"
 )
 
-// RuleTarget represents the target of the rule (source or destination according to the direction)
+// RuleTarget represents the target of the rule (source or destination according to the direction).
 type RuleTarget struct {
 	Kind  EndpointTypeDto `tfsdk:"kind"`
 	Value string          `tfsdk:"value"`
 }
 
-// SecurityRuleProperties contains the properties of a security rule
+// SecurityRuleProperties contains the properties of a security rule.
 type SecurityRulePropertiesRequest struct {
 	Direction RuleDirection `tfsdk:"direction"`
 	Protocol  string        `tfsdk:"protocol"`

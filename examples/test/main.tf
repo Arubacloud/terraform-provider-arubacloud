@@ -1,7 +1,9 @@
+# Copyright (c) HashiCorp, Inc.
+
 terraform {
-    required_providers {
-      arubacloud = {
-        source  = "hashicorp/arubacloud"
-      }
-    }    
+  required_providers {
+    arubacloud = {
+      source = "hashicorp/arubacloud"
+    }
+  }
 }

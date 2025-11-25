@@ -1,3 +1,5 @@
+# Copyright (c) HashiCorp, Inc.
+
 
 ## Elastic IP
 resource "arubacloud_elasticip" "example" {
@@ -80,9 +82,9 @@ resource "arubacloud_vpcpeering" "example" {
 
 ## VPC PeeringRoute
 resource "arubacloud_vpcpeeringroute" "example" {
-  name                  = "example-vpc-peering-route"
-  location              = "ITBG-Bergamo"
-  tags                  = ["route", "prod"]
+  name                   = "example-vpc-peering-route"
+  location               = "ITBG-Bergamo"
+  tags                   = ["route", "prod"]
   local_network_address  = "10.0.0.0/24"
   remote_network_address = "192.168.1.0/24"
   billing_period         = "Hour"
@@ -111,11 +113,11 @@ resource "arubacloud_vpntunnel" "example" {
     }
     vpn_client_settings = {
       ike = {
-        lifetime    = 3600
-        encryption  = "AES256"
-        hash        = "SHA256"
-        dh_group    = "group14"
-        dpd_action  = "restart"
+        lifetime     = 3600
+        encryption   = "AES256"
+        hash         = "SHA256"
+        dh_group     = "group14"
+        dpd_action   = "restart"
         dpd_interval = 30
         dpd_timeout  = 120
       }
@@ -126,9 +128,9 @@ resource "arubacloud_vpntunnel" "example" {
         pfs        = "group14"
       }
       psk = {
-        cloud_site  = "cloud-site-1"
+        cloud_site   = "cloud-site-1"
         on_prem_site = "on-prem-site-1"
-        secret      = "supersecretkey"
+        secret       = "supersecretkey"
       }
     }
     peer_client_public_ip = "203.0.113.1"
@@ -137,10 +139,10 @@ resource "arubacloud_vpntunnel" "example" {
 
 ## VPN Route
 resource "arubacloud_vpnroute" "example" {
-  name         = "example-vpn-route"
-  location     = "ITBG-Bergamo"
-  tags         = ["route", "vpn"]
-  project_id   = arubacloud_project.example.id
+  name          = "example-vpn-route"
+  location      = "ITBG-Bergamo"
+  tags          = ["route", "vpn"]
+  project_id    = arubacloud_project.example.id
   vpn_tunnel_id = arubacloud_vpntunnel.example.id
   properties = {
     cloud_subnet   = "10.0.0.0/24"
