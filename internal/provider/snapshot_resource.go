@@ -6,7 +6,6 @@ package provider
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -32,7 +31,7 @@ type SnapshotResourceModel struct {
 }
 
 type SnapshotResource struct {
-	client *http.Client
+	client *ArubaCloudClient
 }
 
 func (r *SnapshotResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -77,7 +76,7 @@ func (r *SnapshotResource) Configure(ctx context.Context, req resource.Configure
 	if req.ProviderData == nil {
 		return
 	}
-	client, ok := req.ProviderData.(*http.Client)
+	client, ok := req.ProviderData.(*ArubaCloudClient)
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Resource Configure Type",

@@ -3,7 +3,7 @@
 terraform {
   required_providers {
     arubacloud = {
-      source = "hashicorp/arubacloud"
+      source  = "hashicorp/arubacloud"
     }
   }
 }

@@ -11,7 +11,6 @@ resource "arubacloud_blockstorage" "example" {
     type           = "Standard"
     bootable       = true
     image          = "ubuntu-22.04"
-    snapshot_id    = arubacloud_snapshot.example.id
   }
 }
 

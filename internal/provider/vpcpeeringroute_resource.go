@@ -6,7 +6,6 @@ package provider
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -23,7 +22,7 @@ func NewVpcPeeringRouteResource() resource.Resource {
 }
 
 type VpcPeeringRouteResource struct {
-	client *http.Client
+	client *ArubaCloudClient
 }
 
 type VpcPeeringRouteResourceModel struct {
@@ -90,7 +89,7 @@ func (r *VpcPeeringRouteResource) Configure(ctx context.Context, req resource.Co
 	if req.ProviderData == nil {
 		return
 	}
-	client, ok := req.ProviderData.(*http.Client)
+	client, ok := req.ProviderData.(*ArubaCloudClient)
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Resource Configure Type",

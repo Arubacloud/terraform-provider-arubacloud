@@ -6,7 +6,6 @@ package provider
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -16,7 +15,7 @@ import (
 )
 
 type VPCResource struct {
-	client *http.Client
+	client *ArubaCloudClient
 }
 
 type VPCResourceModel struct {
@@ -63,11 +62,11 @@ func (r *VPCResource) Configure(ctx context.Context, req resource.ConfigureReque
 	if req.ProviderData == nil {
 		return
 	}
-	client, ok := req.ProviderData.(*http.Client)
+	client, ok := req.ProviderData.(*ArubaCloudClient)
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected *http.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+			fmt.Sprintf("Expected *ArubaCloudClient, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
 		return
 	}

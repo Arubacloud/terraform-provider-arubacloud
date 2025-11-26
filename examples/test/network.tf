@@ -18,6 +18,12 @@ resource "arubacloud_vpc" "example" {
   tags     = ["network", "test"]
 }
 
+resource "arubacloud_vpc" "remote" {
+  name     = "remote-vpc"
+  location = "ITBG-Bergamo"
+  tags     = ["network", "test"]
+}
+
 ## Subnet
 resource "arubacloud_subnet" "example" {
   name       = "example-subnet"
@@ -77,7 +83,7 @@ resource "arubacloud_vpcpeering" "example" {
   name     = "example-vpc-peering"
   location = "ITBG-Bergamo"
   tags     = ["peering", "prod"]
-  peer_vpc = arubacloud_vpc.peer.id
+  peer_vpc = arubacloud_vpc.remote.id
 }
 
 ## VPC PeeringRoute

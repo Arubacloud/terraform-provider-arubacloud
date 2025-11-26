@@ -122,7 +122,11 @@ func (p *ArubaCloudProvider) Resources(ctx context.Context) []func() resource.Re
 	return []func() resource.Resource{
 		NewProjectResource,
 		NewElasticIPResource,
+		NewBlockStorageResource,
+		NewSnapshotResource,
 		NewVPCResource,
+		NewVPNTunnelResource,
+		NewVPNRouteResource,
 		NewSubnetResource,
 		NewSecurityGroupResource,
 		NewSecurityRuleResource,
@@ -151,6 +155,8 @@ func (p *ArubaCloudProvider) EphemeralResources(ctx context.Context) []func() ep
 func (p *ArubaCloudProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
 		NewProjectDataSource,
+		NewBlockStorageDataSource,
+		NewSnapshotDataSource,
 		NewVPCDataSource,
 		NewSubnetDataSource,
 		NewElasticIPDataSource,
@@ -161,7 +167,6 @@ func (p *ArubaCloudProvider) DataSources(ctx context.Context) []func() datasourc
 		NewKaaSDataSource,
 		NewContainerRegistryDataSource,
 		NewBackupDataSource,
-		NewBlockStorageDataSource,
 		NewDatabaseDataSource,
 		NewDatabaseBackupDataSource,
 		NewDatabaseGrantDataSource,
@@ -170,7 +175,6 @@ func (p *ArubaCloudProvider) DataSources(ctx context.Context) []func() datasourc
 		NewKMSDataSource,
 		NewRestoreDataSource,
 		NewScheduleJobDataSource,
-		NewSnapshotDataSource,
 		NewVPNRouteDataSource,
 		NewVPNTunnelDataSource,
 	}

@@ -6,7 +6,6 @@ package provider
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -23,7 +22,7 @@ type KMIPResourceModel struct {
 }
 
 type KMIPResource struct {
-	client *http.Client
+	client *ArubaCloudClient
 }
 
 var _ resource.Resource = &KMIPResource{}
@@ -65,7 +64,7 @@ func (r *KMIPResource) Configure(ctx context.Context, req resource.ConfigureRequ
 	if req.ProviderData == nil {
 		return
 	}
-	client, ok := req.ProviderData.(*http.Client)
+	client, ok := req.ProviderData.(*ArubaCloudClient)
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Resource Configure Type",

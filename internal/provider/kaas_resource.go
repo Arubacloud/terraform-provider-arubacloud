@@ -6,7 +6,6 @@ package provider
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -52,7 +51,7 @@ type KaaSResourceModel struct {
 }
 
 type KaaSResource struct {
-	client *http.Client
+	client *ArubaCloudClient
 }
 
 var _ resource.Resource = &KaaSResource{}
@@ -151,11 +150,11 @@ func (r *KaaSResource) Configure(ctx context.Context, req resource.ConfigureRequ
 	if req.ProviderData == nil {
 		return
 	}
-	client, ok := req.ProviderData.(*http.Client)
+	client, ok := req.ProviderData.(*ArubaCloudClient)
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected *http.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+			fmt.Sprintf("Expected *ArubaCloudClient, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
 		return
 	}

@@ -6,7 +6,6 @@ package provider
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -22,7 +21,7 @@ func NewProjectDataSource() datasource.DataSource {
 }
 
 type ProjectDataSource struct {
-	client *http.Client
+	client *ArubaCloudClient
 }
 
 type ProjectDataSourceModel struct {
@@ -65,7 +64,7 @@ func (d *ProjectDataSource) Configure(ctx context.Context, req datasource.Config
 	if req.ProviderData == nil {
 		return
 	}
-	client, ok := req.ProviderData.(*http.Client)
+	client, ok := req.ProviderData.(*ArubaCloudClient)
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Data Source Configure Type",

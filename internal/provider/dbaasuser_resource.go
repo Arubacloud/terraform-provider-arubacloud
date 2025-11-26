@@ -6,7 +6,6 @@ package provider
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -23,7 +22,7 @@ type DBaaSUserResourceModel struct {
 }
 
 type DBaaSUserResource struct {
-	client *http.Client
+	client *ArubaCloudClient
 }
 
 var _ resource.Resource = &DBaaSUserResource{}
@@ -66,7 +65,7 @@ func (r *DBaaSUserResource) Configure(ctx context.Context, req resource.Configur
 	if req.ProviderData == nil {
 		return
 	}
-	client, ok := req.ProviderData.(*http.Client)
+	client, ok := req.ProviderData.(*ArubaCloudClient)
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Resource Configure Type",

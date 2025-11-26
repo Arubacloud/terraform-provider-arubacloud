@@ -6,7 +6,6 @@ package provider
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
@@ -22,7 +21,7 @@ type KMSDataSourceModel struct {
 }
 
 type KMSDataSource struct {
-	client *http.Client
+	client *ArubaCloudClient
 }
 
 var _ datasource.DataSource = &KMSDataSource{}
@@ -63,7 +62,7 @@ func (d *KMSDataSource) Configure(ctx context.Context, req datasource.ConfigureR
 	if req.ProviderData == nil {
 		return
 	}
-	client, ok := req.ProviderData.(*http.Client)
+	client, ok := req.ProviderData.(*ArubaCloudClient)
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected DataSource Configure Type",

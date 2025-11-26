@@ -6,7 +6,6 @@ package provider
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
@@ -21,7 +20,7 @@ func NewScheduleJobDataSource() datasource.DataSource {
 }
 
 type ScheduleJobDataSource struct {
-	client *http.Client
+	client *ArubaCloudClient
 }
 
 type ScheduleJobDataSourceModel struct {
@@ -63,7 +62,7 @@ func (d *ScheduleJobDataSource) Configure(ctx context.Context, req datasource.Co
 	if req.ProviderData == nil {
 		return
 	}
-	client, ok := req.ProviderData.(*http.Client)
+	client, ok := req.ProviderData.(*ArubaCloudClient)
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Data Source Configure Type",

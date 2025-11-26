@@ -6,7 +6,6 @@ package provider
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -25,7 +24,7 @@ type ScheduleJobResourceModel struct {
 }
 
 type ScheduleJobResource struct {
-	client *http.Client
+	client *ArubaCloudClient
 }
 
 var _ resource.Resource = &ScheduleJobResource{}
@@ -124,7 +123,7 @@ func (r *ScheduleJobResource) Configure(ctx context.Context, req resource.Config
 	if req.ProviderData == nil {
 		return
 	}
-	client, ok := req.ProviderData.(*http.Client)
+	client, ok := req.ProviderData.(*ArubaCloudClient)
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Resource Configure Type",

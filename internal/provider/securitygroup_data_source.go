@@ -6,7 +6,6 @@ package provider
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -22,7 +21,7 @@ func NewSecurityGroupDataSource() datasource.DataSource {
 }
 
 type SecurityGroupDataSource struct {
-	client *http.Client
+	client *ArubaCloudClient
 }
 
 type SecurityGroupDataSourceModel struct {
@@ -75,7 +74,7 @@ func (d *SecurityGroupDataSource) Configure(ctx context.Context, req datasource.
 	if req.ProviderData == nil {
 		return
 	}
-	client, ok := req.ProviderData.(*http.Client)
+	client, ok := req.ProviderData.(*ArubaCloudClient)
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Data Source Configure Type",

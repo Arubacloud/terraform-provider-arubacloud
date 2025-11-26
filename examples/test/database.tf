@@ -11,13 +11,13 @@ resource "arubacloud_dbaas" "example" {
   flavor         = "db.t3.medium"
   storage_size   = 50
   billing_period = "Hour"
-  network {
+  network = {
     vpc_id            = arubacloud_vpc.example.id
     subnet_id         = arubacloud_subnet.example.id
     security_group_id = arubacloud_securitygroup.example.id
     elastic_ip_id     = arubacloud_elasticip.example.id
   }
-  autoscaling {
+  autoscaling = {
     enabled         = true
     available_space = 100
     step_size       = 10

@@ -9,7 +9,7 @@ resource "arubacloud_kaas" "example" {
   preset     = true
   vpc_id     = arubacloud_vpc.example.id
   subnet_id  = arubacloud_subnet.example.id
-  node_cidr {
+  node_cidr = {
     address     = "10.0.2.0/24"
     subnet_name = "kaas-subnet"
   }

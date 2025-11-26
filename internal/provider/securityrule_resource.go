@@ -6,7 +6,6 @@ package provider
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -24,7 +23,7 @@ const (
 )
 
 type SecurityRuleResource struct {
-	client *http.Client
+	client *ArubaCloudClient
 }
 
 // EndpointTypeDto represents the type of target endpoint
@@ -139,7 +138,7 @@ func (r *SecurityRuleResource) Configure(ctx context.Context, req resource.Confi
 	if req.ProviderData == nil {
 		return
 	}
-	client, ok := req.ProviderData.(*http.Client)
+	client, ok := req.ProviderData.(*ArubaCloudClient)
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Resource Configure Type",
