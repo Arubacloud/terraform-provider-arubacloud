@@ -1,4 +1,5 @@
 // Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
 
 package provider
 
@@ -40,27 +41,27 @@ func (d *SnapshotDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Snapshot identifier",
-				Computed:            true,
+				Required:            true,
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Snapshot name",
-				Required:            true,
+				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project this Snapshot belongs to",
-				Required:            true,
+				Computed:            true,
 			},
 			"location": schema.StringAttribute{
 				MarkdownDescription: "Snapshot location",
-				Required:            true,
+				Computed:            true,
 			},
 			"billing_period": schema.StringAttribute{
 				MarkdownDescription: "Billing period (only 'Hour' allowed)",
-				Required:            true,
+				Computed:            true,
 			},
 			"volume_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the volume this snapshot is for",
-				Required:            true,
+				Computed:            true,
 			},
 		},
 	}

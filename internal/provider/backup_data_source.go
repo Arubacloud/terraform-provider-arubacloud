@@ -1,4 +1,5 @@
 // Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
 
 package provider
 
@@ -45,40 +46,40 @@ func (d *BackupDataSource) Schema(ctx context.Context, req datasource.SchemaRequ
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Backup identifier",
-				Computed:            true,
+				Required:            true,
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Backup name",
-				Required:            true,
+				Computed:            true,
 			},
 			"location": schema.StringAttribute{
 				MarkdownDescription: "Backup location",
-				Required:            true,
+				Computed:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
 				MarkdownDescription: "List of tags for the backup resource",
-				Optional:            true,
+				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project this backup belongs to",
-				Required:            true,
+				Computed:            true,
 			},
 			"type": schema.StringAttribute{
 				MarkdownDescription: "Type of backup (Full, Incremental)",
-				Required:            true,
+				Computed:            true,
 			},
 			"volume_id": schema.StringAttribute{
 				MarkdownDescription: "Volume ID for the backup",
-				Required:            true,
+				Computed:            true,
 			},
 			"retention_days": schema.Int64Attribute{
 				MarkdownDescription: "Retention days for the backup",
-				Optional:            true,
+				Computed:            true,
 			},
 			"billing_period": schema.StringAttribute{
 				MarkdownDescription: "Billing period",
-				Required:            true,
+				Computed:            true,
 			},
 		},
 	}

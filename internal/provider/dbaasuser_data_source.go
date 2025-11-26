@@ -1,4 +1,5 @@
 // Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
 
 package provider
 
@@ -38,21 +39,21 @@ func (d *DBaaSUserDataSource) Schema(ctx context.Context, req datasource.SchemaR
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "DBaaS User data source",
 		Attributes: map[string]schema.Attribute{
+			"username": schema.StringAttribute{
+				MarkdownDescription: "Username for the DBaaS user (lookup key)",
+				Required:            true,
+			},
 			"id": schema.StringAttribute{
 				MarkdownDescription: "DBaaS User identifier",
 				Computed:            true,
 			},
 			"dbaas_id": schema.StringAttribute{
 				MarkdownDescription: "DBaaS ID this user belongs to",
-				Required:            true,
-			},
-			"username": schema.StringAttribute{
-				MarkdownDescription: "Username for the DBaaS user",
-				Required:            true,
+				Computed:            true,
 			},
 			"password": schema.StringAttribute{
 				MarkdownDescription: "Password for the DBaaS user",
-				Required:            true,
+				Computed:            true,
 				Sensitive:           true,
 			},
 		},

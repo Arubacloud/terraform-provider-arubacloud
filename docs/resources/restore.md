@@ -1,0 +1,33 @@
+---
+page_title: "arubacloud_restore Resource - ArubaCloud"
+subcategory: "Storage"
+description: |-
+  Manages an ArubaCloud Storage Restore.
+---
+
+# arubacloud_restore (Resource)
+
+Manages an ArubaCloud Storage Restore.
+
+## Example Usage
+
+```terraform
+resource "arubacloud_restore" "basic" {
+  name = "basic-restore"
+}
+```
+
+
+## Argument Reference
+
+<!-- tfplugindocs will inject schema-based arguments here -->
+
+## Attribute Reference
+
+<!-- tfplugindocs will inject schema-based attributes here -->
+
+## Import
+
+```shell
+terraform import arubacloud_restore.example <restore_id>
+```

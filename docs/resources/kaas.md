@@ -1,0 +1,33 @@
+---
+page_title: "arubacloud_kaas Resource - ArubaCloud"
+subcategory: "Container"
+description: |-
+  Manages an ArubaCloud KaaS.
+---
+
+# arubacloud_kaas (Resource)
+
+Manages an ArubaCloud KaaS.
+
+## Example Usage
+
+```terraform
+resource "arubacloud_kaas" "basic" {
+  name = "basic-kaas"
+}
+```
+
+
+## Argument Reference
+
+<!-- tfplugindocs will inject schema-based arguments here -->
+
+## Attribute Reference
+
+<!-- tfplugindocs will inject schema-based attributes here -->
+
+## Import
+
+```shell
+terraform import arubacloud_kaas.example <kaas_id>
+```
