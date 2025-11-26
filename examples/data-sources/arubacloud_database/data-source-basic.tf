@@ -1,3 +1,10 @@
 data "arubacloud_database" "basic" {
-  id = "database-id"
+  id = "your-database-id"
+}
+
+output "database_dbaas_id" {
+  value = data.arubacloud_database.basic.dbaas_id
+}
+output "database_name" {
+  value = data.arubacloud_database.basic.name
 }

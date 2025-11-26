@@ -39,28 +39,28 @@ func (d *RestoreDataSource) Schema(ctx context.Context, req datasource.SchemaReq
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Restore identifier",
-				Computed:            true,
+				Required:            true,
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Restore name",
-				Required:            true,
+				Computed:            true,
 			},
 			"location": schema.StringAttribute{
 				MarkdownDescription: "Restore location",
-				Required:            true,
+				Computed:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
 				MarkdownDescription: "List of tags for the restore resource",
-				Optional:            true,
+				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project this restore belongs to",
-				Required:            true,
+				Computed:            true,
 			},
 			"volume_id": schema.StringAttribute{
 				MarkdownDescription: "Volume ID to restore",
-				Required:            true,
+				Computed:            true,
 			},
 		},
 	}

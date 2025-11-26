@@ -47,48 +47,48 @@ func (d *ContainerRegistryDataSource) Schema(ctx context.Context, req datasource
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Container Registry identifier",
-				Computed:            true,
+				Required:            true,
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Container Registry name",
-				Required:            true,
+				Computed:            true,
 			},
 			"location": schema.StringAttribute{
 				MarkdownDescription: "Container Registry location",
-				Required:            true,
+				Computed:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
 				MarkdownDescription: "List of tags for the Container Registry resource",
-				Optional:            true,
+				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project this Container Registry belongs to",
-				Required:            true,
+				Computed:            true,
 			},
 			"elasticip_id": schema.StringAttribute{
 				MarkdownDescription: "Elastic IP ID",
-				Required:            true,
+				Computed:            true,
 			},
 			"subnet_id": schema.StringAttribute{
 				MarkdownDescription: "Subnet ID",
-				Required:            true,
+				Computed:            true,
 			},
 			"security_group_id": schema.StringAttribute{
 				MarkdownDescription: "Security Group ID",
-				Required:            true,
+				Computed:            true,
 			},
 			"block_storage_id": schema.StringAttribute{
 				MarkdownDescription: "Block Storage ID",
-				Required:            true,
+				Computed:            true,
 			},
 			"billing_period": schema.StringAttribute{
 				MarkdownDescription: "Billing period",
-				Required:            true,
+				Computed:            true,
 			},
 			"admin_user": schema.StringAttribute{
 				MarkdownDescription: "Admin user for the Container Registry",
-				Required:            true,
+				Computed:            true,
 			},
 		},
 	}

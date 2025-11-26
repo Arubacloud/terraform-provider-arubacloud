@@ -144,6 +144,7 @@ func (p *ArubaCloudProvider) Resources(ctx context.Context) []func() resource.Re
 		NewScheduleJobResource,
 		NewKMSResource,
 		NewKMIPResource,
+		NewKeypairResource,
 	}
 
 }
@@ -158,6 +159,8 @@ func (p *ArubaCloudProvider) DataSources(ctx context.Context) []func() datasourc
 		NewBlockStorageDataSource,
 		NewSnapshotDataSource,
 		NewVPCDataSource,
+		NewKeypairDataSource,
+		NewCloudServerDataSource,
 		NewSubnetDataSource,
 		NewElasticIPDataSource,
 		NewSecurityGroupDataSource,

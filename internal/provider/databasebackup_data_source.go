@@ -44,36 +44,36 @@ func (d *DatabaseBackupDataSource) Schema(ctx context.Context, req datasource.Sc
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Database Backup identifier",
-				Computed:            true,
+				Required:            true,
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Database Backup name",
-				Required:            true,
+				Computed:            true,
 			},
 			"location": schema.StringAttribute{
 				MarkdownDescription: "Database Backup location",
-				Required:            true,
+				Computed:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
 				MarkdownDescription: "List of tags for the Database Backup resource",
-				Optional:            true,
+				Computed:            true,
 			},
 			"zone": schema.StringAttribute{
 				MarkdownDescription: "Zone for the Database Backup",
-				Required:            true,
+				Computed:            true,
 			},
 			"dbaas_id": schema.StringAttribute{
 				MarkdownDescription: "DBaaS ID this backup belongs to",
-				Required:            true,
+				Computed:            true,
 			},
 			"database": schema.StringAttribute{
 				MarkdownDescription: "Database to backup (ID or name)",
-				Required:            true,
+				Computed:            true,
 			},
 			"billing_period": schema.StringAttribute{
 				MarkdownDescription: "Billing period",
-				Required:            true,
+				Computed:            true,
 			},
 		},
 	}

@@ -62,76 +62,76 @@ func (d *KaaSDataSource) Schema(ctx context.Context, req datasource.SchemaReques
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "KaaS identifier",
-				Computed:            true,
+				Required:            true,
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "KaaS name",
-				Required:            true,
+				Computed:            true,
 			},
 			"location": schema.StringAttribute{
 				MarkdownDescription: "KaaS location",
-				Required:            true,
+				Computed:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
 				MarkdownDescription: "List of tags for the KaaS resource",
-				Optional:            true,
+				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project this KaaS resource belongs to",
-				Required:            true,
+				Computed:            true,
 			},
 			"preset": schema.BoolAttribute{
 				MarkdownDescription: "Whether to use a preset configuration",
-				Required:            true,
+				Computed:            true,
 			},
 			"vpc_id": schema.StringAttribute{
 				MarkdownDescription: "VPC ID for the KaaS resource",
-				Required:            true,
+				Computed:            true,
 			},
 			"subnet_id": schema.StringAttribute{
 				MarkdownDescription: "Subnet ID for the KaaS resource",
-				Required:            true,
+				Computed:            true,
 			},
 			"node_cidr": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
 					"address": schema.StringAttribute{
 						MarkdownDescription: "Node CIDR address",
-						Required:            true,
+						Computed:            true,
 					},
 					"subnet_name": schema.StringAttribute{
 						MarkdownDescription: "Node CIDR subnet name",
-						Required:            true,
+						Computed:            true,
 					},
 				},
-				Required: true,
+				Computed: true,
 			},
 			"security_group_name": schema.StringAttribute{
 				MarkdownDescription: "Security group name",
-				Required:            true,
+				Computed:            true,
 			},
 			"version": schema.StringAttribute{
 				MarkdownDescription: "Kubernetes version",
-				Required:            true,
+				Computed:            true,
 			},
 			"node_pools": schema.ListNestedAttribute{
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
-						"node_pool_name": schema.StringAttribute{Required: true},
-						"replicas":       schema.Int64Attribute{Required: true},
-						"type":           schema.StringAttribute{Required: true},
-						"zone":           schema.StringAttribute{Required: true},
+						"node_pool_name": schema.StringAttribute{Computed: true},
+						"replicas":       schema.Int64Attribute{Computed: true},
+						"type":           schema.StringAttribute{Computed: true},
+						"zone":           schema.StringAttribute{Computed: true},
 					},
 				},
-				Required: true,
+				Computed: true,
 			},
 			"ha": schema.BoolAttribute{
 				MarkdownDescription: "High availability",
-				Required:            true,
+				Computed:            true,
 			},
 			"billing_period": schema.StringAttribute{
 				MarkdownDescription: "Billing period",
-				Required:            true,
+				Computed:            true,
 			},
 		},
 	}

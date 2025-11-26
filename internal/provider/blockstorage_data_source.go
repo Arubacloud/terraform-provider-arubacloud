@@ -50,47 +50,47 @@ func (d *BlockStorageDataSource) Schema(ctx context.Context, req datasource.Sche
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Block Storage identifier",
-				Computed:            true,
+				Required:            true,
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Block Storage name",
-				Required:            true,
+				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project this Block Storage belongs to",
-				Required:            true,
+				Computed:            true,
 			},
 			"properties": schema.SingleNestedAttribute{
 				MarkdownDescription: "Properties of the Block Storage",
-				Required:            true,
+				Computed:            true,
 				Attributes: map[string]schema.Attribute{
 					"size_gb": schema.Int64Attribute{
 						MarkdownDescription: "Size of the block storage in GB",
-						Required:            true,
+						Computed:            true,
 					},
 					"billing_period": schema.StringAttribute{
 						MarkdownDescription: "Billing period of the block storage (only 'Hour' allowed)",
-						Required:            true,
+						Computed:            true,
 					},
 					"zone": schema.StringAttribute{
 						MarkdownDescription: "Zone of the block storage",
-						Required:            true,
+						Computed:            true,
 					},
 					"type": schema.StringAttribute{
 						MarkdownDescription: "Type of block storage (Standard, Performance)",
-						Required:            true,
+						Computed:            true,
 					},
 					"snapshot_id": schema.StringAttribute{
 						MarkdownDescription: "Snapshot ID for the block storage",
-						Optional:            true,
+						Computed:            true,
 					},
 					"bootable": schema.BoolAttribute{
 						MarkdownDescription: "Whether the block storage is bootable",
-						Optional:            true,
+						Computed:            true,
 					},
 					"image": schema.StringAttribute{
 						MarkdownDescription: "Image for the block storage",
-						Optional:            true,
+						Computed:            true,
 					},
 				},
 			},

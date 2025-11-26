@@ -39,15 +39,15 @@ func (d *DatabaseDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Database identifier",
-				Computed:            true,
+				Required:            true,
 			},
 			"dbaas_id": schema.StringAttribute{
 				MarkdownDescription: "DBaaS ID this database belongs to",
-				Required:            true,
+				Computed:            true,
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Database name",
-				Required:            true,
+				Computed:            true,
 			},
 		},
 	}
