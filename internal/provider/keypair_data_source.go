@@ -38,29 +38,29 @@ func (d *KeypairDataSource) Metadata(ctx context.Context, req datasource.Metadat
 func (d *KeypairDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Keypair data source",
-		   Attributes: map[string]schema.Attribute{
-			   "id": schema.StringAttribute{
-				   MarkdownDescription: "Keypair identifier",
-				   Required:            true,
-			   },
-			   "name": schema.StringAttribute{
-				   MarkdownDescription: "Keypair name",
-				   Computed:            true,
-			   },
-			   "location": schema.StringAttribute{
-				   MarkdownDescription: "Keypair location",
-				   Computed:            true,
-			   },
-			   "tags": schema.ListAttribute{
-				   ElementType:         types.StringType,
-				   MarkdownDescription: "List of tags for the keypair",
-				   Computed:            true,
-			   },
-			   "value": schema.StringAttribute{
-				   MarkdownDescription: "Keypair value",
-				   Computed:            true,
-			   },
-		   },
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				MarkdownDescription: "Keypair identifier",
+				Required:            true,
+			},
+			"name": schema.StringAttribute{
+				MarkdownDescription: "Keypair name",
+				Computed:            true,
+			},
+			"location": schema.StringAttribute{
+				MarkdownDescription: "Keypair location",
+				Computed:            true,
+			},
+			"tags": schema.ListAttribute{
+				ElementType:         types.StringType,
+				MarkdownDescription: "List of tags for the keypair",
+				Computed:            true,
+			},
+			"value": schema.StringAttribute{
+				MarkdownDescription: "Keypair value",
+				Computed:            true,
+			},
+		},
 	}
 }
 

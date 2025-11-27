@@ -37,24 +37,24 @@ func (d *KMIPDataSource) Metadata(ctx context.Context, req datasource.MetadataRe
 func (d *KMIPDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "KMIP data source",
-		   Attributes: map[string]schema.Attribute{
-			   "id": schema.StringAttribute{
-				   MarkdownDescription: "KMIP identifier",
-				   Required:            true,
-			   },
-			   "name": schema.StringAttribute{
-				   MarkdownDescription: "Name of the KMIP resource",
-				   Computed:            true,
-			   },
-			   "description": schema.StringAttribute{
-				   MarkdownDescription: "Description of the KMIP resource",
-				   Computed:            true,
-			   },
-			   "endpoint": schema.StringAttribute{
-				   MarkdownDescription: "KMIP endpoint URL",
-				   Computed:            true,
-			   },
-		   },
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				MarkdownDescription: "KMIP identifier",
+				Required:            true,
+			},
+			"name": schema.StringAttribute{
+				MarkdownDescription: "Name of the KMIP resource",
+				Computed:            true,
+			},
+			"description": schema.StringAttribute{
+				MarkdownDescription: "Description of the KMIP resource",
+				Computed:            true,
+			},
+			"endpoint": schema.StringAttribute{
+				MarkdownDescription: "KMIP endpoint URL",
+				Computed:            true,
+			},
+		},
 	}
 }
 
