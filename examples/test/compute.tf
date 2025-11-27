@@ -19,7 +19,7 @@ resource "arubacloud_cloudserver" "example" {
   elastic_ip_id   = arubacloud_elasticip.example.id
   boot_volume     = arubacloud_blockstorage.example.id
   key_pair_id     = arubacloud_keypair.example.id
-  subnets         = [arubacloud_subnet.example.id, arubacloud_subnet2.example.id]
-  securitygroups  = [arubacloud_securitygroup.example.id, arubacloud_securitygroup2.example.id]
+  subnets         = [arubacloud_subnet.example.id, arubacloud_subnet.example2.id]
+  securitygroups  = [arubacloud_securitygroup.example.id, arubacloud_securitygroup.example2.id]
 }
 

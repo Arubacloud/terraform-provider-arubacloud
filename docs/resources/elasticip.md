@@ -1,18 +1,13 @@
-page_title: "arubacloud_elastic_ip Resource - ArubaCloud"
-# arubacloud_elastic_ip (Resource)
-```terraform
-resource "arubacloud_elastic_ip" "basic" {
-  name = "basic-elastic-ip"
-}
-```
-  Manages an ArubaCloud Elastic IP.
+---
+page_title: "arubacloud_elasticip Resource - ArubaCloud"
+subcategory: "Network"
+description: |-
+  Manages an ArubaCloud ElasticIP.
 ---
 
-# arubacloud_elasticip (Resource)
+# arubacloud_elasticip
 
-Manages an ArubaCloud Elastic IP.
-
-## Example Usage
+Manages an ArubaCloud ElasticIP.
 
 ```terraform
 resource "arubacloud_elasticip" "example" {

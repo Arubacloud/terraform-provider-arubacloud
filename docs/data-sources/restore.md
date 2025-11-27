@@ -23,17 +23,14 @@ data "arubacloud_restore" "basic" {
 
 ### Required
 
-- `location` (String) Restore location
-- `name` (String) Restore name
-- `project_id` (String) ID of the project this restore belongs to
-- `volume_id` (String) Volume ID to restore
-
-### Optional
-
-- `tags` (List of String) List of tags for the restore resource
+- `id` (String) Restore identifier
 
 ### Read-Only
 
-- `id` (String) Restore identifier
+- `location` (String) Restore location
+- `name` (String) Restore name
+- `project_id` (String) ID of the project this restore belongs to
+- `tags` (List of String) List of tags for the restore resource
+- `volume_id` (String) Volume ID to restore
 
 

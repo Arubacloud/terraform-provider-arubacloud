@@ -5,7 +5,7 @@ description: |-
   Manages an ArubaCloud Database.
 ---
 
-# arubacloud_database (Resource)
+# arubacloud_database
 
 Manages an ArubaCloud Database.
 

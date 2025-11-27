@@ -5,7 +5,7 @@ description: |-
   Manages an ArubaCloud KaaS.
 ---
 
-# arubacloud_kaas (Resource)
+# arubacloud_kaas
 
 Manages an ArubaCloud KaaS.
 

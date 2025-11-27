@@ -29,19 +29,16 @@ data "arubacloud_database_backup" "example" {
 
 ### Required
 
+- `id` (String) Database Backup identifier
+
+### Read-Only
+
 - `billing_period` (String) Billing period
 - `database` (String) Database to backup (ID or name)
 - `dbaas_id` (String) DBaaS ID this backup belongs to
 - `location` (String) Database Backup location
 - `name` (String) Database Backup name
-- `zone` (String) Zone for the Database Backup
-
-### Optional
-
 - `tags` (List of String) List of tags for the Database Backup resource
-
-### Read-Only
-
-- `id` (String) Database Backup identifier
+- `zone` (String) Zone for the Database Backup
 
 

@@ -6,7 +6,7 @@ description: |-
   Manages an ArubaCloud Block Storage.
 ---
 
-# arubacloud_blockstorage (Resource)
+# arubacloud_blockstorage
 
 Manages an ArubaCloud Block Storage.
 

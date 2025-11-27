@@ -11,11 +11,26 @@ Reads an existing ArubaCloud Security Rule.
 
 ```terraform
 data "arubacloud_security_rule" "example" {
-  name       = "example-security-rule"
-  project_id = "example-project"
-  direction  = "inbound"
-  protocol   = "tcp"
-  port       = 80
+  id = "your-securityrule-id"
+}
+
+output "securityrule_name" {
+  value = data.arubacloud_security_rule.example.name
+}
+output "securityrule_location" {
+  value = data.arubacloud_security_rule.example.location
+}
+output "securityrule_project_id" {
+  value = data.arubacloud_security_rule.example.project_id
+}
+output "securityrule_vpc_id" {
+  value = data.arubacloud_security_rule.example.vpc_id
+}
+output "securityrule_security_group_id" {
+  value = data.arubacloud_security_rule.example.security_group_id
+}
+output "securityrule_properties" {
+  value = data.arubacloud_security_rule.example.properties
 }
 ```
 

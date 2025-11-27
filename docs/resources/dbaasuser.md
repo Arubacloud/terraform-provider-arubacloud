@@ -1,19 +1,13 @@
-page_title: "arubacloud_dbaas_user Resource - ArubaCloud"
-# arubacloud_dbaas_user (Resource)
-```terraform
-resource "arubacloud_dbaas_user" "basic" {
-  name = "basic-dbaas-user"
-  dbaas_id = "dbaas-id"
-}
-```
+---
+page_title: "arubacloud_dbaasuser Resource - ArubaCloud"
+subcategory: "Database"
+description: |-
   Manages an ArubaCloud DBaaS User.
 ---
 
-# arubacloud_dbaasuser (Resource)
+# arubacloud_dbaasuser
 
 Manages an ArubaCloud DBaaS User.
-
-## Example Usage
 
 ```terraform
 resource "arubacloud_dbaasuser" "example" {

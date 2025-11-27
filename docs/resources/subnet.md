@@ -5,7 +5,7 @@ description: |-
   Manages an ArubaCloud Subnet.
 ---
 
-# arubacloud_subnet (Resource)
+# arubacloud_subnet
 
 Manages an ArubaCloud Subnet.
 

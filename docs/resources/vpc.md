@@ -5,7 +5,7 @@ description: |-
   Manages an ArubaCloud VPC Network.
 ---
 
-# arubacloud_vpc (Resource)
+# arubacloud_vpc
 
 Manages an ArubaCloud VPC Network.
 

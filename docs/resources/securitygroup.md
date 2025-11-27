@@ -1,14 +1,13 @@
-# This file has been removed as part of the legacy resource cleanup.
-page_title: "arubacloud_security_group Resource - ArubaCloud"
+---
+page_title: "arubacloud_securitygroup Resource - ArubaCloud"
 subcategory: "Network"
 description: |-
-  Manages an ArubaCloud Security Group.
+  Manages an ArubaCloud SecurityGroup.
+---
 
-# arubacloud_security_group (Resource)
+# arubacloud_securitygroup
 
-Manages an ArubaCloud Security Group.
-
-## Example Usage
+Manages an ArubaCloud SecurityGroup.
 
 ```terraform
 resource "arubacloud_security_group" "basic" {

@@ -6,7 +6,7 @@ description: |-
   Manages an ArubaCloud Storage Backup.
 ---
 
-# arubacloud_backup (Resource)
+# arubacloud_backup
 
 Manages an ArubaCloud Storage Backup.
 

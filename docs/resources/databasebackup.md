@@ -1,19 +1,13 @@
-page_title: "arubacloud_database_backup Resource - ArubaCloud"
-# arubacloud_database_backup (Resource)
-```terraform
-resource "arubacloud_database_backup" "basic" {
-  name = "basic-database-backup"
-  database_id = "database-id"
-}
-```
+---
+page_title: "arubacloud_databasebackup Resource - ArubaCloud"
+subcategory: "Database"
+description: |-
   Manages an ArubaCloud Database Backup.
 ---
 
-# arubacloud_databasebackup (Resource)
+# arubacloud_databasebackup
 
-Manages an ArubaCloud Database Backup.
-
-## Example Usage
+Manages an ArubaCloud Database Backup. 
 
 ```terraform
 resource "arubacloud_databasebackup" "basic" {

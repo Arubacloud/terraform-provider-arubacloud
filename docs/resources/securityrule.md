@@ -5,7 +5,7 @@ description: |-
   Manages an ArubaCloud Security Rule.
 ---
 
-# arubacloud_securityrule (Resource)
+# arubacloud_securityrule
 
 Manages an ArubaCloud Security Rule.
 

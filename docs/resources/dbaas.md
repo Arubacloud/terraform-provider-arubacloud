@@ -5,7 +5,7 @@ description: |-
   Manages an ArubaCloud DBaaS.
 ---
 
-# arubacloud_dbaas (Resource)
+# arubacloud_dbaas
 
 Manages an ArubaCloud DBaaS.
 

@@ -5,7 +5,7 @@ description: |-
   Manages an ArubaCloud Project.
 ---
 
-# arubacloud_project (Resource)
+# arubacloud_project
 
 Manages an ArubaCloud Project.
 

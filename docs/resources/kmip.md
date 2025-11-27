@@ -5,7 +5,7 @@ description: |-
   Manages an ArubaCloud Kmip.
 ---
 
-# arubacloud_kmip (Resource)
+# arubacloud_kmip
 
 Manages an ArubaCloud Kmip.
 

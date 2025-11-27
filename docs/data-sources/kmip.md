@@ -2,7 +2,17 @@ page_title: "arubacloud_kmip Data Source - ArubaCloud"
 # arubacloud_kmip (Data Source)
 ```terraform
 data "arubacloud_kmip" "basic" {
-  id = "kmip-id"
+  id = "your-kmip-id"
+}
+
+output "kmip_name" {
+  value = data.arubacloud_kmip.basic.name
+}
+output "kmip_description" {
+  value = data.arubacloud_kmip.basic.description
+}
+output "kmip_endpoint" {
+  value = data.arubacloud_kmip.basic.endpoint
 }
 ```
   Reads an existing ArubaCloud KMIP instance.
@@ -14,7 +24,17 @@ Reads an existing ArubaCloud KMIP instance.
 
 ```terraform
 data "arubacloud_kmip" "basic" {
-  id = "kmip-id"
+  id = "your-kmip-id"
+}
+
+output "kmip_name" {
+  value = data.arubacloud_kmip.basic.name
+}
+output "kmip_description" {
+  value = data.arubacloud_kmip.basic.description
+}
+output "kmip_endpoint" {
+  value = data.arubacloud_kmip.basic.endpoint
 }
 ```
 
@@ -26,12 +46,12 @@ data "arubacloud_kmip" "basic" {
 
 ### Required
 
-- `name` (String) Name of the KMIP resource
+- `id` (String) KMIP identifier
 
 ### Read-Only
 
 - `description` (String) Description of the KMIP resource
 - `endpoint` (String) KMIP endpoint URL
-- `id` (String) KMIP identifier
+- `name` (String) Name of the KMIP resource
 
 

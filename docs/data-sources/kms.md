@@ -23,12 +23,12 @@ data "arubacloud_kms" "basic" {
 
 ### Required
 
-- `name` (String) Name of the KMS resource
+- `id` (String) KMS identifier
 
 ### Read-Only
 
 - `description` (String) Description of the KMS resource
 - `endpoint` (String) KMS endpoint URL
-- `id` (String) KMS identifier
+- `name` (String) Name of the KMS resource
 
 

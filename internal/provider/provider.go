@@ -121,6 +121,8 @@ func (p *ArubaCloudProvider) Resources(ctx context.Context) []func() resource.Re
 
 	return []func() resource.Resource{
 		NewProjectResource,
+		NewCloudServerResource,
+		NewKeypairResource,
 		NewElasticIPResource,
 		NewBlockStorageResource,
 		NewSnapshotResource,
@@ -144,7 +146,6 @@ func (p *ArubaCloudProvider) Resources(ctx context.Context) []func() resource.Re
 		NewScheduleJobResource,
 		NewKMSResource,
 		NewKMIPResource,
-		NewKeypairResource,
 	}
 
 }

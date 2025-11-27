@@ -5,7 +5,7 @@ description: |-
   Manages an ArubaCloud Database Grant.
 ---
 
-# arubacloud_databasegrant (Resource)
+# arubacloud_databasegrant
 
 Manages an ArubaCloud Database Grant.
 

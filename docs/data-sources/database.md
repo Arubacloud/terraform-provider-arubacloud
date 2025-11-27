@@ -2,7 +2,14 @@ page_title: "arubacloud_database Data Source - ArubaCloud"
 # arubacloud_database (Data Source)
 ```terraform
 data "arubacloud_database" "basic" {
-  id = "database-id"
+  id = "your-database-id"
+}
+
+output "database_dbaas_id" {
+  value = data.arubacloud_database.basic.dbaas_id
+}
+output "database_name" {
+  value = data.arubacloud_database.basic.name
 }
 ```
   Reads an existing ArubaCloud database.
@@ -14,7 +21,14 @@ Reads an existing ArubaCloud database.
 
 ```terraform
 data "arubacloud_database" "basic" {
-  id = "database-id"
+  id = "your-database-id"
+}
+
+output "database_dbaas_id" {
+  value = data.arubacloud_database.basic.dbaas_id
+}
+output "database_name" {
+  value = data.arubacloud_database.basic.name
 }
 ```
 
@@ -26,11 +40,11 @@ data "arubacloud_database" "basic" {
 
 ### Required
 
-- `dbaas_id` (String) DBaaS ID this database belongs to
-- `name` (String) Database name
+- `id` (String) Database identifier
 
 ### Read-Only
 
-- `id` (String) Database identifier
+- `dbaas_id` (String) DBaaS ID this database belongs to
+- `name` (String) Database name
 
 

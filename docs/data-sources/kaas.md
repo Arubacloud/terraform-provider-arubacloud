@@ -2,7 +2,47 @@ page_title: "arubacloud_kaas Data Source - ArubaCloud"
 # arubacloud_kaas (Data Source)
 ```terraform
 data "arubacloud_kaas" "basic" {
-  id = "kaas-id"
+  id = "your-kaas-id"
+}
+
+output "kaas_name" {
+  value = data.arubacloud_kaas.basic.name
+}
+output "kaas_location" {
+  value = data.arubacloud_kaas.basic.location
+}
+output "kaas_tags" {
+  value = data.arubacloud_kaas.basic.tags
+}
+output "kaas_project_id" {
+  value = data.arubacloud_kaas.basic.project_id
+}
+output "kaas_preset" {
+  value = data.arubacloud_kaas.basic.preset
+}
+output "kaas_vpc_id" {
+  value = data.arubacloud_kaas.basic.vpc_id
+}
+output "kaas_subnet_id" {
+  value = data.arubacloud_kaas.basic.subnet_id
+}
+output "kaas_node_cidr" {
+  value = data.arubacloud_kaas.basic.node_cidr
+}
+output "kaas_security_group_name" {
+  value = data.arubacloud_kaas.basic.security_group_name
+}
+output "kaas_version" {
+  value = data.arubacloud_kaas.basic.version
+}
+output "kaas_node_pools" {
+  value = data.arubacloud_kaas.basic.node_pools
+}
+output "kaas_ha" {
+  value = data.arubacloud_kaas.basic.ha
+}
+output "kaas_billing_period" {
+  value = data.arubacloud_kaas.basic.billing_period
 }
 ```
   Reads an existing ArubaCloud KaaS cluster.
@@ -14,7 +54,47 @@ Reads an existing ArubaCloud KaaS cluster.
 
 ```terraform
 data "arubacloud_kaas" "basic" {
-  id = "kaas-id"
+  id = "your-kaas-id"
+}
+
+output "kaas_name" {
+  value = data.arubacloud_kaas.basic.name
+}
+output "kaas_location" {
+  value = data.arubacloud_kaas.basic.location
+}
+output "kaas_tags" {
+  value = data.arubacloud_kaas.basic.tags
+}
+output "kaas_project_id" {
+  value = data.arubacloud_kaas.basic.project_id
+}
+output "kaas_preset" {
+  value = data.arubacloud_kaas.basic.preset
+}
+output "kaas_vpc_id" {
+  value = data.arubacloud_kaas.basic.vpc_id
+}
+output "kaas_subnet_id" {
+  value = data.arubacloud_kaas.basic.subnet_id
+}
+output "kaas_node_cidr" {
+  value = data.arubacloud_kaas.basic.node_cidr
+}
+output "kaas_security_group_name" {
+  value = data.arubacloud_kaas.basic.security_group_name
+}
+output "kaas_version" {
+  value = data.arubacloud_kaas.basic.version
+}
+output "kaas_node_pools" {
+  value = data.arubacloud_kaas.basic.node_pools
+}
+output "kaas_ha" {
+  value = data.arubacloud_kaas.basic.ha
+}
+output "kaas_billing_period" {
+  value = data.arubacloud_kaas.basic.billing_period
 }
 ```
 
@@ -26,6 +106,10 @@ data "arubacloud_kaas" "basic" {
 
 ### Required
 
+- `id` (String) KaaS identifier
+
+### Read-Only
+
 - `billing_period` (String) Billing period
 - `ha` (Boolean) High availability
 - `location` (String) KaaS location
@@ -36,21 +120,14 @@ data "arubacloud_kaas" "basic" {
 - `project_id` (String) ID of the project this KaaS resource belongs to
 - `security_group_name` (String) Security group name
 - `subnet_id` (String) Subnet ID for the KaaS resource
+- `tags` (List of String) List of tags for the KaaS resource
 - `version` (String) Kubernetes version
 - `vpc_id` (String) VPC ID for the KaaS resource
-
-### Optional
-
-- `tags` (List of String) List of tags for the KaaS resource
-
-### Read-Only
-
-- `id` (String) KaaS identifier
 
 <a id="nestedatt--node_cidr"></a>
 ### Nested Schema for `node_cidr`
 
-Required:
+Read-Only:
 
 - `address` (String) Node CIDR address
 - `subnet_name` (String) Node CIDR subnet name
@@ -59,7 +136,7 @@ Required:
 <a id="nestedatt--node_pools"></a>
 ### Nested Schema for `node_pools`
 
-Required:
+Read-Only:
 
 - `node_pool_name` (String)
 - `replicas` (Number)

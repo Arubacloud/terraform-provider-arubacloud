@@ -51,9 +51,43 @@ resource "arubacloud_subnet" "example" {
   dns = ["8.8.8.8", "8.8.4.4"]
 }
 
+resource "arubacloud_subnet" "example2" {
+  name       = "example-subnet2"
+  location   = "ITBG-Bergamo"
+  tags       = ["subnet", "test"]
+  project_id = arubacloud_project.example.id
+  vpc_id     = arubacloud_vpc.example.id
+  type       = "Advanced"
+  network = {
+    address = "10.0.2.0/24"
+  }
+  dhcp = {
+    enabled = true
+    range = {
+      start = "10.0.2.10"
+      count = 20
+    }
+  }
+  routes = [
+    {
+      address = "0.0.0.0"
+      gateway = "10.0.2.1"
+    }
+  ]
+  dns = ["8.8.8.8", "8.8.4.4"]
+}
+
 ## Security Group
 resource "arubacloud_securitygroup" "example" {
   name       = "example-security-group"
+  location   = "ITBG-Bergamo"
+  tags       = ["web", "prod"]
+  project_id = arubacloud_project.example.id
+  vpc_id     = arubacloud_vpc.example.id
+}
+
+resource "arubacloud_securitygroup" "example2" {
+  name       = "example-security-group2"
   location   = "ITBG-Bergamo"
   tags       = ["web", "prod"]
   project_id = arubacloud_project.example.id

@@ -12,10 +12,38 @@ Retrieves an ArubaCloud Container Registry.
 
 ```terraform
 data "arubacloud_containerregistry" "example" {
-  name       = "example-container-registry"
-  project_id = "example-project"
-  location   = "eu-1"
-  type       = "Standard"
+  id = "your-containerregistry-id"
+}
+
+output "containerregistry_name" {
+  value = data.arubacloud_containerregistry.example.name
+}
+output "containerregistry_location" {
+  value = data.arubacloud_containerregistry.example.location
+}
+output "containerregistry_tags" {
+  value = data.arubacloud_containerregistry.example.tags
+}
+output "containerregistry_project_id" {
+  value = data.arubacloud_containerregistry.example.project_id
+}
+output "containerregistry_elasticip_id" {
+  value = data.arubacloud_containerregistry.example.elasticip_id
+}
+output "containerregistry_subnet_id" {
+  value = data.arubacloud_containerregistry.example.subnet_id
+}
+output "containerregistry_security_group_id" {
+  value = data.arubacloud_containerregistry.example.security_group_id
+}
+output "containerregistry_block_storage_id" {
+  value = data.arubacloud_containerregistry.example.block_storage_id
+}
+output "containerregistry_billing_period" {
+  value = data.arubacloud_containerregistry.example.billing_period
+}
+output "containerregistry_admin_user" {
+  value = data.arubacloud_containerregistry.example.admin_user
 }
 ```
 
@@ -26,6 +54,10 @@ data "arubacloud_containerregistry" "example" {
 
 ### Required
 
+- `id` (String) Container Registry identifier
+
+### Read-Only
+
 - `admin_user` (String) Admin user for the Container Registry
 - `billing_period` (String) Billing period
 - `block_storage_id` (String) Block Storage ID
@@ -35,13 +67,6 @@ data "arubacloud_containerregistry" "example" {
 - `project_id` (String) ID of the project this Container Registry belongs to
 - `security_group_id` (String) Security Group ID
 - `subnet_id` (String) Subnet ID
-
-### Optional
-
 - `tags` (List of String) List of tags for the Container Registry resource
-
-### Read-Only
-
-- `id` (String) Container Registry identifier
 
 
