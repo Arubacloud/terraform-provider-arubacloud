@@ -5,7 +5,7 @@ description: |-
   Manages an ArubaCloud Storage Restore.
 ---
 
-# arubacloud_restore (Resource)
+# arubacloud_restore
 
 Manages an ArubaCloud Storage Restore.
 

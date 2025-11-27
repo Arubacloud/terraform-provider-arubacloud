@@ -1,10 +1,11 @@
-# This file has been removed as part of the legacy resource cleanup.
-page_title: "arubacloud_vpc_peering_route Resource - ArubaCloud"
+---
+page_title: "arubacloud_vpcpeeringroute Resource - ArubaCloud"
 subcategory: "Network"
 description: |-
   Manages an ArubaCloud VPC Peering Route.
+---
 
-# arubacloud_vpc_peering_route (Resource)
+# arubacloud_vpcpeeringroute
 
 Manages an ArubaCloud VPC Peering Route.
 

@@ -6,7 +6,7 @@ description: |-
   Manages an ArubaCloud Container Registry.
 ---
 
-# arubacloud_containerregistry (Resource)
+# arubacloud_containerregistry
 
 Manages an ArubaCloud Container Registry.
 

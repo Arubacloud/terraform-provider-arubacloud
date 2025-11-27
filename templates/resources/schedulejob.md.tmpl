@@ -5,7 +5,7 @@ description: |-
   Manages an ArubaCloud Schedule Job.
 ---
 
-# arubacloud_schedulejob (Resource)
+# arubacloud_schedulejob
 
 Manages an ArubaCloud Schedule Job.
 

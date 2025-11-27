@@ -5,7 +5,7 @@ description: |-
   Manages an ArubaCloud Key Management System (KMS).
 ---
 
-# arubacloud_kms (Resource)
+# arubacloud_kms
 
 Manages an ArubaCloud KMS.
 

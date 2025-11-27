@@ -1,3 +1,25 @@
-# ArubaCloud Provider Documentation
+---
+page_title: "Provider: Aruba Cloud"
+description: |-
+  The Aruba Cloud terraform provider is used to interact with the resources supported by Aruba Cloud.
+---
 
-<!-- Customizable index template for docs -->
+# Aruba Cloud Provider
+
+The Aruba Cloud terraform provider is used to interact with the resources supported by [Aruba Cloud](https://arubacloud.com). 
+You need to configure the provider with the proper credentials before it can be used.
+
+Use the navigation to the left to read about the available resources.
+
+## Example Usage
+
+{{ tffile .ExampleFile }}
+
+
+## Argument Reference
+
+The following arguments are supported:
+
+- `api_key` - (Required, string) ArubaCloud API key. Can also be specified with the `ARUBACLOUD_API_KEY` environment variable.
+- `api_secret` - (Required, string) ArubaCloud API secret. Can also be specified with the `ARUBACLOUD_API_SECRET` environment variable.
+
