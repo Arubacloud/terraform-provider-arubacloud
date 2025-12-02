@@ -1,8 +1,10 @@
 # Terraform Provider for ArubaCloud
 
 [![GitHub release](https://img.shields.io/github/tag/arubacloud/terraform-provider-arubacloud.svg?label=release)](https://github.com/arubacloud/terraform-provider-arubacloud/releases/latest)
-[![Actions Status](https://github.com/arubacloud/terraform-provider-arubacloud/workflows/test/badge.svg)](https://github.com/arubacloud/terraform-provider-arubacloud/actions)
-[![Actions Status](https://github.com/arubacloud/terraform-provider-arubacloud/workflows/release/badge.svg)](https://github.com/arubacloud/terraform-provider-arubacloud/actions)
+[![Tests](https://github.com/arubacloud/terraform-provider-arubacloud/actions/workflows/test.yml/badge.svg)](https://github.com/arubacloud/terraform-provider-arubacloud/actions/workflows/test.yml)
+[![Release](https://github.com/arubacloud/terraform-provider-arubacloud/actions/workflows/release.yml/badge.svg)](https://github.com/arubacloud/terraform-provider-arubacloud/actions/workflows/release.yml)
+
+> **⚠️ Development Status**: This provider is currently under active development and is **not production-ready yet**. APIs and resource schemas may change. Use at your own risk in production environments.
 
 - Documentation: See generated docs in the `docs/` folder or [Terraform Registry](https://registry.terraform.io/providers/arubacloud/arubacloud/latest/docs) (when published)
 
