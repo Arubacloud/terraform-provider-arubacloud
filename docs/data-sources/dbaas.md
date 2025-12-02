@@ -1,14 +1,11 @@
-page_title: "arubacloud_dbaas Data Source - ArubaCloud"
-# arubacloud_dbaas (Data Source)
-```terraform
-data "arubacloud_dbaas" "basic" {
-  id = "dbaas-id"
-}
-```
-  Reads an existing ArubaCloud DBaaS instance.
+---
+page_title: "arubacloud_dbaas"
+subcategory: "Database"
+description: |-
+  Retrieves an ArubaCloud DBaaS.
 ---
 
-# arubacloud_dbaas (Data Source)
+# arubacloud_dbaas
 
 Reads an existing ArubaCloud DBaaS instance.
 

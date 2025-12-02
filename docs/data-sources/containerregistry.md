@@ -1,12 +1,11 @@
-
 ---
-page_title: "arubacloud_containerregistry Data Source - ArubaCloud"
+page_title: "arubacloud_containerregistry"
 subcategory: "Container"
 description: |-
   Retrieves an ArubaCloud Container Registry.
 ---
 
-# arubacloud_containerregistry (Data Source)
+# arubacloud_containerregistry
 
 Retrieves an ArubaCloud Container Registry.
 

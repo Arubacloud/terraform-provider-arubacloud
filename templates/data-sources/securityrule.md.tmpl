@@ -1,11 +1,11 @@
 ---
-page_title: "arubacloud_securityrule Data Source - ArubaCloud"
+page_title: "arubacloud_securityrule"
 subcategory: "Network"
 description: |-
   Reads an existing ArubaCloud Security Rule.
 ---
 
-# arubacloud_securityrule (Data Source)
+# arubacloud_securityrule
 
 Reads an existing ArubaCloud Security Rule.
 

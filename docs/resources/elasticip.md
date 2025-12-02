@@ -1,6 +1,5 @@
-
 ---
-page_title: "arubacloud_elasticip Resource - ArubaCloud"
+page_title: "arubacloud_elasticip"
 subcategory: "Network"
 description: |-
   Manages an ArubaCloud Elastic IP.

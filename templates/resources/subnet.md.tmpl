@@ -1,12 +1,12 @@
 ---
-page_title: "arubacloud_subnet Resource - ArubaCloud"
+page_title: "arubacloud_subnet"
 subcategory: "Network"
 description: |-
   Manages an ArubaCloud Subnet.
 ---
 
 ---
-page_title: "arubacloud_subnet Resource - ArubaCloud"
+page_title: "arubacloud_subnet"
 subcategory: "Network"
 description: |-
   Manages an ArubaCloud Subnet resource.

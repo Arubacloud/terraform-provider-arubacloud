@@ -1,6 +1,5 @@
-
 ---
-page_title: "arubacloud_keypair Resource - ArubaCloud"
+page_title: "arubacloud_keypair"
 subcategory: "Compute"
 description: |-
   Manages an ArubaCloud KeyPair.

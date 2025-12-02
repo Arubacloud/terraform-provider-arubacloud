@@ -1,11 +1,11 @@
 ---
-page_title: "arubacloud_vpn_tunnel Data Source - ArubaCloud"
+page_title: "arubacloud_vpn_tunnel"
 subcategory: "Network"
 description: |-
   Reads an existing ArubaCloud VPN tunnel.
 ---
 
-# arubacloud_vpn_tunnel (Data Source)
+# arubacloud_vpn_tunnel
 
 Reads an existing ArubaCloud VPN tunnel.
 

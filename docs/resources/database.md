@@ -1,12 +1,12 @@
 ---
-page_title: "arubacloud_database Resource - ArubaCloud"
+page_title: "arubacloud_database"
 subcategory: "Database"
 description: |-
   Manages an ArubaCloud Database.
 ---
 
 ---
-page_title: "arubacloud_database Resource - ArubaCloud"
+page_title: "arubacloud_database"
 subcategory: "Database"
 description: |-
   Manages an ArubaCloud Database resource.

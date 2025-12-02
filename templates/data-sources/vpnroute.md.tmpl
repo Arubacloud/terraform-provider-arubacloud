@@ -1,11 +1,11 @@
 ---
-page_title: "arubacloud_vpn_route Data Source - ArubaCloud"
+page_title: "arubacloud_vpn_route"
 subcategory: "Network"
 description: |-
   Reads an existing ArubaCloud VPN route.
 ---
 
-# arubacloud_vpn_route (Data Source)
+# arubacloud_vpn_route
 
 Reads an existing ArubaCloud VPN route.
 

@@ -1,11 +1,11 @@
 ---
-page_title: "arubacloud_kms Data Source - ArubaCloud"
+page_title: "arubacloud_kms"
 subcategory: "Security"
 description: |-
   Reads an existing ArubaCloud KMS instance.
 ---
 
-# arubacloud_kms (Data Source)
+# arubacloud_kms
 
 Reads an existing ArubaCloud KMS instance.
 

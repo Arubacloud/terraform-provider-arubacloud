@@ -1,11 +1,11 @@
 ---
-page_title: "arubacloud_restore Data Source - ArubaCloud"
+page_title: "arubacloud_restore"
 subcategory: "Storage"
 description: |-
   Reads an existing ArubaCloud restore.
 ---
 
-# arubacloud_restore (Data Source)
+# arubacloud_restore
 
 Reads an existing ArubaCloud restore.
 

@@ -1,12 +1,12 @@
 ---
-page_title: "arubacloud_dbaas Resource - ArubaCloud"
+page_title: "arubacloud_dbaas"
 subcategory: "Database"
 description: |-
   Manages an ArubaCloud DBaaS.
 ---
 
 ---
-page_title: "arubacloud_dbaas Resource - ArubaCloud"
+page_title: "arubacloud_dbaas"
 subcategory: "Database"
 description: |-
   Manages an ArubaCloud DBaaS resource.

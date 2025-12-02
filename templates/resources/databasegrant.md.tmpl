@@ -1,12 +1,12 @@
 ---
-page_title: "arubacloud_databasegrant Resource - ArubaCloud"
+page_title: "arubacloud_databasegrant"
 subcategory: "Database"
 description: |-
   Manages an ArubaCloud Database Grant.
 ---
 
 ---
-page_title: "arubacloud_databasegrant Resource - ArubaCloud"
+page_title: "arubacloud_databasegrant"
 subcategory: "Database"
 description: |-
   Manages an ArubaCloud Database Grant resource.

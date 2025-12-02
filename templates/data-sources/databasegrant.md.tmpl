@@ -1,12 +1,11 @@
-
 ---
-page_title: "arubacloud_databasegrant Data Source - ArubaCloud"
+page_title: "arubacloud_databasegrant"
 subcategory: "Database"
 description: |-
   Retrieves an ArubaCloud Database Grant.
 ---
 
-# arubacloud_databasegrant (Data Source)
+# arubacloud_databasegrant
 
 Retrieves an ArubaCloud Database Grant.
 

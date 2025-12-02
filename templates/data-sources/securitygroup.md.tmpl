@@ -1,11 +1,11 @@
 ---
-page_title: "arubacloud_securitygroup Data Source - ArubaCloud"
+page_title: "arubacloud_securitygroup"
 subcategory: "Network"
 description: |-
   Reads an existing ArubaCloud Security Group.
 ---
 
-# arubacloud_securitygroup (Data Source)
+# arubacloud_securitygroup
 
 Reads an existing ArubaCloud Security Group.
 

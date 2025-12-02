@@ -1,12 +1,12 @@
 ---
-page_title: "arubacloud_vpcpeering Resource - ArubaCloud"
+page_title: "arubacloud_vpcpeering"
 subcategory: "Network"
 description: |-
   Manages an ArubaCloud VPC Peering.
 ---
 
 ---
-page_title: "arubacloud_vpcpeering Resource - ArubaCloud"
+page_title: "arubacloud_vpcpeering"
 subcategory: "Network"
 description: |-
   Manages an ArubaCloud VPC Peering resource.

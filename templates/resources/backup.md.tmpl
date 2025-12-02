@@ -1,5 +1,5 @@
 ---
-page_title: "arubacloud_backup Resource - ArubaCloud"
+page_title: "arubacloud_backup"
 subcategory: "Storage"
 description: |-
   Manages an ArubaCloud Storage Backup.

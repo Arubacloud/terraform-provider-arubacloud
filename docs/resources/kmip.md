@@ -1,12 +1,12 @@
 ---
-page_title: "arubacloud_kmip Resource - ArubaCloud"
+page_title: "arubacloud_kmip"
 subcategory: "Security"
 description: |-
   Manages an ArubaCloud Kmip.
 ---
 
 ---
-page_title: "arubacloud_kmip Resource - ArubaCloud"
+page_title: "arubacloud_kmip"
 subcategory: "Security"
 description: |-
   Manages an ArubaCloud KMIP resource.

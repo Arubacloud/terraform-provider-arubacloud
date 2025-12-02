@@ -1,12 +1,12 @@
 ---
-page_title: "arubacloud_securitygroup Resource - ArubaCloud"
+page_title: "arubacloud_securitygroup"
 subcategory: "Network"
 description: |-
   Manages an ArubaCloud SecurityGroup.
 ---
 
 ---
-page_title: "arubacloud_securitygroup Resource - ArubaCloud"
+page_title: "arubacloud_securitygroup"
 subcategory: "Security"
 description: |-
   Manages an ArubaCloud Security Group resource.

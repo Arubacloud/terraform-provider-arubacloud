@@ -1,12 +1,12 @@
 ---
-page_title: "arubacloud_schedulejob Resource - ArubaCloud"
+page_title: "arubacloud_schedulejob"
 subcategory: "Job"
 description: |-
   Manages an ArubaCloud Schedule Job.
 ---
 
 ---
-page_title: "arubacloud_schedulejob Resource - ArubaCloud"
+page_title: "arubacloud_schedulejob"
 subcategory: "Management"
 description: |-
   Manages an ArubaCloud Schedule Job resource.

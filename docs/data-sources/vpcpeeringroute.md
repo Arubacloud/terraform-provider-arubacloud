@@ -1,9 +1,11 @@
-page_title: "arubacloud_vpc_peering_route Data Source - ArubaCloud"
+---
+page_title: "arubacloud_vpc_peering_route"
 subcategory: "Network"
 description: |-
   Reads an existing ArubaCloud VPC peering route.
+---
 
-# arubacloud_vpc_peering_route (Data Source)
+# arubacloud_vpc_peering_route
 
 Reads an existing ArubaCloud VPC peering route.
 

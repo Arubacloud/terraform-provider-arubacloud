@@ -1,14 +1,11 @@
-page_title: "arubacloud_elastic_ip Data Source - ArubaCloud"
-# arubacloud_elastic_ip (Data Source)
-```terraform
-data "arubacloud_elastic_ip" "basic" {
-  id = "elastic-ip-id"
-}
-```
-  Reads an existing ArubaCloud Elastic IP.
+---
+page_title: "arubacloud_elasticip"
+subcategory: "Network"
+description: |-
+  Retrieves an ArubaCloud ElasticIP.
 ---
 
-# arubacloud_elasticip (Data Source)
+# arubacloud_elasticip
 
 Reads an existing ArubaCloud Elastic IP.
 

@@ -1,6 +1,5 @@
-
 ---
-page_title: "arubacloud_containerregistry Resource - ArubaCloud"
+page_title: "arubacloud_containerregistry"
 subcategory: "Container"
 description: |-
   Manages an ArubaCloud Container Registry resource.

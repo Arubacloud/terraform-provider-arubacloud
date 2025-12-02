@@ -1,12 +1,12 @@
 ---
-page_title: "arubacloud_kms Resource - ArubaCloud"
+page_title: "arubacloud_kms"
 subcategory: "Security"
 description: |-
   Manages an ArubaCloud Key Management System (KMS).
 ---
 
 ---
-page_title: "arubacloud_kms Resource - ArubaCloud"
+page_title: "arubacloud_kms"
 subcategory: "Security"
 description: |-
   Manages an ArubaCloud Key Management Service (KMS) resource.

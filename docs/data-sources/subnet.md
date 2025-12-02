@@ -1,11 +1,11 @@
 ---
-page_title: "arubacloud_subnet Data Source - ArubaCloud"
+page_title: "arubacloud_subnet"
 subcategory: "Network"
 description: |-
   Reads an existing ArubaCloud subnet.
 ---
 
-# arubacloud_subnet (Data Source)
+# arubacloud_subnet
 
 Reads an existing ArubaCloud subnet.
 

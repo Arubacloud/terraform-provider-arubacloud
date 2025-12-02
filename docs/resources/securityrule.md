@@ -1,12 +1,12 @@
 ---
-page_title: "arubacloud_securityrule Resource - ArubaCloud"
+page_title: "arubacloud_securityrule"
 subcategory: "Network"
 description: |-
   Manages an ArubaCloud Security Rule.
 ---
 
 ---
-page_title: "arubacloud_securityrule Resource - ArubaCloud"
+page_title: "arubacloud_securityrule"
 subcategory: "Security"
 description: |-
   Manages an ArubaCloud Security Rule resource.

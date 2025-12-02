@@ -1,6 +1,5 @@
-
 ---
-page_title: "arubacloud_blockstorage Resource - ArubaCloud"
+page_title: "arubacloud_blockstorage"
 subcategory: "Storage"
 description: |-
   Manages an ArubaCloud Block Storage.

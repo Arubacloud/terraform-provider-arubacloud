@@ -1,12 +1,12 @@
 ---
-page_title: "arubacloud_kaas Resource - ArubaCloud"
+page_title: "arubacloud_kaas"
 subcategory: "Container"
 description: |-
   Manages an ArubaCloud KaaS.
 ---
 
 ---
-page_title: "arubacloud_kaas Resource - ArubaCloud"
+page_title: "arubacloud_kaas"
 subcategory: "Compute"
 description: |-
   Manages an ArubaCloud Kubernetes as a Service (KaaS) resource.

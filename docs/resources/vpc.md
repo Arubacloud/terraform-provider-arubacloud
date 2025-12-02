@@ -1,12 +1,12 @@
 ---
-page_title: "arubacloud_vpc Resource - ArubaCloud"
+page_title: "arubacloud_vpc"
 subcategory: "Network"
 description: |-
   Manages an ArubaCloud VPC Network.
 ---
 
 ---
-page_title: "arubacloud_vpc Resource - ArubaCloud"
+page_title: "arubacloud_vpc"
 subcategory: "Network"
 description: |-
   Manages an ArubaCloud VPC resource.

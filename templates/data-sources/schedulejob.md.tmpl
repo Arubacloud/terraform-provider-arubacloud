@@ -1,11 +1,11 @@
 ---
-page_title: "arubacloud_schedulejob Data Source - ArubaCloud"
-subcategory: "Job"
+page_title: "arubacloud_schedulejob"
+subcategory: "Schedule"
 description: |-
   Reads an existing ArubaCloud Schedule Job.
 ---
 
-# arubacloud_schedulejob (Data Source)
+# arubacloud_schedulejob
 
 Reads an existing ArubaCloud Schedule Job.
 

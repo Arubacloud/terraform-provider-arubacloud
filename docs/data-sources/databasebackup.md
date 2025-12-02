@@ -1,14 +1,11 @@
-page_title: "arubacloud_database_backup Data Source - ArubaCloud"
-# arubacloud_database_backup (Data Source)
-```terraform
-data "arubacloud_database_backup" "basic" {
-  id = "database-backup-id"
-}
-```
-  Reads an existing ArubaCloud database backup.
+---
+page_title: "arubacloud_databasebackup"
+subcategory: "Database"
+description: |-
+  Retrieves an ArubaCloud Database Backup.
 ---
 
-# arubacloud_databasebackup (Data Source)
+# arubacloud_databasebackup
 
 Reads an existing ArubaCloud database backup.
 

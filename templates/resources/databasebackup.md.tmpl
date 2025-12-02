@@ -1,12 +1,12 @@
 ---
-page_title: "arubacloud_databasebackup Resource - ArubaCloud"
+page_title: "arubacloud_databasebackup"
 subcategory: "Database"
 description: |-
   Manages an ArubaCloud Database Backup.
 ---
 
 ---
-page_title: "arubacloud_databasebackup Resource - ArubaCloud"
+page_title: "arubacloud_databasebackup"
 subcategory: "Database"
 description: |-
   Manages an ArubaCloud Database Backup resource.

@@ -1,6 +1,6 @@
 
 ---
-page_title: "arubacloud_cloudserver Resource - ArubaCloud"
+page_title: "arubacloud_cloudserver"
 subcategory: "Compute"
 description: |-
   Manages an ArubaCloud CloudServer.

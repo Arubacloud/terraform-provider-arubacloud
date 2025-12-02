@@ -1,12 +1,11 @@
-
 ---
-page_title: "arubacloud_blockstorage Data Source - ArubaCloud"
+page_title: "arubacloud_blockstorage"
 subcategory: "Storage"
 description: |-
   Retrieves an existing ArubaCloud Block Storage.
 ---
 
-# arubacloud_blockstorage (Data Source)
+# arubacloud_blockstorage
 
 Retrieves an existing ArubaCloud Block Storage.
 

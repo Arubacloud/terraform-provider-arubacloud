@@ -1,11 +1,11 @@
 ---
-page_title: "arubacloud_snapshot Data Source - ArubaCloud"
+page_title: "arubacloud_snapshot"
 subcategory: "Storage"
 description: |-
   Reads an existing ArubaCloud snapshot.
 ---
 
-# arubacloud_snapshot (Data Source)
+# arubacloud_snapshot
 
 Reads an existing ArubaCloud snapshot.
 

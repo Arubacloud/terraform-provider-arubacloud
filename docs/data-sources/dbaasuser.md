@@ -1,6 +1,11 @@
+---
+page_title: "arubacloud_dbaasuser"
+subcategory: "Database"
+description: |-
+  Retrieves an ArubaCloud DBaaS User.
+---
 
-
-# arubacloud_dbaasuser (Data Source)
+# arubacloud_dbaasuser
 
 Reads an existing ArubaCloud DBaaS user.
 

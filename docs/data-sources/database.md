@@ -1,21 +1,11 @@
-page_title: "arubacloud_database Data Source - ArubaCloud"
-# arubacloud_database (Data Source)
-```terraform
-data "arubacloud_database" "basic" {
-  id = "your-database-id"
-}
-
-output "database_dbaas_id" {
-  value = data.arubacloud_database.basic.dbaas_id
-}
-output "database_name" {
-  value = data.arubacloud_database.basic.name
-}
-```
-  Reads an existing ArubaCloud database.
+---
+page_title: "arubacloud_database"
+subcategory: "Database"
+description: |-
+  Retrieves an ArubaCloud Database.
 ---
 
-# arubacloud_database (Data Source)
+# arubacloud_database
 
 Reads an existing ArubaCloud database.
 

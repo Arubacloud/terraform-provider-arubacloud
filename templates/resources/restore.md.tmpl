@@ -1,6 +1,5 @@
-
 ---
-page_title: "arubacloud_restore Resource - ArubaCloud"
+page_title: "arubacloud_restore"
 subcategory: "Storage"
 description: |-
   Manages an ArubaCloud Storage Restore.

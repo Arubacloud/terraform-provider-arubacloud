@@ -1,24 +1,11 @@
-page_title: "arubacloud_kmip Data Source - ArubaCloud"
-# arubacloud_kmip (Data Source)
-```terraform
-data "arubacloud_kmip" "basic" {
-  id = "your-kmip-id"
-}
-
-output "kmip_name" {
-  value = data.arubacloud_kmip.basic.name
-}
-output "kmip_description" {
-  value = data.arubacloud_kmip.basic.description
-}
-output "kmip_endpoint" {
-  value = data.arubacloud_kmip.basic.endpoint
-}
-```
-  Reads an existing ArubaCloud KMIP instance.
+---
+page_title: "arubacloud_kmip"
+subcategory: "Security"
+description: |-
+  Retrieves an ArubaCloud Kmip Instance.
 ---
 
-# arubacloud_kmip (Data Source)
+# arubacloud_kmip
 
 Reads an existing ArubaCloud KMIP instance.
 

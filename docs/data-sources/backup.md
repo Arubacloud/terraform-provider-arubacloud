@@ -1,6 +1,6 @@
 
 ---
-page_title: "arubacloud_backup Data Source - ArubaCloud"
+page_title: "arubacloud_backup"
 subcategory: "Storage"
 description: |-
   Retrieves an ArubaCloud Storage Backup.

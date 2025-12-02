@@ -1,11 +1,11 @@
 ---
-page_title: "arubacloud_project Data Source - ArubaCloud"
-subcategory: "Core"
+page_title: "arubacloud_project"
+subcategory: "Project"
 description: |-
   Reads an existing ArubaCloud project.
 ---
 
-# arubacloud_project (Data Source)
+# arubacloud_project
 
 Reads an existing ArubaCloud project.
 

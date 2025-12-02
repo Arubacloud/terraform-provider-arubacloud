@@ -1,6 +1,5 @@
-
 ---
-page_title: "arubacloud_project Resource - ArubaCloud"
+page_title: "arubacloud_project"
 subcategory: "Management"
 description: |-
   Manages an ArubaCloud Project.

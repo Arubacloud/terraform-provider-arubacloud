@@ -1,11 +1,11 @@
 ---
-page_title: "arubacloud_vpc Data Source - ArubaCloud"
+page_title: "arubacloud_vpc"
 subcategory: "Network"
 description: |-
   Reads an existing ArubaCloud VPC.
 ---
 
-# arubacloud_vpc (Data Source)
+# arubacloud_vpc
 
 Reads an existing ArubaCloud VPC.
 
