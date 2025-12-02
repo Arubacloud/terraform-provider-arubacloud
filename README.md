@@ -68,9 +68,38 @@ make build
 ## Develop the provider
 
 - Install Go >= 1.24
-- Run make build to build the provider binary
-- Run make test to run unit tests
-- Run make testacc to run acceptance tests (may create real resources)
+- Run `make build` to build the provider binary
+- Run `make test` to run unit tests
+- Run `make testacc` to run acceptance tests (may create real resources)
+
+### Testing
+
+The provider includes comprehensive unit and acceptance tests.
+
+**Run unit tests** (fast, no external dependencies):
+```bash
+make test
+```
+
+**Run acceptance tests** (requires `TF_ACC=1`, may create real resources):
+```bash
+make testacc
+```
+
+**Run a specific test**:
+```bash
+make testacc-run TEST=TestAccBackupResource
+```
+
+**Generate coverage report**:
+```bash
+make testcov
+# Opens coverage.html in your browser
+```
+
+For more details, see the [Testing Guide](docs/TESTING.md).
+
+### Local Development
 
 To use a locally built provider, set up a Terraform CLI config file:
 > export TF_CLI_CONFIG_FILE="terraform.tfrc"
