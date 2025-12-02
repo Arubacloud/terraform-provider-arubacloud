@@ -5,24 +5,20 @@ description: |-
   Manages an ArubaCloud KaaS.
 ---
 
-# arubacloud_kaas
-
-Manages an ArubaCloud KaaS.
-
-## Example Usage
+---
+page_title: "arubacloud_kaas Resource - ArubaCloud"
+subcategory: "Compute"
+description: |-
+  Manages an ArubaCloud Kubernetes as a Service (KaaS) resource.
+---
 
 {{ tffile "examples/resources/arubacloud_kaas/resource-basic.tf" }}
 
-
-## Argument Reference
-
-<!-- tfplugindocs will inject schema-based arguments here -->
-
-## Attribute Reference
-
-<!-- tfplugindocs will inject schema-based attributes here -->
+{{ .SchemaMarkdown }}
 
 ## Import
+
+Aruba Cloud KaaS can be imported using the `kaas_id`.
 
 ```shell
 terraform import arubacloud_kaas.example <kaas_id>

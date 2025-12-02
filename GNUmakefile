@@ -35,6 +35,8 @@ docs:
 		--rendered-website-dir $(TFPLUGINDOCS_RENDERED_WEBSITE) \
 		--website-source-dir $(TFPLUGINDOCS_TEMPLATES_DIR) \
 		--examples-dir $(TFPLUGINDOCS_EXAMPLES_DIR)
+	@echo "Formatting documentation to separate Arguments and Attributes..."
+	@bash scripts/format-docs.sh $(TFPLUGINDOCS_RENDERED_WEBSITE) || echo "Note: format-docs.sh script not executed (bash not available or script missing)"
 
 generate: docs
 	cd tools && go generate ./... && \

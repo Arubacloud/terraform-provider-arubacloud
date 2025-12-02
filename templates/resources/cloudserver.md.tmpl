@@ -12,15 +12,11 @@ Manages an ArubaCloud CloudServer.
 
 {{ tffile "examples/resources/arubacloud_cloudserver/resource-basic.tf" }}
 
-## Argument Reference
-
-<!-- tfplugindocs will inject schema-based arguments here -->
-
-## Attribute Reference
-
-<!-- tfplugindocs will inject schema-based attributes here -->
+{{ .SchemaMarkdown }}
 
 ## Import
+
+Aruba Cloud CloudServers can be imported using the `cloudserver_id`.
 
 ```shell
 terraform import arubacloud_cloudserver.example <cloudserver_id>

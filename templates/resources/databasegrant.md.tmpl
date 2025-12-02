@@ -5,23 +5,18 @@ description: |-
   Manages an ArubaCloud Database Grant.
 ---
 
-# arubacloud_databasegrant
+---
+page_title: "arubacloud_databasegrant Resource - ArubaCloud"
+subcategory: "Database"
+description: |-
+  Manages an ArubaCloud Database Grant resource.
+---
 
-Manages an ArubaCloud Database Grant.
-
-{{ tffile "examples/resources/arubacloud_databasegrant/resource-basic.tf" }}
-
-
-
-## Argument Reference
-
-<!-- tfplugindocs will inject schema-based arguments here -->
-
-## Attribute Reference
-
-<!-- tfplugindocs will inject schema-based attributes here -->
+{{ .SchemaMarkdown }}
 
 ## Import
+
+Aruba Cloud Database Grant can be imported using the `databasegrant_id`.
 
 ```shell
 terraform import arubacloud_databasegrant.example <databasegrant_id>

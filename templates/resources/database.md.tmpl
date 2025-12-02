@@ -5,22 +5,20 @@ description: |-
   Manages an ArubaCloud Database.
 ---
 
-# arubacloud_database
+---
+page_title: "arubacloud_database Resource - ArubaCloud"
+subcategory: "Database"
+description: |-
+  Manages an ArubaCloud Database resource.
+---
 
-Manages an ArubaCloud Database.
 
-{{ tffile "examples/resources/arubacloud_database/resource-basic.tf" }}
-
-
-## Argument Reference
-
-<!-- tfplugindocs will inject schema-based arguments here -->
-
-## Attribute Reference
-
-<!-- tfplugindocs will inject schema-based attributes here -->
+{{ .SchemaMarkdown }}
 
 ## Import
+
+Aruba Cloud Database can be imported using the `database_id`.
+
 
 ```shell
 terraform import arubacloud_database.example <database_id>

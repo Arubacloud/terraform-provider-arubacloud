@@ -5,22 +5,18 @@ description: |-
   Manages an ArubaCloud DBaaS.
 ---
 
-# arubacloud_dbaas
+---
+page_title: "arubacloud_dbaas Resource - ArubaCloud"
+subcategory: "Database"
+description: |-
+  Manages an ArubaCloud DBaaS resource.
+---
 
-Manages an ArubaCloud DBaaS.
-
-{{ tffile "examples/resources/arubacloud_dbaas/resource-basic.tf" }}
-
-
-## Argument Reference
-
-<!-- tfplugindocs will inject schema-based arguments here -->
-
-## Attribute Reference
-
-<!-- tfplugindocs will inject schema-based attributes here -->
+{{ .SchemaMarkdown }}
 
 ## Import
+
+Aruba Cloud DBaaS can be imported using the `dbaas_id`.
 
 ```shell
 terraform import arubacloud_dbaas.example <dbaas_id>

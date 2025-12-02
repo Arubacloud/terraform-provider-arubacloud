@@ -5,22 +5,18 @@ description: |-
   Manages an ArubaCloud DBaaS User.
 ---
 
-# arubacloud_dbaasuser
+---
+page_title: "arubacloud_dbaasuser Resource - ArubaCloud"
+subcategory: "Database"
+description: |-
+  Manages an ArubaCloud DBaaS User resource.
+---
 
-Manages an ArubaCloud DBaaS User.
-
-{{ tffile "examples/resources/arubacloud_dbaasuser/resource-basic.tf" }}
-
-
-## Argument Reference
-
-<!-- tfplugindocs will inject schema-based arguments here -->
-
-## Attribute Reference
-
-<!-- tfplugindocs will inject schema-based attributes here -->
+{{ .SchemaMarkdown }}
 
 ## Import
+
+Aruba Cloud DBaaS User can be imported using the `dbaasuser_id`.
 
 ```shell
 terraform import arubacloud_dbaasuser.example <dbaasuser_id>

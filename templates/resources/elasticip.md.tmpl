@@ -1,8 +1,9 @@
+
 ---
 page_title: "arubacloud_elasticip Resource - ArubaCloud"
 subcategory: "Network"
 description: |-
-  Manages an ArubaCloud ElasticIP.
+  Manages an ArubaCloud Elastic IP.
 ---
 
 # arubacloud_elasticip
@@ -11,16 +12,11 @@ Manages an ArubaCloud ElasticIP.
 
 {{ tffile "examples/resources/arubacloud_elasticip/resource-basic.tf" }}
 
-
-## Argument Reference
-
-<!-- tfplugindocs will inject schema-based arguments here -->
-
-## Attribute Reference
-
-<!-- tfplugindocs will inject schema-based attributes here -->
+{{ .SchemaMarkdown }}
 
 ## Import
+
+Aruba Cloud Elastic IP can be imported using the `elasticip_id`.
 
 ```shell
 terraform import arubacloud_elasticip.example <elasticip_id>

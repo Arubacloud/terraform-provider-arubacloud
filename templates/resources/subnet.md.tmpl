@@ -5,23 +5,20 @@ description: |-
   Manages an ArubaCloud Subnet.
 ---
 
-# arubacloud_subnet
-
-Manages an ArubaCloud Subnet.
-
-## Example Usage
+---
+page_title: "arubacloud_subnet Resource - ArubaCloud"
+subcategory: "Network"
+description: |-
+  Manages an ArubaCloud Subnet resource.
+---
 
 {{ tffile "examples/resources/arubacloud_subnet/resource-basic.tf" }}
 
-## Argument Reference
-
-<!-- tfplugindocs will inject schema-based arguments here -->
-
-## Attribute Reference
-
-<!-- tfplugindocs will inject schema-based attributes here -->
+{{ .SchemaMarkdown }}
 
 ## Import
+
+Aruba Cloud Subnet can be imported using the `subnet_id`.
 
 ```shell
 terraform import arubacloud_subnet.example <subnet_id>

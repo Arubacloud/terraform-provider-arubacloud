@@ -5,23 +5,20 @@ description: |-
   Manages an ArubaCloud VPC Peering Route.
 ---
 
-# arubacloud_vpcpeeringroute
-
-Manages an ArubaCloud VPC Peering Route.
-
-## Example Usage
+---
+page_title: "arubacloud_vpcpeeringroute Resource - ArubaCloud"
+subcategory: "Network"
+description: |-
+  Manages an ArubaCloud VPC Peering Route resource.
+---
 
 {{ tffile "examples/resources/arubacloud_vpc_peering_route/resource-basic.tf" }}
 
-## Argument Reference
-
-<!-- tfplugindocs will inject schema-based arguments here -->
-
-## Attribute Reference
-
-<!-- tfplugindocs will inject schema-based attributes here -->
+{{ .SchemaMarkdown }}
 
 ## Import
+
+Aruba Cloud VPC Network Peering Route can be imported using the `vpcpeeringroute_id`.
 
 ```shell
 terraform import arubacloud_vpc_peering_route.example <route_id>

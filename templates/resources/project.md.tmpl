@@ -1,3 +1,4 @@
+
 ---
 page_title: "arubacloud_project Resource - ArubaCloud"
 subcategory: "Management"
@@ -13,16 +14,11 @@ Manages an ArubaCloud Project.
 
 {{ tffile "examples/resources/arubacloud_project/resource-basic.tf" }}
 
-
-## Argument Reference
-
-<!-- tfplugindocs will inject schema-based arguments here -->
-
-## Attribute Reference
-
-<!-- tfplugindocs will inject schema-based attributes here -->
+{{ .SchemaMarkdown }}
 
 ## Import
+
+Aruba Cloud Project can be imported using the `project_id`.
 
 ```shell
 terraform import arubacloud_project.example <project_id>

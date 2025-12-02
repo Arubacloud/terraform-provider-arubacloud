@@ -5,22 +5,18 @@ description: |-
   Manages an ArubaCloud Database Backup.
 ---
 
-# arubacloud_databasebackup
+---
+page_title: "arubacloud_databasebackup Resource - ArubaCloud"
+subcategory: "Database"
+description: |-
+  Manages an ArubaCloud Database Backup resource.
+---
 
-Manages an ArubaCloud Database Backup. 
-
-{{ tffile "examples/resources/arubacloud_databasebackup/resource-basic.tf" }}
-
-
-## Argument Reference
-
-<!-- tfplugindocs will inject schema-based arguments here -->
-
-## Attribute Reference
-
-<!-- tfplugindocs will inject schema-based attributes here -->
+{{ .SchemaMarkdown }}
 
 ## Import
+
+Aruba Cloud Database Backup can be imported using the `databasebackup_id`.
 
 ```shell
 terraform import arubacloud_databasebackup.example <databasebackup_id>

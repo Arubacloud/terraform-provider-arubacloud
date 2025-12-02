@@ -1,8 +1,11 @@
+
 ---
 page_title: "arubacloud_restore Resource - ArubaCloud"
 subcategory: "Storage"
 description: |-
   Manages an ArubaCloud Storage Restore.
+---
+---
 ---
 
 # arubacloud_restore
@@ -13,16 +16,11 @@ Manages an ArubaCloud Storage Restore.
 
 {{ tffile "examples/resources/arubacloud_restore/resource-basic.tf" }}
 
-
-## Argument Reference
-
-<!-- tfplugindocs will inject schema-based arguments here -->
-
-## Attribute Reference
-
-<!-- tfplugindocs will inject schema-based attributes here -->
+{{ .SchemaMarkdown }}
 
 ## Import
+
+Aruba Cloud Restore can be imported using the `restore_id`.
 
 ```shell
 terraform import arubacloud_restore.example <restore_id>

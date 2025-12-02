@@ -5,23 +5,20 @@ description: |-
   Manages an ArubaCloud Schedule Job.
 ---
 
-# arubacloud_schedulejob
-
-Manages an ArubaCloud Schedule Job.
-
-## Example Usage
+---
+page_title: "arubacloud_schedulejob Resource - ArubaCloud"
+subcategory: "Management"
+description: |-
+  Manages an ArubaCloud Schedule Job resource.
+---
 
 {{ tffile "examples/resources/arubacloud_schedulejob/resource-basic.tf" }}
 
-## Argument Reference
-
-<!-- tfplugindocs will inject schema-based arguments here -->
-
-## Attribute Reference
-
-<!-- tfplugindocs will inject schema-based attributes here -->
+{{ .SchemaMarkdown }}
 
 ## Import
+
+Aruba Cloud Schedule Job can be imported using the `schedulejob_id`.
 
 ```shell
 terraform import arubacloud_schedulejob.example <schedulejob_id>

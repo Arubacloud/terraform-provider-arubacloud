@@ -5,25 +5,20 @@ description: |-
   Manages an ArubaCloud Kmip.
 ---
 
-# arubacloud_kmip
-
-Manages an ArubaCloud Kmip.
-
-## Example Usage
+---
+page_title: "arubacloud_kmip Resource - ArubaCloud"
+subcategory: "Security"
+description: |-
+  Manages an ArubaCloud KMIP resource.
+---
 
 {{ tffile "examples/resources/arubacloud_kmip/resource-basic.tf" }}
 
-
-
-## Argument Reference
-
-<!-- tfplugindocs will inject schema-based arguments here -->
-
-## Attribute Reference
-
-<!-- tfplugindocs will inject schema-based attributes here -->
+{{ .SchemaMarkdown }}
 
 ## Import
+
+Aruba Cloud Kmip can be imported using the `kmip_id`.
 
 ```shell
 terraform import arubacloud_kmip.example <kmip_id>

@@ -5,26 +5,21 @@ description: |-
   Manages an ArubaCloud Key Management System (KMS).
 ---
 
-# arubacloud_kms
-
-Manages an ArubaCloud KMS.
-
-## Example Usage
+---
+page_title: "arubacloud_kms Resource - ArubaCloud"
+subcategory: "Security"
+description: |-
+  Manages an ArubaCloud Key Management Service (KMS) resource.
+---
 
 {{ tffile "examples/resources/arubacloud_kms/resource-basic.tf" }}
 
-
-
-## Argument Reference
-
-<!-- tfplugindocs will inject schema-based arguments here -->
-
-## Attribute Reference
-
-<!-- tfplugindocs will inject schema-based attributes here -->
+{{ .SchemaMarkdown }}
 
 ## Import
 
+Aruba Cloud KMS can be imported using the `kms_id`.
+
 ```shell
-terraform import arubacloud_project.example <project_id>
+terraform import arubacloud_kms.example <kms_id>
 ```

@@ -12,15 +12,11 @@ Manages an ArubaCloud Block Storage.
 
 {{ tffile "examples/resources/arubacloud_blockstorage/resource-basic.tf" }}
 
-## Argument Reference
-
-<!-- tfplugindocs will inject schema-based arguments here -->
-
-## Attribute Reference
-
-<!-- tfplugindocs will inject schema-based attributes here -->
+{{ .SchemaMarkdown }}
 
 ## Import
+
+Aruba Cloud BlockStorage can be imported using the `blockstorage_id`.
 
 ```shell
 terraform import arubacloud_blockstorage.example <blockstorage_id>
