@@ -7,6 +7,8 @@ import (
 	"context"
 	"fmt"
 
+	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -15,16 +17,13 @@ import (
 )
 
 type DBaaSResourceModel struct {
-	Id            types.String `tfsdk:"id"`
-	Name          types.String `tfsdk:"name"`
-	Location      types.String `tfsdk:"location"`
-	Tags          types.List   `tfsdk:"tags"`
-	ProjectID     types.String `tfsdk:"project_id"`
-	Engine        types.String `tfsdk:"engine"`
-	Zone          types.String `tfsdk:"zone"`
-	Flavor        types.String `tfsdk:"flavor"`
-	StorageSize   types.Int64  `tfsdk:"storage_size"`
-	BillingPeriod types.String `tfsdk:"billing_period"`
+	Id        types.String `tfsdk:"id"`
+	Name      types.String `tfsdk:"name"`
+	Location  types.String `tfsdk:"location"`
+	Tags      types.List   `tfsdk:"tags"`
+	ProjectID types.String `tfsdk:"project_id"`
+	EngineID  types.String `tfsdk:"engine_id"`
+	Flavor    types.String `tfsdk:"flavor"`
 }
 
 type DBaaSResource struct {
@@ -67,63 +66,13 @@ func (r *DBaaSResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				MarkdownDescription: "ID of the project this DBaaS belongs to",
 				Required:            true,
 			},
-			"engine": schema.StringAttribute{
-				MarkdownDescription: "Database engine (mysql-8.0, mssql-2022-web, mssql-2022-standard, mssql-2022-enterprise)",
-				Required:            true,
-			},
-			"zone": schema.StringAttribute{
-				MarkdownDescription: "Zone (ITBG-1, ITBG-2, ITBG-3)",
+			"engine_id": schema.StringAttribute{
+				MarkdownDescription: "Database engine ID",
 				Required:            true,
 			},
 			"flavor": schema.StringAttribute{
-				MarkdownDescription: "Flavor type",
+				MarkdownDescription: "DBaaS flavor name",
 				Required:            true,
-			},
-			"storage_size": schema.Int64Attribute{
-				MarkdownDescription: "Storage size",
-				Required:            true,
-			},
-			"billing_period": schema.StringAttribute{
-				MarkdownDescription: "Billing period",
-				Required:            true,
-			},
-			"network": schema.SingleNestedAttribute{
-				Attributes: map[string]schema.Attribute{
-					"vpc_id": schema.StringAttribute{
-						MarkdownDescription: "VPC ID",
-						Required:            true,
-					},
-					"subnet_id": schema.StringAttribute{
-						MarkdownDescription: "Subnet ID",
-						Required:            true,
-					},
-					"security_group_id": schema.StringAttribute{
-						MarkdownDescription: "Security Group ID",
-						Required:            true,
-					},
-					"elastic_ip_id": schema.StringAttribute{
-						MarkdownDescription: "Elastic IP ID",
-						Required:            true,
-					},
-				},
-				Required: true,
-			},
-			"autoscaling": schema.SingleNestedAttribute{
-				Attributes: map[string]schema.Attribute{
-					"enabled": schema.BoolAttribute{
-						MarkdownDescription: "Autoscaling enabled",
-						Required:            true,
-					},
-					"available_space": schema.Int64Attribute{
-						MarkdownDescription: "Available space for autoscaling",
-						Required:            true,
-					},
-					"step_size": schema.Int64Attribute{
-						MarkdownDescription: "Step size for autoscaling",
-						Required:            true,
-					},
-				},
-				Required: true,
 			},
 		},
 	}
@@ -137,7 +86,7 @@ func (r *DBaaSResource) Configure(ctx context.Context, req resource.ConfigureReq
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected *http.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+			fmt.Sprintf("Expected *ArubaCloudClient, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
 		return
 	}
@@ -150,9 +99,112 @@ func (r *DBaaSResource) Create(ctx context.Context, req resource.CreateRequest, 
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	// Simulate API response
-	data.Id = types.StringValue("dbaas-id")
-	tflog.Trace(ctx, "created a DBaaS resource")
+
+	projectID := data.ProjectID.ValueString()
+	if projectID == "" {
+		resp.Diagnostics.AddError(
+			"Missing Project ID",
+			"Project ID is required to create a DBaaS instance",
+		)
+		return
+	}
+
+	// Extract tags
+	var tags []string
+	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
+		diags := data.Tags.ElementsAs(ctx, &tags, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	engineID := data.EngineID.ValueString()
+	flavor := data.Flavor.ValueString()
+
+	// Build the create request
+	createRequest := sdktypes.DBaaSRequest{
+		Metadata: sdktypes.RegionalResourceMetadataRequest{
+			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
+				Name: data.Name.ValueString(),
+				Tags: tags,
+			},
+			Location: sdktypes.LocationRequest{
+				Value: data.Location.ValueString(),
+			},
+		},
+		Properties: sdktypes.DBaaSPropertiesRequest{
+			Engine: &sdktypes.DBaaSEngine{
+				ID: &engineID,
+			},
+			Flavor: &sdktypes.DBaaSFlavor{
+				Name: &flavor,
+			},
+		},
+	}
+
+	// Create the DBaaS instance using the SDK
+	response, err := r.client.Client.FromDatabase().DBaaS().Create(ctx, projectID, createRequest, nil)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error creating DBaaS instance",
+			fmt.Sprintf("Unable to create DBaaS instance: %s", err),
+		)
+		return
+	}
+
+	if response != nil && response.IsError() && response.Error != nil {
+		errorMsg := "Failed to create DBaaS instance"
+		if response.Error.Title != nil {
+			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
+		}
+		if response.Error.Detail != nil {
+			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
+		}
+		resp.Diagnostics.AddError("API Error", errorMsg)
+		return
+	}
+
+	if response != nil && response.Data != nil {
+		if response.Data.Metadata.ID != nil {
+			data.Id = types.StringValue(*response.Data.Metadata.ID)
+		}
+	} else {
+		resp.Diagnostics.AddError(
+			"Invalid API Response",
+			"DBaaS instance created but no data returned from API",
+		)
+		return
+	}
+
+	// Wait for DBaaS to be active before returning
+	// This ensures Terraform doesn't proceed until DBaaS is ready
+	dbaasID := data.Id.ValueString()
+	checker := func(ctx context.Context) (string, error) {
+		getResp, err := r.client.Client.FromDatabase().DBaaS().Get(ctx, projectID, dbaasID, nil)
+		if err != nil {
+			return "", err
+		}
+		if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
+			return *getResp.Data.Status.State, nil
+		}
+		return "Unknown", nil
+	}
+
+	// Wait for DBaaS to be active - block until ready (using configured timeout)
+	if err := WaitForResourceActive(ctx, checker, "DBaaS", dbaasID, r.client.ResourceTimeout); err != nil {
+		resp.Diagnostics.AddError(
+			"DBaaS Not Active",
+			fmt.Sprintf("DBaaS instance was created but did not become active within the timeout period: %s", err),
+		)
+		return
+	}
+
+	tflog.Trace(ctx, "created a DBaaS resource", map[string]interface{}{
+		"dbaas_id": data.Id.ValueString(),
+		"dbaas_name": data.Name.ValueString(),
+	})
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -162,15 +214,214 @@ func (r *DBaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	projectID := data.ProjectID.ValueString()
+	dbaasID := data.Id.ValueString()
+
+	if projectID == "" || dbaasID == "" {
+		resp.Diagnostics.AddError(
+			"Missing Required Fields",
+			"Project ID and DBaaS ID are required to read the DBaaS instance",
+		)
+		return
+	}
+
+	// Get DBaaS instance details using the SDK
+	response, err := r.client.Client.FromDatabase().DBaaS().Get(ctx, projectID, dbaasID, nil)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error reading DBaaS instance",
+			fmt.Sprintf("Unable to read DBaaS instance: %s", err),
+		)
+		return
+	}
+
+	if response != nil && response.IsError() && response.Error != nil {
+		if response.StatusCode == 404 {
+			resp.State.RemoveResource(ctx)
+			return
+		}
+		errorMsg := "Failed to read DBaaS instance"
+		if response.Error.Title != nil {
+			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
+		}
+		if response.Error.Detail != nil {
+			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
+		}
+		resp.Diagnostics.AddError("API Error", errorMsg)
+		return
+	}
+
+	if response != nil && response.Data != nil {
+		dbaas := response.Data
+
+		if dbaas.Metadata.ID != nil {
+			data.Id = types.StringValue(*dbaas.Metadata.ID)
+		}
+		if dbaas.Metadata.Name != nil {
+			data.Name = types.StringValue(*dbaas.Metadata.Name)
+		}
+		if dbaas.Metadata.LocationResponse != nil {
+			data.Location = types.StringValue(dbaas.Metadata.LocationResponse.Value)
+		}
+		if dbaas.Properties.Engine != nil && dbaas.Properties.Engine.ID != nil {
+			data.EngineID = types.StringValue(*dbaas.Properties.Engine.ID)
+		}
+		if dbaas.Properties.Flavor != nil && dbaas.Properties.Flavor.Name != nil {
+			data.Flavor = types.StringValue(*dbaas.Properties.Flavor.Name)
+		}
+
+		// Update tags
+		if len(dbaas.Metadata.Tags) > 0 {
+			tagValues := make([]types.String, len(dbaas.Metadata.Tags))
+			for i, tag := range dbaas.Metadata.Tags {
+				tagValues[i] = types.StringValue(tag)
+			}
+			tagsList, diags := types.ListValueFrom(ctx, types.StringType, tagValues)
+			resp.Diagnostics.Append(diags...)
+			if !resp.Diagnostics.HasError() {
+				data.Tags = tagsList
+			}
+		} else {
+			emptyList, diags := types.ListValue(types.StringType, []attr.Value{})
+			resp.Diagnostics.Append(diags...)
+			if !resp.Diagnostics.HasError() {
+				data.Tags = emptyList
+			}
+		}
+	} else {
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
 func (r *DBaaSResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var data DBaaSResourceModel
+	var state DBaaSResourceModel
+
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	projectID := data.ProjectID.ValueString()
+	dbaasID := data.Id.ValueString()
+
+	if projectID == "" || dbaasID == "" {
+		resp.Diagnostics.AddError(
+			"Missing Required Fields",
+			"Project ID and DBaaS ID are required to update the DBaaS instance",
+		)
+		return
+	}
+
+	// Get current DBaaS instance details
+	getResponse, err := r.client.Client.FromDatabase().DBaaS().Get(ctx, projectID, dbaasID, nil)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error fetching current DBaaS instance",
+			fmt.Sprintf("Unable to get current DBaaS instance: %s", err),
+		)
+		return
+	}
+
+	if getResponse == nil || getResponse.Data == nil {
+		resp.Diagnostics.AddError(
+			"DBaaS Instance Not Found",
+			"DBaaS instance not found or no data returned",
+		)
+		return
+	}
+
+	current := getResponse.Data
+
+	// Get region value
+	regionValue := ""
+	if current.Metadata.LocationResponse != nil {
+		regionValue = current.Metadata.LocationResponse.Value
+	}
+	if regionValue == "" {
+		resp.Diagnostics.AddError(
+			"Missing Region",
+			"Unable to determine region value for DBaaS instance",
+		)
+		return
+	}
+
+	// Extract tags
+	var tags []string
+	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
+		diags := data.Tags.ElementsAs(ctx, &tags, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	} else {
+		tags = current.Metadata.Tags
+	}
+
+	// Build update request - only name and tags can be updated
+	updateRequest := sdktypes.DBaaSRequest{
+		Metadata: sdktypes.RegionalResourceMetadataRequest{
+			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
+				Name: data.Name.ValueString(),
+				Tags: tags,
+			},
+			Location: sdktypes.LocationRequest{
+				Value: regionValue,
+			},
+		},
+		Properties: sdktypes.DBaaSPropertiesRequest{
+			// Preserve current engine if it exists
+			Engine: func() *sdktypes.DBaaSEngine {
+				if current.Properties.Engine != nil {
+					return &sdktypes.DBaaSEngine{
+						ID: current.Properties.Engine.ID,
+					}
+				}
+				return nil
+			}(),
+			// Preserve current flavor if it exists
+			Flavor: func() *sdktypes.DBaaSFlavor {
+				if current.Properties.Flavor != nil {
+					return &sdktypes.DBaaSFlavor{
+						Name: current.Properties.Flavor.Name,
+					}
+				}
+				return nil
+			}(),
+		},
+	}
+
+	// Update the DBaaS instance using the SDK
+	response, err := r.client.Client.FromDatabase().DBaaS().Update(ctx, projectID, dbaasID, updateRequest, nil)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error updating DBaaS instance",
+			fmt.Sprintf("Unable to update DBaaS instance: %s", err),
+		)
+		return
+	}
+
+	if response != nil && response.IsError() && response.Error != nil {
+		errorMsg := "Failed to update DBaaS instance"
+		if response.Error.Title != nil {
+			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
+		}
+		if response.Error.Detail != nil {
+			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
+		}
+		resp.Diagnostics.AddError("API Error", errorMsg)
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -180,6 +431,42 @@ func (r *DBaaSResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	projectID := data.ProjectID.ValueString()
+	dbaasID := data.Id.ValueString()
+
+	if projectID == "" || dbaasID == "" {
+		resp.Diagnostics.AddError(
+			"Missing Required Fields",
+			"Project ID and DBaaS ID are required to delete the DBaaS instance",
+		)
+		return
+	}
+
+	// Delete the DBaaS instance using the SDK with retry mechanism
+	// Retry on any error except 404 (Resource Not Found)
+	err := DeleteResourceWithRetry(
+		ctx,
+		func() (interface{}, error) {
+			return r.client.Client.FromDatabase().DBaaS().Delete(ctx, projectID, dbaasID, nil)
+		},
+		ExtractSDKError,
+		"DBaaS",
+		dbaasID,
+		r.client.ResourceTimeout,
+	)
+
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error deleting DBaaS instance",
+			fmt.Sprintf("Unable to delete DBaaS instance: %s", err),
+		)
+		return
+	}
+
+	tflog.Trace(ctx, "deleted a DBaaS resource", map[string]interface{}{
+		"dbaas_id": dbaasID,
+	})
 }
 
 func (r *DBaaSResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

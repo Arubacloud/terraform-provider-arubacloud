@@ -13,7 +13,9 @@ Manages an ArubaCloud Project.
 
 ```terraform
 resource "arubacloud_project" "basic" {
-  name = "basic-project"
+  name        = "basic-project"
+  description = "Project for testing Terraform provider"
+  tags        = ["terraform", "test"]
 }
 ```
 

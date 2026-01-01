@@ -6,49 +6,17 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
-
-type NodeCIDRProperties struct {
-	Address string `json:"address"`
-	Name    string `json:"subnetName"`
-}
-
-type NodePoolProperties struct {
-	Name     string `tfsdk:"nodePoolName"`
-	Nodes    int32  `tfsdk:"replicas"`
-	Instance string `tfsdk:"type"`
-	Zone     string `tfsdk:"zone"`
-}
-
-type SecurityGroupProperties struct {
-	Name string `tfsdk:"name"`
-}
-
-type KaaSPropertiesRequest struct {
-	Preset            bool                 `tfsdk:"preset"`
-	VpcID             ReferenceResource    `tfsdk:"vpc_id"`
-	SubnetID          types.String         `tfsdk:"project_id"`
-	NodeCIDR          NodeCIDRProperties   `tfsdk:"nodeCidr"`
-	SecurityGroupName types.String         `tfsdk:"securityGroupName"`
-	KubernetesVersion types.String         `tfsdk:"version"`
-	NodePools         []NodePoolProperties `tfsdk:"nodePools"`
-	HA                bool                 `tfsdk:"ha"`
-	BillingPeriod     types.String         `tfsdk:"billing_period"`
-}
-
-type KaaSResourceModel struct {
-	Id        types.String `tfsdk:"id"`
-	Name      types.String `tfsdk:"name"`
-	Location  types.String `tfsdk:"location"`
-	Tags      types.List   `tfsdk:"tags"`
-	ProjectID types.String `tfsdk:"project_id"`
-}
 
 type KaaSResource struct {
 	client *ArubaCloudClient
@@ -61,13 +29,45 @@ func NewKaaSResource() resource.Resource {
 	return &KaaSResource{}
 }
 
+type KaaSResourceModel struct {
+	Id                types.String `tfsdk:"id"`
+	Name              types.String `tfsdk:"name"`
+	Location          types.String `tfsdk:"location"`
+	Tags              types.List   `tfsdk:"tags"`
+	ProjectID         types.String `tfsdk:"project_id"`
+	VpcID             types.String `tfsdk:"vpc_id"`
+	SubnetID          types.String `tfsdk:"subnet_id"`
+	NodeCIDR          types.Object `tfsdk:"node_cidr"`
+	SecurityGroupName types.String `tfsdk:"security_group_name"`
+	Version           types.String `tfsdk:"version"`
+	NodePools         types.List   `tfsdk:"node_pools"`
+	HA                types.Bool   `tfsdk:"ha"`
+	BillingPeriod     types.String `tfsdk:"billing_period"`
+	PodCIDR           types.String `tfsdk:"pod_cidr"`
+}
+
+type KaaSNodeCIDRModel struct {
+	Address   types.String `tfsdk:"address"`
+	SubnetName types.String `tfsdk:"subnet_name"`
+}
+
+type KaaSNodePoolModel struct {
+	NodePoolName types.String `tfsdk:"node_pool_name"`
+	Replicas     types.Int64  `tfsdk:"replicas"`
+	Type         types.String `tfsdk:"type"`
+	Zone         types.String `tfsdk:"zone"`
+	Autoscaling  types.Bool   `tfsdk:"autoscaling"`
+	MinCount     types.Int64  `tfsdk:"min_count"`
+	MaxCount     types.Int64  `tfsdk:"max_count"`
+}
+
 func (r *KaaSResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_kaas"
 }
 
 func (r *KaaSResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "KaaS resource",
+		MarkdownDescription: "KaaS (Kubernetes as a Service) resource",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "KaaS identifier",
@@ -90,10 +90,6 @@ func (r *KaaSResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				MarkdownDescription: "ID of the project this KaaS resource belongs to",
 				Required:            true,
 			},
-			"preset": schema.BoolAttribute{
-				MarkdownDescription: "Whether to use a preset configuration",
-				Required:            true,
-			},
 			"vpc_id": schema.StringAttribute{
 				MarkdownDescription: "VPC ID for the KaaS resource",
 				Required:            true,
@@ -103,6 +99,8 @@ func (r *KaaSResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				Required:            true,
 			},
 			"node_cidr": schema.SingleNestedAttribute{
+				MarkdownDescription: "Node CIDR configuration",
+				Required:            true,
 				Attributes: map[string]schema.Attribute{
 					"address": schema.StringAttribute{
 						MarkdownDescription: "Node CIDR address",
@@ -113,7 +111,6 @@ func (r *KaaSResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 						Required:            true,
 					},
 				},
-				Required: true,
 			},
 			"security_group_name": schema.StringAttribute{
 				MarkdownDescription: "Security group name",
@@ -124,23 +121,52 @@ func (r *KaaSResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				Required:            true,
 			},
 			"node_pools": schema.ListNestedAttribute{
+				MarkdownDescription: "Node pools configuration",
+				Required:            true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
-						"node_pool_name": schema.StringAttribute{Required: true},
-						"replicas":       schema.Int64Attribute{Required: true},
-						"type":           schema.StringAttribute{Required: true},
-						"zone":           schema.StringAttribute{Required: true},
+						"node_pool_name": schema.StringAttribute{
+							MarkdownDescription: "Node pool name",
+							Required:            true,
+						},
+						"replicas": schema.Int64Attribute{
+							MarkdownDescription: "Number of replicas",
+							Required:            true,
+						},
+						"type": schema.StringAttribute{
+							MarkdownDescription: "Instance type",
+							Required:            true,
+						},
+						"zone": schema.StringAttribute{
+							MarkdownDescription: "Zone",
+							Required:            true,
+						},
+						"autoscaling": schema.BoolAttribute{
+							MarkdownDescription: "Enable autoscaling",
+							Optional:            true,
+						},
+						"min_count": schema.Int64Attribute{
+							MarkdownDescription: "Minimum node count for autoscaling",
+							Optional:            true,
+						},
+						"max_count": schema.Int64Attribute{
+							MarkdownDescription: "Maximum node count for autoscaling",
+							Optional:            true,
+						},
 					},
 				},
-				Required: true,
 			},
 			"ha": schema.BoolAttribute{
 				MarkdownDescription: "High availability",
-				Required:            true,
+				Optional:            true,
 			},
 			"billing_period": schema.StringAttribute{
-				MarkdownDescription: "Billing period",
-				Required:            true,
+				MarkdownDescription: "Billing period (Hour, Month, Year)",
+				Optional:            true,
+			},
+			"pod_cidr": schema.StringAttribute{
+				MarkdownDescription: "Pod CIDR",
+				Optional:            true,
 			},
 		},
 	}
@@ -167,9 +193,201 @@ func (r *KaaSResource) Create(ctx context.Context, req resource.CreateRequest, r
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	// Simulate API response
-	data.Id = types.StringValue("kaas-id")
-	tflog.Trace(ctx, "created a KaaS resource")
+
+	projectID := data.ProjectID.ValueString()
+	if projectID == "" {
+		resp.Diagnostics.AddError(
+			"Missing Project ID",
+			"Project ID is required to create a KaaS cluster",
+		)
+		return
+	}
+
+	// Extract tags
+	var tags []string
+	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
+		diags := data.Tags.ElementsAs(ctx, &tags, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	// Build VPC and Subnet URIs
+	vpcURI := data.VpcID.ValueString()
+	if !strings.HasPrefix(vpcURI, "/") {
+		vpcURI = fmt.Sprintf("/projects/%s/providers/Aruba.Network/vpcs/%s", projectID, vpcURI)
+	}
+
+	subnetURI := data.SubnetID.ValueString()
+	if !strings.HasPrefix(subnetURI, "/") {
+		// Need to extract VPC ID from vpcURI or use a placeholder
+		// For now, assume subnet URI format
+		parts := strings.Split(vpcURI, "/")
+		if len(parts) > 0 {
+			vpcIDFromURI := parts[len(parts)-1]
+			subnetURI = fmt.Sprintf("/projects/%s/providers/Aruba.Network/vpcs/%s/subnets/%s", projectID, vpcIDFromURI, subnetURI)
+		}
+	}
+
+	// Extract Node CIDR
+	var nodeCIDRModel KaaSNodeCIDRModel
+	diags := data.NodeCIDR.As(ctx, &nodeCIDRModel, basetypes.ObjectAsOptions{})
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Extract Node Pools
+	var nodePoolModels []KaaSNodePoolModel
+	if !data.NodePools.IsNull() && !data.NodePools.IsUnknown() {
+		diags := data.NodePools.ElementsAs(ctx, &nodePoolModels, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	if len(nodePoolModels) == 0 {
+		resp.Diagnostics.AddError(
+			"Missing Node Pools",
+			"At least one node pool is required",
+		)
+		return
+	}
+
+	// Build node pools
+	nodePools := make([]sdktypes.NodePoolProperties, len(nodePoolModels))
+	for i, np := range nodePoolModels {
+		nodePool := sdktypes.NodePoolProperties{
+			Name:        np.NodePoolName.ValueString(),
+			Nodes:       int32(np.Replicas.ValueInt64()),
+			Instance:    np.Type.ValueString(),
+			Zone:        np.Zone.ValueString(),
+			Autoscaling: np.Autoscaling.ValueBool(),
+		}
+		if !np.MinCount.IsNull() && np.MinCount.ValueInt64() > 0 {
+			minCount := int32(np.MinCount.ValueInt64())
+			nodePool.MinCount = &minCount
+		}
+		if !np.MaxCount.IsNull() && np.MaxCount.ValueInt64() > 0 {
+			maxCount := int32(np.MaxCount.ValueInt64())
+			nodePool.MaxCount = &maxCount
+		}
+		nodePools[i] = nodePool
+	}
+
+	// Build the create request
+	createRequest := sdktypes.KaaSRequest{
+		Metadata: sdktypes.RegionalResourceMetadataRequest{
+			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
+				Name: data.Name.ValueString(),
+				Tags: tags,
+			},
+			Location: sdktypes.LocationRequest{
+				Value: data.Location.ValueString(),
+			},
+		},
+		Properties: sdktypes.KaaSPropertiesRequest{
+			VPC: sdktypes.ReferenceResource{
+				URI: vpcURI,
+			},
+			Subnet: sdktypes.ReferenceResource{
+				URI: subnetURI,
+			},
+			NodeCIDR: sdktypes.NodeCIDRProperties{
+				Address: nodeCIDRModel.Address.ValueString(),
+				Name:    nodeCIDRModel.SubnetName.ValueString(),
+			},
+			SecurityGroup: sdktypes.SecurityGroupProperties{
+				Name: data.SecurityGroupName.ValueString(),
+			},
+			KubernetesVersion: sdktypes.KubernetesVersionInfo{
+				Value: data.Version.ValueString(),
+			},
+			NodePools: nodePools,
+		},
+	}
+
+	// Add optional fields
+	if !data.PodCIDR.IsNull() && !data.PodCIDR.IsUnknown() {
+		podCIDR := data.PodCIDR.ValueString()
+		createRequest.Properties.PodCIDR = &podCIDR
+	}
+
+	if !data.HA.IsNull() && !data.HA.IsUnknown() {
+		ha := data.HA.ValueBool()
+		createRequest.Properties.HA = &ha
+	}
+
+	if !data.BillingPeriod.IsNull() && !data.BillingPeriod.IsUnknown() {
+		createRequest.Properties.BillingPlan = sdktypes.BillingPeriodResource{
+			BillingPeriod: data.BillingPeriod.ValueString(),
+		}
+	}
+
+	// Create the KaaS cluster using the SDK
+	response, err := r.client.Client.FromContainer().KaaS().Create(ctx, projectID, createRequest, nil)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error creating KaaS cluster",
+			fmt.Sprintf("Unable to create KaaS cluster: %s", err),
+		)
+		return
+	}
+
+	if response != nil && response.IsError() && response.Error != nil {
+		errorMsg := "Failed to create KaaS cluster"
+		if response.Error.Title != nil {
+			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
+		}
+		if response.Error.Detail != nil {
+			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
+		}
+		resp.Diagnostics.AddError("API Error", errorMsg)
+		return
+	}
+
+	if response != nil && response.Data != nil {
+		if response.Data.Metadata.ID != nil {
+			data.Id = types.StringValue(*response.Data.Metadata.ID)
+		}
+	} else {
+		resp.Diagnostics.AddError(
+			"Invalid API Response",
+			"KaaS cluster created but no data returned from API",
+		)
+		return
+	}
+
+	// Wait for KaaS to be active before returning
+	// This ensures Terraform doesn't proceed until KaaS is ready
+	kaasID := data.Id.ValueString()
+	checker := func(ctx context.Context) (string, error) {
+		getResp, err := r.client.Client.FromContainer().KaaS().Get(ctx, projectID, kaasID, nil)
+		if err != nil {
+			return "", err
+		}
+		if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
+			return *getResp.Data.Status.State, nil
+		}
+		return "Unknown", nil
+	}
+
+	// Wait for KaaS to be active - block until ready (using configured timeout)
+	if err := WaitForResourceActive(ctx, checker, "KaaS", kaasID, r.client.ResourceTimeout); err != nil {
+		resp.Diagnostics.AddError(
+			"KaaS Not Active",
+			fmt.Sprintf("KaaS cluster was created but did not become active within the timeout period: %s", err),
+		)
+		return
+	}
+
+	tflog.Trace(ctx, "created a KaaS resource", map[string]interface{}{
+		"kaas_id": data.Id.ValueString(),
+		"kaas_name": data.Name.ValueString(),
+	})
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -179,15 +397,371 @@ func (r *KaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	projectID := data.ProjectID.ValueString()
+	kaasID := data.Id.ValueString()
+
+	if projectID == "" || kaasID == "" {
+		resp.Diagnostics.AddError(
+			"Missing Required Fields",
+			"Project ID and KaaS ID are required to read the KaaS cluster",
+		)
+		return
+	}
+
+	// Get KaaS cluster details using the SDK
+	response, err := r.client.Client.FromContainer().KaaS().Get(ctx, projectID, kaasID, nil)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error reading KaaS cluster",
+			fmt.Sprintf("Unable to read KaaS cluster: %s", err),
+		)
+		return
+	}
+
+	if response != nil && response.IsError() && response.Error != nil {
+		if response.StatusCode == 404 {
+			resp.State.RemoveResource(ctx)
+			return
+		}
+		errorMsg := "Failed to read KaaS cluster"
+		if response.Error.Title != nil {
+			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
+		}
+		if response.Error.Detail != nil {
+			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
+		}
+		resp.Diagnostics.AddError("API Error", errorMsg)
+		return
+	}
+
+	if response != nil && response.Data != nil {
+		kaas := response.Data
+
+		if kaas.Metadata.ID != nil {
+			data.Id = types.StringValue(*kaas.Metadata.ID)
+		}
+		if kaas.Metadata.Name != nil {
+			data.Name = types.StringValue(*kaas.Metadata.Name)
+		}
+		if kaas.Metadata.LocationResponse != nil {
+			data.Location = types.StringValue(kaas.Metadata.LocationResponse.Value)
+		}
+		if kaas.Properties.KubernetesVersion.Value != nil {
+			data.Version = types.StringValue(*kaas.Properties.KubernetesVersion.Value)
+		}
+		if kaas.Properties.VPC.URI != nil && *kaas.Properties.VPC.URI != "" {
+			// Extract VPC ID from URI
+			parts := strings.Split(*kaas.Properties.VPC.URI, "/")
+			if len(parts) > 0 {
+				data.VpcID = types.StringValue(parts[len(parts)-1])
+			}
+		}
+		if kaas.Properties.Subnet.URI != nil && *kaas.Properties.Subnet.URI != "" {
+			// Extract Subnet ID from URI
+			parts := strings.Split(*kaas.Properties.Subnet.URI, "/")
+			if len(parts) > 0 {
+				data.SubnetID = types.StringValue(parts[len(parts)-1])
+			}
+		}
+		if kaas.Properties.SecurityGroup.Name != nil && *kaas.Properties.SecurityGroup.Name != "" {
+			data.SecurityGroupName = types.StringValue(*kaas.Properties.SecurityGroup.Name)
+		}
+		if kaas.Properties.NodeCIDR.Address != nil && *kaas.Properties.NodeCIDR.Address != "" {
+			nodeCIDRObj, diags := types.ObjectValue(map[string]attr.Type{
+				"address":    types.StringType,
+				"subnet_name": types.StringType,
+			}, map[string]attr.Value{
+				"address":    types.StringValue(*kaas.Properties.NodeCIDR.Address),
+				"subnet_name": types.StringValue(func() string {
+					if kaas.Properties.NodeCIDR.Name != nil {
+						return *kaas.Properties.NodeCIDR.Name
+					}
+					return ""
+				}()),
+			})
+			resp.Diagnostics.Append(diags...)
+			if !resp.Diagnostics.HasError() {
+				data.NodeCIDR = nodeCIDRObj
+			}
+		}
+		if kaas.Properties.HA != nil {
+			data.HA = types.BoolValue(*kaas.Properties.HA)
+		}
+		if kaas.Properties.PodCIDR != nil && kaas.Properties.PodCIDR.Address != nil {
+			data.PodCIDR = types.StringValue(*kaas.Properties.PodCIDR.Address)
+		}
+		if kaas.Properties.BillingPlan != nil && kaas.Properties.BillingPlan.BillingPeriod != nil {
+			data.BillingPeriod = types.StringValue(*kaas.Properties.BillingPlan.BillingPeriod)
+		}
+
+		// Update node pools
+		if kaas.Properties.NodePools != nil {
+			nodePoolValues := make([]attr.Value, 0)
+			for _, np := range *kaas.Properties.NodePools {
+				nodePoolMap := map[string]attr.Value{
+					"node_pool_name": types.StringValue(func() string {
+						if np.Name != nil {
+							return *np.Name
+						}
+						return ""
+					}()),
+					"replicas": types.Int64Value(func() int64 {
+						if np.Nodes != nil {
+							return int64(*np.Nodes)
+						}
+						return 0
+					}()),
+					"type": types.StringValue(func() string {
+						if np.Instance != nil && np.Instance.Name != nil {
+							return *np.Instance.Name
+						}
+						return ""
+					}()),
+					"zone": types.StringValue(func() string {
+						if np.DataCenter != nil && np.DataCenter.Code != nil {
+							return *np.DataCenter.Code
+						}
+						return ""
+					}()),
+					"autoscaling": types.BoolValue(np.Autoscaling),
+				}
+				if np.MinCount != nil {
+					nodePoolMap["min_count"] = types.Int64Value(int64(*np.MinCount))
+				} else {
+					nodePoolMap["min_count"] = types.Int64Null()
+				}
+				if np.MaxCount != nil {
+					nodePoolMap["max_count"] = types.Int64Value(int64(*np.MaxCount))
+				} else {
+					nodePoolMap["max_count"] = types.Int64Null()
+				}
+
+				nodePoolObj, diags := types.ObjectValue(map[string]attr.Type{
+					"node_pool_name": types.StringType,
+					"replicas":       types.Int64Type,
+					"type":           types.StringType,
+					"zone":           types.StringType,
+					"autoscaling":    types.BoolType,
+					"min_count":      types.Int64Type,
+					"max_count":      types.Int64Type,
+				}, nodePoolMap)
+				resp.Diagnostics.Append(diags...)
+				if !resp.Diagnostics.HasError() {
+					nodePoolValues = append(nodePoolValues, nodePoolObj)
+				}
+			}
+			nodePoolsList, diags := types.ListValue(types.ObjectType{
+				AttrTypes: map[string]attr.Type{
+					"node_pool_name": types.StringType,
+					"replicas":       types.Int64Type,
+					"type":           types.StringType,
+					"zone":           types.StringType,
+					"autoscaling":    types.BoolType,
+					"min_count":      types.Int64Type,
+					"max_count":      types.Int64Type,
+				},
+			}, nodePoolValues)
+			resp.Diagnostics.Append(diags...)
+			if !resp.Diagnostics.HasError() {
+				data.NodePools = nodePoolsList
+			}
+		}
+
+		// Update tags
+		if len(kaas.Metadata.Tags) > 0 {
+			tagValues := make([]types.String, len(kaas.Metadata.Tags))
+			for i, tag := range kaas.Metadata.Tags {
+				tagValues[i] = types.StringValue(tag)
+			}
+			tagsList, diags := types.ListValueFrom(ctx, types.StringType, tagValues)
+			resp.Diagnostics.Append(diags...)
+			if !resp.Diagnostics.HasError() {
+				data.Tags = tagsList
+			}
+		} else {
+			emptyList, diags := types.ListValue(types.StringType, []attr.Value{})
+			resp.Diagnostics.Append(diags...)
+			if !resp.Diagnostics.HasError() {
+				data.Tags = emptyList
+			}
+		}
+	} else {
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
 func (r *KaaSResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var data KaaSResourceModel
+	var state KaaSResourceModel
+
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	projectID := data.ProjectID.ValueString()
+	kaasID := data.Id.ValueString()
+
+	if projectID == "" || kaasID == "" {
+		resp.Diagnostics.AddError(
+			"Missing Required Fields",
+			"Project ID and KaaS ID are required to update the KaaS cluster",
+		)
+		return
+	}
+
+	// Get current KaaS cluster details
+	getResponse, err := r.client.Client.FromContainer().KaaS().Get(ctx, projectID, kaasID, nil)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error fetching current KaaS cluster",
+			fmt.Sprintf("Unable to get current KaaS cluster: %s", err),
+		)
+		return
+	}
+
+	if getResponse == nil || getResponse.Data == nil {
+		resp.Diagnostics.AddError(
+			"KaaS Cluster Not Found",
+			"KaaS cluster not found or no data returned",
+		)
+		return
+	}
+
+	current := getResponse.Data
+
+	// Get region value
+	regionValue := ""
+	if current.Metadata.LocationResponse != nil {
+		regionValue = current.Metadata.LocationResponse.Value
+	}
+	if regionValue == "" {
+		resp.Diagnostics.AddError(
+			"Missing Region",
+			"Unable to determine region value for KaaS cluster",
+		)
+		return
+	}
+
+	// Extract tags
+	var tags []string
+	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
+		diags := data.Tags.ElementsAs(ctx, &tags, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	} else {
+		tags = current.Metadata.Tags
+	}
+
+	// Extract Node Pools
+	var nodePoolModels []KaaSNodePoolModel
+	if !data.NodePools.IsNull() && !data.NodePools.IsUnknown() {
+		diags := data.NodePools.ElementsAs(ctx, &nodePoolModels, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	// Build node pools
+	nodePools := make([]sdktypes.NodePoolProperties, len(nodePoolModels))
+	for i, np := range nodePoolModels {
+		nodePool := sdktypes.NodePoolProperties{
+			Name:        np.NodePoolName.ValueString(),
+			Nodes:       int32(np.Replicas.ValueInt64()),
+			Instance:    np.Type.ValueString(),
+			Zone:        np.Zone.ValueString(),
+			Autoscaling: np.Autoscaling.ValueBool(),
+		}
+		if !np.MinCount.IsNull() && np.MinCount.ValueInt64() > 0 {
+			minCount := int32(np.MinCount.ValueInt64())
+			nodePool.MinCount = &minCount
+		}
+		if !np.MaxCount.IsNull() && np.MaxCount.ValueInt64() > 0 {
+			maxCount := int32(np.MaxCount.ValueInt64())
+			nodePool.MaxCount = &maxCount
+		}
+		nodePools[i] = nodePool
+	}
+
+	// Build Kubernetes version update
+	kubernetesVersionValue := data.Version.ValueString()
+	if kubernetesVersionValue == "" && current.Properties.KubernetesVersion.Value != nil {
+		kubernetesVersionValue = *current.Properties.KubernetesVersion.Value
+	}
+
+	kubernetesVersionUpdate := sdktypes.KubernetesVersionInfoUpdate{
+		Value: kubernetesVersionValue,
+	}
+
+	// Build update request
+	updateRequest := sdktypes.KaaSUpdateRequest{
+		Metadata: sdktypes.RegionalResourceMetadataRequest{
+			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
+				Name: data.Name.ValueString(),
+				Tags: tags,
+			},
+			Location: sdktypes.LocationRequest{
+				Value: regionValue,
+			},
+		},
+		Properties: sdktypes.KaaSPropertiesUpdateRequest{
+			KubernetesVersion: kubernetesVersionUpdate,
+			NodePools:         nodePools,
+		},
+	}
+
+	// Add optional fields
+	if !data.HA.IsNull() && !data.HA.IsUnknown() {
+		ha := data.HA.ValueBool()
+		updateRequest.Properties.HA = &ha
+	} else if current.Properties.HA != nil {
+		updateRequest.Properties.HA = current.Properties.HA
+	}
+
+	if !data.BillingPeriod.IsNull() && !data.BillingPeriod.IsUnknown() {
+		updateRequest.Properties.BillingPlan = &sdktypes.BillingPeriodResource{
+			BillingPeriod: data.BillingPeriod.ValueString(),
+		}
+	} else if current.Properties.BillingPlan != nil && current.Properties.BillingPlan.BillingPeriod != nil {
+		updateRequest.Properties.BillingPlan = &sdktypes.BillingPeriodResource{
+			BillingPeriod: *current.Properties.BillingPlan.BillingPeriod,
+		}
+	}
+
+	// Update the KaaS cluster using the SDK
+	response, err := r.client.Client.FromContainer().KaaS().Update(ctx, projectID, kaasID, updateRequest, nil)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error updating KaaS cluster",
+			fmt.Sprintf("Unable to update KaaS cluster: %s", err),
+		)
+		return
+	}
+
+	if response != nil && response.IsError() && response.Error != nil {
+		errorMsg := "Failed to update KaaS cluster"
+		if response.Error.Title != nil {
+			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
+		}
+		if response.Error.Detail != nil {
+			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
+		}
+		resp.Diagnostics.AddError("API Error", errorMsg)
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -197,6 +771,42 @@ func (r *KaaSResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	projectID := data.ProjectID.ValueString()
+	kaasID := data.Id.ValueString()
+
+	if projectID == "" || kaasID == "" {
+		resp.Diagnostics.AddError(
+			"Missing Required Fields",
+			"Project ID and KaaS ID are required to delete the KaaS cluster",
+		)
+		return
+	}
+
+	// Delete the KaaS cluster using the SDK with retry mechanism
+	// Retry on any error except 404 (Resource Not Found)
+	err := DeleteResourceWithRetry(
+		ctx,
+		func() (interface{}, error) {
+			return r.client.Client.FromContainer().KaaS().Delete(ctx, projectID, kaasID, nil)
+		},
+		ExtractSDKError,
+		"KaaS",
+		kaasID,
+		r.client.ResourceTimeout,
+	)
+
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error deleting KaaS cluster",
+			fmt.Sprintf("Unable to delete KaaS cluster: %s", err),
+		)
+		return
+	}
+
+	tflog.Trace(ctx, "deleted a KaaS resource", map[string]interface{}{
+		"kaas_id": kaasID,
+	})
 }
 
 func (r *KaaSResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
