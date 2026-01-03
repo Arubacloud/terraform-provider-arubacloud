@@ -73,7 +73,7 @@ jobs:
           go test -coverprofile=coverage.out ./...
           go tool cover -html=coverage.out -o coverage.html
       - name: Upload coverage
-        uses: actions/upload-artifact@ea165bb56f05a8fd4f64a2e232bbe6541384c79c # v4.6.0
+        uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: coverage.html
