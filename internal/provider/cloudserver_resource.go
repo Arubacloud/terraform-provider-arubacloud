@@ -87,7 +87,7 @@ func (r *CloudServerResource) Schema(ctx context.Context, req resource.SchemaReq
 				},
 			},
 			"flavor_name": schema.StringAttribute{
-				MarkdownDescription: "Flavor name",
+				MarkdownDescription: "Flavor name. Available flavors are described in the [ArubaCloud API documentation](https://api.arubacloud.com/docs/metadata/#cloudserver-flavors). For example, `CSO8A16` means 8 CPU and 16GB RAM.",
 				Required:            true,
 			},
 			"elastic_ip_uri_ref": schema.StringAttribute{
