@@ -307,8 +307,22 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
-	// CloudServer uses name as ID - no need to fetch ID separately
-	// The name is already set as the ID above
+	// Re-read the Cloud Server to ensure all fields are properly set
+	// Note: CloudServer uses name as ID and RegionalResourceMetadataRequest doesn't have URI
+	getResp, err := r.client.Client.FromCompute().CloudServers().Get(ctx, projectID, serverID, nil)
+	if err == nil && getResp != nil && getResp.Data != nil {
+		// CloudServer uses name as ID
+		if getResp.Data.Metadata.Name != "" {
+			data.Id = types.StringValue(getResp.Data.Metadata.Name)
+			data.Name = types.StringValue(getResp.Data.Metadata.Name)
+		}
+		// CloudServer response uses RegionalResourceMetadataRequest which doesn't have URI
+		// Set URI to null (as per Read function)
+		data.Uri = types.StringNull()
+	} else if err != nil {
+		// If Get fails, log but don't fail - we already have the ID from create response
+		tflog.Warn(ctx, fmt.Sprintf("Failed to refresh Cloud Server after creation: %v", err))
+	}
 
 	tflog.Trace(ctx, "created a CloudServer resource", map[string]interface{}{
 		"cloudserver_id":   data.Id.ValueString(),

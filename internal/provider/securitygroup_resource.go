@@ -194,6 +194,48 @@ func (r *SecurityGroupResource) Create(ctx context.Context, req resource.CreateR
 		return
 	}
 
+	// Re-read the Security Group to get the URI and ensure all fields are properly set
+	getResp, err := r.client.Client.FromNetwork().SecurityGroups().Get(ctx, projectID, vpcID, sgID, nil)
+	if err == nil && getResp != nil && getResp.Data != nil {
+		// Ensure ID is set from metadata (should already be set, but double-check)
+		if getResp.Data.Metadata.ID != nil {
+			data.Id = types.StringValue(*getResp.Data.Metadata.ID)
+		}
+		if getResp.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*getResp.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
+		// Also update other fields that might have changed
+		if getResp.Data.Metadata.Name != nil {
+			data.Name = types.StringValue(*getResp.Data.Metadata.Name)
+		}
+		if getResp.Data.Metadata.LocationResponse != nil {
+			data.Location = types.StringValue(getResp.Data.Metadata.LocationResponse.Value)
+		}
+		// Update tags from response
+		if len(getResp.Data.Metadata.Tags) > 0 {
+			tagValues := make([]types.String, len(getResp.Data.Metadata.Tags))
+			for i, tag := range getResp.Data.Metadata.Tags {
+				tagValues[i] = types.StringValue(tag)
+			}
+			tagsList, diags := types.ListValueFrom(ctx, types.StringType, tagValues)
+			resp.Diagnostics.Append(diags...)
+			if !resp.Diagnostics.HasError() {
+				data.Tags = tagsList
+			}
+		} else {
+			emptyList, diags := types.ListValue(types.StringType, []attr.Value{})
+			resp.Diagnostics.Append(diags...)
+			if !resp.Diagnostics.HasError() {
+				data.Tags = emptyList
+			}
+		}
+	} else if err != nil {
+		// If Get fails, log but don't fail - we already have the ID from create response
+		tflog.Warn(ctx, fmt.Sprintf("Failed to refresh Security Group after creation: %v", err))
+	}
+
 	tflog.Trace(ctx, "created a Security Group resource", map[string]interface{}{
 		"securitygroup_id":   data.Id.ValueString(),
 		"securitygroup_name": data.Name.ValueString(),
@@ -384,12 +426,31 @@ func (r *SecurityGroupResource) Update(ctx context.Context, req resource.UpdateR
 	data.Id = state.Id
 	data.ProjectId = state.ProjectId
 	data.VpcId = state.VpcId
+	data.Uri = state.Uri // Preserve URI from state
 
 	if response != nil && response.Data != nil {
 		// Update from response if available (should match state)
 		if response.Data.Metadata.ID != nil {
 			data.Id = types.StringValue(*response.Data.Metadata.ID)
 		}
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			// If no URI in response, re-read the security group to get the latest state
+			getResp, err := r.client.Client.FromNetwork().SecurityGroups().Get(ctx, projectID, vpcID, sgID, nil)
+			if err == nil && getResp != nil && getResp.Data != nil {
+				if getResp.Data.Metadata.URI != nil {
+					data.Uri = types.StringValue(*getResp.Data.Metadata.URI)
+				} else {
+					data.Uri = state.Uri // Fallback to state if not available
+				}
+			} else {
+				data.Uri = state.Uri // Fallback to state if re-read fails
+			}
+		}
+	} else {
+		// If no response, preserve URI from state
+		data.Uri = state.Uri
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
