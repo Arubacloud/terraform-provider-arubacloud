@@ -12,6 +12,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -33,6 +35,8 @@ type BlockStorageResourceModel struct {
 	BillingPeriod types.String `tfsdk:"billing_period"`
 	Zone          types.String `tfsdk:"zone"`
 	Type          types.String `tfsdk:"type"`
+	Bootable      types.Bool   `tfsdk:"bootable"`
+	Image         types.String `tfsdk:"image"`
 	Tags          types.List   `tfsdk:"tags"`
 }
 
@@ -55,6 +59,9 @@ func (r *BlockStorageResource) Schema(ctx context.Context, req resource.SchemaRe
 			"uri": schema.StringAttribute{
 				MarkdownDescription: "Block Storage URI",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Block Storage name",
@@ -83,6 +90,14 @@ func (r *BlockStorageResource) Schema(ctx context.Context, req resource.SchemaRe
 			"type": schema.StringAttribute{
 				MarkdownDescription: "Type of block storage (Standard, Performance)",
 				Required:            true,
+			},
+			"bootable": schema.BoolAttribute{
+				MarkdownDescription: "Whether the block storage is bootable. Must be set to true along with image to create a bootable disk.",
+				Optional:            true,
+			},
+			"image": schema.StringAttribute{
+				MarkdownDescription: "Image ID for bootable block storage. Required when bootable is true. See [available images](https://api.arubacloud.com/docs/metadata/#cloud-server-bootvolume) for a list of supported image IDs.",
+				Optional:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
@@ -124,6 +139,17 @@ func (r *BlockStorageResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
+	// Validate bootable and image
+	if !data.Bootable.IsNull() && !data.Bootable.IsUnknown() && data.Bootable.ValueBool() {
+		if data.Image.IsNull() || data.Image.IsUnknown() || data.Image.ValueString() == "" {
+			resp.Diagnostics.AddError(
+				"Missing Image",
+				"Image is required when bootable is set to true",
+			)
+			return
+		}
+	}
+
 	// Extract tags from Terraform list
 	var tags []string
 	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
@@ -156,6 +182,16 @@ func (r *BlockStorageResource) Create(ctx context.Context, req resource.CreateRe
 	if !data.Zone.IsNull() && !data.Zone.IsUnknown() {
 		zone := data.Zone.ValueString()
 		createRequest.Properties.Zone = &zone
+	}
+
+	// Add bootable and image if provided
+	if !data.Bootable.IsNull() && !data.Bootable.IsUnknown() {
+		bootable := data.Bootable.ValueBool()
+		createRequest.Properties.Bootable = &bootable
+	}
+	if !data.Image.IsNull() && !data.Image.IsUnknown() {
+		image := data.Image.ValueString()
+		createRequest.Properties.Image = &image
 	}
 
 	// Create the block storage using the SDK
@@ -191,6 +227,21 @@ func (r *BlockStorageResource) Create(ctx context.Context, req resource.CreateRe
 		}
 		if response.Data.Properties.Zone != "" {
 			data.Zone = types.StringValue(response.Data.Properties.Zone)
+		} else {
+			data.Zone = types.StringNull()
+		}
+		// Populate bootable and image from API response
+		// Only set if API provides a value, otherwise preserve null from plan
+		if response.Data.Properties.Bootable != nil {
+			data.Bootable = types.BoolValue(*response.Data.Properties.Bootable)
+		} else {
+			// Keep as null if API doesn't provide a value (preserves plan state)
+			data.Bootable = types.BoolNull()
+		}
+		if response.Data.Properties.Image != nil {
+			data.Image = types.StringValue(*response.Data.Properties.Image)
+		} else {
+			data.Image = types.StringNull()
 		}
 	} else {
 		resp.Diagnostics.AddError(
@@ -244,6 +295,19 @@ func (r *BlockStorageResource) Create(ctx context.Context, req resource.CreateRe
 		}
 		if getResp.Data.Properties.Zone != "" {
 			data.Zone = types.StringValue(getResp.Data.Properties.Zone)
+		} else {
+			data.Zone = types.StringNull()
+		}
+		// Update bootable and image from re-read
+		if getResp.Data.Properties.Bootable != nil {
+			data.Bootable = types.BoolValue(*getResp.Data.Properties.Bootable)
+		} else {
+			data.Bootable = types.BoolNull()
+		}
+		if getResp.Data.Properties.Image != nil {
+			data.Image = types.StringValue(*getResp.Data.Properties.Image)
+		} else {
+			data.Image = types.StringNull()
 		}
 	} else if err != nil {
 		// If Get fails, log but don't fail - we already have the ID from create response
@@ -361,6 +425,20 @@ func (r *BlockStorageResource) Read(ctx context.Context, req resource.ReadReques
 		} else {
 			// Regional storage - zone is null/empty
 			data.Zone = types.StringNull()
+		}
+
+		// Populate bootable and image from API response
+		// Only set if API provides a value, otherwise preserve null from plan
+		if volume.Properties.Bootable != nil {
+			data.Bootable = types.BoolValue(*volume.Properties.Bootable)
+		} else {
+			// Keep as null if API doesn't provide a value (preserves plan state)
+			data.Bootable = types.BoolNull()
+		}
+		if volume.Properties.Image != nil {
+			data.Image = types.StringValue(*volume.Properties.Image)
+		} else {
+			data.Image = types.StringNull()
 		}
 
 		// Update tags from response

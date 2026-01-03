@@ -6,13 +6,14 @@ package provider
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -31,7 +32,7 @@ type SnapshotResourceModel struct {
 	ProjectId     types.String `tfsdk:"project_id"`
 	Location      types.String `tfsdk:"location"`
 	BillingPeriod types.String `tfsdk:"billing_period"`
-	VolumeId      types.String `tfsdk:"volume_id"`
+	VolumeUri     types.String `tfsdk:"volume_uri"`
 	Tags          types.List   `tfsdk:"tags"`
 }
 
@@ -73,9 +74,12 @@ func (r *SnapshotResource) Schema(ctx context.Context, req resource.SchemaReques
 				Required:            true,
 				// Validators removed for v1.16.1 compatibility
 			},
-			"volume_id": schema.StringAttribute{
-				MarkdownDescription: "URI or ID of the volume this snapshot is for. Can be the volume URI (e.g., `/projects/{project_id}/providers/Aruba.Storage/volumes/{volume_id}`) or just the volume ID. If an ID is provided, the URI will be constructed automatically.",
+			"volume_uri": schema.StringAttribute{
+				MarkdownDescription: "URI of the volume this snapshot is for. Should be the volume URI (e.g., `/projects/{project_id}/providers/Aruba.Storage/volumes/{volume_id}`). You can reference the `uri` attribute from an `arubacloud_blockstorage` resource.",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
@@ -127,10 +131,14 @@ func (r *SnapshotResource) Create(ctx context.Context, req resource.CreateReques
 		}
 	}
 
-	// Build volume URI
-	volumeURI := data.VolumeId.ValueString()
-	if !strings.HasPrefix(volumeURI, "/") {
-		volumeURI = fmt.Sprintf("/projects/%s/providers/Aruba.Storage/volumes/%s", projectID, data.VolumeId.ValueString())
+	// Get volume URI from the plan
+	volumeURI := data.VolumeUri.ValueString()
+	if volumeURI == "" {
+		resp.Diagnostics.AddError(
+			"Missing Volume URI",
+			"Volume URI is required to create a snapshot",
+		)
+		return
 	}
 
 	// Build the create request
@@ -350,7 +358,7 @@ func (r *SnapshotResource) Read(ctx context.Context, req resource.ReadRequest, r
 		// Preserve immutable fields from state (they're not returned by API)
 		projectIdFromState := data.ProjectId
 		billingPeriodFromState := data.BillingPeriod
-		volumeIdFromState := data.VolumeId
+		volumeUriFromState := data.VolumeUri
 		tagsFromState := data.Tags
 		locationFromState := data.Location
 
@@ -376,16 +384,16 @@ func (r *SnapshotResource) Read(ctx context.Context, req resource.ReadRequest, r
 			}
 		}
 
-		// Handle volume_id: Always preserve from state since it's immutable
-		// The volume_id never changes after snapshot creation, so we should always use the value from state
+		// Handle volume_uri: Always preserve from state since it's immutable
+		// The volume_uri never changes after snapshot creation, so we should always use the value from state
 		// This prevents false changes when the referenced block storage is updated
-		if !volumeIdFromState.IsUnknown() && !volumeIdFromState.IsNull() {
-			// Always preserve volume_id from state (it's immutable)
-			data.VolumeId = volumeIdFromState
+		if !volumeUriFromState.IsUnknown() && !volumeUriFromState.IsNull() {
+			// Always preserve volume_uri from state (it's immutable)
+			data.VolumeUri = volumeUriFromState
 		} else {
 			// Only use API value if state doesn't have it (shouldn't happen for existing resources)
 			if snapshot.Properties.Volume.URI != nil && *snapshot.Properties.Volume.URI != "" {
-				data.VolumeId = types.StringValue(*snapshot.Properties.Volume.URI)
+				data.VolumeUri = types.StringValue(*snapshot.Properties.Volume.URI)
 			}
 		}
 
@@ -542,7 +550,7 @@ func (r *SnapshotResource) Update(ctx context.Context, req resource.UpdateReques
 	// Ensure immutable fields are set from state before saving
 	data.Id = state.Id
 	data.ProjectId = state.ProjectId
-	data.VolumeId = state.VolumeId // Preserve volume_id from state (it's immutable)
+	data.VolumeUri = state.VolumeUri // Preserve volume_uri from state (it's immutable)
 
 	if response != nil && response.Data != nil {
 		// Update from response if available (should match state)

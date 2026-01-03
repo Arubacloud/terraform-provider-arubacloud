@@ -486,11 +486,32 @@ func (r *BackupResource) Update(ctx context.Context, req resource.UpdateRequest,
 	// Ensure immutable fields are set from state before saving
 	data.Id = state.Id
 	data.ProjectID = state.ProjectID
+	data.Uri = state.Uri // Preserve URI from state
+	data.VolumeID = state.VolumeID // Immutable
+	data.Type = state.Type // Immutable
+	data.RetentionDays = state.RetentionDays // Immutable
+	data.BillingPeriod = state.BillingPeriod // Immutable
 
 	if response != nil && response.Data != nil {
 		// Update from response if available (should match state)
 		if response.Data.Metadata.ID != nil {
 			data.Id = types.StringValue(*response.Data.Metadata.ID)
+		}
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		}
+	} else {
+		// If no response, re-read the backup to get the latest state including URI
+		getResp, err := r.client.Client.FromStorage().Backups().Get(ctx, projectID, backupID, nil)
+		if err == nil && getResp != nil && getResp.Data != nil {
+			if getResp.Data.Metadata.URI != nil {
+				data.Uri = types.StringValue(*getResp.Data.Metadata.URI)
+			} else {
+				data.Uri = state.Uri // Fallback to state if not in response
+			}
+		} else {
+			// If re-read fails, preserve from state
+			data.Uri = state.Uri
 		}
 	}
 

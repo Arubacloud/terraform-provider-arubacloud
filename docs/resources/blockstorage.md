@@ -56,6 +56,8 @@ The following arguments are supported:
 
 #### Optional
 
+- `bootable` (Boolean) Whether the block storage is bootable. Must be set to true along with image to create a bootable disk.
+- `image` (String) Image ID for bootable block storage. Required when bootable is true. See [available images](https://api.arubacloud.com/docs/metadata/#cloud-server-bootvolume) for a list of supported image IDs.
 - `tags` (List of String) List of tags for the block storage
 - `zone` (String) Zone where blockstorage will be created. If not specified, the block storage will be regional (available across all zones in the location). If specified, the block storage will be zonal (tied to a specific zone).
 
