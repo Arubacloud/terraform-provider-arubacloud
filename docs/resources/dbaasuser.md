@@ -24,6 +24,7 @@ The following arguments are supported:
 
 - `dbaas_id` (String) DBaaS ID this user belongs to
 - `password` (String, Sensitive) Password for the DBaaS user
+- `project_id` (String) ID of the project this user belongs to
 - `username` (String) Username for the DBaaS user
 
 ### Attributes Reference
@@ -32,8 +33,8 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `id` (String) DBaaS User identifier
-- `uri` (String) Dbaasuser URI
+- `id` (String) DBaaS User identifier (same as username)
+- `uri` (String) DBaaS User URI
 
 
 

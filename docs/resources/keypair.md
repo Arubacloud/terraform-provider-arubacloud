@@ -10,14 +10,14 @@ description: |-
 
 Manages an ArubaCloud KeyPair.
 
-~> **Note:** Keypair updates are not supported by the API. Changing `name`, `location`, `value`, or `tags` requires deleting and recreating the keypair.
-
 ```terraform
+# Note: Keypair updates are not supported by the API.
+# Changing name, location, value, or tags requires deleting and recreating the keypair.
 resource "arubacloud_keypair" "basic" {
   name       = "example-keypair"
   location   = "ITBG-Bergamo"  # Change to your region
   project_id = "your-project-id"  # Replace with your project ID
-  value      = "ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEA2No7At0tgHrcZTL0kGWyLLUqPKfOhD9hGdNV9PbJxhjOGNFxcwdQ9wCXsJ3RQaRHBuGIgVodDurrlqzxFK86yCHMgXT2YLHF0j9P4m9GDiCfOK6msbFb89p5xZExjwD2zK+w68r7iOKZeRB2yrznW5TD3KDemSPIQQIVcyLF+yxft49HWBTI3PVQ4rBVOBJ2PdC9SAOf7CYnptW24CRrC0h85szIdwMA+Kmasfl3YGzk4MxheHrTO8C40aXXpieJ9S2VQA4VJAMRyAboptIK0cKjBYrbt5YkEL0AlyBGPIu6MPYr5K/MHyDunDi9yc7VYRYRR0f46MBOSqMUiGPnMw=="
+  value       = "ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEA2No7At0tgHrcZTL0kGWyLLUqPKfOhD9hGdNV9PbJxhjOGNFxcwdQ9wCXsJ3RQaRHBuGIgVodDurrlqzxFK86yCHMgXT2YLHF0j9P4m9GDiCfOK6msbFb89p5xZExjwD2zK+w68r7iOKZeRB2yrznW5TD3KDemSPIQQIVcyLF+yxft49HWBTI3PVQ4rBVOBJ2PdC9SAOf7CYnptW24CRrC0h85szIdwMA+Kmasfl3YGzk4MxheHrTO8C40aXXpieJ9S2VQA4VJAMRyAboptIK0cKjBYrbt5YkEL0AlyBGPIu6MPYr5K/MHyDunDi9yc7VYRYRR0f46MBOSqMUiGPnMw=="
   tags       = ["compute", "test"]
 }
 ```
@@ -32,14 +32,14 @@ The following arguments are supported:
 
 #### Required
 
-- `location` (String) Keypair location/region. **Note:** Cannot be changed after creation. Requires delete and recreate.
-- `name` (String) Keypair name. **Note:** Cannot be changed after creation. Requires delete and recreate.
-- `project_id` (String) ID of the project this keypair belongs to
-- `value` (String) SSH public key value. **Note:** Cannot be changed after creation. Requires delete and recreate.
+- `location` (String) Keypair location
+- `name` (String) Keypair name
+- `project_id` (String) Project ID
+- `value` (String, Sensitive) Public key value
 
 #### Optional
 
-- `tags` (List of String) List of tags for the keypair. **Note:** Cannot be updated after creation. Changes to tags will be ignored.
+- `tags` (List of String) List of tags for the keypair
 
 ### Attributes Reference
 
@@ -47,7 +47,7 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `id` (String) Keypair identifier
+- `id` (String) Keypair identifier (name)
 - `uri` (String) Keypair URI
 
 
@@ -59,13 +59,3 @@ Aruba Cloud KeyPair can be imported using the `keypair_id`.
 ```shell
 terraform import arubacloud_keypair.example <keypair_id>
 ```
-
-## Update Behavior
-
-Keypair updates are **not supported** by the ArubaCloud API. All fields (`name`, `location`, `value`, and `tags`) are immutable after creation. If you need to change any of these fields, you must:
-
-1. Delete the existing keypair: `terraform destroy -target=arubacloud_keypair.example`
-2. Update your Terraform configuration with the new values
-3. Create a new keypair: `terraform apply`
-
-**Important:** If you change any immutable field in your Terraform configuration, Terraform will attempt to delete and recreate the keypair. Make sure this is acceptable for your use case, as it may affect any cloud servers that reference this keypair.

@@ -28,13 +28,10 @@ The following arguments are supported:
 
 #### Required
 
-- `billing_period` (String) Billing period
-- `ha` (Boolean) High availability
 - `location` (String) KaaS location
 - `name` (String) KaaS name
-- `node_cidr` (Attributes) (see [below for nested schema](#nestedatt--node_cidr))
-- `node_pools` (Attributes List) (see [below for nested schema](#nestedatt--node_pools))
-- `preset` (Boolean) Whether to use a preset configuration
+- `node_cidr` (Attributes) Node CIDR configuration (see [below for nested schema](#nestedatt--node_cidr))
+- `node_pools` (Attributes List) Node pools configuration (see [below for nested schema](#nestedatt--node_pools))
 - `project_id` (String) ID of the project this KaaS resource belongs to
 - `security_group_name` (String) Security group name
 - `subnet_id` (String) Subnet ID for the KaaS resource
@@ -43,6 +40,9 @@ The following arguments are supported:
 
 #### Optional
 
+- `billing_period` (String) Billing period (Hour, Month, Year)
+- `ha` (Boolean) High availability
+- `pod_cidr` (String) Pod CIDR
 - `tags` (List of String) List of tags for the KaaS resource
 
 ### Attributes Reference
@@ -52,7 +52,7 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) KaaS identifier
-- `uri` (String) Kaas URI
+- `uri` (String) KaaS URI
 
 <a id="nestedatt--node_cidr"></a>
 ### Nested Schema for `node_cidr`
@@ -68,10 +68,16 @@ Required:
 
 Required:
 
-- `node_pool_name` (String)
-- `replicas` (Number)
-- `type` (String)
-- `zone` (String)
+- `node_pool_name` (String) Node pool name
+- `replicas` (Number) Number of replicas
+- `type` (String) Instance type
+- `zone` (String) Zone
+
+Optional:
+
+- `autoscaling` (Boolean) Enable autoscaling
+- `max_count` (Number) Maximum node count for autoscaling
+- `min_count` (Number) Minimum node count for autoscaling
 
 
 

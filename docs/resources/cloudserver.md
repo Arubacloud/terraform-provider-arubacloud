@@ -40,6 +40,7 @@ The following arguments are supported:
 
 - `elastic_ip_id` (String) Elastic IP ID
 - `key_pair_id` (String) Key pair ID
+- `tags` (List of String) List of tags for the Cloud Server
 
 ### Attributes Reference
 

@@ -44,7 +44,7 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) KMS identifier
-- `uri` (String) Kms URI
+- `uri` (String) KMS URI
 
 
 

@@ -28,18 +28,20 @@ The following arguments are supported:
 
 #### Required
 
-- `admin_user` (String) Admin user for the registry
-- `billing_period` (String) Billing period
-- `block_storage_id` (String) Block Storage ID
-- `elasticip_id` (String) Elastic IP ID
+- `block_storage_id` (String) Block Storage ID or URI
+- `elasticip_id` (String) Elastic IP ID or URI
 - `location` (String) Container Registry location
 - `name` (String) Container Registry name
 - `project_id` (String) ID of the project this Container Registry belongs to
-- `security_group_id` (String) Security Group ID
-- `subnet_id` (String) Subnet ID
+- `security_group_id` (String) Security Group ID or URI
+- `subnet_id` (String) Subnet ID or URI
+- `vpc_id` (String) VPC ID or URI
 
 #### Optional
 
+- `admin_user` (String) Administrator username
+- `billing_period` (String) Billing period (Hour, Month, Year)
+- `concurrent_users` (String) Number of concurrent users
 - `tags` (List of String) List of tags for the Container Registry resource
 
 ### Attributes Reference
@@ -50,7 +52,6 @@ In addition to all arguments above, the following attributes are exported:
 
 - `id` (String) Container Registry identifier
 - `uri` (String) Container Registry URI
-- `uri` (String) Containerregistry URI
 
 
 

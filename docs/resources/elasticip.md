@@ -51,7 +51,7 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `address` (String) Elastic IP address
-- `id` (String) Elastic IP identifier
+- `id` (String) Elastic IP Identifier
 - `uri` (String) Elastic IP URI
 
 

@@ -33,6 +33,7 @@ The following arguments are supported:
 
 - `location` (String) VPC location
 - `name` (String) VPC name
+- `project_id` (String) Project ID
 
 #### Optional
 

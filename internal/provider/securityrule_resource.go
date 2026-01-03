@@ -699,6 +699,7 @@ func (r *SecurityRuleResource) Update(ctx context.Context, req resource.UpdateRe
 	}
 
 	// Update the state with the response data
+	// At this point, we know response != nil && response.Data != nil from the check above
 	updated := response.Data
 	if updated.Metadata.ID != nil {
 		data.Id = types.StringValue(*updated.Metadata.ID)
@@ -729,16 +730,14 @@ func (r *SecurityRuleResource) Update(ctx context.Context, req resource.UpdateRe
 	// Keep the existing state values to ensure Terraform state matches what the user configured
 
 	// Ensure immutable fields are set from state before saving
-	data.Id = state.Id
 	data.ProjectId = state.ProjectId
 	data.VpcId = state.VpcId
 	data.SecurityGroupId = state.SecurityGroupId
 
-	if response != nil && response.Data != nil {
-		// Update from response if available (should match state)
-		if response.Data.Metadata.ID != nil {
-			data.Id = types.StringValue(*response.Data.Metadata.ID)
-		}
+	// Update ID from response (should match state)
+	// At this point, we know response != nil && response.Data != nil from the check above
+	if updated.Metadata.ID != nil {
+		data.Id = types.StringValue(*updated.Metadata.ID)
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

@@ -38,15 +38,15 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) VPN Tunnel identifier
-- `uri` (String) Vpntunnel URI
+- `uri` (String) VPN Tunnel URI
 
 <a id="nestedatt--properties"></a>
 ### Nested Schema for `properties`
 
 Optional:
 
+- `billing_period` (String) Billing period (Hour, Month, Year)
 - `ip_configurations` (Attributes) Network configuration of the VPN tunnel (see [below for nested schema](#nestedatt--properties--ip_configurations))
-- `peer_client_public_ip` (String) Peer client public IP address
 - `vpn_client_protocol` (String) Protocol of the VPN tunnel (ikev2)
 - `vpn_client_settings` (Attributes) Client settings of the VPN tunnel (see [below for nested schema](#nestedatt--properties--vpn_client_settings))
 - `vpn_type` (String) Type of VPN tunnel (Site-To-Site)
@@ -66,7 +66,6 @@ Optional:
 Optional:
 
 - `id` (String) Public IP id
-- `uri` (String) Public IP URI
 
 
 <a id="nestedatt--properties--ip_configurations--subnet"></a>
@@ -75,7 +74,6 @@ Optional:
 Optional:
 
 - `id` (String) Subnet id
-- `uri` (String) Subnet URI
 
 
 <a id="nestedatt--properties--ip_configurations--vpc"></a>
@@ -84,7 +82,6 @@ Optional:
 Optional:
 
 - `id` (String) VPC id
-- `uri` (String) VPC URI
 
 
 
@@ -95,6 +92,7 @@ Optional:
 
 - `esp` (Attributes) ESP settings (see [below for nested schema](#nestedatt--properties--vpn_client_settings--esp))
 - `ike` (Attributes) IKE settings (see [below for nested schema](#nestedatt--properties--vpn_client_settings--ike))
+- `peer_client_public_ip` (String) Peer client public IP address
 - `psk` (Attributes) PSK settings (see [below for nested schema](#nestedatt--properties--vpn_client_settings--psk))
 
 <a id="nestedatt--properties--vpn_client_settings--esp"></a>

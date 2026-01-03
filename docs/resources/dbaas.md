@@ -22,16 +22,11 @@ The following arguments are supported:
 
 #### Required
 
-- `autoscaling` (Attributes) (see [below for nested schema](#nestedatt--autoscaling))
-- `billing_period` (String) Billing period
-- `engine` (String) Database engine (mysql-8.0, mssql-2022-web, mssql-2022-standard, mssql-2022-enterprise)
-- `flavor` (String) Flavor type
+- `engine_id` (String) Database engine ID
+- `flavor` (String) DBaaS flavor name
 - `location` (String) DBaaS location
 - `name` (String) DBaaS name
-- `network` (Attributes) (see [below for nested schema](#nestedatt--network))
 - `project_id` (String) ID of the project this DBaaS belongs to
-- `storage_size` (Number) Storage size
-- `zone` (String) Zone (ITBG-1, ITBG-2, ITBG-3)
 
 #### Optional
 
@@ -44,28 +39,7 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) DBaaS identifier
-- `uri` (String) Dbaas URI
-
-<a id="nestedatt--autoscaling"></a>
-### Nested Schema for `autoscaling`
-
-Required:
-
-- `available_space` (Number) Available space for autoscaling
-- `enabled` (Boolean) Autoscaling enabled
-- `step_size` (Number) Step size for autoscaling
-
-
-<a id="nestedatt--network"></a>
-### Nested Schema for `network`
-
-Required:
-
-- `elastic_ip_id` (String) Elastic IP ID
-- `security_group_id` (String) Security Group ID
-- `subnet_id` (String) Subnet ID
-- `vpc_id` (String) VPC ID
-
+- `uri` (String) DBaaS URI
 
 
 

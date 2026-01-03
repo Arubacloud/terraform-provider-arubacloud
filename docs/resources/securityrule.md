@@ -46,6 +46,10 @@ The following arguments are supported:
 - `security_group_id` (String) ID of the Security Group this rule belongs to
 - `vpc_id` (String) ID of the VPC this Security Rule belongs to
 
+#### Optional
+
+- `tags` (List of String) List of tags for the Security Rule
+
 ### Attributes Reference
 
 In addition to all arguments above, the following attributes are exported:

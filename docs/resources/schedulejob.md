@@ -54,7 +54,6 @@ In addition to all arguments above, the following attributes are exported:
 
 - `id` (String) Schedule Job identifier
 - `uri` (String) Schedule Job URI
-- `uri` (String) Schedulejob URI
 
 <a id="nestedatt--properties"></a>
 ### Nested Schema for `properties`
