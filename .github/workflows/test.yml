@@ -48,6 +48,8 @@ jobs:
         with:
           terraform_wrapper: false
       - run: make generate
+      - name: Tidy go.mod
+        run: go mod tidy
       - name: git diff
         run: |
           git diff --compact-summary --exit-code || \
