@@ -13,25 +13,27 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 type CloudServerResourceModel struct {
-	Id             types.String `tfsdk:"id"`
-	Uri            types.String `tfsdk:"uri"`
-	Name           types.String `tfsdk:"name"`
-	Location       types.String `tfsdk:"location"`
-	ProjectID      types.String `tfsdk:"project_id"`
-	Zone           types.String `tfsdk:"zone"`
-	VpcID          types.String `tfsdk:"vpc_id"`
-	FlavorName     types.String `tfsdk:"flavor_name"`
-	ElasticIPID    types.String `tfsdk:"elastic_ip_id"`
-	BootVolume     types.String `tfsdk:"boot_volume"`
-	KeyPairID      types.String `tfsdk:"key_pair_id"`
-	Subnets        types.List   `tfsdk:"subnets"`
-	SecurityGroups types.List   `tfsdk:"securitygroups"`
-	Tags           types.List   `tfsdk:"tags"`
+	Id                   types.String `tfsdk:"id"`
+	Uri                  types.String `tfsdk:"uri"`
+	Name                 types.String `tfsdk:"name"`
+	Location             types.String `tfsdk:"location"`
+	ProjectID            types.String `tfsdk:"project_id"`
+	Zone                 types.String `tfsdk:"zone"`
+	VpcUriRef            types.String `tfsdk:"vpc_uri_ref"`
+	FlavorName           types.String `tfsdk:"flavor_name"`
+	ElasticIpUriRef      types.String `tfsdk:"elastic_ip_uri_ref"`
+	BootVolume           types.String `tfsdk:"boot_volume"`
+	KeyPairUriRef        types.String `tfsdk:"key_pair_uri_ref"`
+	SubnetUriRefs        types.List   `tfsdk:"subnet_uri_refs"`
+	SecurityGroupUriRefs types.List   `tfsdk:"securitygroup_uri_refs"`
+	Tags                 types.List   `tfsdk:"tags"`
 }
 
 type CloudServerResource struct {
@@ -77,34 +79,43 @@ func (r *CloudServerResource) Schema(ctx context.Context, req resource.SchemaReq
 				MarkdownDescription: "Zone",
 				Required:            true,
 			},
-			"vpc_id": schema.StringAttribute{
-				MarkdownDescription: "VPC ID",
+			"vpc_uri_ref": schema.StringAttribute{
+				MarkdownDescription: "URI reference to the VPC. Should be the VPC URI (e.g., `/projects/{project_id}/providers/Aruba.Network/vpcs/{vpc_id}`). You can reference the `uri` attribute from an `arubacloud_vpc` resource.",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"flavor_name": schema.StringAttribute{
 				MarkdownDescription: "Flavor name",
 				Required:            true,
 			},
-			"elastic_ip_id": schema.StringAttribute{
-				MarkdownDescription: "Elastic IP ID",
+			"elastic_ip_uri_ref": schema.StringAttribute{
+				MarkdownDescription: "URI reference to the Elastic IP. Should be the Elastic IP URI. You can reference the `uri` attribute from an `arubacloud_elasticip` resource.",
 				Optional:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"boot_volume": schema.StringAttribute{
 				MarkdownDescription: "Boot volume ID",
 				Required:            true,
 			},
-			"key_pair_id": schema.StringAttribute{
-				MarkdownDescription: "Key pair ID",
+			"key_pair_uri_ref": schema.StringAttribute{
+				MarkdownDescription: "URI reference to the Key Pair. Should be the Key Pair URI. You can reference the `uri` attribute from an `arubacloud_keypair` resource.",
 				Optional:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
-			"subnets": schema.ListAttribute{
+			"subnet_uri_refs": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of subnet IDs",
+				MarkdownDescription: "List of subnet URI references. Should be subnet URIs. You can reference the `uri` attribute from `arubacloud_subnet` resources like `[arubacloud_subnet.example.uri]`",
 				Required:            true,
 			},
-			"securitygroups": schema.ListAttribute{
+			"securitygroup_uri_refs": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of security group reference IDs",
+				MarkdownDescription: "List of security group URI references. Should be security group URIs. You can reference the `uri` attribute from `arubacloud_securitygroup` resources like `[arubacloud_securitygroup.example.uri]`",
 				Required:            true,
 			},
 			"tags": schema.ListAttribute{
@@ -147,42 +158,34 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
-	// Extract subnets from Terraform list
+	// Extract subnets from Terraform list (these are URIs)
 	var subnetRefs []sdktypes.ReferenceResource
-	if !data.Subnets.IsNull() && !data.Subnets.IsUnknown() {
-		var subnetIDs []string
-		diags := data.Subnets.ElementsAs(ctx, &subnetIDs, false)
+	if !data.SubnetUriRefs.IsNull() && !data.SubnetUriRefs.IsUnknown() {
+		var subnetURIs []string
+		diags := data.SubnetUriRefs.ElementsAs(ctx, &subnetURIs, false)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
-		// Convert subnet IDs to ReferenceResource URIs
-		for _, subnetID := range subnetIDs {
-			subnetURI := subnetID
-			if !strings.HasPrefix(subnetURI, "/") {
-				subnetURI = fmt.Sprintf("/projects/%s/providers/Aruba.Network/subnets/%s", projectID, subnetID)
-			}
+		// Subnet URIs should already be full URIs from resource references
+		for _, subnetURI := range subnetURIs {
 			subnetRefs = append(subnetRefs, sdktypes.ReferenceResource{
 				URI: subnetURI,
 			})
 		}
 	}
 
-	// Extract security groups from Terraform list
+	// Extract security groups from Terraform list (these are URIs)
 	var securityGroupRefs []sdktypes.ReferenceResource
-	if !data.SecurityGroups.IsNull() && !data.SecurityGroups.IsUnknown() {
-		var sgIDs []string
-		diags := data.SecurityGroups.ElementsAs(ctx, &sgIDs, false)
+	if !data.SecurityGroupUriRefs.IsNull() && !data.SecurityGroupUriRefs.IsUnknown() {
+		var sgURIs []string
+		diags := data.SecurityGroupUriRefs.ElementsAs(ctx, &sgURIs, false)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
-		// Convert security group IDs to ReferenceResource URIs
-		for _, sgID := range sgIDs {
-			sgURI := sgID
-			if !strings.HasPrefix(sgURI, "/") {
-				sgURI = fmt.Sprintf("/projects/%s/providers/Aruba.Network/securityGroups/%s", projectID, sgID)
-			}
+		// Security group URIs should already be full URIs from resource references
+		for _, sgURI := range sgURIs {
 			securityGroupRefs = append(securityGroupRefs, sdktypes.ReferenceResource{
 				URI: sgURI,
 			})
@@ -205,11 +208,8 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 		templateURI = fmt.Sprintf("/projects/%s/providers/Aruba.Compute/templates/%s", projectID, data.BootVolume.ValueString())
 	}
 
-	// Build VPC URI
-	vpcURI := data.VpcID.ValueString()
-	if !strings.HasPrefix(vpcURI, "/") {
-		vpcURI = fmt.Sprintf("/projects/%s/providers/Aruba.Network/vpcs/%s", projectID, data.VpcID.ValueString())
-	}
+	// VPC URI should already be a full URI from resource reference
+	vpcURI := data.VpcUriRef.ValueString()
 
 	// Note: Elastic IP might be handled differently in the API
 	// For now, we'll include VPC, subnets, security groups, and zone which are required
@@ -241,14 +241,10 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 		},
 	}
 
-	// Add keypair if provided
-	if !data.KeyPairID.IsNull() && !data.KeyPairID.IsUnknown() {
-		keypairURI := data.KeyPairID.ValueString()
-		if !strings.HasPrefix(keypairURI, "/") {
-			keypairURI = fmt.Sprintf("/projects/%s/providers/Aruba.Compute/keyPairs/%s", projectID, data.KeyPairID.ValueString())
-		}
+	// Add keypair if provided (URI should already be a full URI from resource reference)
+	if !data.KeyPairUriRef.IsNull() && !data.KeyPairUriRef.IsUnknown() {
 		createRequest.Properties.KeyPair = sdktypes.ReferenceResource{
-			URI: keypairURI,
+			URI: data.KeyPairUriRef.ValueString(),
 		}
 	}
 
@@ -334,10 +330,13 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 
 func (r *CloudServerResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var data CloudServerResourceModel
-	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+	var state CloudServerResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	// Preserve immutable URI refs from state (they're not returned by API)
+	data = state
 
 	projectID := data.ProjectID.ValueString()
 	serverID := data.Id.ValueString()
@@ -395,12 +394,21 @@ func (r *CloudServerResource) Read(ctx context.Context, req resource.ReadRequest
 			data.BootVolume = types.StringValue(server.Properties.BootVolume.URI)
 		}
 
-		if server.Properties.KeyPair.URI != "" {
-			// Extract keypair ID from URI if needed
-			data.KeyPairID = types.StringValue(server.Properties.KeyPair.URI)
-		} else {
-			data.KeyPairID = types.StringNull()
+		// Update VPC URI reference
+		if server.Properties.VPC.URI != "" {
+			data.VpcUriRef = types.StringValue(server.Properties.VPC.URI)
 		}
+
+		// Update KeyPair URI reference
+		if server.Properties.KeyPair.URI != "" {
+			data.KeyPairUriRef = types.StringValue(server.Properties.KeyPair.URI)
+		} else {
+			data.KeyPairUriRef = types.StringNull()
+		}
+
+		// Note: Subnets and SecurityGroups are not returned in the API response
+		// They are immutable after creation, so we preserve them from state
+		// These will be set from state in the Update function
 
 		// Update tags from response
 		if len(server.Metadata.Tags) > 0 {
@@ -567,13 +575,17 @@ func (r *CloudServerResource) Update(ctx context.Context, req resource.UpdateReq
 	// Ensure immutable fields are set from state before saving
 	data.Id = state.Id
 	data.ProjectID = state.ProjectID
-	data.VpcID = state.VpcID
+	data.VpcUriRef = state.VpcUriRef
 	data.Zone = state.Zone
 	data.FlavorName = state.FlavorName
 	data.BootVolume = state.BootVolume
-	data.KeyPairID = state.KeyPairID
-	data.Subnets = state.Subnets
-	data.SecurityGroups = state.SecurityGroups
+	data.KeyPairUriRef = state.KeyPairUriRef
+	data.SubnetUriRefs = state.SubnetUriRefs
+	data.SecurityGroupUriRefs = state.SecurityGroupUriRefs
+	// Preserve elastic_ip_uri_ref from state if not in plan
+	if data.ElasticIpUriRef.IsNull() || data.ElasticIpUriRef.IsUnknown() {
+		data.ElasticIpUriRef = state.ElasticIpUriRef
+	}
 
 	// Note: CloudServer uses name as ID and response doesn't have Metadata.ID
 	// ID is already set from state above

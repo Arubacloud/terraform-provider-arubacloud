@@ -10,20 +10,21 @@ resource "arubacloud_keypair" "test" {
 }
 
 # Cloud Server - Virtual machine instance
+# Note: vpc_uri_ref, subnet_uri_refs, securitygroup_uri_refs, key_pair_uri_ref, and elastic_ip_uri_ref use URI references
 # The boot_volume field accepts an image ID (like "LU22-001") which will create a bootable disk automatically
 resource "arubacloud_cloudserver" "test" {
-  name           = "test-cloudserver"
-  location       = "ITBG-Bergamo"  # Change to your region
-  project_id     = arubacloud_project.test.id
-  zone           = "ITBG-1"  # Change to your zone
-  vpc_id         = arubacloud_vpc.test.id
-  flavor_name    = "c2.medium"  # Change to your preferred flavor
-  elastic_ip_id  = arubacloud_elasticip.test.id
-  boot_volume    = "LU22-001"  # Image ID - will create bootable disk automatically
-  key_pair_id    = arubacloud_keypair.test.id
-  subnets        = [arubacloud_subnet.test.id]
-  securitygroups = [arubacloud_securitygroup.test.id]
-  tags           = ["compute", "test"]
+  name                  = "test-cloudserver"
+  location              = "ITBG-Bergamo"  # Change to your region
+  project_id            = arubacloud_project.test.id
+  zone                  = "ITBG-1"  # Change to your zone
+  vpc_uri_ref           = arubacloud_vpc.test.uri                    # URI reference
+  flavor_name           = "c2.medium"  # Change to your preferred flavor
+  elastic_ip_uri_ref    = arubacloud_elasticip.test.uri              # URI reference
+  boot_volume           = "LU22-001"  # Image ID - will create bootable disk automatically
+  key_pair_uri_ref      = arubacloud_keypair.test.uri                # URI reference
+  subnet_uri_refs       = [arubacloud_subnet.test.uri]               # URI reference
+  securitygroup_uri_refs = [arubacloud_securitygroup.test.uri]        # URI reference
+  tags                  = ["compute", "test"]
 }
 
 output "keypair_id" {
@@ -36,8 +37,8 @@ output "cloudserver_id" {
   description = "The ID of the created cloud server"
 }
 
-output "cloudserver_name" {
-  value       = arubacloud_cloudserver.test.name
-  description = "The name of the created cloud server"
+output "cloudserver_public_ip" {
+  value       = arubacloud_elasticip.test.address
+  description = "The public IP address of the cloud server (from associated Elastic IP)"
 }
 

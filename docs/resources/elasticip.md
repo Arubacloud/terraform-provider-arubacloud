@@ -35,13 +35,13 @@ The following arguments are supported:
 
 #### Required
 
-- `billing_period` (String) Billing period for the Elastic IP (only 'hourly' allowed)
 - `location` (String) Elastic IP location
 - `name` (String) Elastic IP name
 - `project_id` (String) ID of the project this Elastic IP belongs to
 
 #### Optional
 
+- `billing_period` (String) Billing period for the Elastic IP (only 'hourly' allowed)
 - `tags` (List of String) List of tags for the Elastic IP
 
 ### Attributes Reference
@@ -50,7 +50,7 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `address` (String) Elastic IP address (computed from `ElasticIpPropertiesResponse`)
+- `address` (String) Elastic IP address (computed from ElasticIpPropertiesResponse)
 - `id` (String) Elastic IP Identifier
 - `uri` (String) Elastic IP URI
 

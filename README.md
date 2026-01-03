@@ -28,30 +28,6 @@ You can also use environment variables:
 - **ARUBACLOUD_API_KEY**
 - **ARUBACLOUD_API_SECRET**
 
-## Example Usage
-
-```hcl
-resource "arubacloud_keypair" "example" {
-  name     = "example-keypair"
-  location = "ITBG-Bergamo"
-  tags     = ["keypair", "test"]
-  value    = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC..."
-}
-
-resource "arubacloud_cloudserver" "example" {
-  name            = "example-cloudserver"
-  location        = "ITBG-Bergamo"
-  project_id      = arubacloud_project.example.id
-  zone            = "ITBG-1"
-  vpc_id          = arubacloud_vpc.example.id
-  flavor_name     = "c2.medium"
-  elastic_ip_id   = arubacloud_elasticip.example.id
-  boot_volume     = arubacloud_blockstorage.example.id
-  key_pair_id     = arubacloud_keypair.example.id
-  subnets         = [arubacloud_subnet.example.id, arubacloud_subnet2.example.id]
-  securitygroups  = [arubacloud_securitygroup.example.id, arubacloud_securitygroup2.example.id]
-}
-```
 
 ## Build the provider
 
@@ -62,9 +38,14 @@ git clone https://github.com/arubacloud/terraform-provider-arubacloud.git
 cd terraform-provider-arubacloud
 ```
 
-Build the provider
+Build the provider:
 ```bash
 make build
+```
+
+Or run all checks (format, lint, test, build, generate):
+```bash
+make
 ```
 
 ## Develop the provider
@@ -73,14 +54,34 @@ make build
 - Run `make build` to build the provider binary
 - Run `make test` to run unit tests
 - Run `make testacc` to run acceptance tests (may create real resources)
+- Run `make ci-test` to run all CI checks locally (build, lint, generate, test)
 
 ### Testing
 
 The provider includes comprehensive unit and acceptance tests.
 
+**Run all CI checks locally** (build, lint, generate, test):
+```bash
+make ci-test
+```
+This runs the same checks as the CI pipeline:
+- Downloads dependencies
+- Builds the provider
+- Runs linter (auto-installs `golangci-lint` if needed)
+- Generates documentation
+- Runs `go mod tidy`
+- Checks for uncommitted changes
+- Runs unit tests
+- Generates coverage report
+
 **Run unit tests** (fast, no external dependencies):
 ```bash
 make test
+```
+
+**Run linter** (auto-installs `golangci-lint` if needed):
+```bash
+make lint
 ```
 
 **Run acceptance tests** (requires `TF_ACC=1`, may create real resources):
@@ -97,6 +98,16 @@ make testacc-run TEST=TestAccBackupResource
 ```bash
 make testcov
 # Opens coverage.html in your browser
+```
+
+**Format code**:
+```bash
+make fmt
+```
+
+**Generate documentation**:
+```bash
+make generate
 ```
 
 For more details, see the [Testing Guide](docs/TESTING.md).
