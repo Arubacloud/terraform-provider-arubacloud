@@ -19,7 +19,7 @@ resource "arubacloud_subnet" "test" {
   network = {
     address = "10.0.1.0/24"  # CIDR notation
   }
-  tags       = ["network", "test"]
+  tags       = ["network", "test","updated"]
 }
 
 
@@ -29,7 +29,7 @@ resource "arubacloud_securitygroup" "test" {
   location   = "ITBG-Bergamo"
   project_id = arubacloud_project.test.id
   vpc_id     = arubacloud_vpc.test.id
-  tags       = ["security", "test"]
+  tags       = ["security", "test", "updated"]
 }
 
 # Elastic IP - Public IP address for the cloud server
@@ -38,7 +38,7 @@ resource "arubacloud_elasticip" "test" {
   location       = "ITBG-Bergamo"
   project_id     = arubacloud_project.test.id
   billing_period = "hourly"
-  tags           = ["public", "test"]
+  tags           = ["public", "test","updated"]
 }
 
 # Security Rule - Allow SSH from anywhere (0.0.0.0/0)
@@ -48,6 +48,7 @@ resource "arubacloud_securityrule" "test" {
   project_id        = arubacloud_project.test.id
   vpc_id            = arubacloud_vpc.test.id
   security_group_id = arubacloud_securitygroup.test.id
+#  tags              = ["security", "test", "ssh"]
   properties = {
     direction = "Ingress"
     protocol  = "TCP"
@@ -77,5 +78,10 @@ output "security_group_id" {
 output "elastic_ip_id" {
   value       = arubacloud_elasticip.test.id
   description = "The ID of the created Elastic IP"
+}
+
+output "elastic_ip_address" {
+  value       = arubacloud_elasticip.test.address
+  description = "The IP address of the created Elastic IP (computed from ElasticIpPropertiesResponse)"
 }
 

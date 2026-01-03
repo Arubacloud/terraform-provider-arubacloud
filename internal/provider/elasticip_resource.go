@@ -12,6 +12,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -62,7 +64,11 @@ func (r *ElasticIPResource) Schema(ctx context.Context, req resource.SchemaReque
 			},
 			"billing_period": schema.StringAttribute{
 				MarkdownDescription: "Billing period for the Elastic IP (only 'hourly' allowed)",
-				Required:            true,
+				Optional:            true,
+				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 				// Validators removed for v1.16.1 compatibility
 			},
 			"project_id": schema.StringAttribute{
@@ -70,16 +76,25 @@ func (r *ElasticIPResource) Schema(ctx context.Context, req resource.SchemaReque
 				Required:            true,
 			},
 			"address": schema.StringAttribute{
-				MarkdownDescription: "Elastic IP address",
+				MarkdownDescription: "Elastic IP address (computed from ElasticIpPropertiesResponse)",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Elastic IP Identifier",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"uri": schema.StringAttribute{
 				MarkdownDescription: "Elastic IP URI",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}
@@ -139,7 +154,13 @@ func (r *ElasticIPResource) Create(ctx context.Context, req resource.CreateReque
 		},
 		Properties: sdktypes.ElasticIPPropertiesRequest{
 			BillingPlan: sdktypes.BillingPeriodResource{
-				BillingPeriod: data.BillingPeriod.ValueString(),
+				BillingPeriod: func() string {
+					if !data.BillingPeriod.IsNull() && !data.BillingPeriod.IsUnknown() {
+						return data.BillingPeriod.ValueString()
+					}
+					// Default to "hourly" if not provided
+					return "hourly"
+				}(),
 			},
 		},
 	}
@@ -183,6 +204,17 @@ func (r *ElasticIPResource) Create(ctx context.Context, req resource.CreateReque
 		}
 		if response.Data.Properties.Address != nil {
 			data.Address = types.StringValue(*response.Data.Properties.Address)
+		}
+		// Set billing_period from create response if available
+		if response.Data.Properties.BillingPlan.BillingPeriod != "" {
+			data.BillingPeriod = types.StringValue(response.Data.Properties.BillingPlan.BillingPeriod)
+		} else if data.BillingPeriod.IsNull() || data.BillingPeriod.IsUnknown() {
+			// Fallback to plan value or default
+			if !data.BillingPeriod.IsNull() && !data.BillingPeriod.IsUnknown() {
+				// Keep plan value
+			} else {
+				data.BillingPeriod = types.StringValue("hourly")
+			}
 		}
 	} else {
 		resp.Diagnostics.AddError(
@@ -234,8 +266,23 @@ func (r *ElasticIPResource) Create(ctx context.Context, req resource.CreateReque
 		} else {
 			data.Uri = types.StringNull()
 		}
+		// Update address from re-read response (computed field from ElasticIpPropertiesResponse)
 		if getResp.Data.Properties.Address != nil {
 			data.Address = types.StringValue(*getResp.Data.Properties.Address)
+		} else {
+			// Address might not be available yet, set to null
+			data.Address = types.StringNull()
+		}
+		// Update billing_period from the re-read response
+		if getResp.Data.Properties.BillingPlan.BillingPeriod != "" {
+			data.BillingPeriod = types.StringValue(getResp.Data.Properties.BillingPlan.BillingPeriod)
+		} else {
+			// Fallback to plan value or default if not available
+			if !data.BillingPeriod.IsNull() && !data.BillingPeriod.IsUnknown() {
+				// Keep the plan value
+			} else {
+				data.BillingPeriod = types.StringValue("hourly")
+			}
 		}
 		// Also update other fields that might have changed
 		if getResp.Data.Metadata.Name != nil {
@@ -244,6 +291,10 @@ func (r *ElasticIPResource) Create(ctx context.Context, req resource.CreateReque
 	} else if err != nil {
 		// If Get fails, log but don't fail - we already have the ID from create response
 		tflog.Warn(ctx, fmt.Sprintf("Failed to refresh Elastic IP after creation: %v", err))
+		// Ensure billing_period is set even if re-read fails
+		if data.BillingPeriod.IsNull() || data.BillingPeriod.IsUnknown() {
+			data.BillingPeriod = types.StringValue("hourly")
+		}
 	}
 
 	tflog.Trace(ctx, "created an Elastic IP resource", map[string]interface{}{
@@ -325,13 +376,21 @@ func (r *ElasticIPResource) Read(ctx context.Context, req resource.ReadRequest, 
 		if eip.Metadata.LocationResponse != nil {
 			data.Location = types.StringValue(eip.Metadata.LocationResponse.Value)
 		}
+		// Update address from response (computed field from ElasticIpPropertiesResponse)
 		if eip.Properties.Address != nil {
 			data.Address = types.StringValue(*eip.Properties.Address)
 		} else {
 			// Address might not be available yet, set to null
 			data.Address = types.StringNull()
 		}
-		data.BillingPeriod = types.StringValue(eip.Properties.BillingPlan.BillingPeriod)
+		// Always set billing_period from API response (it's always available from API)
+		// This ensures it's always in state, preventing false changes in plan
+		if eip.Properties.BillingPlan.BillingPeriod != "" {
+			data.BillingPeriod = types.StringValue(eip.Properties.BillingPlan.BillingPeriod)
+		} else {
+			// Fallback to "hourly" if API doesn't return it (shouldn't happen)
+			data.BillingPeriod = types.StringValue("hourly")
+		}
 
 		// Update tags from response
 		if len(eip.Metadata.Tags) > 0 {
@@ -480,14 +539,89 @@ func (r *ElasticIPResource) Update(ctx context.Context, req resource.UpdateReque
 	// Ensure immutable fields are set from state before saving
 	data.Id = state.Id
 	data.ProjectId = state.ProjectId
+	data.Uri = state.Uri         // Preserve URI from state
+	data.Address = state.Address // Preserve address from state (computed field)
 
 	if response != nil && response.Data != nil {
 		// Update from response if available (should match state)
 		if response.Data.Metadata.ID != nil {
 			data.Id = types.StringValue(*response.Data.Metadata.ID)
 		}
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			// If no URI in response, re-read the Elastic IP to get the latest state
+			getResp, err := r.client.Client.FromNetwork().ElasticIPs().Get(ctx, projectID, eipID, nil)
+			if err == nil && getResp != nil && getResp.Data != nil {
+				if getResp.Data.Metadata.URI != nil {
+					data.Uri = types.StringValue(*getResp.Data.Metadata.URI)
+				} else {
+					data.Uri = state.Uri // Fallback to state if not available
+				}
+				// Also update address from re-read if available
+				if getResp.Data.Properties.Address != nil {
+					data.Address = types.StringValue(*getResp.Data.Properties.Address)
+				}
+			} else {
+				data.Uri = state.Uri // Fallback to state if re-read fails
+			}
+		}
+		// Update address from response if available (computed field from ElasticIpPropertiesResponse)
 		if response.Data.Properties.Address != nil {
 			data.Address = types.StringValue(*response.Data.Properties.Address)
+		}
+		// Always set billing_period from response if available
+		if response.Data.Properties.BillingPlan.BillingPeriod != "" {
+			data.BillingPeriod = types.StringValue(response.Data.Properties.BillingPlan.BillingPeriod)
+		} else {
+			// If not in response, re-read to get it
+			getResp, err := r.client.Client.FromNetwork().ElasticIPs().Get(ctx, projectID, eipID, nil)
+			if err == nil && getResp != nil && getResp.Data != nil {
+				if getResp.Data.Properties.BillingPlan.BillingPeriod != "" {
+					data.BillingPeriod = types.StringValue(getResp.Data.Properties.BillingPlan.BillingPeriod)
+				} else {
+					// Fallback to state or default
+					if !state.BillingPeriod.IsNull() && !state.BillingPeriod.IsUnknown() {
+						data.BillingPeriod = state.BillingPeriod
+					} else {
+						data.BillingPeriod = types.StringValue("hourly")
+					}
+				}
+				// Also update address from re-read if available (computed field from ElasticIpPropertiesResponse)
+				if getResp.Data.Properties.Address != nil {
+					data.Address = types.StringValue(*getResp.Data.Properties.Address)
+				}
+			} else {
+				// Fallback to state or default
+				if !state.BillingPeriod.IsNull() && !state.BillingPeriod.IsUnknown() {
+					data.BillingPeriod = state.BillingPeriod
+				} else {
+					data.BillingPeriod = types.StringValue("hourly")
+				}
+			}
+		}
+	} else {
+		// If no response, preserve URI from state and set billing_period from API or default
+		data.Uri = state.Uri
+		// Re-read to get billing_period
+		getResp, err := r.client.Client.FromNetwork().ElasticIPs().Get(ctx, projectID, eipID, nil)
+		if err == nil && getResp != nil && getResp.Data != nil {
+			if getResp.Data.Properties.BillingPlan.BillingPeriod != "" {
+				data.BillingPeriod = types.StringValue(getResp.Data.Properties.BillingPlan.BillingPeriod)
+			} else {
+				if !state.BillingPeriod.IsNull() && !state.BillingPeriod.IsUnknown() {
+					data.BillingPeriod = state.BillingPeriod
+				} else {
+					data.BillingPeriod = types.StringValue("hourly")
+				}
+			}
+		} else {
+			// Fallback to state or default
+			if !state.BillingPeriod.IsNull() && !state.BillingPeriod.IsUnknown() {
+				data.BillingPeriod = state.BillingPeriod
+			} else {
+				data.BillingPeriod = types.StringValue("hourly")
+			}
 		}
 	}
 

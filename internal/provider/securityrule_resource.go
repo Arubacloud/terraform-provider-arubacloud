@@ -12,6 +12,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -80,10 +82,16 @@ func (r *SecurityRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Security Rule identifier",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"uri": schema.StringAttribute{
 				MarkdownDescription: "Security Rule URI",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Security Rule name",
@@ -101,10 +109,16 @@ func (r *SecurityRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 			"vpc_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the VPC this Security Rule belongs to",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"security_group_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the Security Group this rule belongs to",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
@@ -334,6 +348,26 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
+	// Re-read the Security Rule to get the latest state including tags
+	getResp, err := r.client.Client.FromNetwork().SecurityGroupRules().Get(ctx, projectID, vpcID, securityGroupID, ruleID, nil)
+	if err == nil && getResp != nil && getResp.Data != nil {
+		rule := getResp.Data
+		// Update tags from re-read response
+		if len(rule.Metadata.Tags) > 0 {
+			tagValues := make([]types.String, len(rule.Metadata.Tags))
+			for i, tag := range rule.Metadata.Tags {
+				tagValues[i] = types.StringValue(tag)
+			}
+			tagsList, diags := types.ListValueFrom(ctx, types.StringType, tagValues)
+			resp.Diagnostics.Append(diags...)
+			if !resp.Diagnostics.HasError() {
+				data.Tags = tagsList
+			}
+		} else {
+			data.Tags = types.ListNull(types.StringType)
+		}
+	}
+
 	tflog.Trace(ctx, "created a Security Rule resource", map[string]interface{}{
 		"securityrule_id":   data.Id.ValueString(),
 		"securityrule_name": data.Name.ValueString(),
@@ -445,7 +479,7 @@ func (r *SecurityRuleResource) Read(ctx context.Context, req resource.ReadReques
 			data.Properties = propertiesObj
 		}
 
-		// Update tags
+		// Update tags from response
 		if len(rule.Metadata.Tags) > 0 {
 			tagValues := make([]types.String, len(rule.Metadata.Tags))
 			for i, tag := range rule.Metadata.Tags {
@@ -457,12 +491,10 @@ func (r *SecurityRuleResource) Read(ctx context.Context, req resource.ReadReques
 				data.Tags = tagsList
 			}
 		} else {
-			emptyList, diags := types.ListValue(types.StringType, []attr.Value{})
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = emptyList
-			}
+			// API has no tags - set to null
+			data.Tags = types.ListNull(types.StringType)
 		}
+
 	} else {
 		resp.State.RemoveResource(ctx)
 		return

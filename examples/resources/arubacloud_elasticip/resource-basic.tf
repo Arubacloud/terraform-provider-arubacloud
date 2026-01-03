@@ -6,8 +6,8 @@ resource "arubacloud_elasticip" "example" {
   tags           = ["public", "test"]
 }
 
-# Output the Elastic IP address
+# Output the Elastic IP address (computed field from ElasticIpPropertiesResponse)
 output "elastic_ip_address" {
   value       = arubacloud_elasticip.example.address
-  description = "The IP address of the created Elastic IP"
+  description = "The IP address of the created Elastic IP (computed from ElasticIpPropertiesResponse)"
 }
