@@ -319,7 +319,7 @@ func (r *ContainerRegistryResource) Create(ctx context.Context, req resource.Cre
 	}
 
 	tflog.Trace(ctx, "created a Container Registry resource", map[string]interface{}{
-		"containerregistry_id": data.Id.ValueString(),
+		"containerregistry_id":   data.Id.ValueString(),
 		"containerregistry_name": data.Name.ValueString(),
 	})
 

@@ -191,7 +191,7 @@ func (r *VPCResource) Create(ctx context.Context, req resource.CreateRequest, re
 	}
 
 	tflog.Trace(ctx, "created a VPC resource", map[string]interface{}{
-		"vpc_id": data.Id.ValueString(),
+		"vpc_id":   data.Id.ValueString(),
 		"vpc_name": data.Name.ValueString(),
 	})
 
@@ -490,9 +490,9 @@ func (r *VPCResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 	})
 }
 
-// extractVPCDelError extracts error from VPC delete response using reflection
-// The response from VPCs().Delete() has StatusCode and Error as direct struct fields
-// We use reflection to access these fields since we have interface{}
+// extractVPCDelError extracts error from VPC delete response using reflection.
+// The response from VPCs().Delete() has StatusCode and Error as direct struct fields.
+// We use reflection to access these fields since we have interface{}.
 func extractVPCDelError(response interface{}) (int, *string, *string, bool) {
 	// Use reflection to access StatusCode and Error fields
 	v := reflect.ValueOf(response)

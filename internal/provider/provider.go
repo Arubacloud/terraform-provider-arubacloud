@@ -36,8 +36,8 @@ type ArubaCloudProvider struct {
 
 // ArubaCloudProviderModel describes the provider data model.
 type ArubaCloudProviderModel struct {
-	ApiKey         types.String `tfsdk:"api_key"`
-	ApiSecret      types.String `tfsdk:"api_secret"`
+	ApiKey          types.String `tfsdk:"api_key"`
+	ApiSecret       types.String `tfsdk:"api_secret"`
 	ResourceTimeout types.String `tfsdk:"resource_timeout"`
 }
 
@@ -137,8 +137,8 @@ func (p *ArubaCloudProvider) Configure(ctx context.Context, req provider.Configu
 	resp.ResourceData = client
 }
 
-// parseTimeout parses a timeout string (e.g., "5m", "10m") and returns the duration
-// If the string is empty or invalid, returns the default duration
+// parseTimeout parses a timeout string (e.g., "5m", "10m") and returns the duration.
+// If the string is empty or invalid, returns the default duration.
 func parseTimeout(timeoutStr types.String, defaultDuration time.Duration) time.Duration {
 	if timeoutStr.IsNull() || timeoutStr.IsUnknown() || timeoutStr.ValueString() == "" {
 		return defaultDuration
@@ -153,7 +153,7 @@ func parseTimeout(timeoutStr types.String, defaultDuration time.Duration) time.D
 	return duration
 }
 
-// ArubaCloudClient wraps the SDK client with API credentials and timeout configuration
+// ArubaCloudClient wraps the SDK client with API credentials and timeout configuration.
 type ArubaCloudClient struct {
 	ApiKey          string
 	ApiSecret       string

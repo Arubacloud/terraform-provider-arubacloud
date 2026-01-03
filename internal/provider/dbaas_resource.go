@@ -211,7 +211,7 @@ func (r *DBaaSResource) Create(ctx context.Context, req resource.CreateRequest, 
 	}
 
 	tflog.Trace(ctx, "created a DBaaS resource", map[string]interface{}{
-		"dbaas_id": data.Id.ValueString(),
+		"dbaas_id":   data.Id.ValueString(),
 		"dbaas_name": data.Name.ValueString(),
 	})
 

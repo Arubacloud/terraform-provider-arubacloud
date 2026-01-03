@@ -202,8 +202,20 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 	}
 
 	propertiesAttrs := propertiesObj.Attributes()
-	direction := propertiesAttrs["direction"].(types.String).ValueString()
-	protocol := propertiesAttrs["protocol"].(types.String).ValueString()
+	directionAttr, ok := propertiesAttrs["direction"].(types.String)
+	if !ok {
+		resp.Diagnostics.AddError("Invalid Type", "direction must be a String")
+		return
+	}
+	direction := directionAttr.ValueString()
+
+	protocolAttr, ok := propertiesAttrs["protocol"].(types.String)
+	if !ok {
+		resp.Diagnostics.AddError("Invalid Type", "protocol must be a String")
+		return
+	}
+	protocol := protocolAttr.ValueString()
+
 	port := ""
 	if portAttr, ok := propertiesAttrs["port"]; ok && portAttr != nil {
 		if portStr, ok := portAttr.(types.String); ok && !portStr.IsNull() {
@@ -212,16 +224,31 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 	}
 
 	// Extract target
-	targetObj := propertiesAttrs["target"].(types.Object)
-	targetObjValue, diags := targetObj.ToObjectValue(ctx)
+	targetObjAttr, ok := propertiesAttrs["target"].(types.Object)
+	if !ok {
+		resp.Diagnostics.AddError("Invalid Type", "target must be an Object")
+		return
+	}
+	targetObjValue, diags := targetObjAttr.ToObjectValue(ctx)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	targetAttrs := targetObjValue.Attributes()
-	targetKind := targetAttrs["kind"].(types.String).ValueString()
-	targetValue := targetAttrs["value"].(types.String).ValueString()
+	targetKindAttr, ok := targetAttrs["kind"].(types.String)
+	if !ok {
+		resp.Diagnostics.AddError("Invalid Type", "target.kind must be a String")
+		return
+	}
+	targetKind := targetKindAttr.ValueString()
+
+	targetValueAttr, ok := targetAttrs["value"].(types.String)
+	if !ok {
+		resp.Diagnostics.AddError("Invalid Type", "target.value must be a String")
+		return
+	}
+	targetValue := targetValueAttr.ValueString()
 
 	// Build the create request
 	createRequest := sdktypes.SecurityRuleRequest{
@@ -308,7 +335,7 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 	}
 
 	tflog.Trace(ctx, "created a Security Rule resource", map[string]interface{}{
-		"securityrule_id": data.Id.ValueString(),
+		"securityrule_id":   data.Id.ValueString(),
 		"securityrule_name": data.Name.ValueString(),
 	})
 
@@ -509,10 +536,14 @@ func (r *SecurityRuleResource) Update(ctx context.Context, req resource.UpdateRe
 		if !diags.HasError() {
 			propertiesAttrs := propertiesObj.Attributes()
 			if dir, ok := propertiesAttrs["direction"]; ok && dir != nil {
-				planDirection = dir.(types.String).ValueString()
+				if dirStr, ok := dir.(types.String); ok {
+					planDirection = dirStr.ValueString()
+				}
 			}
 			if prot, ok := propertiesAttrs["protocol"]; ok && prot != nil {
-				planProtocol = prot.(types.String).ValueString()
+				if protStr, ok := prot.(types.String); ok {
+					planProtocol = protStr.ValueString()
+				}
 			}
 			if portAttr, ok := propertiesAttrs["port"]; ok && portAttr != nil {
 				if portStr, ok := portAttr.(types.String); ok && !portStr.IsNull() {
@@ -525,10 +556,14 @@ func (r *SecurityRuleResource) Update(ctx context.Context, req resource.UpdateRe
 					if !targetDiags.HasError() {
 						targetAttrs := targetObjValue.Attributes()
 						if kind, ok := targetAttrs["kind"]; ok && kind != nil {
-							planTargetKind = kind.(types.String).ValueString()
+							if kindStr, ok := kind.(types.String); ok {
+								planTargetKind = kindStr.ValueString()
+							}
 						}
 						if value, ok := targetAttrs["value"]; ok && value != nil {
-							planTargetValue = value.(types.String).ValueString()
+							if valueStr, ok := value.(types.String); ok {
+								planTargetValue = valueStr.ValueString()
+							}
 						}
 					}
 				}
@@ -537,11 +572,11 @@ func (r *SecurityRuleResource) Update(ctx context.Context, req resource.UpdateRe
 	}
 
 	// Compare with current properties
-	propertiesChanged := false
+	var propertiesChanged bool
 	if planDirection != "" && string(current.Properties.Direction) != planDirection {
 		propertiesChanged = true
 	}
-	if planProtocol != "" && string(current.Properties.Protocol) != planProtocol {
+	if planProtocol != "" && current.Properties.Protocol != planProtocol {
 		propertiesChanged = true
 	}
 	currentPort := current.Properties.Port

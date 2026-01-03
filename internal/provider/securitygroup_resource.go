@@ -195,7 +195,7 @@ func (r *SecurityGroupResource) Create(ctx context.Context, req resource.CreateR
 	}
 
 	tflog.Trace(ctx, "created a Security Group resource", map[string]interface{}{
-		"securitygroup_id": data.Id.ValueString(),
+		"securitygroup_id":   data.Id.ValueString(),
 		"securitygroup_name": data.Name.ValueString(),
 	})
 

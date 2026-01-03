@@ -247,7 +247,7 @@ func (r *ElasticIPResource) Create(ctx context.Context, req resource.CreateReque
 	}
 
 	tflog.Trace(ctx, "created an Elastic IP resource", map[string]interface{}{
-		"elasticip_id": data.Id.ValueString(),
+		"elasticip_id":   data.Id.ValueString(),
 		"elasticip_name": data.Name.ValueString(),
 	})
 

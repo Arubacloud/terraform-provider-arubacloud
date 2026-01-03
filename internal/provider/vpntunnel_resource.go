@@ -26,7 +26,7 @@ func NewVPNTunnelResource() resource.Resource {
 
 type VPNTunnelResourceModel struct {
 	Id         types.String `tfsdk:"id"`
-	Uri       types.String `tfsdk:"uri"`
+	Uri        types.String `tfsdk:"uri"`
 	Name       types.String `tfsdk:"name"`
 	Location   types.String `tfsdk:"location"`
 	Tags       types.List   `tfsdk:"tags"`
@@ -618,7 +618,7 @@ func (r *VPNTunnelResource) Create(ctx context.Context, req resource.CreateReque
 	}
 
 	tflog.Trace(ctx, "created a VPN Tunnel resource", map[string]interface{}{
-		"vpntunnel_id": data.Id.ValueString(),
+		"vpntunnel_id":   data.Id.ValueString(),
 		"vpntunnel_name": data.Name.ValueString(),
 	})
 

@@ -13,12 +13,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-// ResourceStateChecker is a function that checks the current state of a resource
-// Returns the state string and an error if the check failed
+// ResourceStateChecker is a function that checks the current state of a resource.
+// Returns the state string and an error if the check failed.
 type ResourceStateChecker func(ctx context.Context) (string, error)
 
-// WaitForResourceActive waits for a resource to reach an active/ready state
-// It polls the resource status until it's not in a transitional state
+// WaitForResourceActive waits for a resource to reach an active/ready state.
+// It polls the resource status until it's not in a transitional state.
 func WaitForResourceActive(ctx context.Context, checker ResourceStateChecker, resourceType, resourceID string, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	ticker := time.NewTicker(5 * time.Second) // Poll every 5 seconds
@@ -52,8 +52,8 @@ func WaitForResourceActive(ctx context.Context, checker ResourceStateChecker, re
 	}
 }
 
-// isReadyState checks if a resource state indicates it's ready to be used
-// Resources in "InCreation", "Creating", "Updating", or "Deleting" states are not ready
+// isReadyState checks if a resource state indicates it's ready to be used.
+// Resources in "InCreation", "Creating", "Updating", or "Deleting" states are not ready.
 func isReadyState(state string) bool {
 	transitionalStates := []string{
 		"InCreation",
@@ -111,7 +111,7 @@ func IsDependencyError(statusCode int, errorTitle, errorDetail *string) bool {
 	return true
 }
 
-// containsDependencyKeywords checks if a string contains keywords that indicate dependency issues
+// containsDependencyKeywords checks if a string contains keywords that indicate dependency issues.
 func containsDependencyKeywords(s string) bool {
 	keywords := []string{
 		"dependency",
@@ -351,7 +351,7 @@ func ExtractSDKError(response interface{}) (statusCode int, errorTitle *string, 
 //   - resourceID: Resource ID for logging
 //   - timeout: Maximum time to wait
 //
-// Returns error if timeout is reached, nil on success
+// Returns error if timeout is reached, nil on success.
 func RetryDeleteOperation(
 	ctx context.Context,
 	deleteFunc func() (interface{}, error),
@@ -361,4 +361,3 @@ func RetryDeleteOperation(
 ) error {
 	return DeleteResourceWithRetry(ctx, deleteFunc, extractError, resourceType, resourceID, timeout)
 }
-

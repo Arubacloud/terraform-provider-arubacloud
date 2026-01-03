@@ -18,7 +18,7 @@ import (
 
 type DatabaseBackupResourceModel struct {
 	Id            types.String `tfsdk:"id"`
-	Uri       types.String `tfsdk:"uri"`
+	Uri           types.String `tfsdk:"uri"`
 	ProjectID     types.String `tfsdk:"project_id"`
 	Name          types.String `tfsdk:"name"`
 	Location      types.String `tfsdk:"location"`
@@ -66,7 +66,7 @@ func (r *DatabaseBackupResource) Schema(ctx context.Context, req resource.Schema
 			},
 			"location": schema.StringAttribute{
 				MarkdownDescription: "Database Backup location",
-				Required:              true,
+				Required:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
@@ -244,7 +244,7 @@ func (r *DatabaseBackupResource) Create(ctx context.Context, req resource.Create
 	}
 
 	tflog.Trace(ctx, "created a Database Backup resource", map[string]interface{}{
-		"backup_id": data.Id.ValueString(),
+		"backup_id":   data.Id.ValueString(),
 		"backup_name": data.Name.ValueString(),
 	})
 

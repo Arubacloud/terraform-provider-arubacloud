@@ -29,7 +29,7 @@ type VpcPeeringRouteResource struct {
 
 type VpcPeeringRouteResourceModel struct {
 	Id                   types.String `tfsdk:"id"`
-	Uri       types.String `tfsdk:"uri"`
+	Uri                  types.String `tfsdk:"uri"`
 	Name                 types.String `tfsdk:"name"`
 	Tags                 types.List   `tfsdk:"tags"`
 	ProjectId            types.String `tfsdk:"project_id"`
@@ -211,7 +211,7 @@ func (r *VpcPeeringRouteResource) Create(ctx context.Context, req resource.Creat
 	}
 
 	tflog.Trace(ctx, "created a VPC Peering Route resource", map[string]interface{}{
-		"vpcpeeringroute_id": data.Id.ValueString(),
+		"vpcpeeringroute_id":   data.Id.ValueString(),
 		"vpcpeeringroute_name": data.Name.ValueString(),
 	})
 

@@ -257,7 +257,7 @@ func (r *RestoreResource) Create(ctx context.Context, req resource.CreateRequest
 	}
 
 	tflog.Trace(ctx, "created a Restore resource", map[string]interface{}{
-		"restore_id": data.Id.ValueString(),
+		"restore_id":   data.Id.ValueString(),
 		"restore_name": data.Name.ValueString(),
 	})
 

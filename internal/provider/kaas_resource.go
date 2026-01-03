@@ -31,7 +31,7 @@ func NewKaaSResource() resource.Resource {
 
 type KaaSResourceModel struct {
 	Id                types.String `tfsdk:"id"`
-	Uri       types.String `tfsdk:"uri"`
+	Uri               types.String `tfsdk:"uri"`
 	Name              types.String `tfsdk:"name"`
 	Location          types.String `tfsdk:"location"`
 	Tags              types.List   `tfsdk:"tags"`
@@ -48,7 +48,7 @@ type KaaSResourceModel struct {
 }
 
 type KaaSNodeCIDRModel struct {
-	Address   types.String `tfsdk:"address"`
+	Address    types.String `tfsdk:"address"`
 	SubnetName types.String `tfsdk:"subnet_name"`
 }
 
@@ -394,7 +394,7 @@ func (r *KaaSResource) Create(ctx context.Context, req resource.CreateRequest, r
 	}
 
 	tflog.Trace(ctx, "created a KaaS resource", map[string]interface{}{
-		"kaas_id": data.Id.ValueString(),
+		"kaas_id":   data.Id.ValueString(),
 		"kaas_name": data.Name.ValueString(),
 	})
 
@@ -484,10 +484,10 @@ func (r *KaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		}
 		if kaas.Properties.NodeCIDR.Address != nil && *kaas.Properties.NodeCIDR.Address != "" {
 			nodeCIDRObj, diags := types.ObjectValue(map[string]attr.Type{
-				"address":    types.StringType,
+				"address":     types.StringType,
 				"subnet_name": types.StringType,
 			}, map[string]attr.Value{
-				"address":    types.StringValue(*kaas.Properties.NodeCIDR.Address),
+				"address": types.StringValue(*kaas.Properties.NodeCIDR.Address),
 				"subnet_name": types.StringValue(func() string {
 					if kaas.Properties.NodeCIDR.Name != nil {
 						return *kaas.Properties.NodeCIDR.Name

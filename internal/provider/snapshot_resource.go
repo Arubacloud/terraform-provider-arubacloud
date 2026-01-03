@@ -269,7 +269,7 @@ func (r *SnapshotResource) Create(ctx context.Context, req resource.CreateReques
 	}
 
 	tflog.Trace(ctx, "created a Snapshot resource", map[string]interface{}{
-		"snapshot_id": data.Id.ValueString(),
+		"snapshot_id":   data.Id.ValueString(),
 		"snapshot_name": data.Name.ValueString(),
 	})
 
@@ -375,7 +375,7 @@ func (r *SnapshotResource) Read(ctx context.Context, req resource.ReadRequest, r
 				data.Location = types.StringValue(snapshot.Metadata.LocationResponse.Value)
 			}
 		}
-		
+
 		// Handle volume_id: Always preserve from state since it's immutable
 		// The volume_id never changes after snapshot creation, so we should always use the value from state
 		// This prevents false changes when the referenced block storage is updated

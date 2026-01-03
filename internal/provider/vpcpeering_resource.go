@@ -36,7 +36,7 @@ type VpcPeeringResourceModel struct {
 	Tags      types.List   `tfsdk:"tags"`
 	ProjectId types.String `tfsdk:"project_id"`
 	VpcId     types.String `tfsdk:"vpc_id"`
-	PeerVpc  types.String `tfsdk:"peer_vpc"`
+	PeerVpc   types.String `tfsdk:"peer_vpc"`
 }
 
 func (r *VpcPeeringResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -214,7 +214,7 @@ func (r *VpcPeeringResource) Create(ctx context.Context, req resource.CreateRequ
 	}
 
 	tflog.Trace(ctx, "created a VPC Peering resource", map[string]interface{}{
-		"vpcpeering_id": data.Id.ValueString(),
+		"vpcpeering_id":   data.Id.ValueString(),
 		"vpcpeering_name": data.Name.ValueString(),
 	})
 

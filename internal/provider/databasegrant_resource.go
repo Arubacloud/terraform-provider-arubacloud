@@ -115,12 +115,11 @@ func (r *DatabaseGrantResource) Create(ctx context.Context, req resource.CreateR
 	// TODO: Fix GrantRole - check if Role field in GrantRequest is actually string type
 	// or if we need to use GrantRole enum constants like sdktypes.GrantRoleRead, etc.
 	roleStr := data.Role.ValueString()
-	
+
 	resp.Diagnostics.AddError(
 		"Unimplemented: GrantRole Type",
 		fmt.Sprintf("DatabaseGrant resource requires proper GrantRole type handling. Role value: %s. Please check SDK for GrantRole enum values (e.g., sdktypes.GrantRoleRead) or if Role field accepts string directly.", roleStr),
 	)
-	return
 }
 
 func (r *DatabaseGrantResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -150,7 +149,6 @@ func (r *DatabaseGrantResource) Read(ctx context.Context, req resource.ReadReque
 		"Unimplemented: DatabaseGrant Resource",
 		"DatabaseGrant resource is temporarily disabled. GrantRole type conversion needs to be resolved. Please check SDK for GrantRole enum values.",
 	)
-	return
 }
 
 func (r *DatabaseGrantResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -188,7 +186,6 @@ func (r *DatabaseGrantResource) Update(ctx context.Context, req resource.UpdateR
 		"Unimplemented: GrantRole Type",
 		fmt.Sprintf("DatabaseGrant update requires proper GrantRole type handling. Role value: %s. Please check SDK for GrantRole enum values.", roleStr),
 	)
-	return
 }
 
 func (r *DatabaseGrantResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

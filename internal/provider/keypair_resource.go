@@ -158,16 +158,16 @@ func (r *KeypairResource) Create(ctx context.Context, req resource.CreateRequest
 		if response.StatusCode > 0 {
 			errorMsg = fmt.Sprintf("%s (HTTP %d)", errorMsg, response.StatusCode)
 		}
-		
+
 		// Log the full error for debugging
 		tflog.Error(ctx, "Keypair creation failed", map[string]interface{}{
 			"error_title":  response.Error.Title,
-			"error_detail":  response.Error.Detail,
-			"status_code":   response.StatusCode,
-			"keypair_name":  data.Name.ValueString(),
-			"project_id":    projectID,
+			"error_detail": response.Error.Detail,
+			"status_code":  response.StatusCode,
+			"keypair_name": data.Name.ValueString(),
+			"project_id":   projectID,
 		})
-		
+
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}
@@ -183,7 +183,7 @@ func (r *KeypairResource) Create(ctx context.Context, req resource.CreateRequest
 			)
 			return
 		}
-		
+
 		if response.Data.Metadata.URI != nil {
 			data.Uri = types.StringValue(*response.Data.Metadata.URI)
 		} else {
@@ -222,7 +222,7 @@ func (r *KeypairResource) Create(ctx context.Context, req resource.CreateRequest
 	}
 
 	tflog.Trace(ctx, "created a Keypair resource", map[string]interface{}{
-		"keypair_id": data.Id.ValueString(),
+		"keypair_id":   data.Id.ValueString(),
 		"keypair_name": data.Name.ValueString(),
 	})
 
@@ -278,7 +278,7 @@ func (r *KeypairResource) Read(ctx context.Context, req resource.ReadRequest, re
 		"keypair_name": data.Name.ValueString(),
 		"keypair_uri":  data.Uri.ValueString(),
 	})
-	
+
 	response, err := r.client.Client.FromCompute().KeyPairs().Get(ctx, projectID, keypairID, nil)
 	if err != nil {
 		tflog.Error(ctx, "Error calling keypair Get API", map[string]interface{}{
@@ -322,12 +322,12 @@ func (r *KeypairResource) Read(ctx context.Context, req resource.ReadRequest, re
 
 	if response != nil && response.Data != nil {
 		keypair := response.Data
-		
+
 		// Preserve ProjectID and Value from state (they're not in the API response)
 		projectIDFromState := data.ProjectID
 		valueFromState := data.Value
 		idFromState := data.Id
-		
+
 		// Get ID from Metadata.ID (like other resources)
 		if keypair.Metadata.ID != nil {
 			data.Id = types.StringValue(*keypair.Metadata.ID)
@@ -335,7 +335,7 @@ func (r *KeypairResource) Read(ctx context.Context, req resource.ReadRequest, re
 			// If API doesn't provide ID, preserve from state
 			data.Id = idFromState
 		}
-		
+
 		if keypair.Metadata.Name != nil {
 			data.Name = types.StringValue(*keypair.Metadata.Name)
 		}
@@ -347,7 +347,7 @@ func (r *KeypairResource) Read(ctx context.Context, req resource.ReadRequest, re
 		if keypair.Metadata.LocationResponse != nil {
 			data.Location = types.StringValue(keypair.Metadata.LocationResponse.Value)
 		}
-		
+
 		// Update tags from response
 		if len(keypair.Metadata.Tags) > 0 {
 			tagValues := make([]types.String, len(keypair.Metadata.Tags))
@@ -366,7 +366,7 @@ func (r *KeypairResource) Read(ctx context.Context, req resource.ReadRequest, re
 				data.Tags = emptyList
 			}
 		}
-		
+
 		// Restore ProjectID and Value from state (they're not returned by the API)
 		data.ProjectID = projectIDFromState
 		data.Value = valueFromState

@@ -25,7 +25,7 @@ func NewVPNRouteResource() resource.Resource {
 
 type VPNRouteResourceModel struct {
 	Id          types.String `tfsdk:"id"`
-	Uri       types.String `tfsdk:"uri"`
+	Uri         types.String `tfsdk:"uri"`
 	Name        types.String `tfsdk:"name"`
 	Location    types.String `tfsdk:"location"`
 	Tags        types.List   `tfsdk:"tags"`
@@ -144,8 +144,19 @@ func (r *VPNRouteResource) Create(ctx context.Context, req resource.CreateReques
 	}
 
 	propertiesAttrs := propertiesObj.Attributes()
-	cloudSubnet := propertiesAttrs["cloud_subnet"].(types.String).ValueString()
-	onPremSubnet := propertiesAttrs["on_prem_subnet"].(types.String).ValueString()
+	cloudSubnetAttr, ok := propertiesAttrs["cloud_subnet"].(types.String)
+	if !ok {
+		resp.Diagnostics.AddError("Invalid Type", "cloud_subnet must be a String")
+		return
+	}
+	cloudSubnet := cloudSubnetAttr.ValueString()
+
+	onPremSubnetAttr, ok := propertiesAttrs["on_prem_subnet"].(types.String)
+	if !ok {
+		resp.Diagnostics.AddError("Invalid Type", "on_prem_subnet must be a String")
+		return
+	}
+	onPremSubnet := onPremSubnetAttr.ValueString()
 
 	// Build the create request
 	createRequest := sdktypes.VPNRouteRequest{
@@ -227,7 +238,7 @@ func (r *VPNRouteResource) Create(ctx context.Context, req resource.CreateReques
 	}
 
 	tflog.Trace(ctx, "created a VPN Route resource", map[string]interface{}{
-		"vpnroute_id": data.Id.ValueString(),
+		"vpnroute_id":   data.Id.ValueString(),
 		"vpnroute_name": data.Name.ValueString(),
 	})
 
@@ -299,12 +310,12 @@ func (r *VPNRouteResource) Read(ctx context.Context, req resource.ReadRequest, r
 
 		// Update properties from response
 		propertiesMap := map[string]attr.Value{
-			"cloud_subnet":  types.StringValue(route.Properties.CloudSubnet),
+			"cloud_subnet":   types.StringValue(route.Properties.CloudSubnet),
 			"on_prem_subnet": types.StringValue(route.Properties.OnPremSubnet),
 		}
 
 		propertiesObj, diags := types.ObjectValue(map[string]attr.Type{
-			"cloud_subnet":  types.StringType,
+			"cloud_subnet":   types.StringType,
 			"on_prem_subnet": types.StringType,
 		}, propertiesMap)
 		resp.Diagnostics.Append(diags...)
@@ -427,8 +438,19 @@ func (r *VPNRouteResource) Update(ctx context.Context, req resource.UpdateReques
 	}
 
 	propertiesAttrs := propertiesObj.Attributes()
-	cloudSubnet := propertiesAttrs["cloud_subnet"].(types.String).ValueString()
-	onPremSubnet := propertiesAttrs["on_prem_subnet"].(types.String).ValueString()
+	cloudSubnetAttr, ok := propertiesAttrs["cloud_subnet"].(types.String)
+	if !ok {
+		resp.Diagnostics.AddError("Invalid Type", "cloud_subnet must be a String")
+		return
+	}
+	cloudSubnet := cloudSubnetAttr.ValueString()
+
+	onPremSubnetAttr, ok := propertiesAttrs["on_prem_subnet"].(types.String)
+	if !ok {
+		resp.Diagnostics.AddError("Invalid Type", "on_prem_subnet must be a String")
+		return
+	}
+	onPremSubnet := onPremSubnetAttr.ValueString()
 
 	// Build update request
 	updateRequest := sdktypes.VPNRouteRequest{

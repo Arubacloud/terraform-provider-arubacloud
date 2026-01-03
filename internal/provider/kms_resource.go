@@ -18,7 +18,7 @@ import (
 
 type KMSResourceModel struct {
 	Id            types.String `tfsdk:"id"`
-	Uri       types.String `tfsdk:"uri"`
+	Uri           types.String `tfsdk:"uri"`
 	Name          types.String `tfsdk:"name"`
 	ProjectID     types.String `tfsdk:"project_id"`
 	Location      types.String `tfsdk:"location"`
@@ -208,7 +208,7 @@ func (r *KMSResource) Create(ctx context.Context, req resource.CreateRequest, re
 	}
 
 	tflog.Trace(ctx, "created a KMS resource", map[string]interface{}{
-		"kms_id": data.Id.ValueString(),
+		"kms_id":   data.Id.ValueString(),
 		"kms_name": data.Name.ValueString(),
 	})
 
@@ -263,21 +263,21 @@ func (r *KMSResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 		kms := response.Data
 		if kms.Metadata.ID != nil {
 			data.Id = types.StringValue(*kms.Metadata.ID)
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
+			if response.Data.Metadata.URI != nil {
+				data.Uri = types.StringValue(*response.Data.Metadata.URI)
+			} else {
+				data.Uri = types.StringNull()
+			}
+			if response.Data.Metadata.URI != nil {
+				data.Uri = types.StringValue(*response.Data.Metadata.URI)
+			} else {
+				data.Uri = types.StringNull()
+			}
+			if response.Data.Metadata.URI != nil {
+				data.Uri = types.StringValue(*response.Data.Metadata.URI)
+			} else {
+				data.Uri = types.StringNull()
+			}
 		}
 		if kms.Metadata.Name != nil {
 			data.Name = types.StringValue(*kms.Metadata.Name)

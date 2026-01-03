@@ -164,7 +164,7 @@ func (r *DatabaseResource) Create(ctx context.Context, req resource.CreateReques
 	}
 
 	tflog.Trace(ctx, "created a Database resource", map[string]interface{}{
-		"database_id": data.Id.ValueString(),
+		"database_id":   data.Id.ValueString(),
 		"database_name": data.Name.ValueString(),
 	})
 

@@ -138,12 +138,12 @@ func (r *ProjectResource) Create(ctx context.Context, req resource.CreateRequest
 
 	if response != nil && response.Data != nil && response.Data.Metadata.ID != nil {
 		data.Id = types.StringValue(*response.Data.Metadata.ID)
-		
+
 		// Update description from response if available
 		if response.Data.Properties.Description != nil {
 			data.Description = types.StringValue(*response.Data.Properties.Description)
 		}
-		
+
 		// Update tags from response
 		if len(response.Data.Metadata.Tags) > 0 {
 			tagValues := make([]types.String, len(response.Data.Metadata.Tags))
@@ -166,7 +166,7 @@ func (r *ProjectResource) Create(ctx context.Context, req resource.CreateRequest
 
 	// Write logs using the tflog package
 	tflog.Trace(ctx, "created a project resource", map[string]interface{}{
-		"project_id": data.Id.ValueString(),
+		"project_id":   data.Id.ValueString(),
 		"project_name": data.Name.ValueString(),
 	})
 
@@ -186,7 +186,7 @@ func (r *ProjectResource) Read(ctx context.Context, req resource.ReadRequest, re
 
 	// Get project ID from state
 	projectID := data.Id.ValueString()
-	
+
 	// If ID is unknown or null, check if this is a new resource (no state) or existing resource (state exists but ID missing)
 	// For new resources (during plan), we can return early
 	// For existing resources, we need the ID to read - if it's missing, that's a state corruption issue
@@ -307,7 +307,7 @@ func (r *ProjectResource) Update(ctx context.Context, req resource.UpdateRequest
 		tflog.Warn(ctx, "Project ID not found in state, using plan ID as fallback")
 		projectID = data.Id.ValueString()
 	}
-	
+
 	if projectID == "" {
 		tflog.Error(ctx, "Project ID is missing from both state and plan", map[string]interface{}{
 			"state_id_unknown": state.Id.IsUnknown(),

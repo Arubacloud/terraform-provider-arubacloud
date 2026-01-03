@@ -556,7 +556,7 @@ func (r *BlockStorageResource) Update(ctx context.Context, req resource.UpdateRe
 	// Ensure immutable fields are set from state before saving
 	data.Id = state.Id
 	data.ProjectID = state.ProjectID
-	data.Uri = state.Uri // Preserve URI from state
+	data.Uri = state.Uri   // Preserve URI from state
 	data.Zone = state.Zone // Preserve zone from state (immutable)
 
 	if response != nil && response.Data != nil {

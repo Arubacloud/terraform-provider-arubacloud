@@ -311,7 +311,7 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 	// The name is already set as the ID above
 
 	tflog.Trace(ctx, "created a CloudServer resource", map[string]interface{}{
-		"cloudserver_id": data.Id.ValueString(),
+		"cloudserver_id":   data.Id.ValueString(),
 		"cloudserver_name": data.Name.ValueString(),
 	})
 

@@ -259,7 +259,7 @@ func (r *BackupResource) Create(ctx context.Context, req resource.CreateRequest,
 	}
 
 	tflog.Trace(ctx, "created a Backup resource", map[string]interface{}{
-		"backup_id": data.Id.ValueString(),
+		"backup_id":   data.Id.ValueString(),
 		"backup_name": data.Name.ValueString(),
 	})
 

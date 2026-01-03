@@ -171,7 +171,7 @@ func (r *DBaaSUserResource) Create(ctx context.Context, req resource.CreateReque
 	}
 
 	tflog.Trace(ctx, "created a DBaaS User resource", map[string]interface{}{
-		"user_id": data.Id.ValueString(),
+		"user_id":  data.Id.ValueString(),
 		"username": data.Username.ValueString(),
 	})
 

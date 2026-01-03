@@ -19,7 +19,7 @@ import (
 
 type ScheduleJobResourceModel struct {
 	Id         types.String `tfsdk:"id"`
-	Uri       types.String `tfsdk:"uri"`
+	Uri        types.String `tfsdk:"uri"`
 	Name       types.String `tfsdk:"name"`
 	ProjectID  types.String `tfsdk:"project_id"`
 	Tags       types.List   `tfsdk:"tags"`
@@ -176,28 +176,42 @@ func (r *ScheduleJobResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
-	jobType := propertiesObj["schedule_job_type"].(types.String).ValueString()
+	jobTypeAttr, ok := propertiesObj["schedule_job_type"].(types.String)
+	if !ok {
+		resp.Diagnostics.AddError("Invalid Type", "schedule_job_type must be a String")
+		return
+	}
+	jobType := jobTypeAttr.ValueString()
+
 	enabled := true
-	if enabledAttr, ok := propertiesObj["enabled"]; ok && !enabledAttr.(types.Bool).IsNull() {
-		enabled = enabledAttr.(types.Bool).ValueBool()
+	if enabledAttr, ok := propertiesObj["enabled"]; ok {
+		if enabledBool, ok := enabledAttr.(types.Bool); ok && !enabledBool.IsNull() {
+			enabled = enabledBool.ValueBool()
+		}
 	}
 
 	var scheduleAt *string
-	if scheduleAtAttr, ok := propertiesObj["schedule_at"]; ok && !scheduleAtAttr.(types.String).IsNull() {
-		scheduleAtStr := scheduleAtAttr.(types.String).ValueString()
-		scheduleAt = &scheduleAtStr
+	if scheduleAtAttr, ok := propertiesObj["schedule_at"]; ok {
+		if scheduleAtStr, ok := scheduleAtAttr.(types.String); ok && !scheduleAtStr.IsNull() {
+			scheduleAtVal := scheduleAtStr.ValueString()
+			scheduleAt = &scheduleAtVal
+		}
 	}
 
 	var cron *string
-	if cronAttr, ok := propertiesObj["cron"]; ok && !cronAttr.(types.String).IsNull() {
-		cronStr := cronAttr.(types.String).ValueString()
-		cron = &cronStr
+	if cronAttr, ok := propertiesObj["cron"]; ok {
+		if cronStr, ok := cronAttr.(types.String); ok && !cronStr.IsNull() {
+			cronVal := cronStr.ValueString()
+			cron = &cronVal
+		}
 	}
 
 	var executeUntil *string
-	if executeUntilAttr, ok := propertiesObj["execute_until"]; ok && !executeUntilAttr.(types.String).IsNull() {
-		executeUntilStr := executeUntilAttr.(types.String).ValueString()
-		executeUntil = &executeUntilStr
+	if executeUntilAttr, ok := propertiesObj["execute_until"]; ok {
+		if executeUntilStr, ok := executeUntilAttr.(types.String); ok && !executeUntilStr.IsNull() {
+			executeUntilVal := executeUntilStr.ValueString()
+			executeUntil = &executeUntilVal
+		}
 	}
 
 	// Build the create request
@@ -291,7 +305,7 @@ func (r *ScheduleJobResource) Create(ctx context.Context, req resource.CreateReq
 	}
 
 	tflog.Trace(ctx, "created a Schedule Job resource", map[string]interface{}{
-		"job_id": data.Id.ValueString(),
+		"job_id":   data.Id.ValueString(),
 		"job_name": data.Name.ValueString(),
 	})
 
@@ -346,21 +360,21 @@ func (r *ScheduleJobResource) Read(ctx context.Context, req resource.ReadRequest
 		job := response.Data
 		if job.Metadata.ID != nil {
 			data.Id = types.StringValue(*job.Metadata.ID)
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
+			if response.Data.Metadata.URI != nil {
+				data.Uri = types.StringValue(*response.Data.Metadata.URI)
+			} else {
+				data.Uri = types.StringNull()
+			}
+			if response.Data.Metadata.URI != nil {
+				data.Uri = types.StringValue(*response.Data.Metadata.URI)
+			} else {
+				data.Uri = types.StringNull()
+			}
+			if response.Data.Metadata.URI != nil {
+				data.Uri = types.StringValue(*response.Data.Metadata.URI)
+			} else {
+				data.Uri = types.StringNull()
+			}
 		}
 		if job.Metadata.Name != nil {
 			data.Name = types.StringValue(*job.Metadata.Name)
@@ -384,12 +398,12 @@ func (r *ScheduleJobResource) Read(ctx context.Context, req resource.ReadRequest
 
 		// Reconstruct properties object
 		propertiesAttrs := map[string]attr.Value{
-			"enabled":            types.BoolValue(job.Properties.Enabled),
-			"schedule_job_type":  types.StringValue(string(job.Properties.JobType)),
-			"schedule_at":        types.StringNull(),
-			"execute_until":      types.StringNull(),
-			"cron":               types.StringNull(),
-			"steps":              types.ListNull(types.ObjectType{}),
+			"enabled":           types.BoolValue(job.Properties.Enabled),
+			"schedule_job_type": types.StringValue(string(job.Properties.JobType)),
+			"schedule_at":       types.StringNull(),
+			"execute_until":     types.StringNull(),
+			"cron":              types.StringNull(),
+			"steps":             types.ListNull(types.ObjectType{}),
 		}
 
 		if job.Properties.ScheduleAt != nil {
@@ -495,8 +509,10 @@ func (r *ScheduleJobResource) Update(ctx context.Context, req resource.UpdateReq
 	}
 
 	enabled := current.Properties.Enabled
-	if enabledAttr, ok := propertiesObj["enabled"]; ok && !enabledAttr.(types.Bool).IsNull() {
-		enabled = enabledAttr.(types.Bool).ValueBool()
+	if enabledAttr, ok := propertiesObj["enabled"]; ok {
+		if enabledBool, ok := enabledAttr.(types.Bool); ok && !enabledBool.IsNull() {
+			enabled = enabledBool.ValueBool()
+		}
 	}
 
 	// Build update request
@@ -513,7 +529,7 @@ func (r *ScheduleJobResource) Update(ctx context.Context, req resource.UpdateReq
 		Properties: sdktypes.JobPropertiesRequest{
 			Enabled:      enabled,
 			JobType:      current.Properties.JobType,
-			ScheduleAt:     current.Properties.ScheduleAt,
+			ScheduleAt:   current.Properties.ScheduleAt,
 			ExecuteUntil: current.Properties.ExecuteUntil,
 			Cron:         current.Properties.Cron,
 		},

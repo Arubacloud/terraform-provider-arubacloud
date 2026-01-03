@@ -309,7 +309,7 @@ func (r *SubnetResource) Create(ctx context.Context, req resource.CreateRequest,
 	}
 
 	tflog.Trace(ctx, "created a Subnet resource", map[string]interface{}{
-		"subnet_id": data.Id.ValueString(),
+		"subnet_id":   data.Id.ValueString(),
 		"subnet_name": data.Name.ValueString(),
 	})
 
