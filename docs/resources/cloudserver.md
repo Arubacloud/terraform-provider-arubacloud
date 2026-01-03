@@ -48,6 +48,7 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) CloudServer identifier
+- `uri` (String) CloudServer URI
 
 
 

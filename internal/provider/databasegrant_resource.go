@@ -15,6 +15,7 @@ import (
 
 type DatabaseGrantResourceModel struct {
 	Id        types.String `tfsdk:"id"`
+	Uri       types.String `tfsdk:"uri"`
 	ProjectID types.String `tfsdk:"project_id"`
 	DBaaSID   types.String `tfsdk:"dbaas_id"`
 	Database  types.String `tfsdk:"database"`
@@ -43,6 +44,10 @@ func (r *DatabaseGrantResource) Schema(ctx context.Context, req resource.SchemaR
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Database Grant identifier",
+				Computed:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "Database Grant URI",
 				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
@@ -162,10 +167,11 @@ func (r *DatabaseGrantResource) Update(ctx context.Context, req resource.UpdateR
 		return
 	}
 
-	projectID := data.ProjectID.ValueString()
-	dbaasID := data.DBaaSID.ValueString()
-	databaseName := data.Database.ValueString()
-	userID := data.UserID.ValueString()
+	// Get IDs from state (not plan) - IDs are immutable and should always be in state
+	projectID := state.ProjectID.ValueString()
+	dbaasID := state.DBaaSID.ValueString()
+	databaseName := state.Database.ValueString()
+	userID := state.UserID.ValueString()
 
 	if projectID == "" || dbaasID == "" || databaseName == "" || userID == "" {
 		resp.Diagnostics.AddError(

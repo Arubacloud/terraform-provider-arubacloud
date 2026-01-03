@@ -29,6 +29,7 @@ type SecurityGroupResource struct {
 
 type SecurityGroupResourceModel struct {
 	Id        types.String `tfsdk:"id"`
+	Uri       types.String `tfsdk:"uri"`
 	Name      types.String `tfsdk:"name"`
 	Location  types.String `tfsdk:"location"`
 	Tags      types.List   `tfsdk:"tags"`
@@ -46,6 +47,10 @@ func (r *SecurityGroupResource) Schema(ctx context.Context, req resource.SchemaR
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Security Group identifier",
+				Computed:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "Security Group URI",
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
@@ -150,6 +155,11 @@ func (r *SecurityGroupResource) Create(ctx context.Context, req resource.CreateR
 		if response.Data.Metadata.ID != nil {
 			data.Id = types.StringValue(*response.Data.Metadata.ID)
 		}
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
 		if response.Data.Metadata.LocationResponse != nil {
 			data.Location = types.StringValue(response.Data.Metadata.LocationResponse.Value)
 		}
@@ -243,6 +253,11 @@ func (r *SecurityGroupResource) Read(ctx context.Context, req resource.ReadReque
 		if sg.Metadata.ID != nil {
 			data.Id = types.StringValue(*sg.Metadata.ID)
 		}
+		if sg.Metadata.URI != nil {
+			data.Uri = types.StringValue(*sg.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
 		if sg.Metadata.Name != nil {
 			data.Name = types.StringValue(*sg.Metadata.Name)
 		}
@@ -290,9 +305,10 @@ func (r *SecurityGroupResource) Update(ctx context.Context, req resource.UpdateR
 		return
 	}
 
-	projectID := data.ProjectId.ValueString()
-	vpcID := data.VpcId.ValueString()
-	sgID := data.Id.ValueString()
+	// Get IDs from state (not plan) - IDs are immutable and should always be in state
+	projectID := state.ProjectId.ValueString()
+	vpcID := state.VpcId.ValueString()
+	sgID := state.Id.ValueString()
 
 	if projectID == "" || vpcID == "" || sgID == "" {
 		resp.Diagnostics.AddError(
@@ -362,6 +378,18 @@ func (r *SecurityGroupResource) Update(ctx context.Context, req resource.UpdateR
 		}
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
+	}
+
+	// Ensure immutable fields are set from state before saving
+	data.Id = state.Id
+	data.ProjectId = state.ProjectId
+	data.VpcId = state.VpcId
+
+	if response != nil && response.Data != nil {
+		// Update from response if available (should match state)
+		if response.Data.Metadata.ID != nil {
+			data.Id = types.StringValue(*response.Data.Metadata.ID)
+		}
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

@@ -25,6 +25,7 @@ func NewBlockStorageResource() resource.Resource {
 
 type BlockStorageResourceModel struct {
 	Id            types.String `tfsdk:"id"`
+	Uri           types.String `tfsdk:"uri"`
 	Name          types.String `tfsdk:"name"`
 	ProjectID     types.String `tfsdk:"project_id"`
 	Location      types.String `tfsdk:"location"`
@@ -51,6 +52,10 @@ func (r *BlockStorageResource) Schema(ctx context.Context, req resource.SchemaRe
 				MarkdownDescription: "Block Storage identifier",
 				Computed:            true,
 			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "Block Storage URI",
+				Computed:            true,
+			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Block Storage name",
 				Required:            true,
@@ -72,7 +77,7 @@ func (r *BlockStorageResource) Schema(ctx context.Context, req resource.SchemaRe
 				Required:            true,
 			},
 			"zone": schema.StringAttribute{
-				MarkdownDescription: "Zone where blockstorage will be created",
+				MarkdownDescription: "Zone where blockstorage will be created. If not specified, the block storage will be regional (available across all zones in the location). If specified, the block storage will be zonal (tied to a specific zone).",
 				Optional:            true,
 			},
 			"type": schema.StringAttribute{
@@ -179,6 +184,11 @@ func (r *BlockStorageResource) Create(ctx context.Context, req resource.CreateRe
 		if response.Data.Metadata.ID != nil {
 			data.Id = types.StringValue(*response.Data.Metadata.ID)
 		}
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
 		if response.Data.Properties.Zone != "" {
 			data.Zone = types.StringValue(response.Data.Properties.Zone)
 		}
@@ -213,6 +223,33 @@ func (r *BlockStorageResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
+	// Read the Block Storage again to ensure URI and other fields are properly set from metadata
+	getResp, err := r.client.Client.FromStorage().Volumes().Get(ctx, projectID, volumeID, nil)
+	if err == nil && getResp != nil && getResp.Data != nil {
+		// Ensure ID is set from metadata (should already be set, but double-check)
+		if getResp.Data.Metadata.ID != nil {
+			data.Id = types.StringValue(*getResp.Data.Metadata.ID)
+		}
+		if getResp.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*getResp.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
+		// Also update other fields that might have changed
+		if getResp.Data.Metadata.Name != nil {
+			data.Name = types.StringValue(*getResp.Data.Metadata.Name)
+		}
+		if getResp.Data.Metadata.LocationResponse != nil {
+			data.Location = types.StringValue(getResp.Data.Metadata.LocationResponse.Value)
+		}
+		if getResp.Data.Properties.Zone != "" {
+			data.Zone = types.StringValue(getResp.Data.Properties.Zone)
+		}
+	} else if err != nil {
+		// If Get fails, log but don't fail - we already have the ID from create response
+		tflog.Warn(ctx, fmt.Sprintf("Failed to refresh Block Storage after creation: %v", err))
+	}
+
 	tflog.Trace(ctx, "created a Block Storage resource", map[string]interface{}{
 		"blockstorage_id":   data.Id.ValueString(),
 		"blockstorage_name": data.Name.ValueString(),
@@ -231,10 +268,34 @@ func (r *BlockStorageResource) Read(ctx context.Context, req resource.ReadReques
 	projectID := data.ProjectID.ValueString()
 	volumeID := data.Id.ValueString()
 
-	if projectID == "" || volumeID == "" {
+	// If ID is unknown or null, check if this is a new resource (no state) or existing resource (state exists but ID missing)
+	// For new resources (during plan), we can return early
+	// For existing resources, we need the ID to read - if it's missing, that's an error
+	if data.Id.IsUnknown() || data.Id.IsNull() || volumeID == "" {
+		// Check if we have any other state data that indicates this is an existing resource
+		// If name is set in state, this is likely an existing resource with missing ID (error case)
+		if !data.Name.IsUnknown() && !data.Name.IsNull() && data.Name.ValueString() != "" {
+			tflog.Error(ctx, "Block Storage exists in state but ID is missing - this indicates a state corruption issue")
+			resp.Diagnostics.AddError(
+				"Missing Block Storage ID",
+				"Block Storage ID is required to read the block storage. The resource exists in state but the ID is missing. This may indicate a state corruption issue. Try running 'terraform refresh' or 'terraform import arubacloud_blockstorage.test <volume_id>'.",
+			)
+			return
+		}
+		// Otherwise, this is likely a new resource during plan - return early
+		tflog.Info(ctx, "Block Storage ID is unknown or null during read, skipping API call (likely new resource).")
+		return // Do not error, as this is expected during plan for new resources
+	}
+
+	if projectID == "" {
+		// Check if ProjectID is unknown (new resource) vs missing (error)
+		if data.ProjectID.IsUnknown() || data.ProjectID.IsNull() {
+			tflog.Info(ctx, "Block Storage Project ID is unknown or null during read, skipping API call (likely new resource).")
+			return // Do not error, as this is expected during plan for new resources
+		}
 		resp.Diagnostics.AddError(
 			"Missing Required Fields",
-			"Project ID and Volume ID are required to read the block storage",
+			"Project ID is required to read the block storage",
 		)
 		return
 	}
@@ -271,6 +332,21 @@ func (r *BlockStorageResource) Read(ctx context.Context, req resource.ReadReques
 		if volume.Metadata.ID != nil {
 			data.Id = types.StringValue(*volume.Metadata.ID)
 		}
+		if volume.Metadata.URI != nil {
+			data.Uri = types.StringValue(*volume.Metadata.URI)
+		} else {
+			// If API doesn't return URI, try to preserve from state, or construct it from ID
+			if !data.Uri.IsNull() && !data.Uri.IsUnknown() {
+				// Preserve URI from state if available
+				// (data.Uri already has the state value, so no change needed)
+			} else if volume.Metadata.ID != nil {
+				// Construct URI from ID if we have it
+				uri := fmt.Sprintf("/projects/%s/providers/Aruba.Storage/volumes/%s", projectID, *volume.Metadata.ID)
+				data.Uri = types.StringValue(uri)
+			} else {
+				data.Uri = types.StringNull()
+			}
+		}
 		if volume.Metadata.Name != nil {
 			data.Name = types.StringValue(*volume.Metadata.Name)
 		}
@@ -279,8 +355,12 @@ func (r *BlockStorageResource) Read(ctx context.Context, req resource.ReadReques
 		}
 		data.SizeGB = types.Int64Value(int64(volume.Properties.SizeGB))
 		data.Type = types.StringValue(string(volume.Properties.Type))
+		// Zone: if empty, it's regional storage; if set, it's zonal storage
 		if volume.Properties.Zone != "" {
 			data.Zone = types.StringValue(volume.Properties.Zone)
+		} else {
+			// Regional storage - zone is null/empty
+			data.Zone = types.StringNull()
 		}
 
 		// Update tags from response
@@ -323,8 +403,9 @@ func (r *BlockStorageResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
-	projectID := data.ProjectID.ValueString()
-	volumeID := data.Id.ValueString()
+	// Get IDs from state (not plan) - IDs are immutable and should always be in state
+	projectID := state.ProjectID.ValueString()
+	volumeID := state.Id.ValueString()
 
 	if projectID == "" || volumeID == "" {
 		resp.Diagnostics.AddError(
@@ -398,6 +479,18 @@ func (r *BlockStorageResource) Update(ctx context.Context, req resource.UpdateRe
 	}
 
 	// Build the update request
+	// Use size from plan (data) if provided, otherwise preserve current size
+	sizeGB := current.Properties.SizeGB
+	if !data.SizeGB.IsNull() && !data.SizeGB.IsUnknown() {
+		sizeGB = int(data.SizeGB.ValueInt64())
+	}
+
+	// Use billing period from plan (data) if provided, otherwise preserve current
+	billingPeriod := current.Properties.BillingPeriod
+	if !data.BillingPeriod.IsNull() && !data.BillingPeriod.IsUnknown() {
+		billingPeriod = data.BillingPeriod.ValueString()
+	}
+
 	updateRequest := sdktypes.BlockStorageRequest{
 		Metadata: sdktypes.RegionalResourceMetadataRequest{
 			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
@@ -409,8 +502,8 @@ func (r *BlockStorageResource) Update(ctx context.Context, req resource.UpdateRe
 			},
 		},
 		Properties: sdktypes.BlockStoragePropertiesRequest{
-			SizeGB:        current.Properties.SizeGB,
-			BillingPeriod: "Hour", // Preserve billing period
+			SizeGB:        sizeGB,
+			BillingPeriod: billingPeriod,
 			Zone:          zone,
 			Type:          current.Properties.Type,
 		},
@@ -436,6 +529,86 @@ func (r *BlockStorageResource) Update(ctx context.Context, req resource.UpdateRe
 		}
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
+	}
+
+	// Wait for Block Storage update to complete before returning
+	// This ensures Terraform doesn't proceed until the update is fully applied
+	checker := func(ctx context.Context) (string, error) {
+		getResp, err := r.client.Client.FromStorage().Volumes().Get(ctx, projectID, volumeID, nil)
+		if err != nil {
+			return "", err
+		}
+		if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
+			return *getResp.Data.Status.State, nil
+		}
+		return "Unknown", nil
+	}
+
+	// Wait for Block Storage to be active - block until ready (using configured timeout)
+	if err := WaitForResourceActive(ctx, checker, "BlockStorage", volumeID, r.client.ResourceTimeout); err != nil {
+		resp.Diagnostics.AddError(
+			"Block Storage Update Not Complete",
+			fmt.Sprintf("Block storage update was initiated but did not complete within the timeout period: %s", err),
+		)
+		return
+	}
+
+	// Ensure immutable fields are set from state before saving
+	data.Id = state.Id
+	data.ProjectID = state.ProjectID
+	data.Uri = state.Uri // Preserve URI from state
+	data.Zone = state.Zone // Preserve zone from state (immutable)
+
+	if response != nil && response.Data != nil {
+		// Update from response if available (should match state)
+		if response.Data.Metadata.ID != nil {
+			data.Id = types.StringValue(*response.Data.Metadata.ID)
+		}
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = state.Uri // Fallback to state if not in response
+		}
+		// Update zone from response (empty = regional, set = zonal)
+		if response.Data.Properties.Zone != "" {
+			data.Zone = types.StringValue(response.Data.Properties.Zone)
+		} else {
+			data.Zone = types.StringNull() // Regional storage
+		}
+		// Update size from response
+		data.SizeGB = types.Int64Value(int64(response.Data.Properties.SizeGB))
+		// Update billing period from response if available
+		if response.Data.Properties.BillingPeriod != "" {
+			data.BillingPeriod = types.StringValue(response.Data.Properties.BillingPeriod)
+		}
+	} else {
+		// If no response, re-read the resource to get the latest state after update
+		getResp, err := r.client.Client.FromStorage().Volumes().Get(ctx, projectID, volumeID, nil)
+		if err == nil && getResp != nil && getResp.Data != nil {
+			// Update from the re-read response
+			if getResp.Data.Metadata.URI != nil {
+				data.Uri = types.StringValue(*getResp.Data.Metadata.URI)
+			} else {
+				data.Uri = state.Uri
+			}
+			if getResp.Data.Properties.Zone != "" {
+				data.Zone = types.StringValue(getResp.Data.Properties.Zone)
+			} else {
+				data.Zone = types.StringNull()
+			}
+			data.SizeGB = types.Int64Value(int64(getResp.Data.Properties.SizeGB))
+			if getResp.Data.Properties.BillingPeriod != "" {
+				data.BillingPeriod = types.StringValue(getResp.Data.Properties.BillingPeriod)
+			} else {
+				data.BillingPeriod = state.BillingPeriod
+			}
+		} else {
+			// If re-read fails, preserve from state
+			data.Uri = state.Uri
+			data.Zone = state.Zone
+			data.SizeGB = state.SizeGB
+			data.BillingPeriod = state.BillingPeriod
+		}
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

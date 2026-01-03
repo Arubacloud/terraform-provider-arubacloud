@@ -33,6 +33,7 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) Database Grant identifier
+- `uri` (String) Databasegrant URI
 
 
 

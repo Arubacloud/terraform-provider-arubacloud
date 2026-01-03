@@ -17,6 +17,7 @@ import (
 
 type DBaaSUserResourceModel struct {
 	Id        types.String `tfsdk:"id"`
+	Uri       types.String `tfsdk:"uri"`
 	ProjectID types.String `tfsdk:"project_id"`
 	DBaaSID   types.String `tfsdk:"dbaas_id"`
 	Username  types.String `tfsdk:"username"`
@@ -44,6 +45,10 @@ func (r *DBaaSUserResource) Schema(ctx context.Context, req resource.SchemaReque
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "DBaaS User identifier (same as username)",
+				Computed:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "DBaaS User URI",
 				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
@@ -131,6 +136,8 @@ func (r *DBaaSUserResource) Create(ctx context.Context, req resource.CreateReque
 	if response != nil && response.Data != nil {
 		// User uses username as ID
 		data.Id = types.StringValue(response.Data.Username)
+		// UserResponse doesn't have Metadata.URI
+		data.Uri = types.StringNull()
 	} else {
 		resp.Diagnostics.AddError(
 			"Invalid API Response",
@@ -219,6 +226,8 @@ func (r *DBaaSUserResource) Read(ctx context.Context, req resource.ReadRequest, 
 	if response != nil && response.Data != nil {
 		user := response.Data
 		data.Id = types.StringValue(user.Username)
+		// UserResponse doesn't have Metadata.URI
+		data.Uri = types.StringNull()
 		data.Username = types.StringValue(user.Username)
 		// Password is not returned from API, so we keep the existing value
 	} else {
@@ -243,8 +252,9 @@ func (r *DBaaSUserResource) Update(ctx context.Context, req resource.UpdateReque
 		return
 	}
 
-	projectID := data.ProjectID.ValueString()
-	dbaasID := data.DBaaSID.ValueString()
+	// Get IDs from state (not plan) - IDs are immutable and should always be in state
+	projectID := state.ProjectID.ValueString()
+	dbaasID := state.DBaaSID.ValueString()
 	username := state.Id.ValueString()
 
 	if projectID == "" || dbaasID == "" || username == "" {
@@ -284,6 +294,19 @@ func (r *DBaaSUserResource) Update(ctx context.Context, req resource.UpdateReque
 	}
 
 	if response != nil && response.Data != nil {
+		data.Id = types.StringValue(response.Data.Username)
+		// UserResponse doesn't have Metadata.URI
+		data.Uri = types.StringNull()
+		data.Username = types.StringValue(response.Data.Username)
+	}
+
+	// Ensure immutable fields are set from state before saving
+	data.Id = state.Id
+	data.ProjectID = state.ProjectID
+	data.DBaaSID = state.DBaaSID
+
+	if response != nil && response.Data != nil {
+		// Update ID from response (username can change, so use response)
 		data.Id = types.StringValue(response.Data.Username)
 		data.Username = types.StringValue(response.Data.Username)
 	}

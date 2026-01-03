@@ -52,6 +52,7 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) KaaS identifier
+- `uri` (String) Kaas URI
 
 <a id="nestedatt--node_cidr"></a>
 ### Nested Schema for `node_cidr`

@@ -23,6 +23,7 @@ type VPCResource struct {
 
 type VPCResourceModel struct {
 	Id        types.String `tfsdk:"id"`
+	Uri       types.String `tfsdk:"uri"`
 	Name      types.String `tfsdk:"name"`
 	Location  types.String `tfsdk:"location"`
 	ProjectID types.String `tfsdk:"project_id"`
@@ -42,6 +43,10 @@ func (r *VPCResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "VPC identifier",
+				Computed:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "VPC URI",
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
@@ -243,6 +248,11 @@ func (r *VPCResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 		if vpc.Metadata.ID != nil {
 			data.Id = types.StringValue(*vpc.Metadata.ID)
 		}
+		if vpc.Metadata.URI != nil {
+			data.Uri = types.StringValue(*vpc.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
 		if vpc.Metadata.Name != nil {
 			data.Name = types.StringValue(*vpc.Metadata.Name)
 		}
@@ -290,8 +300,9 @@ func (r *VPCResource) Update(ctx context.Context, req resource.UpdateRequest, re
 		return
 	}
 
-	projectID := data.ProjectID.ValueString()
-	vpcID := data.Id.ValueString()
+	// Get IDs from state (not plan) - IDs are immutable and should always be in state
+	projectID := state.ProjectID.ValueString()
+	vpcID := state.Id.ValueString()
 
 	if projectID == "" || vpcID == "" {
 		resp.Diagnostics.AddError(
@@ -388,6 +399,17 @@ func (r *VPCResource) Update(ctx context.Context, req resource.UpdateRequest, re
 		}
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
+	}
+
+	// Ensure immutable fields are set from state before saving
+	data.Id = state.Id
+	data.ProjectID = state.ProjectID
+
+	if response != nil && response.Data != nil {
+		// Update from response if available (should match state)
+		if response.Data.Metadata.ID != nil {
+			data.Id = types.StringValue(*response.Data.Metadata.ID)
+		}
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

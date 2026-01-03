@@ -19,6 +19,7 @@ import (
 
 type CloudServerResourceModel struct {
 	Id             types.String `tfsdk:"id"`
+	Uri            types.String `tfsdk:"uri"`
 	Name           types.String `tfsdk:"name"`
 	Location       types.String `tfsdk:"location"`
 	ProjectID      types.String `tfsdk:"project_id"`
@@ -54,6 +55,10 @@ func (r *CloudServerResource) Schema(ctx context.Context, req resource.SchemaReq
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "CloudServer identifier",
+				Computed:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "CloudServer URI",
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
@@ -276,6 +281,9 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 	// Use name as ID initially, then get actual ID after wait
 	serverID := data.Name.ValueString()
 	data.Id = types.StringValue(serverID)
+	// CloudServer response uses RegionalResourceMetadataRequest which doesn't have URI
+	// Set URI to null for now
+	data.Uri = types.StringNull()
 
 	// Wait for Cloud Server to be active before returning
 	// This ensures Terraform doesn't proceed until CloudServer is fully ready
@@ -361,6 +369,9 @@ func (r *CloudServerResource) Read(ctx context.Context, req resource.ReadRequest
 		// Update data from API response
 		// CloudServer uses name as ID (Metadata doesn't have ID field)
 		data.Id = types.StringValue(server.Metadata.Name)
+		// CloudServer response uses RegionalResourceMetadataRequest which doesn't have URI
+		// Set URI to null for now
+		data.Uri = types.StringNull()
 		data.Name = types.StringValue(server.Metadata.Name)
 		data.Location = types.StringValue(server.Metadata.Location.Value)
 		data.FlavorName = types.StringValue(server.Properties.Flavor.Name)
@@ -422,8 +433,9 @@ func (r *CloudServerResource) Update(ctx context.Context, req resource.UpdateReq
 		return
 	}
 
-	projectID := data.ProjectID.ValueString()
-	serverID := data.Id.ValueString()
+	// Get IDs from state (not plan) - IDs are immutable and should always be in state
+	projectID := state.ProjectID.ValueString()
+	serverID := state.Id.ValueString()
 
 	if projectID == "" || serverID == "" {
 		resp.Diagnostics.AddError(
@@ -537,6 +549,20 @@ func (r *CloudServerResource) Update(ctx context.Context, req resource.UpdateReq
 			}
 		}
 	}
+
+	// Ensure immutable fields are set from state before saving
+	data.Id = state.Id
+	data.ProjectID = state.ProjectID
+	data.VpcID = state.VpcID
+	data.Zone = state.Zone
+	data.FlavorName = state.FlavorName
+	data.BootVolume = state.BootVolume
+	data.KeyPairID = state.KeyPairID
+	data.Subnets = state.Subnets
+	data.SecurityGroups = state.SecurityGroups
+
+	// Note: CloudServer uses name as ID and response doesn't have Metadata.ID
+	// ID is already set from state above
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

@@ -19,6 +19,7 @@ import (
 
 type ScheduleJobResourceModel struct {
 	Id         types.String `tfsdk:"id"`
+	Uri       types.String `tfsdk:"uri"`
 	Name       types.String `tfsdk:"name"`
 	ProjectID  types.String `tfsdk:"project_id"`
 	Tags       types.List   `tfsdk:"tags"`
@@ -47,6 +48,10 @@ func (r *ScheduleJobResource) Schema(ctx context.Context, req resource.SchemaReq
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Schedule Job identifier",
+				Computed:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "Schedule Job URI",
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
@@ -239,6 +244,21 @@ func (r *ScheduleJobResource) Create(ctx context.Context, req resource.CreateReq
 
 	if response != nil && response.Data != nil && response.Data.Metadata.ID != nil {
 		data.Id = types.StringValue(*response.Data.Metadata.ID)
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
 	} else {
 		resp.Diagnostics.AddError(
 			"Invalid API Response",
@@ -326,6 +346,21 @@ func (r *ScheduleJobResource) Read(ctx context.Context, req resource.ReadRequest
 		job := response.Data
 		if job.Metadata.ID != nil {
 			data.Id = types.StringValue(*job.Metadata.ID)
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
 		}
 		if job.Metadata.Name != nil {
 			data.Name = types.StringValue(*job.Metadata.Name)
@@ -404,7 +439,8 @@ func (r *ScheduleJobResource) Update(ctx context.Context, req resource.UpdateReq
 		return
 	}
 
-	projectID := data.ProjectID.ValueString()
+	// Get IDs from state (not plan) - IDs are immutable and should always be in state
+	projectID := state.ProjectID.ValueString()
 	jobID := state.Id.ValueString()
 
 	if projectID == "" || jobID == "" {
@@ -507,6 +543,32 @@ func (r *ScheduleJobResource) Update(ctx context.Context, req resource.UpdateReq
 
 	if response != nil && response.Data != nil && response.Data.Metadata.ID != nil {
 		data.Id = types.StringValue(*response.Data.Metadata.ID)
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
+	}
+
+	// Ensure immutable fields are set from state before saving
+	data.Id = state.Id
+	data.ProjectID = state.ProjectID
+
+	if response != nil && response.Data != nil {
+		// Update from response if available (should match state)
+		if response.Data.Metadata.ID != nil {
+			data.Id = types.StringValue(*response.Data.Metadata.ID)
+		}
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

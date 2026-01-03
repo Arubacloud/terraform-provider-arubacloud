@@ -186,12 +186,27 @@ func (r *ProjectResource) Read(ctx context.Context, req resource.ReadRequest, re
 
 	// Get project ID from state
 	projectID := data.Id.ValueString()
-	if projectID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Project ID",
-			"Project ID is required to read the project",
-		)
-		return
+	
+	// If ID is unknown or null, check if this is a new resource (no state) or existing resource (state exists but ID missing)
+	// For new resources (during plan), we can return early
+	// For existing resources, we need the ID to read - if it's missing, that's a state corruption issue
+	if data.Id.IsUnknown() || data.Id.IsNull() || projectID == "" {
+		// Check if we have any other state data that indicates this is an existing resource
+		// If name is set in state, this is likely an existing resource with missing ID (state corruption)
+		if !data.Name.IsUnknown() && !data.Name.IsNull() && data.Name.ValueString() != "" {
+			tflog.Error(ctx, "Project exists in state but ID is missing - this indicates a state corruption issue")
+			resp.Diagnostics.AddError(
+				"Missing Project ID",
+				"Project ID is required to read the project. The resource exists in state but the ID is missing. This indicates a state corruption issue. To fix this, you can:\n"+
+					"1. Find the project ID using: acloud management project list\n"+
+					"2. Import the resource: terraform import arubacloud_project.test <project_id>\n"+
+					"Or manually edit the terraform.tfstate file to add the ID.",
+			)
+			return
+		}
+		// Otherwise, this is likely a new resource during plan - return early
+		tflog.Info(ctx, "Project ID is unknown or null during read, skipping API call (likely new resource).")
+		return // Do not error, as this is expected during plan for new resources
 	}
 
 	// Get project details using the SDK
@@ -282,11 +297,33 @@ func (r *ProjectResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	projectID := data.Id.ValueString()
+	// Get project ID from state (not plan) - ID is immutable and should always be in state
+	// If state doesn't have ID, try to get it from plan as fallback (shouldn't happen but be defensive)
+	var projectID string
+	if !state.Id.IsUnknown() && !state.Id.IsNull() && state.Id.ValueString() != "" {
+		projectID = state.Id.ValueString()
+	} else if !data.Id.IsUnknown() && !data.Id.IsNull() && data.Id.ValueString() != "" {
+		// Fallback to plan if state doesn't have it (shouldn't happen for existing resources)
+		tflog.Warn(ctx, "Project ID not found in state, using plan ID as fallback")
+		projectID = data.Id.ValueString()
+	}
+	
 	if projectID == "" {
+		tflog.Error(ctx, "Project ID is missing from both state and plan", map[string]interface{}{
+			"state_id_unknown": state.Id.IsUnknown(),
+			"state_id_null":    state.Id.IsNull(),
+			"state_id_value":   state.Id.ValueString(),
+			"plan_id_unknown":  data.Id.IsUnknown(),
+			"plan_id_null":     data.Id.IsNull(),
+			"plan_id_value":    data.Id.ValueString(),
+			"state_name":       state.Name.ValueString(),
+		})
 		resp.Diagnostics.AddError(
 			"Missing Project ID",
-			"Project ID is required to update the project",
+			"Project ID is required to update the project. The resource exists in state but the ID is missing. This indicates a state corruption issue. To fix this, you can:\n"+
+				"1. Find the project ID using: acloud management project list\n"+
+				"2. Import the resource: terraform import arubacloud_project.test <project_id>\n"+
+				"Or manually edit the terraform.tfstate file to add the ID.",
 		)
 		return
 	}
@@ -362,7 +399,19 @@ func (r *ProjectResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
+	// Ensure ID and Name are set from state (they are immutable)
+	data.Id = state.Id
+	data.Name = state.Name
+
 	if response != nil && response.Data != nil {
+		// Update ID from response if available (should match state)
+		if response.Data.Metadata.ID != nil {
+			data.Id = types.StringValue(*response.Data.Metadata.ID)
+		}
+		// Update name from response if available (should match state)
+		if response.Data.Metadata.Name != nil {
+			data.Name = types.StringValue(*response.Data.Metadata.Name)
+		}
 		// Update description from response if available
 		if response.Data.Properties.Description != nil {
 			data.Description = types.StringValue(*response.Data.Properties.Description)
@@ -378,6 +427,13 @@ func (r *ProjectResource) Update(ctx context.Context, req resource.UpdateRequest
 			resp.Diagnostics.Append(diags...)
 			if !resp.Diagnostics.HasError() {
 				data.Tags = tagsList
+			}
+		} else {
+			// Set empty list if no tags
+			emptyList, diags := types.ListValue(types.StringType, []attr.Value{})
+			resp.Diagnostics.Append(diags...)
+			if !resp.Diagnostics.HasError() {
+				data.Tags = emptyList
 			}
 		}
 	}

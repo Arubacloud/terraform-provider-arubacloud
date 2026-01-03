@@ -30,6 +30,7 @@ type VpcPeeringResource struct {
 
 type VpcPeeringResourceModel struct {
 	Id        types.String `tfsdk:"id"`
+	Uri       types.String `tfsdk:"uri"`
 	Name      types.String `tfsdk:"name"`
 	Location  types.String `tfsdk:"location"`
 	Tags      types.List   `tfsdk:"tags"`
@@ -48,6 +49,10 @@ func (r *VpcPeeringResource) Schema(ctx context.Context, req resource.SchemaRequ
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "VPC Peering identifier",
+				Computed:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "VPC Peering URI",
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
@@ -172,6 +177,11 @@ func (r *VpcPeeringResource) Create(ctx context.Context, req resource.CreateRequ
 		if response.Data.Metadata.ID != nil {
 			data.Id = types.StringValue(*response.Data.Metadata.ID)
 		}
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
 	} else {
 		resp.Diagnostics.AddError(
 			"Invalid API Response",
@@ -262,6 +272,11 @@ func (r *VpcPeeringResource) Read(ctx context.Context, req resource.ReadRequest,
 		if peering.Metadata.ID != nil {
 			data.Id = types.StringValue(*peering.Metadata.ID)
 		}
+		if peering.Metadata.URI != nil {
+			data.Uri = types.StringValue(*peering.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
 		if peering.Metadata.Name != nil {
 			data.Name = types.StringValue(*peering.Metadata.Name)
 		}
@@ -312,9 +327,10 @@ func (r *VpcPeeringResource) Update(ctx context.Context, req resource.UpdateRequ
 		return
 	}
 
-	projectID := data.ProjectId.ValueString()
-	vpcID := data.VpcId.ValueString()
-	peeringID := data.Id.ValueString()
+	// Get IDs from state (not plan) - IDs are immutable and should always be in state
+	projectID := state.ProjectId.ValueString()
+	vpcID := state.VpcId.ValueString()
+	peeringID := state.Id.ValueString()
 
 	if projectID == "" || vpcID == "" || peeringID == "" {
 		resp.Diagnostics.AddError(
@@ -415,6 +431,18 @@ func (r *VpcPeeringResource) Update(ctx context.Context, req resource.UpdateRequ
 		}
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
+	}
+
+	// Ensure immutable fields are set from state before saving
+	data.Id = state.Id
+	data.ProjectId = state.ProjectId
+	data.VpcId = state.VpcId
+
+	if response != nil && response.Data != nil {
+		// Update from response if available (should match state)
+		if response.Data.Metadata.ID != nil {
+			data.Id = types.StringValue(*response.Data.Metadata.ID)
+		}
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

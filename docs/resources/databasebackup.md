@@ -40,6 +40,7 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) Database Backup identifier
+- `uri` (String) Databasebackup URI
 
 
 

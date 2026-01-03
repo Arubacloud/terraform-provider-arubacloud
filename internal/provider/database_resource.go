@@ -17,6 +17,7 @@ import (
 
 type DatabaseResourceModel struct {
 	Id        types.String `tfsdk:"id"`
+	Uri       types.String `tfsdk:"uri"`
 	ProjectID types.String `tfsdk:"project_id"`
 	DBaaSID   types.String `tfsdk:"dbaas_id"`
 	Name      types.String `tfsdk:"name"`
@@ -43,6 +44,10 @@ func (r *DatabaseResource) Schema(ctx context.Context, req resource.SchemaReques
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Database identifier (same as name)",
+				Computed:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "Database URI",
 				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
@@ -124,6 +129,8 @@ func (r *DatabaseResource) Create(ctx context.Context, req resource.CreateReques
 	if response != nil && response.Data != nil {
 		// Database uses name as ID
 		data.Id = types.StringValue(response.Data.Name)
+		// Database response doesn't have Metadata.URI
+		data.Uri = types.StringNull()
 	} else {
 		resp.Diagnostics.AddError(
 			"Invalid API Response",
@@ -213,6 +220,8 @@ func (r *DatabaseResource) Read(ctx context.Context, req resource.ReadRequest, r
 		db := response.Data
 		data.Id = types.StringValue(db.Name)
 		data.Name = types.StringValue(db.Name)
+		// Database response doesn't have Metadata.URI
+		data.Uri = types.StringNull()
 	} else {
 		resp.State.RemoveResource(ctx)
 		return
@@ -235,8 +244,9 @@ func (r *DatabaseResource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 
-	projectID := data.ProjectID.ValueString()
-	dbaasID := data.DBaaSID.ValueString()
+	// Get IDs from state (not plan) - IDs are immutable and should always be in state
+	projectID := state.ProjectID.ValueString()
+	dbaasID := state.DBaaSID.ValueString()
 	oldDatabaseName := state.Id.ValueString()
 
 	if projectID == "" || dbaasID == "" || oldDatabaseName == "" {
@@ -276,6 +286,18 @@ func (r *DatabaseResource) Update(ctx context.Context, req resource.UpdateReques
 
 	if response != nil && response.Data != nil {
 		// Update ID to new name
+		data.Id = types.StringValue(response.Data.Name)
+		// Database response doesn't have Metadata.URI
+		data.Uri = types.StringNull()
+	}
+
+	// Ensure immutable fields are set from state before saving
+	data.Id = state.Id
+	data.ProjectID = state.ProjectID
+	data.DBaaSID = state.DBaaSID
+
+	if response != nil && response.Data != nil {
+		// Update ID from response (database name can change, so use response)
 		data.Id = types.StringValue(response.Data.Name)
 	}
 

@@ -4,6 +4,8 @@
 example.tf
 terraform.tfplan
 terraform.tfstate
+*.tfvars
+terraform-provider-arubacloud
 bin/
 dist/
 modules-dev/

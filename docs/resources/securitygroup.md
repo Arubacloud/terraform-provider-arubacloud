@@ -54,6 +54,7 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) Security Group identifier
+- `uri` (String) Security Group URI
 
 
 

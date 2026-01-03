@@ -29,6 +29,7 @@ type VpcPeeringRouteResource struct {
 
 type VpcPeeringRouteResourceModel struct {
 	Id                   types.String `tfsdk:"id"`
+	Uri       types.String `tfsdk:"uri"`
 	Name                 types.String `tfsdk:"name"`
 	Tags                 types.List   `tfsdk:"tags"`
 	ProjectId            types.String `tfsdk:"project_id"`
@@ -49,6 +50,10 @@ func (r *VpcPeeringRouteResource) Schema(ctx context.Context, req resource.Schem
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "VPC Peering Route identifier",
+				Computed:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "VPC Peering Route URI",
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
@@ -172,6 +177,8 @@ func (r *VpcPeeringRouteResource) Create(ctx context.Context, req resource.Creat
 	if response != nil && response.Data != nil {
 		// VPC Peering Route uses name as ID
 		data.Id = types.StringValue(response.Data.Metadata.Name)
+		// VPC Peering Route uses RegionalResourceMetadataRequest which doesn't have URI
+		data.Uri = types.StringNull()
 	} else {
 		resp.Diagnostics.AddError(
 			"Invalid API Response",
@@ -261,6 +268,8 @@ func (r *VpcPeeringRouteResource) Read(ctx context.Context, req resource.ReadReq
 		route := response.Data
 
 		data.Id = types.StringValue(route.Metadata.Name)
+		// VPC Peering Route uses RegionalResourceMetadataRequest which doesn't have URI
+		data.Uri = types.StringNull()
 		data.Name = types.StringValue(route.Metadata.Name)
 		data.LocalNetworkAddress = types.StringValue(route.Properties.LocalNetworkAddress)
 		data.RemoteNetworkAddress = types.StringValue(route.Properties.RemoteNetworkAddress)
@@ -308,10 +317,11 @@ func (r *VpcPeeringRouteResource) Update(ctx context.Context, req resource.Updat
 		return
 	}
 
-	projectID := data.ProjectId.ValueString()
-	vpcID := data.VpcId.ValueString()
-	peeringID := data.VpcPeeringId.ValueString()
-	routeID := data.Id.ValueString()
+	// Get IDs from state (not plan) - IDs are immutable and should always be in state
+	projectID := state.ProjectId.ValueString()
+	vpcID := state.VpcId.ValueString()
+	peeringID := state.VpcPeeringId.ValueString()
+	routeID := state.Id.ValueString()
 
 	if projectID == "" || vpcID == "" || peeringID == "" || routeID == "" {
 		resp.Diagnostics.AddError(
@@ -398,6 +408,15 @@ func (r *VpcPeeringRouteResource) Update(ctx context.Context, req resource.Updat
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}
+
+	// Ensure immutable fields are set from state before saving
+	data.Id = state.Id
+	data.ProjectId = state.ProjectId
+	data.VpcId = state.VpcId
+	data.VpcPeeringId = state.VpcPeeringId
+
+	// Note: VpcPeeringRoute uses name as ID and response doesn't have Metadata.ID
+	// ID is already set from state above
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

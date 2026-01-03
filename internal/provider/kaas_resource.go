@@ -31,6 +31,7 @@ func NewKaaSResource() resource.Resource {
 
 type KaaSResourceModel struct {
 	Id                types.String `tfsdk:"id"`
+	Uri       types.String `tfsdk:"uri"`
 	Name              types.String `tfsdk:"name"`
 	Location          types.String `tfsdk:"location"`
 	Tags              types.List   `tfsdk:"tags"`
@@ -71,6 +72,10 @@ func (r *KaaSResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "KaaS identifier",
+				Computed:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "KaaS URI",
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
@@ -352,6 +357,11 @@ func (r *KaaSResource) Create(ctx context.Context, req resource.CreateRequest, r
 		if response.Data.Metadata.ID != nil {
 			data.Id = types.StringValue(*response.Data.Metadata.ID)
 		}
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
 	} else {
 		resp.Diagnostics.AddError(
 			"Invalid API Response",
@@ -440,6 +450,11 @@ func (r *KaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 
 		if kaas.Metadata.ID != nil {
 			data.Id = types.StringValue(*kaas.Metadata.ID)
+		}
+		if kaas.Metadata.URI != nil {
+			data.Uri = types.StringValue(*kaas.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
 		}
 		if kaas.Metadata.Name != nil {
 			data.Name = types.StringValue(*kaas.Metadata.Name)
@@ -608,8 +623,9 @@ func (r *KaaSResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
-	projectID := data.ProjectID.ValueString()
-	kaasID := data.Id.ValueString()
+	// Get IDs from state (not plan) - IDs are immutable and should always be in state
+	projectID := state.ProjectID.ValueString()
+	kaasID := state.Id.ValueString()
 
 	if projectID == "" || kaasID == "" {
 		resp.Diagnostics.AddError(
@@ -760,6 +776,17 @@ func (r *KaaSResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		}
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
+	}
+
+	// Ensure immutable fields are set from state before saving
+	data.Id = state.Id
+	data.ProjectID = state.ProjectID
+
+	if response != nil && response.Data != nil {
+		// Update from response if available (should match state)
+		if response.Data.Metadata.ID != nil {
+			data.Id = types.StringValue(*response.Data.Metadata.ID)
+		}
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

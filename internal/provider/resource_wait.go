@@ -53,11 +53,12 @@ func WaitForResourceActive(ctx context.Context, checker ResourceStateChecker, re
 }
 
 // isReadyState checks if a resource state indicates it's ready to be used
-// Resources in "InCreation" or "Deleting" states are not ready
+// Resources in "InCreation", "Creating", "Updating", or "Deleting" states are not ready
 func isReadyState(state string) bool {
 	transitionalStates := []string{
 		"InCreation",
 		"Creating",
+		"Updating",
 		"Deleting",
 		"Pending",
 		"Provisioning",

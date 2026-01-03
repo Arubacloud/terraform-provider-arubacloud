@@ -18,6 +18,7 @@ import (
 
 type RestoreResourceModel struct {
 	Id        types.String `tfsdk:"id"`
+	Uri       types.String `tfsdk:"uri"`
 	Name      types.String `tfsdk:"name"`
 	Location  types.String `tfsdk:"location"`
 	Tags      types.List   `tfsdk:"tags"`
@@ -47,6 +48,10 @@ func (r *RestoreResource) Schema(ctx context.Context, req resource.SchemaRequest
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Restore identifier",
+				Computed:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "Restore URI",
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
@@ -215,6 +220,11 @@ func (r *RestoreResource) Create(ctx context.Context, req resource.CreateRequest
 		if response.Data.Metadata.ID != nil {
 			data.Id = types.StringValue(*response.Data.Metadata.ID)
 		}
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
 	} else {
 		resp.Diagnostics.AddError(
 			"Invalid API Response",
@@ -305,6 +315,11 @@ func (r *RestoreResource) Read(ctx context.Context, req resource.ReadRequest, re
 		if restore.Metadata.ID != nil {
 			data.Id = types.StringValue(*restore.Metadata.ID)
 		}
+		if restore.Metadata.URI != nil {
+			data.Uri = types.StringValue(*restore.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
 		if restore.Metadata.Name != nil {
 			data.Name = types.StringValue(*restore.Metadata.Name)
 		}
@@ -355,9 +370,10 @@ func (r *RestoreResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	projectID := data.ProjectID.ValueString()
-	backupID := data.BackupID.ValueString()
-	restoreID := data.Id.ValueString()
+	// Get IDs from state (not plan) - IDs are immutable and should always be in state
+	projectID := state.ProjectID.ValueString()
+	backupID := state.BackupID.ValueString()
+	restoreID := state.Id.ValueString()
 
 	if projectID == "" || backupID == "" || restoreID == "" {
 		resp.Diagnostics.AddError(
@@ -450,6 +466,18 @@ func (r *RestoreResource) Update(ctx context.Context, req resource.UpdateRequest
 		}
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
+	}
+
+	// Ensure immutable fields are set from state before saving
+	data.Id = state.Id
+	data.ProjectID = state.ProjectID
+	data.BackupID = state.BackupID
+
+	if response != nil && response.Data != nil {
+		// Update from response if available (should match state)
+		if response.Data.Metadata.ID != nil {
+			data.Id = types.StringValue(*response.Data.Metadata.ID)
+		}
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

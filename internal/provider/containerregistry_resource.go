@@ -19,6 +19,7 @@ import (
 
 type ContainerRegistryResourceModel struct {
 	Id              types.String `tfsdk:"id"`
+	Uri             types.String `tfsdk:"uri"`
 	Name            types.String `tfsdk:"name"`
 	Location        types.String `tfsdk:"location"`
 	Tags            types.List   `tfsdk:"tags"`
@@ -54,6 +55,10 @@ func (r *ContainerRegistryResource) Schema(ctx context.Context, req resource.Sch
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Container Registry identifier",
+				Computed:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "Container Registry URI",
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
@@ -277,6 +282,11 @@ func (r *ContainerRegistryResource) Create(ctx context.Context, req resource.Cre
 		if response.Data.Metadata.ID != nil {
 			data.Id = types.StringValue(*response.Data.Metadata.ID)
 		}
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
 	} else {
 		resp.Diagnostics.AddError(
 			"Invalid API Response",
@@ -384,6 +394,11 @@ func (r *ContainerRegistryResource) Read(ctx context.Context, req resource.ReadR
 		if registry.Metadata.ID != nil {
 			data.Id = types.StringValue(*registry.Metadata.ID)
 		}
+		if registry.Metadata.URI != nil {
+			data.Uri = types.StringValue(*registry.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
 		if registry.Metadata.Name != nil {
 			data.Name = types.StringValue(*registry.Metadata.Name)
 		}
@@ -471,8 +486,9 @@ func (r *ContainerRegistryResource) Update(ctx context.Context, req resource.Upd
 		return
 	}
 
-	projectID := data.ProjectID.ValueString()
-	registryID := data.Id.ValueString()
+	// Get IDs from state (not plan) - IDs are immutable and should always be in state
+	projectID := state.ProjectID.ValueString()
+	registryID := state.Id.ValueString()
 
 	if projectID == "" || registryID == "" {
 		resp.Diagnostics.AddError(
@@ -612,6 +628,17 @@ func (r *ContainerRegistryResource) Update(ctx context.Context, req resource.Upd
 		}
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
+	}
+
+	// Ensure immutable fields are set from state before saving
+	data.Id = state.Id
+	data.ProjectID = state.ProjectID
+
+	if response != nil && response.Data != nil {
+		// Update from response if available (should match state)
+		if response.Data.Metadata.ID != nil {
+			data.Id = types.StringValue(*response.Data.Metadata.ID)
+		}
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

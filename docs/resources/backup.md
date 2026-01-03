@@ -53,6 +53,7 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) Backup identifier
+- `uri` (String) Backup URI
 
 
 

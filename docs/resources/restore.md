@@ -45,6 +45,7 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) Restore identifier
+- `uri` (String) Restore URI
 
 
 

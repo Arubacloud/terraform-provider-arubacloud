@@ -25,6 +25,7 @@ func NewVPNRouteResource() resource.Resource {
 
 type VPNRouteResourceModel struct {
 	Id          types.String `tfsdk:"id"`
+	Uri       types.String `tfsdk:"uri"`
 	Name        types.String `tfsdk:"name"`
 	Location    types.String `tfsdk:"location"`
 	Tags        types.List   `tfsdk:"tags"`
@@ -47,6 +48,10 @@ func (r *VPNRouteResource) Schema(ctx context.Context, req resource.SchemaReques
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "VPN Route identifier",
+				Computed:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "VPN Route URI",
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
@@ -185,6 +190,11 @@ func (r *VPNRouteResource) Create(ctx context.Context, req resource.CreateReques
 		if response.Data.Metadata.ID != nil {
 			data.Id = types.StringValue(*response.Data.Metadata.ID)
 		}
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
 	} else {
 		resp.Diagnostics.AddError(
 			"Invalid API Response",
@@ -275,6 +285,11 @@ func (r *VPNRouteResource) Read(ctx context.Context, req resource.ReadRequest, r
 		if route.Metadata.ID != nil {
 			data.Id = types.StringValue(*route.Metadata.ID)
 		}
+		if route.Metadata.URI != nil {
+			data.Uri = types.StringValue(*route.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
 		if route.Metadata.Name != nil {
 			data.Name = types.StringValue(*route.Metadata.Name)
 		}
@@ -337,9 +352,10 @@ func (r *VPNRouteResource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 
-	projectID := data.ProjectId.ValueString()
-	vpnTunnelID := data.VPNTunnelId.ValueString()
-	routeID := data.Id.ValueString()
+	// Get IDs from state (not plan) - IDs are immutable and should always be in state
+	projectID := state.ProjectId.ValueString()
+	vpnTunnelID := state.VPNTunnelId.ValueString()
+	routeID := state.Id.ValueString()
 
 	if projectID == "" || vpnTunnelID == "" || routeID == "" {
 		resp.Diagnostics.AddError(
@@ -451,6 +467,18 @@ func (r *VPNRouteResource) Update(ctx context.Context, req resource.UpdateReques
 		}
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
+	}
+
+	// Ensure immutable fields are set from state before saving
+	data.Id = state.Id
+	data.ProjectId = state.ProjectId
+	data.VPNTunnelId = state.VPNTunnelId
+
+	if response != nil && response.Data != nil {
+		// Update from response if available (should match state)
+		if response.Data.Metadata.ID != nil {
+			data.Id = types.StringValue(*response.Data.Metadata.ID)
+		}
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

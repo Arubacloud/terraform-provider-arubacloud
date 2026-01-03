@@ -38,6 +38,7 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) VPN Tunnel identifier
+- `uri` (String) Vpntunnel URI
 
 <a id="nestedatt--properties"></a>
 ### Nested Schema for `properties`
@@ -65,6 +66,7 @@ Optional:
 Optional:
 
 - `id` (String) Public IP id
+- `uri` (String) Public IP URI
 
 
 <a id="nestedatt--properties--ip_configurations--subnet"></a>
@@ -73,6 +75,7 @@ Optional:
 Optional:
 
 - `id` (String) Subnet id
+- `uri` (String) Subnet URI
 
 
 <a id="nestedatt--properties--ip_configurations--vpc"></a>
@@ -81,6 +84,7 @@ Optional:
 Optional:
 
 - `id` (String) VPC id
+- `uri` (String) VPC URI
 
 
 

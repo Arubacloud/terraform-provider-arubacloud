@@ -19,6 +19,7 @@ import (
 
 type BackupResourceModel struct {
 	Id            types.String `tfsdk:"id"`
+	Uri           types.String `tfsdk:"uri"`
 	Name          types.String `tfsdk:"name"`
 	Location      types.String `tfsdk:"location"`
 	Tags          types.List   `tfsdk:"tags"`
@@ -50,6 +51,10 @@ func (r *BackupResource) Schema(ctx context.Context, req resource.SchemaRequest,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Backup identifier",
+				Computed:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "Backup URI",
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
@@ -217,6 +222,11 @@ func (r *BackupResource) Create(ctx context.Context, req resource.CreateRequest,
 		if response.Data.Metadata.ID != nil {
 			data.Id = types.StringValue(*response.Data.Metadata.ID)
 		}
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
 	} else {
 		resp.Diagnostics.AddError(
 			"Invalid API Response",
@@ -306,6 +316,11 @@ func (r *BackupResource) Read(ctx context.Context, req resource.ReadRequest, res
 		if backup.Metadata.ID != nil {
 			data.Id = types.StringValue(*backup.Metadata.ID)
 		}
+		if backup.Metadata.URI != nil {
+			data.Uri = types.StringValue(*backup.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
 		if backup.Metadata.Name != nil {
 			data.Name = types.StringValue(*backup.Metadata.Name)
 		}
@@ -368,8 +383,9 @@ func (r *BackupResource) Update(ctx context.Context, req resource.UpdateRequest,
 		return
 	}
 
-	projectID := data.ProjectID.ValueString()
-	backupID := data.Id.ValueString()
+	// Get IDs from state (not plan) - IDs are immutable and should always be in state
+	projectID := state.ProjectID.ValueString()
+	backupID := state.Id.ValueString()
 
 	if projectID == "" || backupID == "" {
 		resp.Diagnostics.AddError(
@@ -465,6 +481,17 @@ func (r *BackupResource) Update(ctx context.Context, req resource.UpdateRequest,
 		}
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
+	}
+
+	// Ensure immutable fields are set from state before saving
+	data.Id = state.Id
+	data.ProjectID = state.ProjectID
+
+	if response != nil && response.Data != nil {
+		// Update from response if available (should match state)
+		if response.Data.Metadata.ID != nil {
+			data.Id = types.StringValue(*response.Data.Metadata.ID)
+		}
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

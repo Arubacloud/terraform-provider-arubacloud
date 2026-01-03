@@ -57,6 +57,7 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) Subnet identifier
+- `uri` (String) Subnet URI
 
 <a id="nestedatt--dhcp"></a>
 ### Nested Schema for `dhcp`

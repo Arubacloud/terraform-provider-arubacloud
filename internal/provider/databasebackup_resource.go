@@ -18,6 +18,7 @@ import (
 
 type DatabaseBackupResourceModel struct {
 	Id            types.String `tfsdk:"id"`
+	Uri       types.String `tfsdk:"uri"`
 	ProjectID     types.String `tfsdk:"project_id"`
 	Name          types.String `tfsdk:"name"`
 	Location      types.String `tfsdk:"location"`
@@ -49,6 +50,10 @@ func (r *DatabaseBackupResource) Schema(ctx context.Context, req resource.Schema
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Database Backup identifier",
+				Computed:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "Database Backup URI",
 				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
@@ -202,6 +207,11 @@ func (r *DatabaseBackupResource) Create(ctx context.Context, req resource.Create
 
 	if response != nil && response.Data != nil && response.Data.Metadata.ID != nil {
 		data.Id = types.StringValue(*response.Data.Metadata.ID)
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
 	} else {
 		resp.Diagnostics.AddError(
 			"Invalid API Response",
@@ -289,6 +299,11 @@ func (r *DatabaseBackupResource) Read(ctx context.Context, req resource.ReadRequ
 		backup := response.Data
 		if backup.Metadata.ID != nil {
 			data.Id = types.StringValue(*backup.Metadata.ID)
+		}
+		if backup.Metadata.URI != nil {
+			data.Uri = types.StringValue(*backup.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
 		}
 		if backup.Metadata.Name != nil {
 			data.Name = types.StringValue(*backup.Metadata.Name)

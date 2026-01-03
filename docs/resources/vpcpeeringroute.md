@@ -47,6 +47,8 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) VPC Peering Route identifier
+- `uri` (String) VPC Peering Route URI
+- `uri` (String) Vpcpeeringroute URI
 
 
 

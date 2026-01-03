@@ -33,6 +33,7 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) DBaaS User identifier
+- `uri` (String) Dbaasuser URI
 
 
 

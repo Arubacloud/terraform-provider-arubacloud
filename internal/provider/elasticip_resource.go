@@ -29,6 +29,7 @@ type ElasticIPResource struct {
 
 type ElasticIPResourceModel struct {
 	Id            types.String `tfsdk:"id"`
+	Uri           types.String `tfsdk:"uri"`
 	Name          types.String `tfsdk:"name"`
 	Location      types.String `tfsdk:"location"`
 	Tags          types.List   `tfsdk:"tags"`
@@ -73,7 +74,11 @@ func (r *ElasticIPResource) Schema(ctx context.Context, req resource.SchemaReque
 				Computed:            true,
 			},
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Project Identifier",
+				MarkdownDescription: "Elastic IP Identifier",
+				Computed:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "Elastic IP URI",
 				Computed:            true,
 			},
 		},
@@ -171,6 +176,11 @@ func (r *ElasticIPResource) Create(ctx context.Context, req resource.CreateReque
 			)
 			return
 		}
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
 		if response.Data.Properties.Address != nil {
 			data.Address = types.StringValue(*response.Data.Properties.Address)
 		}
@@ -218,6 +228,11 @@ func (r *ElasticIPResource) Create(ctx context.Context, req resource.CreateReque
 		// Ensure ID is set (should already be set, but double-check)
 		if getResp.Data.Metadata.ID != nil {
 			data.Id = types.StringValue(*getResp.Data.Metadata.ID)
+		}
+		if getResp.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*getResp.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
 		}
 		if getResp.Data.Properties.Address != nil {
 			data.Address = types.StringValue(*getResp.Data.Properties.Address)
@@ -298,6 +313,11 @@ func (r *ElasticIPResource) Read(ctx context.Context, req resource.ReadRequest, 
 
 		if eip.Metadata.ID != nil {
 			data.Id = types.StringValue(*eip.Metadata.ID)
+		}
+		if eip.Metadata.URI != nil {
+			data.Uri = types.StringValue(*eip.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
 		}
 		if eip.Metadata.Name != nil {
 			data.Name = types.StringValue(*eip.Metadata.Name)
@@ -457,7 +477,15 @@ func (r *ElasticIPResource) Update(ctx context.Context, req resource.UpdateReque
 		return
 	}
 
+	// Ensure immutable fields are set from state before saving
+	data.Id = state.Id
+	data.ProjectId = state.ProjectId
+
 	if response != nil && response.Data != nil {
+		// Update from response if available (should match state)
+		if response.Data.Metadata.ID != nil {
+			data.Id = types.StringValue(*response.Data.Metadata.ID)
+		}
 		if response.Data.Properties.Address != nil {
 			data.Address = types.StringValue(*response.Data.Properties.Address)
 		}

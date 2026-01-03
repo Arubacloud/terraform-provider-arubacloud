@@ -44,6 +44,7 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) DBaaS identifier
+- `uri` (String) Dbaas URI
 
 <a id="nestedatt--autoscaling"></a>
 ### Nested Schema for `autoscaling`

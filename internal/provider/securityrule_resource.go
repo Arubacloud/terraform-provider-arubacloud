@@ -59,6 +59,7 @@ func NewSecurityRuleResource() resource.Resource {
 
 type SecurityRuleResourceModel struct {
 	Id              types.String `tfsdk:"id"`
+	Uri             types.String `tfsdk:"uri"`
 	Name            types.String `tfsdk:"name"`
 	Location        types.String `tfsdk:"location"`
 	Tags            types.List   `tfsdk:"tags"`
@@ -78,6 +79,10 @@ func (r *SecurityRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Security Rule identifier",
+				Computed:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "Security Rule URI",
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
@@ -266,6 +271,11 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 		if response.Data.Metadata.ID != nil {
 			data.Id = types.StringValue(*response.Data.Metadata.ID)
 		}
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
 	} else {
 		resp.Diagnostics.AddError(
 			"Invalid API Response",
@@ -356,6 +366,11 @@ func (r *SecurityRuleResource) Read(ctx context.Context, req resource.ReadReques
 
 		if rule.Metadata.ID != nil {
 			data.Id = types.StringValue(*rule.Metadata.ID)
+		}
+		if rule.Metadata.URI != nil {
+			data.Uri = types.StringValue(*rule.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
 		}
 		if rule.Metadata.Name != nil {
 			data.Name = types.StringValue(*rule.Metadata.Name)
@@ -677,6 +692,19 @@ func (r *SecurityRuleResource) Update(ctx context.Context, req resource.UpdateRe
 
 	// Properties remain unchanged - they are immutable
 	// Keep the existing state values to ensure Terraform state matches what the user configured
+
+	// Ensure immutable fields are set from state before saving
+	data.Id = state.Id
+	data.ProjectId = state.ProjectId
+	data.VpcId = state.VpcId
+	data.SecurityGroupId = state.SecurityGroupId
+
+	if response != nil && response.Data != nil {
+		// Update from response if available (should match state)
+		if response.Data.Metadata.ID != nil {
+			data.Id = types.StringValue(*response.Data.Metadata.ID)
+		}
+	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

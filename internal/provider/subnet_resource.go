@@ -29,6 +29,7 @@ type SubnetResource struct {
 
 type SubnetResourceModel struct {
 	Id        types.String `tfsdk:"id"`
+	Uri       types.String `tfsdk:"uri"`
 	Name      types.String `tfsdk:"name"`
 	Location  types.String `tfsdk:"location"`
 	Tags      types.List   `tfsdk:"tags"`
@@ -70,6 +71,10 @@ func (r *SubnetResource) Schema(ctx context.Context, req resource.SchemaRequest,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Subnet identifier",
+				Computed:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "Subnet URI",
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
@@ -267,6 +272,11 @@ func (r *SubnetResource) Create(ctx context.Context, req resource.CreateRequest,
 		if response.Data.Metadata.ID != nil {
 			data.Id = types.StringValue(*response.Data.Metadata.ID)
 		}
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
 	} else {
 		resp.Diagnostics.AddError(
 			"Invalid API Response",
@@ -357,6 +367,11 @@ func (r *SubnetResource) Read(ctx context.Context, req resource.ReadRequest, res
 		if subnet.Metadata.ID != nil {
 			data.Id = types.StringValue(*subnet.Metadata.ID)
 		}
+		if subnet.Metadata.URI != nil {
+			data.Uri = types.StringValue(*subnet.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
 		if subnet.Metadata.Name != nil {
 			data.Name = types.StringValue(*subnet.Metadata.Name)
 		}
@@ -421,9 +436,10 @@ func (r *SubnetResource) Update(ctx context.Context, req resource.UpdateRequest,
 		return
 	}
 
-	projectID := data.ProjectId.ValueString()
-	vpcID := data.VpcId.ValueString()
-	subnetID := data.Id.ValueString()
+	// Get IDs from state (not plan) - IDs are immutable and should always be in state
+	projectID := state.ProjectId.ValueString()
+	vpcID := state.VpcId.ValueString()
+	subnetID := state.Id.ValueString()
 
 	if projectID == "" || vpcID == "" || subnetID == "" {
 		resp.Diagnostics.AddError(
@@ -518,6 +534,18 @@ func (r *SubnetResource) Update(ctx context.Context, req resource.UpdateRequest,
 		}
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
+	}
+
+	// Ensure immutable fields are set from state before saving
+	data.Id = state.Id
+	data.ProjectId = state.ProjectId
+	data.VpcId = state.VpcId
+
+	if response != nil && response.Data != nil {
+		// Update from response if available (should match state)
+		if response.Data.Metadata.ID != nil {
+			data.Id = types.StringValue(*response.Data.Metadata.ID)
+		}
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

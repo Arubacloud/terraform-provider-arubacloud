@@ -39,6 +39,7 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) KMIP identifier
+- `uri` (String) Kmip URI
 
 
 

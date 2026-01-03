@@ -18,6 +18,7 @@ import (
 
 type KMSResourceModel struct {
 	Id            types.String `tfsdk:"id"`
+	Uri       types.String `tfsdk:"uri"`
 	Name          types.String `tfsdk:"name"`
 	ProjectID     types.String `tfsdk:"project_id"`
 	Location      types.String `tfsdk:"location"`
@@ -46,6 +47,10 @@ func (r *KMSResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "KMS identifier",
+				Computed:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "KMS URI",
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
@@ -156,6 +161,21 @@ func (r *KMSResource) Create(ctx context.Context, req resource.CreateRequest, re
 
 	if response != nil && response.Data != nil && response.Data.Metadata.ID != nil {
 		data.Id = types.StringValue(*response.Data.Metadata.ID)
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
 	} else {
 		resp.Diagnostics.AddError(
 			"Invalid API Response",
@@ -243,6 +263,21 @@ func (r *KMSResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 		kms := response.Data
 		if kms.Metadata.ID != nil {
 			data.Id = types.StringValue(*kms.Metadata.ID)
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
 		}
 		if kms.Metadata.Name != nil {
 			data.Name = types.StringValue(*kms.Metadata.Name)
@@ -288,7 +323,8 @@ func (r *KMSResource) Update(ctx context.Context, req resource.UpdateRequest, re
 		return
 	}
 
-	projectID := data.ProjectID.ValueString()
+	// Get IDs from state (not plan) - IDs are immutable and should always be in state
+	projectID := state.ProjectID.ValueString()
 	kmsID := state.Id.ValueString()
 
 	if projectID == "" || kmsID == "" {
@@ -376,6 +412,32 @@ func (r *KMSResource) Update(ctx context.Context, req resource.UpdateRequest, re
 
 	if response != nil && response.Data != nil && response.Data.Metadata.ID != nil {
 		data.Id = types.StringValue(*response.Data.Metadata.ID)
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
+	}
+
+	// Ensure immutable fields are set from state before saving
+	data.Id = state.Id
+	data.ProjectID = state.ProjectID
+
+	if response != nil && response.Data != nil {
+		// Update from response if available (should match state)
+		if response.Data.Metadata.ID != nil {
+			data.Id = types.StringValue(*response.Data.Metadata.ID)
+		}
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

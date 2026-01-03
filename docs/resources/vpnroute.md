@@ -39,6 +39,8 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) VPN Route identifier
+- `uri` (String) VPN Route URI
+- `uri` (String) Vpnroute URI
 
 <a id="nestedatt--properties"></a>
 ### Nested Schema for `properties`

@@ -49,6 +49,8 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) Container Registry identifier
+- `uri` (String) Container Registry URI
+- `uri` (String) Containerregistry URI
 
 
 

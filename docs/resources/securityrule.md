@@ -53,6 +53,7 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) Security Rule identifier
+- `uri` (String) Security Rule URI
 
 <a id="nestedatt--properties"></a>
 ### Nested Schema for `properties`
