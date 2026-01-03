@@ -39,11 +39,12 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) VPN Route identifier
+- `uri` (String) VPN Route URI
 
 <a id="nestedatt--properties"></a>
 ### Nested Schema for `properties`
 
-Optional:
+Required:
 
 - `cloud_subnet` (String) CIDR of the cloud subnet
 - `on_prem_subnet` (String) CIDR of the on-prem subnet

@@ -5,8 +5,11 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"time"
 
+	"github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -33,8 +36,9 @@ type ArubaCloudProvider struct {
 
 // ArubaCloudProviderModel describes the provider data model.
 type ArubaCloudProviderModel struct {
-	ApiKey    types.String `tfsdk:"api_key"`
-	ApiSecret types.String `tfsdk:"api_secret"`
+	ApiKey          types.String `tfsdk:"api_key"`
+	ApiSecret       types.String `tfsdk:"api_secret"`
+	ResourceTimeout types.String `tfsdk:"resource_timeout"`
 }
 
 func (p *ArubaCloudProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
@@ -52,6 +56,10 @@ func (p *ArubaCloudProvider) Schema(ctx context.Context, req provider.SchemaRequ
 			"api_secret": schema.StringAttribute{
 				MarkdownDescription: "API secret for ArubaCloud",
 				Required:            true,
+			},
+			"resource_timeout": schema.StringAttribute{
+				MarkdownDescription: "Timeout for waiting for resources to become active after creation (e.g., \"5m\", \"10m\", \"15m\"). This timeout applies to all resources that need to wait for active state. Default: \"10m\"",
+				Optional:            true,
 			},
 		},
 	}
@@ -101,20 +109,56 @@ func (p *ArubaCloudProvider) Configure(ctx context.Context, req provider.Configu
 		return
 	}
 
-	// Create a new ArubaCloud client using the configuration values
+	// Create SDK client with credentials using DefaultOptions
+	options := aruba.DefaultOptions(apiKey, apiSecret)
+	options = options.WithDefaultLogger()
+
+	sdkClient, err := aruba.NewClient(options)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Failed to create ArubaCloud SDK client",
+			fmt.Sprintf("Unable to create ArubaCloud SDK client: %s", err),
+		)
+		return
+	}
+
+	// Parse timeout configuration with default (10 minutes - enough for most resources including CloudServer)
+	resourceTimeout := parseTimeout(config.ResourceTimeout, 10*time.Minute)
+
+	// Create a new ArubaCloud client using the SDK client
 	client := &ArubaCloudClient{
-		ApiKey:    apiKey,
-		ApiSecret: apiSecret,
+		ApiKey:          apiKey,
+		ApiSecret:       apiSecret,
+		Client:          sdkClient,
+		ResourceTimeout: resourceTimeout,
 	}
 
 	resp.DataSourceData = client
 	resp.ResourceData = client
 }
 
-// TODO: put here ArubaCloud API client.
+// parseTimeout parses a timeout string (e.g., "5m", "10m") and returns the duration.
+// If the string is empty or invalid, returns the default duration.
+func parseTimeout(timeoutStr types.String, defaultDuration time.Duration) time.Duration {
+	if timeoutStr.IsNull() || timeoutStr.IsUnknown() || timeoutStr.ValueString() == "" {
+		return defaultDuration
+	}
+
+	duration, err := time.ParseDuration(timeoutStr.ValueString())
+	if err != nil {
+		// If parsing fails, return default
+		return defaultDuration
+	}
+
+	return duration
+}
+
+// ArubaCloudClient wraps the SDK client with API credentials and timeout configuration.
 type ArubaCloudClient struct {
-	ApiKey    string
-	ApiSecret string
+	ApiKey          string
+	ApiSecret       string
+	Client          aruba.Client
+	ResourceTimeout time.Duration
 }
 
 func (p *ArubaCloudProvider) Resources(ctx context.Context) []func() resource.Resource {
@@ -140,12 +184,12 @@ func (p *ArubaCloudProvider) Resources(ctx context.Context) []func() resource.Re
 		NewRestoreResource,
 		NewDBaaSResource,
 		NewDatabaseResource,
-		NewDatabaseGrantResource,
+		// NewDatabaseGrantResource, // TODO: Temporarily disabled - GrantRole type conversion issue
 		NewDatabaseBackupResource,
 		NewDBaaSUserResource,
 		NewScheduleJobResource,
 		NewKMSResource,
-		NewKMIPResource,
+		// NewKMIPResource, // TODO: KMIP not available in SDK yet
 	}
 
 }
@@ -175,7 +219,7 @@ func (p *ArubaCloudProvider) DataSources(ctx context.Context) []func() datasourc
 		NewDatabaseBackupDataSource,
 		NewDatabaseGrantDataSource,
 		NewDBaaSDataSource,
-		NewKMIPDataSource,
+		// NewKMIPDataSource, // TODO: KMIP not available in SDK yet
 		NewKMSDataSource,
 		NewRestoreDataSource,
 		NewScheduleJobDataSource,

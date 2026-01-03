@@ -53,6 +53,7 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) Schedule Job identifier
+- `uri` (String) Schedule Job URI
 
 <a id="nestedatt--properties"></a>
 ### Nested Schema for `properties`

@@ -2,25 +2,26 @@
 
 # DBaaS Example
 resource "arubacloud_dbaas" "example" {
-  name           = "example-dbaas"
-  location       = "ITBG-Bergamo"
-  tags           = ["dbaas", "test"]
-  project_id     = arubacloud_project.example.id
-  engine         = "mysql-8.0"
-  zone           = "ITBG-1"
-  flavor         = "db.t3.medium"
-  storage_size   = 50
-  billing_period = "Hour"
-  network = {
-    vpc_id            = arubacloud_vpc.example.id
-    subnet_id         = arubacloud_subnet.example.id
-    security_group_id = arubacloud_securitygroup.example.id
-    elastic_ip_id     = arubacloud_elasticip.example.id
-  }
+  name                  = "example-dbaas"
+  location              = "ITBG-Bergamo"
+  tags                  = ["dbaas", "test"]
+  project_id            = arubacloud_project.example.id
+  engine_id             = "mysql-8.0"  # See https://api.arubacloud.com/docs/metadata/#dbaas-engines
+  flavor                = "DBO2A4"    # 2 CPU, 4GB RAM (see https://api.arubacloud.com/docs/metadata/#dbaas-flavors)
+  
+  # Required network resources (URI references)
+  vpc_uri_ref            = arubacloud_vpc.example.uri
+  subnet_uri_ref         = arubacloud_subnet.example.uri
+  security_group_uri_ref = arubacloud_securitygroup.example.uri
+  
+  # Optional Elastic IP (URI reference)
+  elastic_ip_uri_ref = arubacloud_elasticip.example.uri
+  
+  # Optional autoscaling configuration
   autoscaling = {
     enabled         = true
-    available_space = 100
-    step_size       = 10
+    available_space = 100  # GB
+    step_size       = 10   # GB
   }
 }
 

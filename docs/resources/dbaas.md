@@ -22,19 +22,19 @@ The following arguments are supported:
 
 #### Required
 
-- `autoscaling` (Attributes) (see [below for nested schema](#nestedatt--autoscaling))
-- `billing_period` (String) Billing period
-- `engine` (String) Database engine (mysql-8.0, mssql-2022-web, mssql-2022-standard, mssql-2022-enterprise)
-- `flavor` (String) Flavor type
+- `engine_id` (String) Database engine ID. Available engines are described in the [ArubaCloud API documentation](https://api.arubacloud.com/docs/metadata/#dbaas-engines). For example, `mysql-8.0` for MySQL version 8.0.
+- `flavor` (String) DBaaS flavor name. Available flavors are described in the [ArubaCloud API documentation](https://api.arubacloud.com/docs/metadata/#dbaas-flavors). For example, `DBO2A4` means 2 CPU and 4GB RAM.
 - `location` (String) DBaaS location
 - `name` (String) DBaaS name
-- `network` (Attributes) (see [below for nested schema](#nestedatt--network))
 - `project_id` (String) ID of the project this DBaaS belongs to
-- `storage_size` (Number) Storage size
-- `zone` (String) Zone (ITBG-1, ITBG-2, ITBG-3)
+- `security_group_uri_ref` (String) URI reference to the Security Group resource (e.g., `arubacloud_securitygroup.example.uri`)
+- `subnet_uri_ref` (String) URI reference to the Subnet resource (e.g., `arubacloud_subnet.example.uri`)
+- `vpc_uri_ref` (String) URI reference to the VPC resource (e.g., `arubacloud_vpc.example.uri`)
 
 #### Optional
 
+- `autoscaling` (Attributes) Autoscaling configuration for the DBaaS instance (see [below for nested schema](#nestedatt--autoscaling))
+- `elastic_ip_uri_ref` (String) URI reference to the Elastic IP resource (e.g., `arubacloud_elasticip.example.uri`)
 - `tags` (List of String) List of tags for the DBaaS resource
 
 ### Attributes Reference
@@ -44,26 +44,16 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) DBaaS identifier
+- `uri` (String) DBaaS URI
 
 <a id="nestedatt--autoscaling"></a>
 ### Nested Schema for `autoscaling`
 
 Required:
 
-- `available_space` (Number) Available space for autoscaling
-- `enabled` (Boolean) Autoscaling enabled
-- `step_size` (Number) Step size for autoscaling
-
-
-<a id="nestedatt--network"></a>
-### Nested Schema for `network`
-
-Required:
-
-- `elastic_ip_id` (String) Elastic IP ID
-- `security_group_id` (String) Security Group ID
-- `subnet_id` (String) Subnet ID
-- `vpc_id` (String) VPC ID
+- `available_space` (Number) Available space for autoscaling (in GB)
+- `enabled` (Boolean) Enable autoscaling
+- `step_size` (Number) Step size for autoscaling (in GB)
 
 
 

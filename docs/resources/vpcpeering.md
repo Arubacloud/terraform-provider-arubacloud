@@ -33,7 +33,9 @@ The following arguments are supported:
 
 - `location` (String) VPC Peering location
 - `name` (String) VPC Peering name
-- `peer_vpc` (String) ID of the peer VPC to connect to
+- `peer_vpc` (String) ID or URI of the peer VPC to connect to
+- `project_id` (String) ID of the project this VPC Peering belongs to
+- `vpc_id` (String) ID of the VPC this peering belongs to
 
 #### Optional
 
@@ -46,6 +48,7 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) VPC Peering identifier
+- `uri` (String) VPC Peering URI
 
 
 

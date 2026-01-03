@@ -29,11 +29,12 @@ The following arguments are supported:
 
 #### Required
 
-- `billing_period` (String) Billing period (only 'Hour' allowed)
+- `billing_period` (String) Billing period (Hour, Month, Year)
 - `local_network_address` (String) Local network address in CIDR notation
-- `location` (String) VPC Peering Route location
 - `name` (String) VPC Peering Route name
+- `project_id` (String) ID of the project this VPC Peering Route belongs to
 - `remote_network_address` (String) Remote network address in CIDR notation
+- `vpc_id` (String) ID of the VPC this peering route belongs to
 - `vpc_peering_id` (String) ID of the VPC Peering this route belongs to
 
 #### Optional
@@ -47,6 +48,7 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) VPC Peering Route identifier
+- `uri` (String) VPC Peering Route URI
 
 
 

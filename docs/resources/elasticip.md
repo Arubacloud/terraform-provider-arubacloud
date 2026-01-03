@@ -11,9 +11,17 @@ Manages an ArubaCloud ElasticIP.
 
 ```terraform
 resource "arubacloud_elasticip" "example" {
-  name       = "example-elastic-ip"
-  location   = "example-location"
-  project_id = "example-project"
+  name           = "example-elastic-ip"
+  location       = "ITBG-Bergamo"  # Change to your region
+  project_id     = "your-project-id"  # Replace with your project ID
+  billing_period = "hourly"  # Required: "hourly", "monthly", or "yearly"
+  tags           = ["public", "test"]
+}
+
+# Output the Elastic IP address (computed field from ElasticIpPropertiesResponse)
+output "elastic_ip_address" {
+  value       = arubacloud_elasticip.example.address
+  description = "The IP address of the created Elastic IP (computed from ElasticIpPropertiesResponse)"
 }
 ```
 
@@ -27,13 +35,13 @@ The following arguments are supported:
 
 #### Required
 
-- `billing_period` (String) Billing period for the Elastic IP (only 'hourly' allowed)
 - `location` (String) Elastic IP location
 - `name` (String) Elastic IP name
 - `project_id` (String) ID of the project this Elastic IP belongs to
 
 #### Optional
 
+- `billing_period` (String) Billing period for the Elastic IP (only 'hourly' allowed)
 - `tags` (List of String) List of tags for the Elastic IP
 
 ### Attributes Reference
@@ -42,8 +50,9 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `address` (String) Elastic IP address
-- `id` (String) Project Identifier
+- `address` (String) Elastic IP address (computed from ElasticIpPropertiesResponse)
+- `id` (String) Elastic IP Identifier
+- `uri` (String) Elastic IP URI
 
 
 

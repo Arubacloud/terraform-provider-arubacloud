@@ -26,7 +26,11 @@ The following arguments are supported:
 - `location` (String) Snapshot location
 - `name` (String) Snapshot name
 - `project_id` (String) ID of the project this Snapshot belongs to
-- `volume_id` (String) ID of the volume this snapshot is for
+- `volume_uri` (String) URI of the volume this snapshot is for. Should be the volume URI (e.g., `/projects/{project_id}/providers/Aruba.Storage/volumes/{volume_id}`). You can reference the `uri` attribute from an `arubacloud_blockstorage` resource.
+
+#### Optional
+
+- `tags` (List of String) List of tags for the snapshot
 
 ### Attributes Reference
 
@@ -35,3 +39,4 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) Snapshot identifier
+- `uri` (String) Snapshot URI

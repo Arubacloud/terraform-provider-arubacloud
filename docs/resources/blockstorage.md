@@ -10,11 +10,30 @@ description: |-
 Manages an ArubaCloud Block Storage.
 
 ```terraform
-resource "arubacloud_blockstorage" "example" {
-  name       = "example-blockstorage"
-  location   = "example-location"
-  size       = 100
-  project_id = "example-project"
+# Zonal Block Storage Example
+# Zonal storage is tied to a specific zone within a location
+resource "arubacloud_blockstorage" "zonal_example" {
+  name          = "zonal-blockstorage"
+  project_id    = "your-project-id"  # Replace with your project ID
+  location      = "ITBG-Bergamo"  # Change to your region
+  size_gb       = 100
+  billing_period = "Hour"
+  zone          = "ITBG-1"  # Zonal storage - tied to this specific zone
+  type          = "Standard"
+  tags          = ["storage", "zonal", "test"]
+}
+
+# Regional Block Storage Example
+# Regional storage is available across all zones in the location
+resource "arubacloud_blockstorage" "regional_example" {
+  name          = "regional-blockstorage"
+  project_id    = "your-project-id"  # Replace with your project ID
+  location      = "ITBG-Bergamo"  # Change to your region
+  size_gb       = 100
+  billing_period = "Hour"
+  # zone is not specified - creates regional storage
+  type          = "Standard"
+  tags          = ["storage", "regional", "test"]
 }
 ```
 
@@ -28,9 +47,19 @@ The following arguments are supported:
 
 #### Required
 
+- `billing_period` (String) Billing period (Hour, Month, Year)
+- `location` (String) Block Storage location/region
 - `name` (String) Block Storage name
 - `project_id` (String) ID of the project this Block Storage belongs to
-- `properties` (Attributes) Properties of the Block Storage (see [below for nested schema](#nestedatt--properties))
+- `size_gb` (Number) Size of the block storage in GB
+- `type` (String) Type of block storage (Standard, Performance)
+
+#### Optional
+
+- `bootable` (Boolean) Whether the block storage is bootable. Must be set to true along with image to create a bootable disk.
+- `image` (String) Image ID for bootable block storage. Required when bootable is true. See [available images](https://api.arubacloud.com/docs/metadata/#cloud-server-bootvolume) for a list of supported image IDs.
+- `tags` (List of String) List of tags for the block storage
+- `zone` (String) Zone where blockstorage will be created. If not specified, the block storage will be regional (available across all zones in the location). If specified, the block storage will be zonal (tied to a specific zone).
 
 ### Attributes Reference
 
@@ -39,23 +68,7 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) Block Storage identifier
-
-<a id="nestedatt--properties"></a>
-### Nested Schema for `properties`
-
-Required:
-
-- `billing_period` (String) Billing period of the block storage (only 'Hour' allowed)
-- `size_gb` (Number) Size of the block storage in GB
-- `type` (String) Type of block storage (Standard, Performance)
-- `zone` (String) Zone where blockstorage will be created
-
-Optional:
-
-- `bootable` (Boolean) Whether the block storage is bootable
-- `image` (String) Image for the block storage
-- `snapshot_id` (String) Snapshot id (optional)
-
+- `uri` (String) Block Storage URI
 
 
 

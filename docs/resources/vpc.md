@@ -14,7 +14,10 @@ description: |-
 
 ```terraform
 resource "arubacloud_vpc" "basic" {
-  name = "basic-vpc"
+  name       = "basic-vpc"
+  location   = "ITBG-Bergamo"  # Change to your region
+  project_id = "your-project-id"  # Replace with your project ID
+  tags       = ["network", "test"]
 }
 ```
 
@@ -30,6 +33,7 @@ The following arguments are supported:
 
 - `location` (String) VPC location
 - `name` (String) VPC name
+- `project_id` (String) Project ID
 
 #### Optional
 
@@ -42,6 +46,7 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) VPC identifier
+- `uri` (String) VPC URI
 
 
 

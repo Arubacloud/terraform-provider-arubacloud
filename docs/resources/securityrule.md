@@ -15,8 +15,11 @@ description: |-
 ```terraform
 resource "arubacloud_securityrule" "example" {
   name              = "example-security-rule"
+  location          = "ITBG-Bergamo"
+  project_id        = "example-project-id"
   vpc_id            = "example-vpc-id"
   security_group_id = "example-security-group-id"
+  tags              = ["security", "example"]
   properties = {
     direction = "Ingress"
     protocol  = "TCP"
@@ -46,6 +49,10 @@ The following arguments are supported:
 - `security_group_id` (String) ID of the Security Group this rule belongs to
 - `vpc_id` (String) ID of the VPC this Security Rule belongs to
 
+#### Optional
+
+- `tags` (List of String) List of tags for the Security Rule
+
 ### Attributes Reference
 
 In addition to all arguments above, the following attributes are exported:
@@ -53,6 +60,7 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) Security Rule identifier
+- `uri` (String) Security Rule URI
 
 <a id="nestedatt--properties"></a>
 ### Nested Schema for `properties`

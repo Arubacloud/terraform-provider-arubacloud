@@ -29,10 +29,11 @@ The following arguments are supported:
 
 #### Required
 
+- `backup_id` (String) Backup ID to restore from
 - `location` (String) Restore location
 - `name` (String) Restore name
 - `project_id` (String) ID of the project this restore belongs to
-- `volume_id` (String) Volume ID to restore
+- `volume_id` (String) Volume ID to restore to
 
 #### Optional
 
@@ -45,6 +46,7 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) Restore identifier
+- `uri` (String) Restore URI
 
 
 

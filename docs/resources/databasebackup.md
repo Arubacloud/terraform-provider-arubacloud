@@ -23,10 +23,11 @@ The following arguments are supported:
 #### Required
 
 - `billing_period` (String) Billing period
-- `database` (String) Database to backup (ID or name)
+- `database` (String) Database name to backup
 - `dbaas_id` (String) DBaaS ID this backup belongs to
 - `location` (String) Database Backup location
 - `name` (String) Database Backup name
+- `project_id` (String) ID of the project this backup belongs to
 - `zone` (String) Zone for the Database Backup
 
 #### Optional
@@ -40,6 +41,7 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) Database Backup identifier
+- `uri` (String) Database Backup URI
 
 
 

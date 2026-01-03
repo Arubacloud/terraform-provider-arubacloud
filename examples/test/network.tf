@@ -10,6 +10,12 @@ resource "arubacloud_elasticip" "example" {
   project_id     = arubacloud_project.example.id
 }
 
+# Output the Elastic IP address (computed field from ElasticIpPropertiesResponse)
+output "elastic_ip_address" {
+  value       = arubacloud_elasticip.example.address
+  description = "The IP address of the created Elastic IP"
+}
+
 
 ## VPC 
 resource "arubacloud_vpc" "example" {
@@ -101,6 +107,7 @@ resource "arubacloud_securityrule" "example" {
   project_id        = arubacloud_project.example.id
   vpc_id            = arubacloud_vpc.example.id
   security_group_id = arubacloud_securitygroup.example.id
+  tags              = ["security", "example"]
   properties = {
     direction = "Ingress"
     protocol  = "TCP"
