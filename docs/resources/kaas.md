@@ -13,8 +13,45 @@ description: |-
 ---
 
 ```terraform
+# KaaS (Kubernetes as a Service) Example
+# Note: This example assumes you have already created VPC and Subnet resources
+
 resource "arubacloud_kaas" "basic" {
-  name = "basic-kaas"
+  name       = "basic-kaas"
+  location   = "ITBG-Bergamo"  # Change to your region
+  project_id = "your-project-id"  # Replace with your project ID
+  tags       = ["k8s", "test"]
+
+  # Use URI references for VPC and Subnet
+  vpc_uri_ref    = arubacloud_vpc.example.uri
+  subnet_uri_ref = arubacloud_subnet.example.uri
+
+  # Node CIDR configuration
+  node_cidr = {
+    address = "10.0.2.0/24"  # CIDR notation
+    name    = "kaas-node-cidr"
+  }
+
+  security_group_name = "kaas-security-group"
+  kubernetes_version  = "1.28.0"  # Kubernetes version
+
+  # Node pools configuration
+  node_pools = [
+    {
+      name        = "pool-1"
+      nodes       = 2
+      instance    = "c2.medium"
+      zone        = "ITBG-1"
+      autoscaling = true
+      min_count   = 1
+      max_count   = 5
+    }
+  ]
+
+  # Optional fields
+  ha             = true
+  billing_period = "Hour"
+  pod_cidr       = "10.0.3.0/24"
 }
 ```
 
@@ -28,15 +65,15 @@ The following arguments are supported:
 
 #### Required
 
+- `kubernetes_version` (String) Kubernetes version (e.g., 1.28.0)
 - `location` (String) KaaS location
 - `name` (String) KaaS name
 - `node_cidr` (Attributes) Node CIDR configuration (see [below for nested schema](#nestedatt--node_cidr))
 - `node_pools` (Attributes List) Node pools configuration (see [below for nested schema](#nestedatt--node_pools))
 - `project_id` (String) ID of the project this KaaS resource belongs to
 - `security_group_name` (String) Security group name
-- `subnet_id` (String) Subnet ID for the KaaS resource
-- `version` (String) Kubernetes version
-- `vpc_id` (String) VPC ID for the KaaS resource
+- `subnet_uri_ref` (String) Subnet URI reference for the KaaS resource (e.g., /projects/{project-id}/providers/Aruba.Network/subnets/{subnet-id})
+- `vpc_uri_ref` (String) VPC URI reference for the KaaS resource (e.g., /projects/{project-id}/providers/Aruba.Network/vpcs/{vpc-id})
 
 #### Optional
 
@@ -59,8 +96,8 @@ In addition to all arguments above, the following attributes are exported:
 
 Required:
 
-- `address` (String) Node CIDR address
-- `subnet_name` (String) Node CIDR subnet name
+- `address` (String) Node CIDR address in CIDR notation (e.g., 10.0.0.0/16)
+- `name` (String) Node CIDR name
 
 
 <a id="nestedatt--node_pools"></a>
@@ -68,16 +105,16 @@ Required:
 
 Required:
 
-- `node_pool_name` (String) Node pool name
-- `replicas` (Number) Number of replicas
-- `type` (String) Instance type
-- `zone` (String) Zone
+- `instance` (String) Instance configuration name for nodes
+- `name` (String) Node pool name
+- `nodes` (Number) Number of nodes in the node pool
+- `zone` (String) Datacenter/zone code for nodes
 
 Optional:
 
-- `autoscaling` (Boolean) Enable autoscaling
-- `max_count` (Number) Maximum node count for autoscaling
-- `min_count` (Number) Minimum node count for autoscaling
+- `autoscaling` (Boolean) Enable autoscaling for node pool
+- `max_count` (Number) Maximum number of nodes for autoscaling
+- `min_count` (Number) Minimum number of nodes for autoscaling
 
 
 

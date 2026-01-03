@@ -6,31 +6,38 @@ resource "arubacloud_kaas" "example" {
   location   = "ITBG-Bergamo"
   tags       = ["k8s", "test"]
   project_id = arubacloud_project.example.id
-  preset     = true
-  vpc_id     = arubacloud_vpc.example.id
-  subnet_id  = arubacloud_subnet.example.id
+
+  # Use URI references for VPC and Subnet
+  vpc_uri_ref    = arubacloud_vpc.example.uri
+  subnet_uri_ref = arubacloud_subnet.example.uri
+
   node_cidr = {
-    address     = "10.0.2.0/24"
-    subnet_name = "kaas-subnet"
+    address = "10.0.2.0/24"
+    name    = "kaas-node-cidr"
   }
   security_group_name = arubacloud_securitygroup.example.name
-  version             = "1.32.2"
+  kubernetes_version  = "1.28.0"
   node_pools = [
     {
-      node_pool_name = "pool-1"
-      replicas       = 2
-      type           = "c2.medium"
-      zone           = "ITBG-1"
+      name        = "pool-1"
+      nodes       = 2
+      instance    = "c2.medium"
+      zone        = "ITBG-1"
+      autoscaling = true
+      min_count   = 1
+      max_count   = 5
     },
     {
-      node_pool_name = "pool-2"
-      replicas       = 1
-      type           = "c2.large"
-      zone           = "ITBG-2"
+      name        = "pool-2"
+      nodes       = 1
+      instance    = "c2.large"
+      zone        = "ITBG-2"
+      autoscaling = false
     }
   ]
   ha             = true
   billing_period = "Hour"
+  pod_cidr       = "10.0.3.0/24"
 }
 
 #container registry example
