@@ -472,7 +472,7 @@ func (r *RestoreResource) Update(ctx context.Context, req resource.UpdateRequest
 	data.Id = state.Id
 	data.ProjectID = state.ProjectID
 	data.BackupID = state.BackupID
-	data.Uri = state.Uri // Preserve URI from state
+	data.Uri = state.Uri           // Preserve URI from state
 	data.VolumeID = state.VolumeID // Immutable
 
 	if response != nil && response.Data != nil {

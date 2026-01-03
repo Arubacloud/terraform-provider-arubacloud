@@ -486,9 +486,9 @@ func (r *BackupResource) Update(ctx context.Context, req resource.UpdateRequest,
 	// Ensure immutable fields are set from state before saving
 	data.Id = state.Id
 	data.ProjectID = state.ProjectID
-	data.Uri = state.Uri // Preserve URI from state
-	data.VolumeID = state.VolumeID // Immutable
-	data.Type = state.Type // Immutable
+	data.Uri = state.Uri                     // Preserve URI from state
+	data.VolumeID = state.VolumeID           // Immutable
+	data.Type = state.Type                   // Immutable
 	data.RetentionDays = state.RetentionDays // Immutable
 	data.BillingPeriod = state.BillingPeriod // Immutable
 
