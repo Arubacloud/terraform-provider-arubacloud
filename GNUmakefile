@@ -57,8 +57,6 @@ docs:
 	@bash scripts/format-docs.sh $(TFPLUGINDOCS_RENDERED_WEBSITE) || echo "Note: format-docs.sh script not executed (bash not available or script missing)"
 
 generate: docs
-	cd tools && go generate ./... && \
-	git add docs/ && \
-	git commit -m "Update generated documentation" || echo "No changes to commit."
+	cd tools && go generate ./...
 
 .PHONY: default fmt lint test testacc testacc-run testcov build install docs generate
