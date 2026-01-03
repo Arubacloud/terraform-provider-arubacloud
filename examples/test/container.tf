@@ -42,14 +42,15 @@ resource "arubacloud_kaas" "example" {
 
 #container registry example
 resource "arubacloud_containerregistry" "example" {
-  name              = "example-registry"
-  location          = "ITBG-Bergamo"
-  tags              = ["container", "test"]
-  project_id        = arubacloud_project.example.id
-  elasticip_id      = arubacloud_elasticip.example.id
-  subnet_id         = arubacloud_subnet.example.id
-  security_group_id = arubacloud_securitygroup.example.id
-  block_storage_id  = arubacloud_blockstorage.example.id
-  billing_period    = "Hour"
-  admin_user        = "adminuser"
+  name                  = "example-registry"
+  location              = "ITBG-Bergamo"
+  tags                  = ["container", "test"]
+  project_id            = arubacloud_project.example.id
+  public_ip_uri_ref     = arubacloud_elasticip.example.uri
+  vpc_uri_ref           = arubacloud_vpc.example.uri
+  subnet_uri_ref        = arubacloud_subnet.example.uri
+  security_group_uri_ref = arubacloud_securitygroup.example.uri
+  block_storage_uri_ref  = arubacloud_blockstorage.example.uri
+  billing_period        = "Hour"
+  admin_user            = "adminuser"
 }
