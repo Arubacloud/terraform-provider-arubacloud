@@ -6,7 +6,6 @@ package provider
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -29,7 +28,7 @@ type CloudServerResourceModel struct {
 	VpcUriRef            types.String `tfsdk:"vpc_uri_ref"`
 	FlavorName           types.String `tfsdk:"flavor_name"`
 	ElasticIpUriRef      types.String `tfsdk:"elastic_ip_uri_ref"`
-	BootVolume           types.String `tfsdk:"boot_volume"`
+	BootVolumeUriRef     types.String `tfsdk:"boot_volume_uri_ref"`
 	KeyPairUriRef        types.String `tfsdk:"key_pair_uri_ref"`
 	SubnetUriRefs        types.List   `tfsdk:"subnet_uri_refs"`
 	SecurityGroupUriRefs types.List   `tfsdk:"securitygroup_uri_refs"`
@@ -87,7 +86,7 @@ func (r *CloudServerResource) Schema(ctx context.Context, req resource.SchemaReq
 				},
 			},
 			"flavor_name": schema.StringAttribute{
-				MarkdownDescription: "Flavor name. Available flavors are described in the [ArubaCloud API documentation](https://api.arubacloud.com/docs/metadata/#cloudserver-flavors). For example, `CSO8A16` means 8 CPU and 16GB RAM.",
+				MarkdownDescription: "Flavor name. Available flavors are described in the [ArubaCloud API documentation](https://api.arubacloud.com/docs/metadata/#cloudserver-flavors). For example, `CSO4A8` means 4 CPU and 8GB RAM.",
 				Required:            true,
 			},
 			"elastic_ip_uri_ref": schema.StringAttribute{
@@ -97,9 +96,12 @@ func (r *CloudServerResource) Schema(ctx context.Context, req resource.SchemaReq
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"boot_volume": schema.StringAttribute{
-				MarkdownDescription: "Boot volume ID",
+			"boot_volume_uri_ref": schema.StringAttribute{
+				MarkdownDescription: "URI reference to the boot volume (block storage). Should be the block storage URI. You can reference the `uri` attribute from an `arubacloud_blockstorage` resource.",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"key_pair_uri_ref": schema.StringAttribute{
 				MarkdownDescription: "URI reference to the Key Pair. Should be the Key Pair URI. You can reference the `uri` attribute from an `arubacloud_keypair` resource.",
@@ -202,11 +204,8 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 		}
 	}
 
-	// Build template URI
-	templateURI := data.BootVolume.ValueString()
-	if !strings.HasPrefix(templateURI, "/") {
-		templateURI = fmt.Sprintf("/projects/%s/providers/Aruba.Compute/templates/%s", projectID, data.BootVolume.ValueString())
-	}
+	// Boot volume URI should already be a full URI from resource reference
+	bootVolumeURI := data.BootVolumeUriRef.ValueString()
 
 	// VPC URI should already be a full URI from resource reference
 	vpcURI := data.VpcUriRef.ValueString()
@@ -231,7 +230,7 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 			FlavorName: &flavorName,
 			Zone:       zone,
 			BootVolume: sdktypes.ReferenceResource{
-				URI: templateURI,
+				URI: bootVolumeURI,
 			},
 			VPC: sdktypes.ReferenceResource{
 				URI: vpcURI,
@@ -288,8 +287,20 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 		if err != nil {
 			return "", err
 		}
-		if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
-			return *getResp.Data.Status.State, nil
+		// If we can successfully get the resource, check its status
+		if getResp != nil && getResp.Data != nil {
+			// If Status.State is available, use it
+			if getResp.Data.Status.State != nil {
+				return *getResp.Data.Status.State, nil
+			}
+			// If Status.State is nil but resource exists and is not in error state,
+			// it might still be creating - return a transitional state to keep waiting
+			// Only consider it ready if we can confirm it's not in a transitional state
+			if !getResp.IsError() {
+				// If Status.State is nil, assume it's still creating
+				// Return a transitional state to keep waiting
+				return "InCreation", nil
+			}
 		}
 		return "Unknown", nil
 	}
@@ -390,8 +401,7 @@ func (r *CloudServerResource) Read(ctx context.Context, req resource.ReadRequest
 		data.FlavorName = types.StringValue(server.Properties.Flavor.Name)
 
 		if server.Properties.BootVolume.URI != "" {
-			// Extract template ID from URI if needed
-			data.BootVolume = types.StringValue(server.Properties.BootVolume.URI)
+			data.BootVolumeUriRef = types.StringValue(server.Properties.BootVolume.URI)
 		}
 
 		// Update VPC URI reference
@@ -578,7 +588,7 @@ func (r *CloudServerResource) Update(ctx context.Context, req resource.UpdateReq
 	data.VpcUriRef = state.VpcUriRef
 	data.Zone = state.Zone
 	data.FlavorName = state.FlavorName
-	data.BootVolume = state.BootVolume
+	data.BootVolumeUriRef = state.BootVolumeUriRef
 	data.KeyPairUriRef = state.KeyPairUriRef
 	data.SubnetUriRefs = state.SubnetUriRefs
 	data.SecurityGroupUriRefs = state.SecurityGroupUriRefs

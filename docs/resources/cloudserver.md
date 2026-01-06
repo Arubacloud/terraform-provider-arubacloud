@@ -17,9 +17,9 @@ resource "arubacloud_cloudserver" "basic" {
   project_id            = arubacloud_project.example.id
   zone                  = "ITBG-1"
   vpc_uri_ref           = arubacloud_vpc.example.uri
-  flavor_name           = "CSO8A16"  # 8 CPU, 16GB RAM (see https://api.arubacloud.com/docs/metadata/#cloudserver-flavors)
+  flavor_name           = "CSO4A8"  # 4 CPU, 8GB RAM (see https://api.arubacloud.com/docs/metadata/#cloudserver-flavors)
   elastic_ip_uri_ref    = arubacloud_elasticip.example.uri
-  boot_volume           = "LU22-001"  # Image ID or arubacloud_blockstorage.example.id
+  boot_volume_uri_ref   = arubacloud_blockstorage.example.uri  # URI reference to bootable block storage
   key_pair_uri_ref      = arubacloud_keypair.example.uri
   subnet_uri_refs       = [arubacloud_subnet.example.uri]
   securitygroup_uri_refs = [arubacloud_securitygroup.example.uri]
@@ -37,8 +37,8 @@ The following arguments are supported:
 
 #### Required
 
-- `boot_volume` (String) Boot volume ID
-- `flavor_name` (String) Flavor name. Available flavors are described in the [ArubaCloud API documentation](https://api.arubacloud.com/docs/metadata/#cloudserver-flavors). For example, `CSO8A16` means 8 CPU and 16GB RAM.
+- `boot_volume_uri_ref` (String) URI reference to the boot volume (block storage). Should be the block storage URI. You can reference the `uri` attribute from an `arubacloud_blockstorage` resource.
+- `flavor_name` (String) Flavor name. Available flavors are described in the [ArubaCloud API documentation](https://api.arubacloud.com/docs/metadata/#cloudserver-flavors). For example, `CSO4A8` means 4 CPU and 8GB RAM.
 - `location` (String) CloudServer location
 - `name` (String) CloudServer name
 - `project_id` (String) Project ID

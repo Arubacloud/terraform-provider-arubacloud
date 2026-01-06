@@ -11,16 +11,16 @@ resource "arubacloud_keypair" "test" {
 
 # Cloud Server - Virtual machine instance
 # Note: vpc_uri_ref, subnet_uri_refs, securitygroup_uri_refs, key_pair_uri_ref, and elastic_ip_uri_ref use URI references
-# The boot_volume field accepts an image ID (like "LU22-001") which will create a bootable disk automatically
+# The boot_volume_uri_ref field should reference a bootable block storage URI (created with bootable=true and image set)
 resource "arubacloud_cloudserver" "test" {
   name                  = "test-cloudserver"
   location              = "ITBG-Bergamo"  # Change to your region
   project_id            = arubacloud_project.test.id
   zone                  = "ITBG-1"  # Change to your zone
   vpc_uri_ref           = arubacloud_vpc.test.uri                    # URI reference
-  flavor_name           = "c2.medium"  # Change to your preferred flavor
+  flavor_name           = "CSO4A8"  # 4 CPU, 8GB RAM (see https://api.arubacloud.com/docs/metadata/#cloudserver-flavors)
   elastic_ip_uri_ref    = arubacloud_elasticip.test.uri              # URI reference
-  boot_volume           = "LU22-001"  # Image ID - will create bootable disk automatically
+  boot_volume_uri_ref   = arubacloud_blockstorage.boot_disk.uri  # URI reference to bootable block storage
   key_pair_uri_ref      = arubacloud_keypair.test.uri                # URI reference
   subnet_uri_refs       = [arubacloud_subnet.test.uri]               # URI reference
   securitygroup_uri_refs = [arubacloud_securitygroup.test.uri]        # URI reference

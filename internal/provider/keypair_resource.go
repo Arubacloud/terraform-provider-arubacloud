@@ -8,10 +8,11 @@ import (
 	"fmt"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -48,10 +49,16 @@ func (r *KeypairResource) Schema(ctx context.Context, req resource.SchemaRequest
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Keypair identifier (name)",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"uri": schema.StringAttribute{
 				MarkdownDescription: "Keypair URI",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Keypair name",
@@ -360,11 +367,8 @@ func (r *KeypairResource) Read(ctx context.Context, req resource.ReadRequest, re
 				data.Tags = tagsList
 			}
 		} else {
-			emptyList, diags := types.ListValue(types.StringType, []attr.Value{})
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = emptyList
-			}
+			// Set tags to null when empty to match state (prevents false changes)
+			data.Tags = types.ListNull(types.StringType)
 		}
 
 		// Restore ProjectID and Value from state (they're not returned by the API)
