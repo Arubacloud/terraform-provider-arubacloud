@@ -7,5 +7,19 @@ resource "arubacloud_subnet" "basic" {
   network = {
     address = "10.0.1.0/24"  # CIDR notation
   }
-  tags       = ["network", "test"]
+  dhcp = {
+    enabled = true  # Required for Advanced type subnets
+    range = {
+      start = "10.0.1.10"
+      count = 100
+    }
+    routes = [
+      {
+        address = "0.0.0.0/0"
+        gateway = "10.0.1.1"
+      }
+    ]
+    dns = ["8.8.8.8", "8.8.4.4"]
+  }
+  tags = ["network", "test"]
 }

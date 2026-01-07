@@ -287,22 +287,26 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 		if err != nil {
 			return "", err
 		}
-		// If we can successfully get the resource, check its status
-		if getResp != nil && getResp.Data != nil {
-			// If Status.State is available, use it
-			if getResp.Data.Status.State != nil {
-				return *getResp.Data.Status.State, nil
+		// Check if response indicates an error state
+		if getResp != nil && getResp.IsError() {
+			if getResp.Error != nil {
+				errMsg := "Unknown error"
+				if getResp.Error.Title != nil {
+					errMsg = *getResp.Error.Title
+				}
+				if getResp.Error.Detail != nil {
+					errMsg = fmt.Sprintf("%s: %s", errMsg, *getResp.Error.Detail)
+				}
+				return "", fmt.Errorf("cloud server in error state: %s", errMsg)
 			}
-			// If Status.State is nil but resource exists and is not in error state,
-			// it might still be creating - return a transitional state to keep waiting
-			// Only consider it ready if we can confirm it's not in a transitional state
-			if !getResp.IsError() {
-				// If Status.State is nil, assume it's still creating
-				// Return a transitional state to keep waiting
-				return "InCreation", nil
-			}
+			return "", fmt.Errorf("cloud server API returned error response")
 		}
-		return "Unknown", nil
+		// If we can successfully get the resource, check its status
+		if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
+			return *getResp.Data.Status.State, nil
+		}
+		// If Status.State is nil, assume it's still creating
+		return "InCreation", nil
 	}
 
 	// Wait for Cloud Server to be active - block until ready (using configured timeout)

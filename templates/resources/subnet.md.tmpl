@@ -1,16 +1,22 @@
 ---
-page_title: "arubacloud_subnet"
-subcategory: "Network"
-description: |-
-  Manages an ArubaCloud Subnet.
----
-
----
-page_title: "arubacloud_subnet"
+page_title: "arubacloud_subnet Resource - ArubaCloud"
 subcategory: "Network"
 description: |-
   Manages an ArubaCloud Subnet resource.
 ---
+
+# arubacloud_subnet
+
+Manages an ArubaCloud Subnet resource.
+
+## Important Notes
+
+- When `type` is set to `"Advanced"`, the `dhcp` block is required and must include the `enabled` attribute.
+- The `dhcp` block supports:
+  - `enabled`: Boolean to enable/disable DHCP
+  - `range`: Optional DHCP IP address range with `start` and `count`
+  - `routes`: Optional list of DHCP routes with `address` (network CIDR, e.g., "0.0.0.0/0") and `gateway` (IP address)
+  - `dns`: Optional list of DNS server IP addresses
 
 {{ tffile "examples/resources/arubacloud_subnet/resource-basic.tf" }}
 

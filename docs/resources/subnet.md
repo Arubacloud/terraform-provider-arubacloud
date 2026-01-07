@@ -1,16 +1,22 @@
 ---
-page_title: "arubacloud_subnet"
-subcategory: "Network"
-description: |-
-  Manages an ArubaCloud Subnet.
----
-
----
-page_title: "arubacloud_subnet"
+page_title: "arubacloud_subnet Resource - ArubaCloud"
 subcategory: "Network"
 description: |-
   Manages an ArubaCloud Subnet resource.
 ---
+
+# arubacloud_subnet
+
+Manages an ArubaCloud Subnet resource.
+
+## Important Notes
+
+- When `type` is set to `"Advanced"`, the `dhcp` block is required and must include the `enabled` attribute.
+- The `dhcp` block supports:
+  - `enabled`: Boolean to enable/disable DHCP
+  - `range`: Optional DHCP IP address range with `start` and `count`
+  - `routes`: Optional list of DHCP routes with `address` (network CIDR, e.g., "0.0.0.0/0") and `gateway` (IP address)
+  - `dns`: Optional list of DNS server IP addresses
 
 ```terraform
 resource "arubacloud_subnet" "basic" {
@@ -22,7 +28,21 @@ resource "arubacloud_subnet" "basic" {
   network = {
     address = "10.0.1.0/24"  # CIDR notation
   }
-  tags       = ["network", "test"]
+  dhcp = {
+    enabled = true  # Required for Advanced type subnets
+    range = {
+      start = "10.0.1.10"
+      count = 100
+    }
+    routes = [
+      {
+        address = "0.0.0.0/0"
+        gateway = "10.0.1.1"
+      }
+    ]
+    dns = ["8.8.8.8", "8.8.4.4"]
+  }
+  tags = ["network", "test"]
 }
 ```
 
@@ -45,9 +65,7 @@ The following arguments are supported:
 #### Optional
 
 - `dhcp` (Attributes) (see [below for nested schema](#nestedatt--dhcp))
-- `dns` (List of String) List of DNS IP addresses
 - `network` (Attributes) (see [below for nested schema](#nestedatt--network))
-- `routes` (Attributes List) (see [below for nested schema](#nestedatt--routes))
 - `tags` (List of String) List of tags for the subnet
 
 ### Attributes Reference
@@ -64,8 +82,10 @@ In addition to all arguments above, the following attributes are exported:
 
 Optional:
 
+- `dns` (List of String) DNS server addresses
 - `enabled` (Boolean) Enable DHCP
 - `range` (Attributes) (see [below for nested schema](#nestedatt--dhcp--range))
+- `routes` (Attributes List) DHCP routes configuration (see [below for nested schema](#nestedatt--dhcp--routes))
 
 <a id="nestedatt--dhcp--range"></a>
 ### Nested Schema for `dhcp.range`
@@ -76,6 +96,15 @@ Optional:
 - `start` (String) Starting IP address
 
 
+<a id="nestedatt--dhcp--routes"></a>
+### Nested Schema for `dhcp.routes`
+
+Optional:
+
+- `address` (String) Destination network address in CIDR notation (e.g., 0.0.0.0/0)
+- `gateway` (String) Gateway IP address for the route
+
+
 
 <a id="nestedatt--network"></a>
 ### Nested Schema for `network`
@@ -83,15 +112,6 @@ Optional:
 Optional:
 
 - `address` (String) Address of the network in CIDR notation (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
-
-
-<a id="nestedatt--routes"></a>
-### Nested Schema for `routes`
-
-Optional:
-
-- `address` (String) IP address of the route
-- `gateway` (String) Gateway
 
 
 
