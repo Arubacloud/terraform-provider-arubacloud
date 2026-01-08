@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -114,11 +115,19 @@ func (r *CloudServerResource) Schema(ctx context.Context, req resource.SchemaReq
 				ElementType:         types.StringType,
 				MarkdownDescription: "List of subnet URI references. Should be subnet URIs. You can reference the `uri` attribute from `arubacloud_subnet` resources like `[arubacloud_subnet.example.uri]`",
 				Required:            true,
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.RequiresReplace(),
+					listplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"securitygroup_uri_refs": schema.ListAttribute{
 				ElementType:         types.StringType,
 				MarkdownDescription: "List of security group URI references. Should be security group URIs. You can reference the `uri` attribute from `arubacloud_securitygroup` resources like `[arubacloud_securitygroup.example.uri]`",
 				Required:            true,
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.RequiresReplace(),
+					listplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
@@ -247,11 +256,16 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 		}
 	}
 
-	// Note: Elastic IP attachment might be handled separately after server creation
-	// or through a different API endpoint. The elastic_ip_id is stored in state for reference.
+	// Add elastic IP if provided (URI should already be a full URI from resource reference)
+	if !data.ElasticIpUriRef.IsNull() && !data.ElasticIpUriRef.IsUnknown() {
+		createRequest.Properties.ElastcIP = sdktypes.ReferenceResource{
+			URI: data.ElasticIpUriRef.ValueString(),
+		}
+	}
 
 	// Create the cloud server using the SDK
 	response, err := r.client.Client.FromCompute().CloudServers().Create(ctx, projectID, createRequest, nil)
+
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating cloud server",
@@ -272,13 +286,35 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
-	// Create response may not have ID in metadata (it's a request type)
-	// Use name as ID initially, then get actual ID after wait
-	serverID := data.Name.ValueString()
+	// Extract ID and URI from the Create response (SDK v0.1.13+ has ResourceMetadataResponse with ID and URI)
+	if response == nil || response.Data == nil {
+		resp.Diagnostics.AddError(
+			"Invalid API Response",
+			"Cloud server create response is missing data",
+		)
+		return
+	}
+
+	// Get the server ID from the response
+	var serverID string
+	if response.Data.Metadata.ID != nil {
+		serverID = *response.Data.Metadata.ID
+	} else {
+		resp.Diagnostics.AddError(
+			"Invalid API Response",
+			"Cloud server create response is missing ID in metadata",
+		)
+		return
+	}
+
 	data.Id = types.StringValue(serverID)
-	// CloudServer response uses RegionalResourceMetadataRequest which doesn't have URI
-	// Set URI to null for now
-	data.Uri = types.StringNull()
+
+	// Set URI if available
+	if response.Data.Metadata.URI != nil {
+		data.Uri = types.StringValue(*response.Data.Metadata.URI)
+	} else {
+		data.Uri = types.StringNull()
+	}
 
 	// Wait for Cloud Server to be active before returning
 	// This ensures Terraform doesn't proceed until CloudServer is fully ready
@@ -302,8 +338,11 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 			return "", fmt.Errorf("cloud server API returned error response")
 		}
 		// If we can successfully get the resource, check its status
-		if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
-			return *getResp.Data.Status.State, nil
+		if getResp != nil && getResp.Data != nil {
+			if getResp.Data.Status.State != nil {
+				state := *getResp.Data.Status.State
+				return state, nil
+			}
 		}
 		// If Status.State is nil, assume it's still creating
 		return "InCreation", nil
@@ -319,17 +358,20 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 	}
 
 	// Re-read the Cloud Server to ensure all fields are properly set
-	// Note: CloudServer uses name as ID and RegionalResourceMetadataRequest doesn't have URI
 	getResp, err := r.client.Client.FromCompute().CloudServers().Get(ctx, projectID, serverID, nil)
 	if err == nil && getResp != nil && getResp.Data != nil {
-		// CloudServer uses name as ID
-		if getResp.Data.Metadata.Name != "" {
-			data.Id = types.StringValue(getResp.Data.Metadata.Name)
-			data.Name = types.StringValue(getResp.Data.Metadata.Name)
+		// Update with values from Get response
+		if getResp.Data.Metadata.ID != nil {
+			data.Id = types.StringValue(*getResp.Data.Metadata.ID)
 		}
-		// CloudServer response uses RegionalResourceMetadataRequest which doesn't have URI
-		// Set URI to null (as per Read function)
-		data.Uri = types.StringNull()
+		if getResp.Data.Metadata.Name != nil {
+			data.Name = types.StringValue(*getResp.Data.Metadata.Name)
+		}
+		if getResp.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*getResp.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
 	} else if err != nil {
 		// If Get fails, log but don't fail - we already have the ID from create response
 		tflog.Warn(ctx, fmt.Sprintf("Failed to refresh Cloud Server after creation: %v", err))
@@ -394,14 +436,25 @@ func (r *CloudServerResource) Read(ctx context.Context, req resource.ReadRequest
 	if response != nil && response.Data != nil {
 		server := response.Data
 
-		// Update data from API response
-		// CloudServer uses name as ID (Metadata doesn't have ID field)
-		data.Id = types.StringValue(server.Metadata.Name)
-		// CloudServer response uses RegionalResourceMetadataRequest which doesn't have URI
-		// Set URI to null for now
-		data.Uri = types.StringNull()
-		data.Name = types.StringValue(server.Metadata.Name)
-		data.Location = types.StringValue(server.Metadata.Location.Value)
+		// Update data from API response (SDK v0.1.13+ has ResourceMetadataResponse with ID and URI)
+		if server.Metadata.ID != nil {
+			data.Id = types.StringValue(*server.Metadata.ID)
+		}
+
+		if server.Metadata.URI != nil {
+			data.Uri = types.StringValue(*server.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
+
+		if server.Metadata.Name != nil {
+			data.Name = types.StringValue(*server.Metadata.Name)
+		}
+
+		if server.Metadata.LocationResponse != nil && server.Metadata.LocationResponse.Value != "" {
+			data.Location = types.StringValue(server.Metadata.LocationResponse.Value)
+		}
+
 		data.FlavorName = types.StringValue(server.Properties.Flavor.Name)
 
 		if server.Properties.BootVolume.URI != "" {
@@ -523,7 +576,7 @@ func (r *CloudServerResource) Update(ctx context.Context, req resource.UpdateReq
 				Tags: tags,
 			},
 			Location: sdktypes.LocationRequest{
-				Value: current.Metadata.Location.Value,
+				Value: current.Metadata.LocationResponse.Value,
 			},
 		},
 		Properties: sdktypes.CloudServerPropertiesRequest{
@@ -563,8 +616,8 @@ func (r *CloudServerResource) Update(ctx context.Context, req resource.UpdateReq
 	// Note: Update response may have different structure
 	if response != nil && response.Data != nil {
 		// Response may be a request type, so handle carefully
-		if response.Data.Metadata.Name != "" {
-			data.Name = types.StringValue(response.Data.Metadata.Name)
+		if response.Data.Metadata.Name != nil && *response.Data.Metadata.Name != "" {
+			data.Name = types.StringValue(*response.Data.Metadata.Name)
 		}
 		// Update tags from response
 		if len(response.Data.Metadata.Tags) > 0 {

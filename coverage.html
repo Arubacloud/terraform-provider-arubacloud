@@ -1863,7 +1863,6 @@ package provider
 import (
         "context"
         "fmt"
-        "strings"
 
         sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
         "github.com/hashicorp/terraform-plugin-framework/attr"
@@ -1886,7 +1885,7 @@ type CloudServerResourceModel struct {
         VpcUriRef            types.String `tfsdk:"vpc_uri_ref"`
         FlavorName           types.String `tfsdk:"flavor_name"`
         ElasticIpUriRef      types.String `tfsdk:"elastic_ip_uri_ref"`
-        BootVolume           types.String `tfsdk:"boot_volume"`
+        BootVolumeUriRef     types.String `tfsdk:"boot_volume_uri_ref"`
         KeyPairUriRef        types.String `tfsdk:"key_pair_uri_ref"`
         SubnetUriRefs        types.List   `tfsdk:"subnet_uri_refs"`
         SecurityGroupUriRefs types.List   `tfsdk:"securitygroup_uri_refs"`
@@ -1944,7 +1943,7 @@ func (r *CloudServerResource) Schema(ctx context.Context, req resource.SchemaReq
                                 },
                         },
                         "flavor_name": schema.StringAttribute{
-                                MarkdownDescription: "Flavor name. Available flavors are described in the [ArubaCloud API documentation](https://api.arubacloud.com/docs/metadata/#cloudserver-flavors). For example, `CSO8A16` means 8 CPU and 16GB RAM.",
+                                MarkdownDescription: "Flavor name. Available flavors are described in the [ArubaCloud API documentation](https://api.arubacloud.com/docs/metadata/#cloudserver-flavors). For example, `CSO4A8` means 4 CPU and 8GB RAM.",
                                 Required:            true,
                         },
                         "elastic_ip_uri_ref": schema.StringAttribute{
@@ -1954,9 +1953,12 @@ func (r *CloudServerResource) Schema(ctx context.Context, req resource.SchemaReq
                                         stringplanmodifier.UseStateForUnknown(),
                                 },
                         },
-                        "boot_volume": schema.StringAttribute{
-                                MarkdownDescription: "Boot volume ID",
+                        "boot_volume_uri_ref": schema.StringAttribute{
+                                MarkdownDescription: "URI reference to the boot volume (block storage). Should be the block storage URI. You can reference the `uri` attribute from an `arubacloud_blockstorage` resource.",
                                 Required:            true,
+                                PlanModifiers: []planmodifier.String{
+                                        stringplanmodifier.UseStateForUnknown(),
+                                },
                         },
                         "key_pair_uri_ref": schema.StringAttribute{
                                 MarkdownDescription: "URI reference to the Key Pair. Should be the Key Pair URI. You can reference the `uri` attribute from an `arubacloud_keypair` resource.",
@@ -2059,14 +2061,11 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
                 }</span>
         }
 
-        // Build template URI
-        <span class="cov0" title="0">templateURI := data.BootVolume.ValueString()
-        if !strings.HasPrefix(templateURI, "/") </span><span class="cov0" title="0">{
-                templateURI = fmt.Sprintf("/projects/%s/providers/Aruba.Compute/templates/%s", projectID, data.BootVolume.ValueString())
-        }</span>
+        // Boot volume URI should already be a full URI from resource reference
+        <span class="cov0" title="0">bootVolumeURI := data.BootVolumeUriRef.ValueString()
 
         // VPC URI should already be a full URI from resource reference
-        <span class="cov0" title="0">vpcURI := data.VpcUriRef.ValueString()
+        vpcURI := data.VpcUriRef.ValueString()
 
         // Note: Elastic IP might be handled differently in the API
         // For now, we'll include VPC, subnets, security groups, and zone which are required
@@ -2088,7 +2087,7 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
                         FlavorName: &amp;flavorName,
                         Zone:       zone,
                         BootVolume: sdktypes.ReferenceResource{
-                                URI: templateURI,
+                                URI: bootVolumeURI,
                         },
                         VPC: sdktypes.ReferenceResource{
                                 URI: vpcURI,
@@ -2145,10 +2144,26 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
                 if err != nil </span><span class="cov0" title="0">{
                         return "", err
                 }</span>
+                // Check if response indicates an error state
+                <span class="cov0" title="0">if getResp != nil &amp;&amp; getResp.IsError() </span><span class="cov0" title="0">{
+                        if getResp.Error != nil </span><span class="cov0" title="0">{
+                                errMsg := "Unknown error"
+                                if getResp.Error.Title != nil </span><span class="cov0" title="0">{
+                                        errMsg = *getResp.Error.Title
+                                }</span>
+                                <span class="cov0" title="0">if getResp.Error.Detail != nil </span><span class="cov0" title="0">{
+                                        errMsg = fmt.Sprintf("%s: %s", errMsg, *getResp.Error.Detail)
+                                }</span>
+                                <span class="cov0" title="0">return "", fmt.Errorf("cloud server in error state: %s", errMsg)</span>
+                        }
+                        <span class="cov0" title="0">return "", fmt.Errorf("cloud server API returned error response")</span>
+                }
+                // If we can successfully get the resource, check its status
                 <span class="cov0" title="0">if getResp != nil &amp;&amp; getResp.Data != nil &amp;&amp; getResp.Data.Status.State != nil </span><span class="cov0" title="0">{
                         return *getResp.Data.Status.State, nil
                 }</span>
-                <span class="cov0" title="0">return "Unknown", nil</span>
+                // If Status.State is nil, assume it's still creating
+                <span class="cov0" title="0">return "InCreation", nil</span>
         }
 
         // Wait for Cloud Server to be active - block until ready (using configured timeout)
@@ -2247,8 +2262,7 @@ func (r *CloudServerResource) Read(ctx context.Context, req resource.ReadRequest
                 data.FlavorName = types.StringValue(server.Properties.Flavor.Name)
 
                 if server.Properties.BootVolume.URI != "" </span><span class="cov0" title="0">{
-                        // Extract template ID from URI if needed
-                        data.BootVolume = types.StringValue(server.Properties.BootVolume.URI)
+                        data.BootVolumeUriRef = types.StringValue(server.Properties.BootVolume.URI)
                 }</span>
 
                 // Update VPC URI reference
@@ -2435,7 +2449,7 @@ func (r *CloudServerResource) Update(ctx context.Context, req resource.UpdateReq
         data.VpcUriRef = state.VpcUriRef
         data.Zone = state.Zone
         data.FlavorName = state.FlavorName
-        data.BootVolume = state.BootVolume
+        data.BootVolumeUriRef = state.BootVolumeUriRef
         data.KeyPairUriRef = state.KeyPairUriRef
         data.SubnetUriRefs = state.SubnetUriRefs
         data.SecurityGroupUriRefs = state.SecurityGroupUriRefs
@@ -7995,10 +8009,11 @@ import (
         "fmt"
 
         sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
-        "github.com/hashicorp/terraform-plugin-framework/attr"
         "github.com/hashicorp/terraform-plugin-framework/path"
         "github.com/hashicorp/terraform-plugin-framework/resource"
         "github.com/hashicorp/terraform-plugin-framework/resource/schema"
+        "github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+        "github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
         "github.com/hashicorp/terraform-plugin-framework/types"
         "github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -8035,10 +8050,16 @@ func (r *KeypairResource) Schema(ctx context.Context, req resource.SchemaRequest
                         "id": schema.StringAttribute{
                                 MarkdownDescription: "Keypair identifier (name)",
                                 Computed:            true,
+                                PlanModifiers: []planmodifier.String{
+                                        stringplanmodifier.UseStateForUnknown(),
+                                },
                         },
                         "uri": schema.StringAttribute{
                                 MarkdownDescription: "Keypair URI",
                                 Computed:            true,
+                                PlanModifiers: []planmodifier.String{
+                                        stringplanmodifier.UseStateForUnknown(),
+                                },
                         },
                         "name": schema.StringAttribute{
                                 MarkdownDescription: "Keypair name",
@@ -8347,12 +8368,9 @@ func (r *KeypairResource) Read(ctx context.Context, req resource.ReadRequest, re
                                 data.Tags = tagsList
                         }</span>
                 } else<span class="cov0" title="0"> {
-                        emptyList, diags := types.ListValue(types.StringType, []attr.Value{})
-                        resp.Diagnostics.Append(diags...)
-                        if !resp.Diagnostics.HasError() </span><span class="cov0" title="0">{
-                                data.Tags = emptyList
-                        }</span>
-                }
+                        // Set tags to null when empty to match state (prevents false changes)
+                        data.Tags = types.ListNull(types.StringType)
+                }</span>
 
                 // Restore ProjectID and Value from state (they're not returned by the API)
                 <span class="cov0" title="0">data.ProjectID = projectIDFromState
@@ -14230,8 +14248,6 @@ type SubnetResourceModel struct {
         Type      types.String `tfsdk:"type"`
         Network   types.Object `tfsdk:"network"`
         Dhcp      types.Object `tfsdk:"dhcp"`
-        Routes    types.List   `tfsdk:"routes"`
-        Dns       types.List   `tfsdk:"dns"`
 }
 
 type NetworkModel struct {
@@ -14241,6 +14257,8 @@ type NetworkModel struct {
 type DhcpModel struct {
         Enabled types.Bool   `tfsdk:"enabled"`
         Range   types.Object `tfsdk:"range"`
+        Routes  types.List   `tfsdk:"routes"`
+        Dns     types.List   `tfsdk:"dns"`
 }
 
 type DhcpRangeModel struct {
@@ -14333,28 +14351,29 @@ func (r *SubnetResource) Schema(ctx context.Context, req resource.SchemaRequest,
                                                 },
                                                 Optional: true,
                                         },
-                                },
-                                Optional: true,
-                        },
-                        "routes": schema.ListNestedAttribute{
-                                NestedObject: schema.NestedAttributeObject{
-                                        Attributes: map[string]schema.Attribute{
-                                                "address": schema.StringAttribute{
-                                                        MarkdownDescription: "IP address of the route",
-                                                        Optional:            true,
+                                        "routes": schema.ListNestedAttribute{
+                                                NestedObject: schema.NestedAttributeObject{
+                                                        Attributes: map[string]schema.Attribute{
+                                                                "address": schema.StringAttribute{
+                                                                        MarkdownDescription: "Destination network address in CIDR notation (e.g., 0.0.0.0/0)",
+                                                                        Optional:            true,
+                                                                },
+                                                                "gateway": schema.StringAttribute{
+                                                                        MarkdownDescription: "Gateway IP address for the route",
+                                                                        Optional:            true,
+                                                                },
+                                                        },
                                                 },
-                                                "gateway": schema.StringAttribute{
-                                                        MarkdownDescription: "Gateway",
-                                                        Optional:            true,
-                                                },
+                                                MarkdownDescription: "DHCP routes configuration",
+                                                Optional:            true,
+                                        },
+                                        "dns": schema.ListAttribute{
+                                                ElementType:         types.StringType,
+                                                MarkdownDescription: "DNS server addresses",
+                                                Optional:            true,
                                         },
                                 },
                                 Optional: true,
-                        },
-                        "dns": schema.ListAttribute{
-                                ElementType:         types.StringType,
-                                MarkdownDescription: "List of DNS IP addresses",
-                                Optional:            true,
                         },
                 },
         }
@@ -14430,6 +14449,89 @@ func (r *SubnetResource) Create(ctx context.Context, req resource.CreateRequest,
                 subnetType = sdktypes.SubnetTypeAdvanced
         }</span>
 
+        // Extract DHCP configuration if provided
+        <span class="cov0" title="0">var dhcp *sdktypes.SubnetDHCP
+        if !data.Dhcp.IsNull() &amp;&amp; !data.Dhcp.IsUnknown() </span><span class="cov0" title="0">{
+                dhcpObj, diags := data.Dhcp.ToObjectValue(ctx)
+                resp.Diagnostics.Append(diags...)
+                if !resp.Diagnostics.HasError() </span><span class="cov0" title="0">{
+                        attrs := dhcpObj.Attributes()
+                        dhcp = &amp;sdktypes.SubnetDHCP{}
+
+                        // Extract enabled
+                        if enabledAttr, ok := attrs["enabled"]; ok &amp;&amp; enabledAttr != nil </span><span class="cov0" title="0">{
+                                if enabledBool, ok := enabledAttr.(types.Bool); ok &amp;&amp; !enabledBool.IsNull() </span><span class="cov0" title="0">{
+                                        dhcp.Enabled = enabledBool.ValueBool()
+                                }</span>
+                        }
+
+                        // Extract range
+                        <span class="cov0" title="0">if rangeAttr, ok := attrs["range"]; ok &amp;&amp; rangeAttr != nil </span><span class="cov0" title="0">{
+                                if rangeObj, ok := rangeAttr.(types.Object); ok &amp;&amp; !rangeObj.IsNull() </span><span class="cov0" title="0">{
+                                        rangeAttrs := rangeObj.Attributes()
+                                        dhcpRange := &amp;sdktypes.SubnetDHCPRange{}
+                                        if startAttr, ok := rangeAttrs["start"]; ok &amp;&amp; startAttr != nil </span><span class="cov0" title="0">{
+                                                if startStr, ok := startAttr.(types.String); ok &amp;&amp; !startStr.IsNull() </span><span class="cov0" title="0">{
+                                                        dhcpRange.Start = startStr.ValueString()
+                                                }</span>
+                                        }
+                                        <span class="cov0" title="0">if countAttr, ok := rangeAttrs["count"]; ok &amp;&amp; countAttr != nil </span><span class="cov0" title="0">{
+                                                if countInt, ok := countAttr.(types.Int64); ok &amp;&amp; !countInt.IsNull() </span><span class="cov0" title="0">{
+                                                        dhcpRange.Count = int(countInt.ValueInt64())
+                                                }</span>
+                                        }
+                                        <span class="cov0" title="0">if dhcpRange.Start != "" || dhcpRange.Count &gt; 0 </span><span class="cov0" title="0">{
+                                                dhcp.Range = dhcpRange
+                                        }</span>
+                                }
+                        }
+
+                        // Extract routes
+                        <span class="cov0" title="0">if routesAttr, ok := attrs["routes"]; ok &amp;&amp; routesAttr != nil </span><span class="cov0" title="0">{
+                                if routesList, ok := routesAttr.(types.List); ok &amp;&amp; !routesList.IsNull() </span><span class="cov0" title="0">{
+                                        var routesData []types.Object
+                                        diags := routesList.ElementsAs(ctx, &amp;routesData, false)
+                                        resp.Diagnostics.Append(diags...)
+                                        if !resp.Diagnostics.HasError() </span><span class="cov0" title="0">{
+                                                dhcpRoutes := make([]sdktypes.SubnetDHCPRoute, 0, len(routesData))
+                                                for _, routeObj := range routesData </span><span class="cov0" title="0">{
+                                                        routeAttrs := routeObj.Attributes()
+                                                        route := sdktypes.SubnetDHCPRoute{}
+                                                        if addrAttr, ok := routeAttrs["address"]; ok &amp;&amp; addrAttr != nil </span><span class="cov0" title="0">{
+                                                                if addrStr, ok := addrAttr.(types.String); ok &amp;&amp; !addrStr.IsNull() </span><span class="cov0" title="0">{
+                                                                        route.Address = addrStr.ValueString()
+                                                                }</span>
+                                                        }
+                                                        <span class="cov0" title="0">if gwAttr, ok := routeAttrs["gateway"]; ok &amp;&amp; gwAttr != nil </span><span class="cov0" title="0">{
+                                                                if gwStr, ok := gwAttr.(types.String); ok &amp;&amp; !gwStr.IsNull() </span><span class="cov0" title="0">{
+                                                                        route.Gateway = gwStr.ValueString()
+                                                                }</span>
+                                                        }
+                                                        <span class="cov0" title="0">if route.Address != "" || route.Gateway != "" </span><span class="cov0" title="0">{
+                                                                dhcpRoutes = append(dhcpRoutes, route)
+                                                        }</span>
+                                                }
+                                                <span class="cov0" title="0">if len(dhcpRoutes) &gt; 0 </span><span class="cov0" title="0">{
+                                                        dhcp.Routes = dhcpRoutes
+                                                }</span>
+                                        }
+                                }
+                        }
+
+                        // Extract DNS
+                        <span class="cov0" title="0">if dnsAttr, ok := attrs["dns"]; ok &amp;&amp; dnsAttr != nil </span><span class="cov0" title="0">{
+                                if dnsList, ok := dnsAttr.(types.List); ok &amp;&amp; !dnsList.IsNull() </span><span class="cov0" title="0">{
+                                        var dnsServers []string
+                                        diags := dnsList.ElementsAs(ctx, &amp;dnsServers, false)
+                                        resp.Diagnostics.Append(diags...)
+                                        if !resp.Diagnostics.HasError() &amp;&amp; len(dnsServers) &gt; 0 </span><span class="cov0" title="0">{
+                                                dhcp.DNS = dnsServers
+                                        }</span>
+                                }
+                        }
+                }
+        }
+
         // Build the create request
         <span class="cov0" title="0">createRequest := sdktypes.SubnetRequest{
                 Metadata: sdktypes.RegionalResourceMetadataRequest{
@@ -14444,6 +14546,7 @@ func (r *SubnetResource) Create(ctx context.Context, req resource.CreateRequest,
                 Properties: sdktypes.SubnetPropertiesRequest{
                         Type:    subnetType,
                         Network: network,
+                        DHCP:    dhcp,
                 },
         }
 
@@ -14639,6 +14742,105 @@ func (r *SubnetResource) Read(ctx context.Context, req resource.ReadRequest, res
                         }</span>
                 }
 
+                // Update DHCP if available
+                <span class="cov0" title="0">if subnet.Properties.DHCP != nil </span><span class="cov0" title="0">{
+                        dhcpAttrs := make(map[string]attr.Value)
+                        dhcpAttrs["enabled"] = types.BoolValue(subnet.Properties.DHCP.Enabled)
+
+                        // Handle DHCP range
+                        if subnet.Properties.DHCP.Range != nil </span><span class="cov0" title="0">{
+                                rangeObj, diags := types.ObjectValue(map[string]attr.Type{
+                                        "start": types.StringType,
+                                        "count": types.Int64Type,
+                                }, map[string]attr.Value{
+                                        "start": types.StringValue(subnet.Properties.DHCP.Range.Start),
+                                        "count": types.Int64Value(int64(subnet.Properties.DHCP.Range.Count)),
+                                })
+                                resp.Diagnostics.Append(diags...)
+                                if !resp.Diagnostics.HasError() </span><span class="cov0" title="0">{
+                                        dhcpAttrs["range"] = rangeObj
+                                }</span>
+                        } else<span class="cov0" title="0"> {
+                                dhcpAttrs["range"] = types.ObjectNull(map[string]attr.Type{
+                                        "start": types.StringType,
+                                        "count": types.Int64Type,
+                                })
+                        }</span>
+
+                        // Handle DHCP routes
+                        <span class="cov0" title="0">if len(subnet.Properties.DHCP.Routes) &gt; 0 </span><span class="cov0" title="0">{
+                                routeObjs := make([]attr.Value, 0, len(subnet.Properties.DHCP.Routes))
+                                for _, route := range subnet.Properties.DHCP.Routes </span><span class="cov0" title="0">{
+                                        routeObj, diags := types.ObjectValue(map[string]attr.Type{
+                                                "address": types.StringType,
+                                                "gateway": types.StringType,
+                                        }, map[string]attr.Value{
+                                                "address": types.StringValue(route.Address),
+                                                "gateway": types.StringValue(route.Gateway),
+                                        })
+                                        resp.Diagnostics.Append(diags...)
+                                        if !resp.Diagnostics.HasError() </span><span class="cov0" title="0">{
+                                                routeObjs = append(routeObjs, routeObj)
+                                        }</span>
+                                }
+                                <span class="cov0" title="0">routesList, diags := types.ListValue(types.ObjectType{
+                                        AttrTypes: map[string]attr.Type{
+                                                "address": types.StringType,
+                                                "gateway": types.StringType,
+                                        },
+                                }, routeObjs)
+                                resp.Diagnostics.Append(diags...)
+                                if !resp.Diagnostics.HasError() </span><span class="cov0" title="0">{
+                                        dhcpAttrs["routes"] = routesList
+                                }</span>
+                        } else<span class="cov0" title="0"> {
+                                dhcpAttrs["routes"] = types.ListNull(types.ObjectType{
+                                        AttrTypes: map[string]attr.Type{
+                                                "address": types.StringType,
+                                                "gateway": types.StringType,
+                                        },
+                                })
+                        }</span>
+
+                        // Handle DNS
+                        <span class="cov0" title="0">if len(subnet.Properties.DHCP.DNS) &gt; 0 </span><span class="cov0" title="0">{
+                                dnsValues := make([]attr.Value, 0, len(subnet.Properties.DHCP.DNS))
+                                for _, dns := range subnet.Properties.DHCP.DNS </span><span class="cov0" title="0">{
+                                        dnsValues = append(dnsValues, types.StringValue(dns))
+                                }</span>
+                                <span class="cov0" title="0">dnsList, diags := types.ListValue(types.StringType, dnsValues)
+                                resp.Diagnostics.Append(diags...)
+                                if !resp.Diagnostics.HasError() </span><span class="cov0" title="0">{
+                                        dhcpAttrs["dns"] = dnsList
+                                }</span>
+                        } else<span class="cov0" title="0"> {
+                                dhcpAttrs["dns"] = types.ListNull(types.StringType)
+                        }</span>
+
+                        <span class="cov0" title="0">dhcpObj, diags := types.ObjectValue(map[string]attr.Type{
+                                "enabled": types.BoolType,
+                                "range": types.ObjectType{
+                                        AttrTypes: map[string]attr.Type{
+                                                "start": types.StringType,
+                                                "count": types.Int64Type,
+                                        },
+                                },
+                                "routes": types.ListType{
+                                        ElemType: types.ObjectType{
+                                                AttrTypes: map[string]attr.Type{
+                                                        "address": types.StringType,
+                                                        "gateway": types.StringType,
+                                                },
+                                        },
+                                },
+                                "dns": types.ListType{ElemType: types.StringType},
+                        }, dhcpAttrs)
+                        resp.Diagnostics.Append(diags...)
+                        if !resp.Diagnostics.HasError() </span><span class="cov0" title="0">{
+                                data.Dhcp = dhcpObj
+                        }</span>
+                }
+
                 // Update tags from response
                 <span class="cov0" title="0">if len(subnet.Metadata.Tags) &gt; 0 </span><span class="cov0" title="0">{
                         tagValues := make([]types.String, len(subnet.Metadata.Tags))
@@ -14740,8 +14942,94 @@ func (r *SubnetResource) Update(ctx context.Context, req resource.UpdateRequest,
         // Preserve network from current state
         <span class="cov0" title="0">network := current.Properties.Network
 
+        // Extract DHCP configuration if provided
+        var dhcp *sdktypes.SubnetDHCP
+        if !data.Dhcp.IsNull() &amp;&amp; !data.Dhcp.IsUnknown() </span><span class="cov0" title="0">{
+                dhcpObj, diags := data.Dhcp.ToObjectValue(ctx)
+                resp.Diagnostics.Append(diags...)
+                if !resp.Diagnostics.HasError() </span><span class="cov0" title="0">{
+                        attrs := dhcpObj.Attributes()
+                        dhcp = &amp;sdktypes.SubnetDHCP{}
+
+                        // Extract enabled
+                        if enabledAttr, ok := attrs["enabled"]; ok &amp;&amp; enabledAttr != nil </span><span class="cov0" title="0">{
+                                if enabledBool, ok := enabledAttr.(types.Bool); ok &amp;&amp; !enabledBool.IsNull() </span><span class="cov0" title="0">{
+                                        dhcp.Enabled = enabledBool.ValueBool()
+                                }</span>
+                        }
+
+                        // Extract range
+                        <span class="cov0" title="0">if rangeAttr, ok := attrs["range"]; ok &amp;&amp; rangeAttr != nil </span><span class="cov0" title="0">{
+                                if rangeObj, ok := rangeAttr.(types.Object); ok &amp;&amp; !rangeObj.IsNull() </span><span class="cov0" title="0">{
+                                        rangeAttrs := rangeObj.Attributes()
+                                        dhcpRange := &amp;sdktypes.SubnetDHCPRange{}
+                                        if startAttr, ok := rangeAttrs["start"]; ok &amp;&amp; startAttr != nil </span><span class="cov0" title="0">{
+                                                if startStr, ok := startAttr.(types.String); ok &amp;&amp; !startStr.IsNull() </span><span class="cov0" title="0">{
+                                                        dhcpRange.Start = startStr.ValueString()
+                                                }</span>
+                                        }
+                                        <span class="cov0" title="0">if countAttr, ok := rangeAttrs["count"]; ok &amp;&amp; countAttr != nil </span><span class="cov0" title="0">{
+                                                if countInt, ok := countAttr.(types.Int64); ok &amp;&amp; !countInt.IsNull() </span><span class="cov0" title="0">{
+                                                        dhcpRange.Count = int(countInt.ValueInt64())
+                                                }</span>
+                                        }
+                                        <span class="cov0" title="0">if dhcpRange.Start != "" || dhcpRange.Count &gt; 0 </span><span class="cov0" title="0">{
+                                                dhcp.Range = dhcpRange
+                                        }</span>
+                                }
+                        }
+
+                        // Extract routes
+                        <span class="cov0" title="0">if routesAttr, ok := attrs["routes"]; ok &amp;&amp; routesAttr != nil </span><span class="cov0" title="0">{
+                                if routesList, ok := routesAttr.(types.List); ok &amp;&amp; !routesList.IsNull() </span><span class="cov0" title="0">{
+                                        var routesData []types.Object
+                                        diags := routesList.ElementsAs(ctx, &amp;routesData, false)
+                                        resp.Diagnostics.Append(diags...)
+                                        if !resp.Diagnostics.HasError() </span><span class="cov0" title="0">{
+                                                dhcpRoutes := make([]sdktypes.SubnetDHCPRoute, 0, len(routesData))
+                                                for _, routeObj := range routesData </span><span class="cov0" title="0">{
+                                                        routeAttrs := routeObj.Attributes()
+                                                        route := sdktypes.SubnetDHCPRoute{}
+                                                        if addrAttr, ok := routeAttrs["address"]; ok &amp;&amp; addrAttr != nil </span><span class="cov0" title="0">{
+                                                                if addrStr, ok := addrAttr.(types.String); ok &amp;&amp; !addrStr.IsNull() </span><span class="cov0" title="0">{
+                                                                        route.Address = addrStr.ValueString()
+                                                                }</span>
+                                                        }
+                                                        <span class="cov0" title="0">if gwAttr, ok := routeAttrs["gateway"]; ok &amp;&amp; gwAttr != nil </span><span class="cov0" title="0">{
+                                                                if gwStr, ok := gwAttr.(types.String); ok &amp;&amp; !gwStr.IsNull() </span><span class="cov0" title="0">{
+                                                                        route.Gateway = gwStr.ValueString()
+                                                                }</span>
+                                                        }
+                                                        <span class="cov0" title="0">if route.Address != "" || route.Gateway != "" </span><span class="cov0" title="0">{
+                                                                dhcpRoutes = append(dhcpRoutes, route)
+                                                        }</span>
+                                                }
+                                                <span class="cov0" title="0">if len(dhcpRoutes) &gt; 0 </span><span class="cov0" title="0">{
+                                                        dhcp.Routes = dhcpRoutes
+                                                }</span>
+                                        }
+                                }
+                        }
+
+                        // Extract DNS
+                        <span class="cov0" title="0">if dnsAttr, ok := attrs["dns"]; ok &amp;&amp; dnsAttr != nil </span><span class="cov0" title="0">{
+                                if dnsList, ok := dnsAttr.(types.List); ok &amp;&amp; !dnsList.IsNull() </span><span class="cov0" title="0">{
+                                        var dnsServers []string
+                                        diags := dnsList.ElementsAs(ctx, &amp;dnsServers, false)
+                                        resp.Diagnostics.Append(diags...)
+                                        if !resp.Diagnostics.HasError() &amp;&amp; len(dnsServers) &gt; 0 </span><span class="cov0" title="0">{
+                                                dhcp.DNS = dnsServers
+                                        }</span>
+                                }
+                        }
+                }
+        } else<span class="cov0" title="0"> {
+                // Preserve DHCP from current state if not provided in plan
+                dhcp = current.Properties.DHCP
+        }</span>
+
         // Build the update request
-        updateRequest := sdktypes.SubnetRequest{
+        <span class="cov0" title="0">updateRequest := sdktypes.SubnetRequest{
                 Metadata: sdktypes.RegionalResourceMetadataRequest{
                         ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
                                 Name: data.Name.ValueString(),
@@ -14754,6 +15042,7 @@ func (r *SubnetResource) Update(ctx context.Context, req resource.UpdateRequest,
                 Properties: sdktypes.SubnetPropertiesRequest{
                         Type:    current.Properties.Type,
                         Network: network,
+                        DHCP:    dhcp,
                 },
         }
 
