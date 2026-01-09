@@ -5,8 +5,8 @@ resource "arubacloud_project" "test" {
   tags        = ["terraform", "test"]
 }
 
-output "project_id" {
-  value       = arubacloud_project.test.id
-  description = "The ID of the created project"
-}
+#output "project_id" {
+#  value       = arubacloud_project.test.id
+#  description = "The ID of the created project"
+#}
 

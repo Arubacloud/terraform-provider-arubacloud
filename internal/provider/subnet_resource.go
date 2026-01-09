@@ -39,11 +39,11 @@ type SubnetResourceModel struct {
 	VpcId     types.String `tfsdk:"vpc_id"`
 	Type      types.String `tfsdk:"type"`
 	Network   types.Object `tfsdk:"network"`
-	Dhcp      types.Object `tfsdk:"dhcp"`
 }
 
 type NetworkModel struct {
 	Address types.String `tfsdk:"address"`
+	Dhcp    types.Object `tfsdk:"dhcp"`
 }
 
 type DhcpModel struct {
@@ -121,48 +121,48 @@ func (r *SubnetResource) Schema(ctx context.Context, req resource.SchemaRequest,
 						MarkdownDescription: "Address of the network in CIDR notation (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)",
 						Optional:            true,
 					},
-				},
-				Optional: true,
-			},
-			"dhcp": schema.SingleNestedAttribute{
-				Attributes: map[string]schema.Attribute{
-					"enabled": schema.BoolAttribute{
-						MarkdownDescription: "Enable DHCP",
-						Optional:            true,
-					},
-					"range": schema.SingleNestedAttribute{
+					"dhcp": schema.SingleNestedAttribute{
 						Attributes: map[string]schema.Attribute{
-							"start": schema.StringAttribute{
-								MarkdownDescription: "Starting IP address",
+							"enabled": schema.BoolAttribute{
+								MarkdownDescription: "Enable DHCP",
 								Optional:            true,
 							},
-							"count": schema.Int64Attribute{
-								MarkdownDescription: "Number of available IP addresses",
+							"range": schema.SingleNestedAttribute{
+								Attributes: map[string]schema.Attribute{
+									"start": schema.StringAttribute{
+										MarkdownDescription: "Starting IP address",
+										Optional:            true,
+									},
+									"count": schema.Int64Attribute{
+										MarkdownDescription: "Number of available IP addresses",
+										Optional:            true,
+									},
+								},
+								Optional: true,
+							},
+							"routes": schema.ListNestedAttribute{
+								NestedObject: schema.NestedAttributeObject{
+									Attributes: map[string]schema.Attribute{
+										"address": schema.StringAttribute{
+											MarkdownDescription: "Destination network address in CIDR notation (e.g., 0.0.0.0/0)",
+											Optional:            true,
+										},
+										"gateway": schema.StringAttribute{
+											MarkdownDescription: "Gateway IP address for the route",
+											Optional:            true,
+										},
+									},
+								},
+								MarkdownDescription: "DHCP routes configuration",
+								Optional:            true,
+							},
+							"dns": schema.ListAttribute{
+								ElementType:         types.StringType,
+								MarkdownDescription: "DNS server addresses",
 								Optional:            true,
 							},
 						},
 						Optional: true,
-					},
-					"routes": schema.ListNestedAttribute{
-						NestedObject: schema.NestedAttributeObject{
-							Attributes: map[string]schema.Attribute{
-								"address": schema.StringAttribute{
-									MarkdownDescription: "Destination network address in CIDR notation (e.g., 0.0.0.0/0)",
-									Optional:            true,
-								},
-								"gateway": schema.StringAttribute{
-									MarkdownDescription: "Gateway IP address for the route",
-									Optional:            true,
-								},
-							},
-						},
-						MarkdownDescription: "DHCP routes configuration",
-						Optional:            true,
-					},
-					"dns": schema.ListAttribute{
-						ElementType:         types.StringType,
-						MarkdownDescription: "DNS server addresses",
-						Optional:            true,
 					},
 				},
 				Optional: true,
@@ -213,16 +213,33 @@ func (r *SubnetResource) Create(ctx context.Context, req resource.CreateRequest,
 		}
 	}
 
-	// Extract network CIDR if provided
+	subnetType := data.Type.ValueString()
+
+	// Validation: If type is Advanced, network block is mandatory
+	if subnetType == "Advanced" {
+		if data.Network.IsNull() || data.Network.IsUnknown() {
+			resp.Diagnostics.AddError(
+				"Missing Required Field",
+				"The 'network' block is required when subnet type is 'Advanced'",
+			)
+			return
+		}
+	}
+
+	// Extract network CIDR and DHCP if provided
 	var network *sdktypes.SubnetNetwork
+	var dhcp *sdktypes.SubnetDHCP
 	if !data.Network.IsNull() && !data.Network.IsUnknown() {
 		networkObj, diags := data.Network.ToObjectValue(ctx)
 		resp.Diagnostics.Append(diags...)
 		if !resp.Diagnostics.HasError() {
 			attrs := networkObj.Attributes()
+
+			// Extract network address
+			var addressValue string
 			if addressAttr, ok := attrs["address"]; ok && addressAttr != nil {
 				if addressStr, ok := addressAttr.(types.String); ok && !addressStr.IsNull() {
-					addressValue := addressStr.ValueString()
+					addressValue = addressStr.ValueString()
 					if addressValue != "" {
 						network = &sdktypes.SubnetNetwork{
 							Address: addressValue,
@@ -230,98 +247,136 @@ func (r *SubnetResource) Create(ctx context.Context, req resource.CreateRequest,
 					}
 				}
 			}
+
+			// Validation: If type is Advanced, address is mandatory
+			if subnetType == "Advanced" && addressValue == "" {
+				resp.Diagnostics.AddError(
+					"Missing Required Field",
+					"The 'network.address' field is required when subnet type is 'Advanced'",
+				)
+				return
+			}
+
+			// Extract DHCP configuration from network.dhcp
+			var dhcpEnabledSet bool
+			var dhcpRangeStart string
+			var dhcpRangeCount int
+
+			if dhcpAttr, ok := attrs["dhcp"]; ok && dhcpAttr != nil {
+				if dhcpObj, ok := dhcpAttr.(types.Object); ok && !dhcpObj.IsNull() {
+					dhcpAttrs := dhcpObj.Attributes()
+					dhcp = &sdktypes.SubnetDHCP{}
+
+					// Extract enabled
+					if enabledAttr, ok := dhcpAttrs["enabled"]; ok && enabledAttr != nil {
+						if enabledBool, ok := enabledAttr.(types.Bool); ok && !enabledBool.IsNull() {
+							dhcp.Enabled = enabledBool.ValueBool()
+							dhcpEnabledSet = true
+						}
+					}
+
+					// Extract range
+					if rangeAttr, ok := dhcpAttrs["range"]; ok && rangeAttr != nil {
+						if rangeObj, ok := rangeAttr.(types.Object); ok && !rangeObj.IsNull() {
+							rangeAttrs := rangeObj.Attributes()
+							dhcpRange := &sdktypes.SubnetDHCPRange{}
+							if startAttr, ok := rangeAttrs["start"]; ok && startAttr != nil {
+								if startStr, ok := startAttr.(types.String); ok && !startStr.IsNull() {
+									dhcpRange.Start = startStr.ValueString()
+									dhcpRangeStart = dhcpRange.Start
+								}
+							}
+							if countAttr, ok := rangeAttrs["count"]; ok && countAttr != nil {
+								if countInt, ok := countAttr.(types.Int64); ok && !countInt.IsNull() {
+									dhcpRange.Count = int(countInt.ValueInt64())
+									dhcpRangeCount = dhcpRange.Count
+								}
+							}
+							if dhcpRange.Start != "" || dhcpRange.Count > 0 {
+								dhcp.Range = dhcpRange
+							}
+						}
+					}
+
+					// Extract routes
+					if routesAttr, ok := dhcpAttrs["routes"]; ok && routesAttr != nil {
+						if routesList, ok := routesAttr.(types.List); ok && !routesList.IsNull() {
+							var routesData []types.Object
+							diags := routesList.ElementsAs(ctx, &routesData, false)
+							resp.Diagnostics.Append(diags...)
+							if !resp.Diagnostics.HasError() {
+								dhcpRoutes := make([]sdktypes.SubnetDHCPRoute, 0, len(routesData))
+								for _, routeObj := range routesData {
+									routeAttrs := routeObj.Attributes()
+									route := sdktypes.SubnetDHCPRoute{}
+									if addrAttr, ok := routeAttrs["address"]; ok && addrAttr != nil {
+										if addrStr, ok := addrAttr.(types.String); ok && !addrStr.IsNull() {
+											route.Address = addrStr.ValueString()
+										}
+									}
+									if gwAttr, ok := routeAttrs["gateway"]; ok && gwAttr != nil {
+										if gwStr, ok := gwAttr.(types.String); ok && !gwStr.IsNull() {
+											route.Gateway = gwStr.ValueString()
+										}
+									}
+									if route.Address != "" || route.Gateway != "" {
+										dhcpRoutes = append(dhcpRoutes, route)
+									}
+								}
+								if len(dhcpRoutes) > 0 {
+									dhcp.Routes = dhcpRoutes
+								}
+							}
+						}
+					}
+
+					// Extract DNS
+					if dnsAttr, ok := dhcpAttrs["dns"]; ok && dnsAttr != nil {
+						if dnsList, ok := dnsAttr.(types.List); ok && !dnsList.IsNull() {
+							var dnsServers []string
+							diags := dnsList.ElementsAs(ctx, &dnsServers, false)
+							resp.Diagnostics.Append(diags...)
+							if !resp.Diagnostics.HasError() && len(dnsServers) > 0 {
+								dhcp.DNS = dnsServers
+							}
+						}
+					}
+				}
+			}
+
+			// Validation: If type is Advanced, dhcp block with enabled, range.start and range.count are mandatory
+			if subnetType == "Advanced" {
+				if dhcp == nil {
+					resp.Diagnostics.AddError(
+						"Missing Required Field",
+						"The 'network.dhcp' block is required when subnet type is 'Advanced'",
+					)
+					return
+				}
+				if !dhcpEnabledSet {
+					resp.Diagnostics.AddError(
+						"Missing Required Field",
+						"The 'network.dhcp.enabled' field is required when subnet type is 'Advanced'",
+					)
+					return
+				}
+				if dhcp.Range == nil || dhcpRangeStart == "" || dhcpRangeCount == 0 {
+					resp.Diagnostics.AddError(
+						"Missing Required Fields",
+						"The 'network.dhcp.range' block with 'start' and 'count' fields is required when subnet type is 'Advanced'",
+					)
+					return
+				}
+			}
 		}
 	}
 
-	// Determine SubnetType: Advanced if CIDR is provided, Basic otherwise
-	subnetType := sdktypes.SubnetTypeBasic
+	// Determine SubnetType for SDK: Advanced if CIDR is provided, Basic otherwise
+	sdkSubnetType := sdktypes.SubnetTypeBasic
 	if network != nil && network.Address != "" {
-		subnetType = sdktypes.SubnetTypeAdvanced
+		sdkSubnetType = sdktypes.SubnetTypeAdvanced
 	} else if data.Type.ValueString() == "Advanced" {
-		subnetType = sdktypes.SubnetTypeAdvanced
-	}
-
-	// Extract DHCP configuration if provided
-	var dhcp *sdktypes.SubnetDHCP
-	if !data.Dhcp.IsNull() && !data.Dhcp.IsUnknown() {
-		dhcpObj, diags := data.Dhcp.ToObjectValue(ctx)
-		resp.Diagnostics.Append(diags...)
-		if !resp.Diagnostics.HasError() {
-			attrs := dhcpObj.Attributes()
-			dhcp = &sdktypes.SubnetDHCP{}
-
-			// Extract enabled
-			if enabledAttr, ok := attrs["enabled"]; ok && enabledAttr != nil {
-				if enabledBool, ok := enabledAttr.(types.Bool); ok && !enabledBool.IsNull() {
-					dhcp.Enabled = enabledBool.ValueBool()
-				}
-			}
-
-			// Extract range
-			if rangeAttr, ok := attrs["range"]; ok && rangeAttr != nil {
-				if rangeObj, ok := rangeAttr.(types.Object); ok && !rangeObj.IsNull() {
-					rangeAttrs := rangeObj.Attributes()
-					dhcpRange := &sdktypes.SubnetDHCPRange{}
-					if startAttr, ok := rangeAttrs["start"]; ok && startAttr != nil {
-						if startStr, ok := startAttr.(types.String); ok && !startStr.IsNull() {
-							dhcpRange.Start = startStr.ValueString()
-						}
-					}
-					if countAttr, ok := rangeAttrs["count"]; ok && countAttr != nil {
-						if countInt, ok := countAttr.(types.Int64); ok && !countInt.IsNull() {
-							dhcpRange.Count = int(countInt.ValueInt64())
-						}
-					}
-					if dhcpRange.Start != "" || dhcpRange.Count > 0 {
-						dhcp.Range = dhcpRange
-					}
-				}
-			}
-
-			// Extract routes
-			if routesAttr, ok := attrs["routes"]; ok && routesAttr != nil {
-				if routesList, ok := routesAttr.(types.List); ok && !routesList.IsNull() {
-					var routesData []types.Object
-					diags := routesList.ElementsAs(ctx, &routesData, false)
-					resp.Diagnostics.Append(diags...)
-					if !resp.Diagnostics.HasError() {
-						dhcpRoutes := make([]sdktypes.SubnetDHCPRoute, 0, len(routesData))
-						for _, routeObj := range routesData {
-							routeAttrs := routeObj.Attributes()
-							route := sdktypes.SubnetDHCPRoute{}
-							if addrAttr, ok := routeAttrs["address"]; ok && addrAttr != nil {
-								if addrStr, ok := addrAttr.(types.String); ok && !addrStr.IsNull() {
-									route.Address = addrStr.ValueString()
-								}
-							}
-							if gwAttr, ok := routeAttrs["gateway"]; ok && gwAttr != nil {
-								if gwStr, ok := gwAttr.(types.String); ok && !gwStr.IsNull() {
-									route.Gateway = gwStr.ValueString()
-								}
-							}
-							if route.Address != "" || route.Gateway != "" {
-								dhcpRoutes = append(dhcpRoutes, route)
-							}
-						}
-						if len(dhcpRoutes) > 0 {
-							dhcp.Routes = dhcpRoutes
-						}
-					}
-				}
-			}
-
-			// Extract DNS
-			if dnsAttr, ok := attrs["dns"]; ok && dnsAttr != nil {
-				if dnsList, ok := dnsAttr.(types.List); ok && !dnsList.IsNull() {
-					var dnsServers []string
-					diags := dnsList.ElementsAs(ctx, &dnsServers, false)
-					resp.Diagnostics.Append(diags...)
-					if !resp.Diagnostics.HasError() && len(dnsServers) > 0 {
-						dhcp.DNS = dnsServers
-					}
-				}
-			}
-		}
+		sdkSubnetType = sdktypes.SubnetTypeAdvanced
 	}
 
 	// Build the create request
@@ -336,7 +391,7 @@ func (r *SubnetResource) Create(ctx context.Context, req resource.CreateRequest,
 			},
 		},
 		Properties: sdktypes.SubnetPropertiesRequest{
-			Type:    subnetType,
+			Type:    sdkSubnetType,
 			Network: network,
 			DHCP:    dhcp,
 		},
@@ -518,23 +573,40 @@ func (r *SubnetResource) Read(ctx context.Context, req resource.ReadRequest, res
 		}
 		data.Type = types.StringValue(string(subnet.Properties.Type))
 
-		// Update network if available
-		if subnet.Properties.Network != nil && subnet.Properties.Network.Address != "" {
-			networkModel := NetworkModel{
-				Address: types.StringValue(subnet.Properties.Network.Address),
-			}
-			networkObj, diags := types.ObjectValue(map[string]attr.Type{
-				"address": types.StringType,
-			}, map[string]attr.Value{
-				"address": networkModel.Address,
-			})
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Network = networkObj
-			}
+		// Update network and DHCP if available
+		networkAttrs := make(map[string]attr.Value)
+		networkAttrTypes := map[string]attr.Type{
+			"address": types.StringType,
+			"dhcp": types.ObjectType{
+				AttrTypes: map[string]attr.Type{
+					"enabled": types.BoolType,
+					"range": types.ObjectType{
+						AttrTypes: map[string]attr.Type{
+							"start": types.StringType,
+							"count": types.Int64Type,
+						},
+					},
+					"routes": types.ListType{
+						ElemType: types.ObjectType{
+							AttrTypes: map[string]attr.Type{
+								"address": types.StringType,
+								"gateway": types.StringType,
+							},
+						},
+					},
+					"dns": types.ListType{ElemType: types.StringType},
+				},
+			},
 		}
 
-		// Update DHCP if available
+		// Set network address
+		if subnet.Properties.Network != nil && subnet.Properties.Network.Address != "" {
+			networkAttrs["address"] = types.StringValue(subnet.Properties.Network.Address)
+		} else {
+			networkAttrs["address"] = types.StringNull()
+		}
+
+		// Set DHCP if available
 		if subnet.Properties.DHCP != nil {
 			dhcpAttrs := make(map[string]attr.Value)
 			dhcpAttrs["enabled"] = types.BoolValue(subnet.Properties.DHCP.Enabled)
@@ -629,8 +701,34 @@ func (r *SubnetResource) Read(ctx context.Context, req resource.ReadRequest, res
 			}, dhcpAttrs)
 			resp.Diagnostics.Append(diags...)
 			if !resp.Diagnostics.HasError() {
-				data.Dhcp = dhcpObj
+				networkAttrs["dhcp"] = dhcpObj
 			}
+		} else {
+			networkAttrs["dhcp"] = types.ObjectNull(map[string]attr.Type{
+				"enabled": types.BoolType,
+				"range": types.ObjectType{
+					AttrTypes: map[string]attr.Type{
+						"start": types.StringType,
+						"count": types.Int64Type,
+					},
+				},
+				"routes": types.ListType{
+					ElemType: types.ObjectType{
+						AttrTypes: map[string]attr.Type{
+							"address": types.StringType,
+							"gateway": types.StringType,
+						},
+					},
+				},
+				"dns": types.ListType{ElemType: types.StringType},
+			})
+		}
+
+		// Build network object with nested dhcp
+		networkObj, diags := types.ObjectValue(networkAttrTypes, networkAttrs)
+		resp.Diagnostics.Append(diags...)
+		if !resp.Diagnostics.HasError() {
+			data.Network = networkObj
 		}
 
 		// Update tags from response
@@ -734,89 +832,98 @@ func (r *SubnetResource) Update(ctx context.Context, req resource.UpdateRequest,
 	// Preserve network from current state
 	network := current.Properties.Network
 
-	// Extract DHCP configuration if provided
+	// Extract DHCP configuration from network.dhcp if provided
 	var dhcp *sdktypes.SubnetDHCP
-	if !data.Dhcp.IsNull() && !data.Dhcp.IsUnknown() {
-		dhcpObj, diags := data.Dhcp.ToObjectValue(ctx)
+	if !data.Network.IsNull() && !data.Network.IsUnknown() {
+		networkObj, diags := data.Network.ToObjectValue(ctx)
 		resp.Diagnostics.Append(diags...)
 		if !resp.Diagnostics.HasError() {
-			attrs := dhcpObj.Attributes()
-			dhcp = &sdktypes.SubnetDHCP{}
+			attrs := networkObj.Attributes()
 
-			// Extract enabled
-			if enabledAttr, ok := attrs["enabled"]; ok && enabledAttr != nil {
-				if enabledBool, ok := enabledAttr.(types.Bool); ok && !enabledBool.IsNull() {
-					dhcp.Enabled = enabledBool.ValueBool()
-				}
-			}
+			// Extract DHCP configuration from network.dhcp
+			if dhcpAttr, ok := attrs["dhcp"]; ok && dhcpAttr != nil {
+				if dhcpObj, ok := dhcpAttr.(types.Object); ok && !dhcpObj.IsNull() {
+					dhcpAttrs := dhcpObj.Attributes()
+					dhcp = &sdktypes.SubnetDHCP{}
 
-			// Extract range
-			if rangeAttr, ok := attrs["range"]; ok && rangeAttr != nil {
-				if rangeObj, ok := rangeAttr.(types.Object); ok && !rangeObj.IsNull() {
-					rangeAttrs := rangeObj.Attributes()
-					dhcpRange := &sdktypes.SubnetDHCPRange{}
-					if startAttr, ok := rangeAttrs["start"]; ok && startAttr != nil {
-						if startStr, ok := startAttr.(types.String); ok && !startStr.IsNull() {
-							dhcpRange.Start = startStr.ValueString()
+					// Extract enabled
+					if enabledAttr, ok := dhcpAttrs["enabled"]; ok && enabledAttr != nil {
+						if enabledBool, ok := enabledAttr.(types.Bool); ok && !enabledBool.IsNull() {
+							dhcp.Enabled = enabledBool.ValueBool()
 						}
 					}
-					if countAttr, ok := rangeAttrs["count"]; ok && countAttr != nil {
-						if countInt, ok := countAttr.(types.Int64); ok && !countInt.IsNull() {
-							dhcpRange.Count = int(countInt.ValueInt64())
-						}
-					}
-					if dhcpRange.Start != "" || dhcpRange.Count > 0 {
-						dhcp.Range = dhcpRange
-					}
-				}
-			}
 
-			// Extract routes
-			if routesAttr, ok := attrs["routes"]; ok && routesAttr != nil {
-				if routesList, ok := routesAttr.(types.List); ok && !routesList.IsNull() {
-					var routesData []types.Object
-					diags := routesList.ElementsAs(ctx, &routesData, false)
-					resp.Diagnostics.Append(diags...)
-					if !resp.Diagnostics.HasError() {
-						dhcpRoutes := make([]sdktypes.SubnetDHCPRoute, 0, len(routesData))
-						for _, routeObj := range routesData {
-							routeAttrs := routeObj.Attributes()
-							route := sdktypes.SubnetDHCPRoute{}
-							if addrAttr, ok := routeAttrs["address"]; ok && addrAttr != nil {
-								if addrStr, ok := addrAttr.(types.String); ok && !addrStr.IsNull() {
-									route.Address = addrStr.ValueString()
+					// Extract range
+					if rangeAttr, ok := dhcpAttrs["range"]; ok && rangeAttr != nil {
+						if rangeObj, ok := rangeAttr.(types.Object); ok && !rangeObj.IsNull() {
+							rangeAttrs := rangeObj.Attributes()
+							dhcpRange := &sdktypes.SubnetDHCPRange{}
+							if startAttr, ok := rangeAttrs["start"]; ok && startAttr != nil {
+								if startStr, ok := startAttr.(types.String); ok && !startStr.IsNull() {
+									dhcpRange.Start = startStr.ValueString()
 								}
 							}
-							if gwAttr, ok := routeAttrs["gateway"]; ok && gwAttr != nil {
-								if gwStr, ok := gwAttr.(types.String); ok && !gwStr.IsNull() {
-									route.Gateway = gwStr.ValueString()
+							if countAttr, ok := rangeAttrs["count"]; ok && countAttr != nil {
+								if countInt, ok := countAttr.(types.Int64); ok && !countInt.IsNull() {
+									dhcpRange.Count = int(countInt.ValueInt64())
 								}
 							}
-							if route.Address != "" || route.Gateway != "" {
-								dhcpRoutes = append(dhcpRoutes, route)
+							if dhcpRange.Start != "" || dhcpRange.Count > 0 {
+								dhcp.Range = dhcpRange
 							}
 						}
-						if len(dhcpRoutes) > 0 {
-							dhcp.Routes = dhcpRoutes
+					}
+
+					// Extract routes
+					if routesAttr, ok := dhcpAttrs["routes"]; ok && routesAttr != nil {
+						if routesList, ok := routesAttr.(types.List); ok && !routesList.IsNull() {
+							var routesData []types.Object
+							diags := routesList.ElementsAs(ctx, &routesData, false)
+							resp.Diagnostics.Append(diags...)
+							if !resp.Diagnostics.HasError() {
+								dhcpRoutes := make([]sdktypes.SubnetDHCPRoute, 0, len(routesData))
+								for _, routeObj := range routesData {
+									routeAttrs := routeObj.Attributes()
+									route := sdktypes.SubnetDHCPRoute{}
+									if addrAttr, ok := routeAttrs["address"]; ok && addrAttr != nil {
+										if addrStr, ok := addrAttr.(types.String); ok && !addrStr.IsNull() {
+											route.Address = addrStr.ValueString()
+										}
+									}
+									if gwAttr, ok := routeAttrs["gateway"]; ok && gwAttr != nil {
+										if gwStr, ok := gwAttr.(types.String); ok && !gwStr.IsNull() {
+											route.Gateway = gwStr.ValueString()
+										}
+									}
+									if route.Address != "" || route.Gateway != "" {
+										dhcpRoutes = append(dhcpRoutes, route)
+									}
+								}
+								if len(dhcpRoutes) > 0 {
+									dhcp.Routes = dhcpRoutes
+								}
+							}
 						}
 					}
-				}
-			}
 
-			// Extract DNS
-			if dnsAttr, ok := attrs["dns"]; ok && dnsAttr != nil {
-				if dnsList, ok := dnsAttr.(types.List); ok && !dnsList.IsNull() {
-					var dnsServers []string
-					diags := dnsList.ElementsAs(ctx, &dnsServers, false)
-					resp.Diagnostics.Append(diags...)
-					if !resp.Diagnostics.HasError() && len(dnsServers) > 0 {
-						dhcp.DNS = dnsServers
+					// Extract DNS
+					if dnsAttr, ok := dhcpAttrs["dns"]; ok && dnsAttr != nil {
+						if dnsList, ok := dnsAttr.(types.List); ok && !dnsList.IsNull() {
+							var dnsServers []string
+							diags := dnsList.ElementsAs(ctx, &dnsServers, false)
+							resp.Diagnostics.Append(diags...)
+							if !resp.Diagnostics.HasError() && len(dnsServers) > 0 {
+								dhcp.DNS = dnsServers
+							}
+						}
 					}
 				}
 			}
 		}
-	} else {
-		// Preserve DHCP from current state if not provided in plan
+	}
+
+	// If dhcp wasn't provided in the plan, preserve from current state
+	if dhcp == nil {
 		dhcp = current.Properties.DHCP
 	}
 

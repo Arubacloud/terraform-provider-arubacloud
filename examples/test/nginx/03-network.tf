@@ -15,19 +15,19 @@ resource "arubacloud_subnet" "test" {
   location   = "ITBG-Bergamo"
   project_id = arubacloud_project.test.id
   vpc_id     = arubacloud_vpc.test.id
-  type       = "Basic"  # Required: "Basic" or "Advanced"
-#  network = {
-#    address = "10.0.1.0/24"  # CIDR notation
-#  }
-#  dhcp = {
-#    enabled = true  # Required for Advanced type subnets
-#    range = {
-#      start = "10.0.1.10"
-#      count = 100
-#    }
-#    routes = []
-#    dns = ["8.8.8.8", "8.8.4.4"]
-#  }
+  type       = "Advanced"  # Required: "Basic" or "Advanced"
+  network = {
+    address = "10.0.1.0/24"  # CIDR notation
+    dhcp = {
+      enabled = true  # Required for Advanced type subnets
+      range = {
+        start = "10.0.1.10"
+        count = 100
+      }
+      routes = []
+      dns = ["8.8.8.8", "8.8.4.4"]
+    }
+  }
   tags = ["network", "test", "updated"]
 }
 
@@ -50,8 +50,27 @@ resource "arubacloud_elasticip" "test" {
   tags           = ["public", "test","updated"]
 }
 
-# Security Rule - Allow SSH from anywhere (0.0.0.0/0)
+# Security Rule - Allow HTTP from anywhere (0.0.0.0/0)
 resource "arubacloud_securityrule" "test" {
+  name              = "test-http-rule"
+  location          = "ITBG-Bergamo"
+  project_id        = arubacloud_project.test.id
+  vpc_id            = arubacloud_vpc.test.id
+  security_group_id = arubacloud_securitygroup.test.id
+#  tags              = ["security", "test", "http"]
+  properties = {
+    direction = "Ingress"
+    protocol  = "TCP"
+    port      = "80"
+    target = {
+      kind  = "Ip"
+      value = "0.0.0.0/0"
+    }
+  }
+}
+
+# Security Rule - Allow SSH from anywhere (0.0.0.0/0)
+resource "arubacloud_securityrule" "ssh" {
   name              = "test-ssh-rule"
   location          = "ITBG-Bergamo"
   project_id        = arubacloud_project.test.id
@@ -69,28 +88,28 @@ resource "arubacloud_securityrule" "test" {
   }
 }
 
-output "vpc_id" {
-  value       = arubacloud_vpc.test.id
-  description = "The ID of the created VPC"
-}
+#output "vpc_id" {
+#  value       = arubacloud_vpc.test.id
+#  description = "The ID of the created VPC"
+#}
 
-output "subnet_id" {
-  value       = arubacloud_subnet.test.id
-  description = "The ID of the created subnet"
-}
+#output "subnet_id" {
+#  value       = arubacloud_subnet.test.id
+#  description = "The ID of the created subnet"
+#}
 
-output "security_group_id" {
-  value       = arubacloud_securitygroup.test.id
-  description = "The ID of the created security group"
-}
+#output "security_group_id" {
+#  value       = arubacloud_securitygroup.test.id
+#  description = "The ID of the created security group"
+#}
 
-output "elastic_ip_id" {
-  value       = arubacloud_elasticip.test.id
-  description = "The ID of the created Elastic IP"
-}
+#output "elastic_ip_id" {
+#  value       = arubacloud_elasticip.test.id
+#  description = "The ID of the created Elastic IP"
+#}
 
-output "elastic_ip_address" {
-  value       = arubacloud_elasticip.test.address
-  description = "The IP address of the created Elastic IP (computed from ElasticIpPropertiesResponse)"
-}
+#output "elastic_ip_address" {
+#  value       = arubacloud_elasticip.test.address
+#  description = "The IP address of the created Elastic IP (computed from ElasticIpPropertiesResponse)"
+#}
 

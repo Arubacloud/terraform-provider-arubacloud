@@ -6,12 +6,13 @@ resource "arubacloud_keypair" "test" {
   name       = "test-keypair"
   location    = "ITBG-Bergamo"  # Change to your region
   project_id = arubacloud_project.test.id
-  value      = "ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEA2No7At0tgHrcZTL0kGWyLLUqPKfOhD9hGdNV9PbJxhjOGNFxcwdQ9wCXsJ3RQaRHBuGIgVodDurrlqzxFK86yCHMgXT2YLHF0j9P4m9GDiCfOK6msbFb89p5xZExjwD2zK+w68r7iOKZeRB2yrznW5TD3KDemSPIQQIVcyLF+yxft49HWBTI3PVQ4rBVOBJ2PdC9SAOf7CYnptW24CRrC0h85szIdwMA+Kmasfl3YGzk4MxheHrTO8C40aXXpieJ9S2VQA4VJAMRyAboptIK0cKjBYrbt5YkEL0AlyBGPIu6MPYr5K/MHyDunDi9yc7VYRYRR0f46MBOSqMUiGPnMw=="
+  value      = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCzZB11JRKjbPO/1wAtJ/9+/xQtndp61EWo1T2GhIVJO0eiBbUoufdhX989hAyE0JlyGjvDloe0c8S1sK8NAeLEx/jaKwsbHMQGxkusoBFUQDGWlREsHRHn7/78Wbra45ZJi6r9uizao7HDtoq0GCB6DfleOpKMLjOLHv9NaH0Hm119ZztHIqrmWmc25e27Evy3Nht9hX0Yb/OsEWcWBKhVv6SXGdB7SCXKYIPj7357bLpb4SdW9RxQA40bjlEFtPSqZ3HNXZ7yrUZXQWtrVkpia51nR088Jz0rMlmLgH+RPTDtj8CcI/E6QgsKXfrlxswbl3cT41qZVHi0+hNxE9vg+MSAVuYKgyWWFU7qlQCvmKmDPDjivBaFn7Aaz9qw71brpIeNXRwNiEbHy2+2+A0X8iIbc1Ca3RdVQ2rBLRXQDhNMi2syJkyty0ZTiLSNt+rhl4JgFZBz88q7b34MezNNNP7HX4oG+XpwjUe4KzDjk8EbBfxiPlLy7xkBioxRe+E="
 }
 
 # Cloud Server - Virtual machine instance
 # Note: vpc_uri_ref, subnet_uri_refs, securitygroup_uri_refs, key_pair_uri_ref, and elastic_ip_uri_ref use URI references
 # The boot_volume_uri_ref field should reference a bootable block storage URI (created with bootable=true and image set)
+# Note: Provisioner has been moved to 06-provisioning.tf to separate it from the CloudServer lifecycle
 resource "arubacloud_cloudserver" "test" {
   name                  = "test-cloudserver"
   location              = "ITBG-Bergamo"  # Change to your region
@@ -27,18 +28,28 @@ resource "arubacloud_cloudserver" "test" {
   tags                  = ["compute", "test"]
 }
 
-output "keypair_id" {
-  value       = arubacloud_keypair.test.id
-  description = "The ID of the created keypair"
+#output "keypair_id" {
+#  value       = arubacloud_keypair.test.id
+#  description = "The ID of the created keypair"
+#}
+
+#output "cloudserver_id" {
+#  value       = arubacloud_cloudserver.test.id
+#  description = "The ID of the created cloud server"
+#}
+
+#output "cloudserver_public_ip" {
+#  value       = arubacloud_elasticip.test.address
+#  description = "The public IP address of the cloud server (from associated Elastic IP)"
+#}
+
+output "nginx_test_command" {
+  value       = "curl http://${arubacloud_elasticip.test.address}:80"
+  description = "Command to test nginx on the cloud server"
 }
 
-output "cloudserver_id" {
-  value       = arubacloud_cloudserver.test.id
-  description = "The ID of the created cloud server"
-}
-
-output "cloudserver_public_ip" {
-  value       = arubacloud_elasticip.test.address
-  description = "The public IP address of the cloud server (from associated Elastic IP)"
+output "nginx_url" {
+  value       = "http://${arubacloud_elasticip.test.address}"
+  description = "URL to access nginx on the cloud server"
 }
 

@@ -11,14 +11,35 @@ Manages an ArubaCloud Subnet resource.
 
 ## Important Notes
 
-- When `type` is set to `"Advanced"`, the `dhcp` block is required and must include the `enabled` attribute.
-- The `dhcp` block supports:
-  - `enabled`: Boolean to enable/disable DHCP
-  - `range`: Optional DHCP IP address range with `start` and `count`
-  - `routes`: Optional list of DHCP routes with `address` (network CIDR, e.g., "0.0.0.0/0") and `gateway` (IP address)
-  - `dns`: Optional list of DNS server IP addresses
+### Basic Subnet Type
+- When `type` is set to `"Basic"`, the `network` block is not required.
+- The subnet will use default networking settings.
 
-{{ tffile "examples/resources/arubacloud_subnet/resource-basic.tf" }}
+### Advanced Subnet Type
+- When `type` is set to `"Advanced"`, the following fields are **required**:
+  - `network` block
+  - `network.address`: Network CIDR notation (e.g., "10.0.1.0/24")
+  - `network.dhcp` block
+  - `network.dhcp.enabled`: Boolean to enable/disable DHCP
+  - `network.dhcp.range` block with:
+    - `start`: Starting IP address for DHCP range
+    - `count`: Number of available IP addresses
+
+### Optional Fields (Advanced Type)
+- `network.dhcp.routes`: List of DHCP routes with:
+  - `address`: Destination network address in CIDR notation (e.g., "0.0.0.0/0")
+  - `gateway`: Gateway IP address for the route
+- `network.dhcp.dns`: List of DNS server IP addresses
+
+## Example Usage
+
+### Advanced Subnet
+
+{{ tffile "examples/resources/arubacloud_subnet/resource-advanced.tf" }}
+
+### Basic Subnet
+
+{{ tffile "examples/resources/arubacloud_subnet/resource-basic-type.tf" }}
 
 {{ .SchemaMarkdown }}
 

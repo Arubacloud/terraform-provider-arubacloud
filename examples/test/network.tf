@@ -40,21 +40,21 @@ resource "arubacloud_subnet" "example" {
   type       = "Advanced"
   network = {
     address = "10.0.1.0/24"
-  }
-  dhcp = {
-    enabled = true
-    range = {
-      start = "10.0.1.10"
-      count = 20
+    dhcp = {
+      enabled = true
+      range = {
+        start = "10.0.1.10"
+        count = 20
+      }
+      routes = [
+        {
+          address = "0.0.0.0"
+          gateway = "10.0.1.1"
+        }
+      ]
+      dns = ["8.8.8.8", "8.8.4.4"]
     }
   }
-  routes = [
-    {
-      address = "0.0.0.0"
-      gateway = "10.0.1.1"
-    }
-  ]
-  dns = ["8.8.8.8", "8.8.4.4"]
 }
 
 resource "arubacloud_subnet" "example2" {
@@ -66,21 +66,21 @@ resource "arubacloud_subnet" "example2" {
   type       = "Advanced"
   network = {
     address = "10.0.2.0/24"
-  }
-  dhcp = {
-    enabled = true
-    range = {
-      start = "10.0.2.10"
-      count = 20
+    dhcp = {
+      enabled = true
+      range = {
+        start = "10.0.2.10"
+        count = 20
+      }
+      routes = [
+        {
+          address = "0.0.0.0"
+          gateway = "10.0.2.1"
+        }
+      ]
+      dns = ["8.8.8.8", "8.8.4.4"]
     }
   }
-  routes = [
-    {
-      address = "0.0.0.0"
-      gateway = "10.0.2.1"
-    }
-  ]
-  dns = ["8.8.8.8", "8.8.4.4"]
 }
 
 ## Security Group
