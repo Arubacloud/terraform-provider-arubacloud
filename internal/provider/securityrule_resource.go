@@ -5,7 +5,9 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -37,6 +39,48 @@ type EndpointTypeDto string
 const (
 	EndpointTypeIP EndpointTypeDto = "Ip"
 )
+
+// normalizeProtocol normalizes protocol values to match API expectations
+// API expects: Any, TCP, UDP, ICMP (case-sensitive)
+func normalizeProtocol(protocol string) string {
+	protocolUpper := strings.ToUpper(protocol)
+	switch protocolUpper {
+	case "ANY":
+		return "Any"
+	case "TCP":
+		return "TCP"
+	case "UDP":
+		return "UDP"
+	case "ICMP":
+		return "ICMP"
+	default:
+		// If it's already in the correct format (e.g., "Any"), return as-is
+		// Otherwise, try to capitalize first letter
+		if len(protocol) > 0 {
+			return strings.ToUpper(protocol[:1]) + strings.ToLower(protocol[1:])
+		}
+		return protocol
+	}
+}
+
+// normalizeTargetKind normalizes target kind values to match API expectations
+// API expects: IP (not Ip, ip, etc.)
+func normalizeTargetKind(kind string) string {
+	kindUpper := strings.ToUpper(kind)
+	switch kindUpper {
+	case "IP":
+		return "IP"
+	case "SECURITYGROUP":
+		return "SecurityGroup"
+	default:
+		// If it's already in the correct format, return as-is
+		// For "Ip", convert to "IP"
+		if strings.EqualFold(kind, "Ip") {
+			return "IP"
+		}
+		return kind
+	}
+}
 
 // RuleTarget represents the target of the rule (source or destination according to the direction).
 type RuleTarget struct {
@@ -198,7 +242,8 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
-	// Extract tags
+	// Extract tags - only include if actually provided
+	// CLI doesn't include tags in JSON if not provided (SDK omits empty slices with omitempty)
 	var tags []string
 	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
 		diags := data.Tags.ElementsAs(ctx, &tags, false)
@@ -207,6 +252,8 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 			return
 		}
 	}
+	// Don't set tags to empty slice - let SDK handle it (will be omitted with omitempty)
+	// This matches CLI behavior where tags are only included if provided
 
 	// Extract properties from Terraform object
 	propertiesObj, diags := data.Properties.ToObjectValue(ctx)
@@ -230,11 +277,28 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 	}
 	protocol := protocolAttr.ValueString()
 
+	// Normalize protocol to match API expectations (case-sensitive)
+	// API expects: Any, TCP, UDP, ICMP (not ANY, tcp, etc.)
+	protocol = normalizeProtocol(protocol)
+
 	port := ""
 	if portAttr, ok := propertiesAttrs["port"]; ok && portAttr != nil {
 		if portStr, ok := portAttr.(types.String); ok && !portStr.IsNull() {
 			port = portStr.ValueString()
 		}
+	}
+
+	// Adapter: If protocol is Any or ICMP, port must be completely omitted (API requirement)
+	// The CLI omits the port field entirely for Any/ICMP protocols (see CLI request JSON)
+	// Clear port to empty string so it will be omitted in JSON
+	originalPort := port
+	if strings.EqualFold(protocol, "Any") || strings.EqualFold(protocol, "ICMP") {
+		port = ""
+		tflog.Info(ctx, "Clearing port field for Any/ICMP protocol (will be omitted from JSON)", map[string]interface{}{
+			"protocol":    protocol,
+			"originalPort": originalPort,
+			"clearedPort":  port,
+		})
 	}
 
 	// Extract target
@@ -257,6 +321,10 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 	}
 	targetKind := targetKindAttr.ValueString()
 
+	// Normalize target kind to match API expectations (case-sensitive)
+	// API expects: IP (not Ip, ip, etc.)
+	targetKind = normalizeTargetKind(targetKind)
+
 	targetValueAttr, ok := targetAttrs["value"].(types.String)
 	if !ok {
 		resp.Diagnostics.AddError("Invalid Type", "target.value must be a String")
@@ -264,31 +332,193 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 	}
 	targetValue := targetValueAttr.ValueString()
 
+	tflog.Debug(ctx, "Creating security rule request", map[string]interface{}{
+		"protocol":     protocol,
+		"port":         port,
+		"portEmpty":    port == "",
+		"direction":    direction,
+		"targetKind":   targetKind,
+		"targetValue":  targetValue,
+	})
+
+	// Build the properties
+	// Note: The SDK should handle empty Port strings with omitempty JSON tag
+	// If that doesn't work, we'll need to use JSON manipulation
+	target := &sdktypes.RuleTarget{
+		Kind:  sdktypes.EndpointTypeDto(targetKind),
+		Value: targetValue,
+	}
+
+	// Build properties - match CLI behavior exactly
+	// CLI omits Port field entirely for Any/ICMP protocols (see CLI request JSON)
+	// IMPORTANT: For Any/ICMP, port MUST be empty string (cleared above) and Port field MUST be omitted
+	// Use JSON manipulation to ensure Port is completely omitted when empty
+	var properties sdktypes.SecurityRulePropertiesRequest
+	
+	// Double-check: If protocol is Any/ICMP, ensure port is empty (safety check)
+	if strings.EqualFold(protocol, "Any") || strings.EqualFold(protocol, "ICMP") {
+		if port != "" {
+			tflog.Warn(ctx, "Port was not cleared for Any/ICMP protocol, forcing it now", map[string]interface{}{
+				"protocol": protocol,
+				"port":     port,
+			})
+			port = ""
+		}
+	}
+	
+	if port == "" {
+		// For Any/ICMP protocols, omit Port field completely (match CLI behavior)
+		tflog.Debug(ctx, "Omitting Port field for Any/ICMP protocol (matching CLI behavior)", map[string]interface{}{
+			"protocol": protocol,
+		})
+		propertiesMap := map[string]interface{}{
+			"direction": string(sdktypes.RuleDirection(direction)),
+			"protocol":  protocol,
+			"target": map[string]interface{}{
+				"kind":  string(sdktypes.EndpointTypeDto(targetKind)),
+				"value": targetValue,
+			},
+		}
+		jsonData, err := json.Marshal(propertiesMap)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error building request",
+				fmt.Sprintf("Unable to build security rule properties: %s", err),
+			)
+			return
+		}
+		if err := json.Unmarshal(jsonData, &properties); err != nil {
+			resp.Diagnostics.AddError(
+				"Error building request",
+				fmt.Sprintf("Unable to parse security rule properties: %s", err),
+			)
+			return
+		}
+		// Ensure Target is set correctly after unmarshal
+		properties.Target = target
+		// Explicitly clear Port field in struct (double safety)
+		properties.Port = ""
+	} else {
+		// Normal case with Port field
+		properties = sdktypes.SecurityRulePropertiesRequest{
+			Direction: sdktypes.RuleDirection(direction),
+			Protocol:  protocol,
+			Port:      port,
+			Target:    target,
+		}
+	}
+	
+	tflog.Debug(ctx, "Properties built", map[string]interface{}{
+		"direction":    properties.Direction,
+		"protocol":     properties.Protocol,
+		"port":         properties.Port,
+		"portEmpty":    properties.Port == "",
+		"hasTarget":    properties.Target != nil,
+		"originalPort": port,
+	})
+	
+	// Verify properties JSON doesn't include port when it should be omitted
+	propsJSON, _ := json.Marshal(properties)
+	if port == "" && strings.Contains(string(propsJSON), `"port"`) {
+		tflog.Error(ctx, "Port field still present in properties JSON after omitting!", map[string]interface{}{
+			"propertiesJSON": string(propsJSON),
+		})
+	}
+
 	// Build the create request
+	// Match CLI behavior exactly - only include tags if they're actually provided
+	// CLI doesn't include tags in JSON if not provided (SDK omits empty slices with omitempty)
+	metadataRequest := sdktypes.ResourceMetadataRequest{
+		Name: data.Name.ValueString(),
+	}
+	// Only set Tags if we have actual tags (not empty slice)
+	// This ensures SDK omits tags field in JSON when empty (matches CLI behavior)
+	if len(tags) > 0 {
+		metadataRequest.Tags = tags
+	}
+	
 	createRequest := sdktypes.SecurityRuleRequest{
 		Metadata: sdktypes.RegionalResourceMetadataRequest{
-			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
-				Name: data.Name.ValueString(),
-				Tags: tags,
-			},
+			ResourceMetadataRequest: metadataRequest,
 			Location: sdktypes.LocationRequest{
 				Value: data.Location.ValueString(),
 			},
 		},
-		Properties: sdktypes.SecurityRulePropertiesRequest{
-			Direction: sdktypes.RuleDirection(direction),
-			Protocol:  protocol,
-			Port:      port,
-			Target: &sdktypes.RuleTarget{
-				Kind:  sdktypes.EndpointTypeDto(targetKind),
-				Value: targetValue,
-			},
-		},
+		Properties: properties,
 	}
+
+	// Debug: Log the actual JSON that will be sent
+	requestJSON, _ := json.MarshalIndent(createRequest, "", "  ")
+	requestJSONStr := string(requestJSON)
+	
+	// Verify Port field is not present in JSON when it should be omitted
+	// CRITICAL: If port should be omitted but is still in JSON, rebuild request without it
+	if port == "" || strings.EqualFold(protocol, "Any") || strings.EqualFold(protocol, "ICMP") {
+		if strings.Contains(requestJSONStr, `"port"`) {
+			tflog.Error(ctx, "CRITICAL: Port field found in final JSON when it should be omitted! Rebuilding request...", map[string]interface{}{
+				"json":          requestJSONStr,
+				"propertiesPort": properties.Port,
+				"port":          port,
+				"protocol":      protocol,
+			})
+			// Rebuild the entire request using JSON manipulation to ensure Port is omitted
+			requestMap := map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"name": data.Name.ValueString(),
+					"location": map[string]interface{}{
+						"value": data.Location.ValueString(),
+					},
+				},
+				"properties": map[string]interface{}{
+					"direction": string(sdktypes.RuleDirection(direction)),
+					"protocol":  protocol,
+					"target": map[string]interface{}{
+						"kind":  string(sdktypes.EndpointTypeDto(targetKind)),
+						"value": targetValue,
+					},
+				},
+			}
+			// Only add tags if they exist
+			if len(tags) > 0 {
+				metadata := requestMap["metadata"].(map[string]interface{})
+				metadata["tags"] = tags
+			}
+			// Rebuild request from JSON to ensure Port is omitted
+			rebuildJSON, err := json.Marshal(requestMap)
+			if err == nil {
+				if err := json.Unmarshal(rebuildJSON, &createRequest); err == nil {
+					requestJSON, _ = json.MarshalIndent(createRequest, "", "  ")
+					requestJSONStr = string(requestJSON)
+					tflog.Info(ctx, "Rebuilt request without Port field", map[string]interface{}{
+						"newJSON": requestJSONStr,
+					})
+				}
+			}
+		} else {
+			tflog.Debug(ctx, "Port field correctly omitted from final JSON")
+		}
+	}
+	
+	tflog.Debug(ctx, "Full request JSON", map[string]interface{}{
+		"json": string(requestJSON),
+	})
+	tflog.Info(ctx, "Creating security rule", map[string]interface{}{
+		"name":            data.Name.ValueString(),
+		"direction":       direction,
+		"protocol":        protocol,
+		"port":            port,
+		"targetKind":      targetKind,
+		"targetValue":     targetValue,
+		"portOmitted":     port == "",
+		"propertiesPort":  properties.Port,
+	})
 
 	// Create the security rule using the SDK
 	response, err := r.client.Client.FromNetwork().SecurityGroupRules().Create(ctx, projectID, vpcID, securityGroupID, createRequest, nil)
 	if err != nil {
+		tflog.Error(ctx, "SDK error creating security rule", map[string]interface{}{
+			"error": err.Error(),
+		})
 		resp.Diagnostics.AddError(
 			"Error creating security rule",
 			fmt.Sprintf("Unable to create security rule: %s", err),
@@ -304,6 +534,16 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 		if response.Error.Detail != nil {
 			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
 		}
+		// Log detailed error information including full response
+		tflog.Error(ctx, "API error creating security rule", map[string]interface{}{
+			"statusCode": response.StatusCode,
+			"title":      response.Error.Title,
+			"detail":     response.Error.Detail,
+			"requestJSON": string(requestJSON),
+			"fullError":   fmt.Sprintf("%+v", response.Error),
+		})
+		// Include request JSON in error message for debugging
+		errorMsg = fmt.Sprintf("%s\n\nRequest JSON:\n%s", errorMsg, string(requestJSON))
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}
@@ -574,7 +814,7 @@ func (r *SecurityRuleResource) Update(ctx context.Context, req resource.UpdateRe
 			}
 			if prot, ok := propertiesAttrs["protocol"]; ok && prot != nil {
 				if protStr, ok := prot.(types.String); ok {
-					planProtocol = protStr.ValueString()
+					planProtocol = normalizeProtocol(protStr.ValueString())
 				}
 			}
 			if portAttr, ok := propertiesAttrs["port"]; ok && portAttr != nil {
@@ -582,6 +822,13 @@ func (r *SecurityRuleResource) Update(ctx context.Context, req resource.UpdateRe
 					planPort = portStr.ValueString()
 				}
 			}
+
+			// Adapter: If protocol is Any or ICMP, port must not be set (API requirement)
+			// Use case-insensitive check for protocol
+			if strings.EqualFold(planProtocol, "Any") || strings.EqualFold(planProtocol, "ICMP") {
+				planPort = ""
+			}
+
 			if targetAttr, ok := propertiesAttrs["target"]; ok && targetAttr != nil {
 				if targetObj, ok := targetAttr.(types.Object); ok {
 					targetObjValue, targetDiags := targetObj.ToObjectValue(ctx)
@@ -589,7 +836,7 @@ func (r *SecurityRuleResource) Update(ctx context.Context, req resource.UpdateRe
 						targetAttrs := targetObjValue.Attributes()
 						if kind, ok := targetAttrs["kind"]; ok && kind != nil {
 							if kindStr, ok := kind.(types.String); ok {
-								planTargetKind = kindStr.ValueString()
+								planTargetKind = normalizeTargetKind(kindStr.ValueString())
 							}
 						}
 						if value, ok := targetAttrs["value"]; ok && value != nil {
@@ -666,6 +913,32 @@ func (r *SecurityRuleResource) Update(ctx context.Context, req resource.UpdateRe
 
 	// Build update request - only name and tags can be updated, properties must remain unchanged
 	// Note: Properties must be included in the request but will use current values (they cannot be changed)
+
+	// Build properties conditionally - omit Port field if it's empty (for ANY/ICMP protocols)
+	var updateProperties sdktypes.SecurityRulePropertiesRequest
+	if current.Properties.Port == "" {
+		// Build without Port field by using JSON manipulation
+		propertiesMap := map[string]interface{}{
+			"direction": current.Properties.Direction,
+			"protocol":  current.Properties.Protocol,
+			"target": map[string]interface{}{
+				"kind":  current.Properties.Target.Kind,
+				"value": current.Properties.Target.Value,
+			},
+		}
+		// Marshal to JSON and back to ensure Port field is not present
+		jsonData, _ := json.Marshal(propertiesMap)
+		json.Unmarshal(jsonData, &updateProperties)
+	} else {
+		// Normal case with Port field
+		updateProperties = sdktypes.SecurityRulePropertiesRequest{
+			Direction: current.Properties.Direction,
+			Protocol:  current.Properties.Protocol,
+			Port:      current.Properties.Port,
+			Target:    current.Properties.Target,
+		}
+	}
+
 	updateRequest := sdktypes.SecurityRuleRequest{
 		Metadata: sdktypes.RegionalResourceMetadataRequest{
 			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
@@ -676,13 +949,7 @@ func (r *SecurityRuleResource) Update(ctx context.Context, req resource.UpdateRe
 				Value: regionValue,
 			},
 		},
-		Properties: sdktypes.SecurityRulePropertiesRequest{
-			// Properties cannot be updated - use current values from API response
-			Direction: current.Properties.Direction,
-			Protocol:  current.Properties.Protocol,
-			Port:      current.Properties.Port,
-			Target:    current.Properties.Target,
-		},
+		Properties: updateProperties,
 	}
 
 	// Log the update request for debugging

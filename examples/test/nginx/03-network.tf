@@ -15,19 +15,19 @@ resource "arubacloud_subnet" "test" {
   location   = "ITBG-Bergamo"
   project_id = arubacloud_project.test.id
   vpc_id     = arubacloud_vpc.test.id
-  type       = "Advanced"  # Required: "Basic" or "Advanced"
-  network = {
-    address = "10.0.1.0/24"  # CIDR notation
-    dhcp = {
-      enabled = true  # Required for Advanced type subnets
-      range = {
-        start = "10.0.1.10"
-        count = 100
-      }
-      routes = []
-      dns = ["8.8.8.8", "8.8.4.4"]
-    }
-  }
+  type       = "Basic"  # Required: "Basic" or "Advanced"
+#  network = {
+#    address = "10.0.1.0/24"  # CIDR notation
+#    dhcp = {
+#      enabled = true  # Required for Advanced type subnets
+#      range = {
+#        start = "10.0.1.10"
+#        count = 100
+#      }
+#      routes = []
+#      dns = ["8.8.8.8", "8.8.4.4"]
+#    }
+#  }
   tags = ["network", "test", "updated"]
 }
 
@@ -81,6 +81,25 @@ resource "arubacloud_securityrule" "ssh" {
     direction = "Ingress"
     protocol  = "TCP"
     port      = "22"
+    target = {
+      kind  = "Ip"
+      value = "0.0.0.0/0"
+    }
+  }
+}
+
+# Security Rule - Allow all outbound traffic (default egress)
+resource "arubacloud_securityrule" "default_egress" {
+  name              = "test-default-egress-rule"
+  location          = "ITBG-Bergamo"
+  project_id        = arubacloud_project.test.id
+  vpc_id            = arubacloud_vpc.test.id
+  security_group_id = arubacloud_securitygroup.test.id
+#  tags              = ["security", "test", "egress"]
+  properties = {
+    direction = "Egress"
+    protocol  = "ANY"
+    port      = "*"  # Will be automatically ignored for ANY/ICMP protocols
     target = {
       kind  = "Ip"
       value = "0.0.0.0/0"

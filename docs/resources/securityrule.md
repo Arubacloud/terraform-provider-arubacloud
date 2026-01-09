@@ -13,8 +13,9 @@ description: |-
 ---
 
 ```terraform
-resource "arubacloud_securityrule" "example" {
-  name              = "example-security-rule"
+# Example: Ingress rule allowing HTTP traffic
+resource "arubacloud_securityrule" "http" {
+  name              = "example-http-rule"
   location          = "ITBG-Bergamo"
   project_id        = "example-project-id"
   vpc_id            = "example-vpc-id"
@@ -26,6 +27,25 @@ resource "arubacloud_securityrule" "example" {
     port      = "80"
     target = {
       kind  = "Ip"
+      value = "0.0.0.0/0"
+    }
+  }
+}
+
+# Example: Egress rule allowing all outbound traffic
+# Note: For ANY/ICMP protocols, the port field is automatically omitted
+resource "arubacloud_securityrule" "egress_all" {
+  name              = "example-egress-all"
+  location          = "ITBG-Bergamo"
+  project_id        = "example-project-id"
+  vpc_id            = "example-vpc-id"
+  security_group_id = "example-security-group-id"
+  properties = {
+    direction = "Egress"
+    protocol  = "ANY"  # Case-insensitive: ANY, any, Any all work
+    port      = "*"    # Automatically omitted for ANY/ICMP protocols
+    target = {
+      kind  = "Ip"     # Case-insensitive: Ip, IP, ip all normalized to IP
       value = "0.0.0.0/0"
     }
   }
@@ -68,19 +88,19 @@ In addition to all arguments above, the following attributes are exported:
 Required:
 
 - `direction` (String) Direction of the rule (Ingress/Egress)
-- `protocol` (String) Protocol (ANY, TCP, UDP, ICMP)
+- `protocol` (String) Protocol (ANY, TCP, UDP, ICMP). Case-insensitive - values are automatically normalized (e.g., "ANY" → "Any", "tcp" → "TCP")
 - `target` (Attributes) Target of the rule (source or destination) (see [below for nested schema](#nestedatt--properties--target))
 
 Optional:
 
-- `port` (String) Port or port range (for TCP/UDP)
+- `port` (String) Port or port range (for TCP/UDP). Automatically omitted from API requests when protocol is ANY or ICMP
 
 <a id="nestedatt--properties--target"></a>
 ### Nested Schema for `properties.target`
 
 Required:
 
-- `kind` (String) Type of the target (Ip/SecurityGroup)
+- `kind` (String) Type of the target (Ip/SecurityGroup). Case-insensitive - values are automatically normalized (e.g., "Ip" → "IP", "ip" → "IP")
 - `value` (String) Value of the target (CIDR or SecurityGroup URI)
 
 

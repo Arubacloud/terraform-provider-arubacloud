@@ -26,6 +26,13 @@ resource "arubacloud_cloudserver" "test" {
   subnet_uri_refs       = [arubacloud_subnet.test.uri]               # URI reference
   securitygroup_uri_refs = [arubacloud_securitygroup.test.uri]        # URI reference
   tags                  = ["compute", "test"]
+  
+  # Ensure all security rules are created before the cloudserver
+  depends_on = [
+    arubacloud_securityrule.test,
+    arubacloud_securityrule.ssh,
+    arubacloud_securityrule.default_egress
+  ]
 }
 
 #output "keypair_id" {

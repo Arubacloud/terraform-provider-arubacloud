@@ -101,6 +101,8 @@ resource "arubacloud_securitygroup" "example2" {
 }
 
 ## Security Rule
+# Note: Protocol and target.kind values are case-insensitive and automatically normalized
+# Port field is automatically omitted for ANY/ICMP protocols
 resource "arubacloud_securityrule" "example" {
   name              = "example-security-rule"
   location          = "ITBG-Bergamo"
@@ -110,10 +112,10 @@ resource "arubacloud_securityrule" "example" {
   tags              = ["security", "example"]
   properties = {
     direction = "Ingress"
-    protocol  = "TCP"
+    protocol  = "TCP"  # Case-insensitive: TCP, tcp, Tcp all work
     port      = "80"
     target = {
-      kind  = "Ip"
+      kind  = "Ip"     # Case-insensitive: Ip, IP, ip all normalized to IP
       value = "0.0.0.0/0"
     }
   }
