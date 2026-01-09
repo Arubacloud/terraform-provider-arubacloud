@@ -33,7 +33,7 @@ resource "arubacloud_securityrule" "http" {
 }
 
 # Example: Egress rule allowing all outbound traffic
-# Note: For ANY/ICMP protocols, the port field is automatically omitted
+# Note: For ANY/ICMP protocols, the port field is automatically omitted from the API request
 resource "arubacloud_securityrule" "egress_all" {
   name              = "example-egress-all"
   location          = "ITBG-Bergamo"
@@ -88,19 +88,19 @@ In addition to all arguments above, the following attributes are exported:
 Required:
 
 - `direction` (String) Direction of the rule (Ingress/Egress)
-- `protocol` (String) Protocol (ANY, TCP, UDP, ICMP). Case-insensitive - values are automatically normalized (e.g., "ANY" → "Any", "tcp" → "TCP")
+- `protocol` (String) Protocol (ANY, TCP, UDP, ICMP)
 - `target` (Attributes) Target of the rule (source or destination) (see [below for nested schema](#nestedatt--properties--target))
 
 Optional:
 
-- `port` (String) Port or port range (for TCP/UDP). Automatically omitted from API requests when protocol is ANY or ICMP
+- `port` (String) Port or port range (for TCP/UDP)
 
 <a id="nestedatt--properties--target"></a>
 ### Nested Schema for `properties.target`
 
 Required:
 
-- `kind` (String) Type of the target (Ip/SecurityGroup). Case-insensitive - values are automatically normalized (e.g., "Ip" → "IP", "ip" → "IP")
+- `kind` (String) Type of the target (Ip/SecurityGroup)
 - `value` (String) Value of the target (CIDR or SecurityGroup URI)
 
 
