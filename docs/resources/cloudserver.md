@@ -24,6 +24,7 @@ resource "arubacloud_cloudserver" "basic" {
   subnet_uri_refs       = [arubacloud_subnet.example.uri]
   securitygroup_uri_refs = [arubacloud_securitygroup.example.uri]
   tags                  = ["compute", "example"]
+  user_data             = file("cloud-init.yaml")  # Optional: cloud-init user data (automatically base64-encoded)
 }
 ```
 
@@ -52,6 +53,7 @@ The following arguments are supported:
 - `elastic_ip_uri_ref` (String) URI reference to the Elastic IP. Should be the Elastic IP URI. You can reference the `uri` attribute from an `arubacloud_elasticip` resource.
 - `key_pair_uri_ref` (String) URI reference to the Key Pair. Should be the Key Pair URI. You can reference the `uri` attribute from an `arubacloud_keypair` resource.
 - `tags` (List of String) List of tags for the Cloud Server
+- `user_data` (String, Sensitive) Cloud-Init user data to use during server creation. This is the content of a cloud-init YAML file that will be used to bootstrap the cloud server. The content will be automatically base64-encoded by the provider before being sent to the API. You can use Terraform's `file()` function to read a cloud-init YAML file: `user_data = file("cloud-init.yaml")`.
 
 ### Attributes Reference
 

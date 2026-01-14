@@ -5,6 +5,7 @@ package provider
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
@@ -34,6 +35,7 @@ type CloudServerResourceModel struct {
 	SubnetUriRefs        types.List   `tfsdk:"subnet_uri_refs"`
 	SecurityGroupUriRefs types.List   `tfsdk:"securitygroup_uri_refs"`
 	Tags                 types.List   `tfsdk:"tags"`
+	UserData             types.String `tfsdk:"user_data"`
 }
 
 type CloudServerResource struct {
@@ -133,6 +135,11 @@ func (r *CloudServerResource) Schema(ctx context.Context, req resource.SchemaReq
 				ElementType:         types.StringType,
 				MarkdownDescription: "List of tags for the Cloud Server",
 				Optional:            true,
+			},
+			"user_data": schema.StringAttribute{
+				MarkdownDescription: "Cloud-Init user data to use during server creation. This is the content of a cloud-init YAML file that will be used to bootstrap the cloud server. The content will be automatically base64-encoded by the provider before being sent to the API.",
+				Optional:            true,
+				Sensitive:           true,
 			},
 		},
 	}
@@ -261,6 +268,13 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 		createRequest.Properties.ElastcIP = sdktypes.ReferenceResource{
 			URI: data.ElasticIpUriRef.ValueString(),
 		}
+	}
+
+	// Add user data if provided (automatically base64-encode the cloud-init content)
+	if !data.UserData.IsNull() && !data.UserData.IsUnknown() {
+		userDataRaw := data.UserData.ValueString()
+		userDataEncoded := base64.StdEncoding.EncodeToString([]byte(userDataRaw))
+		createRequest.Properties.UserData = &userDataEncoded
 	}
 
 	// Create the cloud server using the SDK
@@ -653,6 +667,8 @@ func (r *CloudServerResource) Update(ctx context.Context, req resource.UpdateReq
 	if data.ElasticIpUriRef.IsNull() || data.ElasticIpUriRef.IsUnknown() {
 		data.ElasticIpUriRef = state.ElasticIpUriRef
 	}
+	// Preserve user_data from state (it's only used during creation, not returned by API)
+	data.UserData = state.UserData
 
 	// Note: CloudServer uses name as ID and response doesn't have Metadata.ID
 	// ID is already set from state above
