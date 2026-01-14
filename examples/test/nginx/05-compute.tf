@@ -9,12 +9,96 @@ resource "arubacloud_keypair" "test" {
   value      = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCzZB11JRKjbPO/1wAtJ/9+/xQtndp61EWo1T2GhIVJO0eiBbUoufdhX989hAyE0JlyGjvDloe0c8S1sK8NAeLEx/jaKwsbHMQGxkusoBFUQDGWlREsHRHn7/78Wbra45ZJi6r9uizao7HDtoq0GCB6DfleOpKMLjOLHv9NaH0Hm119ZztHIqrmWmc25e27Evy3Nht9hX0Yb/OsEWcWBKhVv6SXGdB7SCXKYIPj7357bLpb4SdW9RxQA40bjlEFtPSqZ3HNXZ7yrUZXQWtrVkpia51nR088Jz0rMlmLgH+RPTDtj8CcI/E6QgsKXfrlxswbl3cT41qZVHi0+hNxE9vg+MSAVuYKgyWWFU7qlQCvmKmDPDjivBaFn7Aaz9qw71brpIeNXRwNiEbHy2+2+A0X8iIbc1Ca3RdVQ2rBLRXQDhNMi2syJkyty0ZTiLSNt+rhl4JgFZBz88q7b34MezNNNP7HX4oG+XpwjUe4KzDjk8EbBfxiPlLy7xkBioxRe+E="
 }
 
+# Local variables for server configuration (avoids circular dependencies)
+locals {
+  server_name = "test-cloudserver"
+}
+
+# Cloud-init configuration for automated nginx setup - COMMENTED OUT (not working)
+# Using templatefile-style interpolation with local variables
+# locals {
+#   cloud_init_config = <<-EOF
+#     #cloud-config
+#     package_update: true
+#     package_upgrade: true
+#     packages:
+#       - nginx
+#       - curl
+#     runcmd:
+#       - systemctl enable nginx
+#       - systemctl start nginx
+#       - |
+#         cat > /var/www/html/index.html <<HTML
+#         <!DOCTYPE html>
+#         <html>
+#         <head>
+#             <title>ArubaCloud CloudServer</title>
+#             <style>
+#                 body {
+#                     font-family: Arial, sans-serif;
+#                     max-width: 800px;
+#                     margin: 50px auto;
+#                     padding: 20px;
+#                     background-color: #f5f5f5;
+#                 }
+#                 .container {
+#                     background-color: white;
+#                     padding: 30px;
+#                     border-radius: 8px;
+#                     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+#                 }
+#                 h1 {
+#                     color: #0066cc;
+#                 }
+#                 .info {
+#                     margin: 10px 0;
+#                     padding: 10px;
+#                     background-color: #f0f8ff;
+#                     border-left: 4px solid #0066cc;
+#                 }
+#             </style>
+#         </head>
+#         <body>
+#             <div class="container">
+#                 <h1>🚀 Hello from ArubaCloud CloudServer!</h1>
+#                 <div class="info">
+#                     <strong>Server:</strong> ${local.server_name}
+#                 </div>
+#                 <div class="info">
+#                     <strong>Public IP:</strong> ${arubacloud_elasticip.test.address}
+#                 </div>
+#                 <div class="info">
+#                     <strong>Provisioned with:</strong> cloud-init
+#                 </div>
+#                 <p>✅ Nginx is running successfully!</p>
+#                 <p><em>This page was automatically configured using cloud-init during instance creation.</em></p>
+#             </div>
+#         </body>
+#         </html>
+#         HTML
+#     write_files:
+#       - path: /etc/nginx/sites-available/default
+#         content: |
+#           server {
+#               listen 80 default_server;
+#               listen [::]:80 default_server;
+#               root /var/www/html;
+#               index index.html index.htm;
+#               server_name _;
+#               location / {
+#                   try_files $$uri $$uri/ =404;
+#               }
+#           }
+#     final_message: "Cloud-init setup completed successfully. Nginx is ready!"
+#   EOF
+# }
+
 # Cloud Server - Virtual machine instance
 # Note: vpc_uri_ref, subnet_uri_refs, securitygroup_uri_refs, key_pair_uri_ref, and elastic_ip_uri_ref use URI references
 # The boot_volume_uri_ref field should reference a bootable block storage URI (created with bootable=true and image set)
-# Note: Provisioner has been moved to 06-provisioning.tf to separate it from the CloudServer lifecycle
+# Using SSH provisioner for nginx installation (see 06-provisioning.tf)
 resource "arubacloud_cloudserver" "test" {
-  name                  = "test-cloudserver"
+  name                  = local.server_name
   location              = "ITBG-Bergamo"  # Change to your region
   project_id            = arubacloud_project.test.id
   zone                  = "ITBG-1"  # Change to your zone
@@ -26,8 +110,7 @@ resource "arubacloud_cloudserver" "test" {
   subnet_uri_refs       = [arubacloud_subnet.test.uri]               # URI reference
   securitygroup_uri_refs = [arubacloud_securitygroup.test.uri]        # URI reference
   tags                  = ["compute", "test"]
-  # Optional: cloud-init user data for bootstrapping (automatically base64-encoded)
-  # user_data             = file("cloud-init.yaml")
+  # user_data             = base64encode(local.cloud_init_config)      # Cloud-init configuration - COMMENTED OUT (not working)
   
   # Ensure all security rules are created before the cloudserver
   depends_on = [
@@ -37,28 +120,5 @@ resource "arubacloud_cloudserver" "test" {
   ]
 }
 
-#output "keypair_id" {
-#  value       = arubacloud_keypair.test.id
-#  description = "The ID of the created keypair"
-#}
 
-#output "cloudserver_id" {
-#  value       = arubacloud_cloudserver.test.id
-#  description = "The ID of the created cloud server"
-#}
-
-#output "cloudserver_public_ip" {
-#  value       = arubacloud_elasticip.test.address
-#  description = "The public IP address of the cloud server (from associated Elastic IP)"
-#}
-
-output "nginx_test_command" {
-  value       = "curl http://${arubacloud_elasticip.test.address}:80"
-  description = "Command to test nginx on the cloud server"
-}
-
-output "nginx_url" {
-  value       = "http://${arubacloud_elasticip.test.address}"
-  description = "URL to access nginx on the cloud server"
-}
 

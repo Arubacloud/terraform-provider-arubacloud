@@ -13,12 +13,14 @@ This Terraform configuration:
 ## Features
 
 ### Automatic Nginx Installation
-The CloudServer configuration includes a `remote-exec` provisioner that:
+The example uses a `null_resource` with SSH `remote-exec` provisioner (defined in `06-provisioning.tf`) that:
 - Waits for cloud-init to complete
 - Updates package lists
 - Installs nginx
 - Enables and starts nginx service
 - Creates a custom welcome page with server information
+
+**Note**: A cloud-init implementation is available but commented out in `05-compute.tf` for reference.
 
 ### Network Security
 Security rules configured to allow:
@@ -42,12 +44,12 @@ arubacloud_api_secret = "your-api-secret"
 
 ### 2. SSH Key
 Make sure you have an SSH private key at `~/.ssh/id_rsa` that corresponds to the public key in the keypair resource (defined in `05-compute.tf`).
-- Update the path in the `connection` block if your key is elsewhere
-- The public key in the example is: `ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEA2No7At0t...`
+- Update the path in the `connection` block (in `06-provisioning.tf`) if your key is elsewhere
+- Update the public key value in `05-compute.tf` to match your SSH public key
 
 ### 3. OS User
-The provisioner uses `root` user by default.
-- Update the `user` field in the `connection` block if your image uses a different default user (e.g., `ubuntu`, `debian`, `centos`)
+The provisioner uses `ubuntu` user by default.
+- Update the `user` field in the `connection` block (in `06-provisioning.tf`) if your image uses a different default user (e.g., `root`, `debian`, `centos`)
 
 ### 4. Provider Binary
 Build the provider if not already built:
@@ -103,22 +105,34 @@ When you curl or visit the URL, you should see:
 
 ## File Structure
 
+- `00-variables.tf` - Input variable declarations for API credentials
 - `01-provider.tf` - Provider configuration with credentials
 - `02-project.tf` - Project resource
-- `03-network.tf` - VPC, Subnet, Security Groups, Elastic IP, Security Rules
-- `04-storage.tf` - Block storage volumes (boot and data disks)
-- `05-compute.tf` - Keypair and CloudServer with nginx provisioner
+- `03-main.tf` - Terraform required providers configuration
+- `04-network.tf` - VPC, Subnet, Security Groups, Elastic IP, Security Rules
+- `05-compute.tf` - Keypair and CloudServer resources (cloud-init config commented out)
+- `06-provisioning.tf` - Null resource with SSH provisioner for nginx installation
+- `06-storage.tf` - Block storage volumes (boot and data disks)
+- `07-output.tf` - Output definitions (elastic IP, nginx URL, test command)
 - `terraform.tfvars` - Your credentials (create this file)
 
 ## Configuration Details
 
+### Step 0: Variables
+Defines input variables for the ArubaCloud API credentials (`arubacloud_api_key` and `arubacloud_api_secret`), marked as sensitive.
+
 ### Step 1: Provider Configuration
-Configure the ArubaCloud provider with your API credentials and default settings.
+Configure the ArubaCloud provider with your API credentials and default settings, using the variables defined in `00-variables.tf`.
 
 ### Step 2: Project
 Creates an ArubaCloud project that will contain all resources.
 
-### Step 3: Network Resources
+### Step 3: Main Configuration
+Specifies required Terraform providers:
+- `arubacloud` provider (local development version)
+- `null` provider for provisioning resources
+
+### Step 4: Network Resources
 Creates:
 - VPC (Virtual Private Cloud)
 - Subnet with DHCP configuration
@@ -126,42 +140,55 @@ Creates:
 - Elastic IP (public IP address)
 - Security Rules (HTTP on port 80, SSH on port 22)
 
-### Step 4: Storage
-Creates:
-- Boot disk (100GB, bootable, with Ubuntu 22.04 image)
-- Data disk (50GB, non-bootable)
-
 ### Step 5: Compute
 Creates:
 - SSH keypair for server access
 - CloudServer (4 CPU, 8GB RAM)
-- Provisioner to install nginx automatically
+
+### Step 6: Provisioning
+Uses a null_resource with SSH provisioner to install nginx automatically after the CloudServer is created.
+
+**Alternative approach**: A cloud-init configuration is available but commented out in `05-compute.tf`. To use cloud-init instead:
+1. Uncomment the `cloud_init_config` locals block in `05-compute.tf`
+2. Uncomment the `user_data` line in the `arubacloud_cloudserver` resource
+3. Comment out or remove the `null_resource` in `06-provisioning.tf`
+
+### Step 6 (Storage): Storage Resources
+Creates:
+- Boot disk (100GB, bootable, with Ubuntu 22.04 image)
+- Data disk (50GB, non-bootable)
+
+### Step 7: Outputs
+Defines output values that are displayed after `terraform apply`:
+- `elastic_ip_address`: The public IP address assigned to the server
+- `nginx_test_command`: Ready-to-use curl command to test nginx
+- `nginx_url`: Direct URL to access in your browser
 
 ## Customization
 
 ### Change the Welcome Page
-Edit the `echo` commands in `05-compute.tf`:
+Edit the `echo` commands in `06-provisioning.tf`:
 ```hcl
-"echo '<h1>Your Custom Message!</h1>' > /var/www/html/index.html",
+"echo '<h1>Your Custom Message!</h1>' | sudo tee /var/www/html/index.html",
 ```
 
 ### Install Additional Packages
-Add more `apt-get install` commands:
+Add more `apt-get install` commands in `06-provisioning.tf`:
 ```hcl
-"apt-get install -y nginx git nodejs npm",
+"sudo apt-get install -y nginx git nodejs npm",
 ```
 
 ### Deploy Your Application
-Add commands to clone and deploy:
+Modify the provisioner inline commands in `06-provisioning.tf`:
 ```hcl
 provisioner "remote-exec" {
   inline = [
     "sleep 30",
-    "apt-get update",
-    "apt-get install -y nginx git",
+    "sudo apt-get update",
+    "sudo apt-get install -y nginx git",
     "git clone https://github.com/your/repo.git /var/www/html",
-    "systemctl enable nginx",
-    "systemctl start nginx"
+    "sudo systemctl enable nginx",
+    "sudo systemctl start nginx"
   ]
 }
 ```
@@ -190,7 +217,7 @@ Update the `location` and `zone` values in all `.tf` files:
 
 ### Cannot Access Nginx
 - Ensure port 80 (HTTP) security rule is applied and active
-- Check nginx is running: `ssh root@<elastic-ip> systemctl status nginx`
+- Check nginx is running: `ssh ubuntu@<elastic-ip> sudo systemctl status nginx`
 - Verify the elastic IP is correctly associated with the CloudServer
 - Check your local firewall isn't blocking outbound port 80
 

@@ -59,28 +59,3 @@ resource "arubacloud_blockstorage" "boot_disk" {
 #  tags       = ["restore", "boot", "test"]
 #}
 
-# Outputs
-#output "data_disk_id" {
-#  value       = arubacloud_blockstorage.data_disk.id
-#  description = "The ID of the data disk"
-#}
-
-#output "boot_disk_id" {
-#  value       = arubacloud_blockstorage.boot_disk.id
-#  description = "The ID of the boot disk"
-#}
-
-#output "snapshot_id" {
-#  value       = arubacloud_snapshot.data_disk_snapshot.id
-#  description = "The ID of the boot disk snapshot"
-#}
-
-#output "backup_id" {
-#  value       = arubacloud_backup.boot_disk_backup.id
-#  description = "The ID of the boot disk backup"
-#}
-
-#output "restore_id" {
-#  value       = arubacloud_restore.boot_disk_restore.id
-#  description = "The ID of the restore operation"
-#}

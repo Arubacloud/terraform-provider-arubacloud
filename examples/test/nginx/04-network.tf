@@ -106,29 +106,3 @@ resource "arubacloud_securityrule" "default_egress" {
     }
   }
 }
-
-#output "vpc_id" {
-#  value       = arubacloud_vpc.test.id
-#  description = "The ID of the created VPC"
-#}
-
-#output "subnet_id" {
-#  value       = arubacloud_subnet.test.id
-#  description = "The ID of the created subnet"
-#}
-
-#output "security_group_id" {
-#  value       = arubacloud_securitygroup.test.id
-#  description = "The ID of the created security group"
-#}
-
-#output "elastic_ip_id" {
-#  value       = arubacloud_elasticip.test.id
-#  description = "The ID of the created Elastic IP"
-#}
-
-#output "elastic_ip_address" {
-#  value       = arubacloud_elasticip.test.address
-#  description = "The IP address of the created Elastic IP (computed from ElasticIpPropertiesResponse)"
-#}
-
