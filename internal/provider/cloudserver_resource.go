@@ -5,7 +5,6 @@ package provider
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
@@ -137,7 +136,7 @@ func (r *CloudServerResource) Schema(ctx context.Context, req resource.SchemaReq
 				Optional:            true,
 			},
 			"user_data": schema.StringAttribute{
-				MarkdownDescription: "Cloud-Init user data to use during server creation. This is the content of a cloud-init YAML file that will be used to bootstrap the cloud server. The content will be automatically base64-encoded by the provider before being sent to the API.",
+				MarkdownDescription: "Cloud-Init user data to use during server creation. This is the content of a cloud-init YAML file that will be used to bootstrap the cloud server. The content should be provided as raw cloud-init YAML (not base64-encoded).",
 				Optional:            true,
 				Sensitive:           true,
 			},
@@ -270,11 +269,10 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 		}
 	}
 
-	// Add user data if provided (automatically base64-encode the cloud-init content)
+	// Add user data if provided (send raw cloud-init content, SDK handles encoding if needed)
 	if !data.UserData.IsNull() && !data.UserData.IsUnknown() {
 		userDataRaw := data.UserData.ValueString()
-		userDataEncoded := base64.StdEncoding.EncodeToString([]byte(userDataRaw))
-		createRequest.Properties.UserData = &userDataEncoded
+		createRequest.Properties.UserData = &userDataRaw
 	}
 
 	// Create the cloud server using the SDK

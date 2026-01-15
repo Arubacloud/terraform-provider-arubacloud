@@ -13,14 +13,17 @@ This Terraform configuration:
 ## Features
 
 ### Automatic Nginx Installation
-The example uses a `null_resource` with SSH `remote-exec` provisioner (defined in `06-provisioning.tf`) that:
-- Waits for cloud-init to complete
-- Updates package lists
-- Installs nginx
-- Enables and starts nginx service
-- Creates a custom welcome page with server information
+The example uses **cloud-init** (`user_data`) to automatically:
+- Update package lists and upgrade system packages
+- Install nginx and curl
+- Enable and start nginx service
+- Create a custom welcome page with server information
+- Configure nginx with UTF-8 charset support for proper character encoding
 
-**Note**: A cloud-init implementation is available but commented out in `05-compute.tf` for reference.
+The cloud-init configuration includes:
+- **UTF-8 charset** in both the HTML meta tag and nginx configuration for proper emoji and special character display
+- **Proper HTML structure** with semantic markup
+- **Automated service management** via systemd
 
 ### Network Security
 Security rules configured to allow:
@@ -42,14 +45,9 @@ arubacloud_api_key    = "your-api-key"
 arubacloud_api_secret = "your-api-secret"
 ```
 
-### 2. SSH Key
-Make sure you have an SSH private key at `~/.ssh/id_rsa` that corresponds to the public key in the keypair resource (defined in `05-compute.tf`).
-- Update the path in the `connection` block (in `06-provisioning.tf`) if your key is elsewhere
+### 2. SSH Key (Optional)
+If you want to SSH into the server after deployment, make sure you have an SSH private key that corresponds to the public key in the keypair resource (defined in `05-compute.tf`).
 - Update the public key value in `05-compute.tf` to match your SSH public key
-
-### 3. OS User
-The provisioner uses `ubuntu` user by default.
-- Update the `user` field in the `connection` block (in `06-provisioning.tf`) if your image uses a different default user (e.g., `root`, `debian`, `centos`)
 
 ### 4. Provider Binary
 Build the provider if not already built:
@@ -96,12 +94,13 @@ go build -o terraform-provider-arubacloud
 
 ## Expected Output
 
-When you curl or visit the URL, you should see:
-```html
-<h1>Hello from ArubaCloud CloudServer!</h1>
-<p>Server: test-cloudserver</p>
-<p>Public IP: <your-elastic-ip></p>
-```
+When you curl or visit the URL, you should see a nicely formatted HTML page with:
+- 🚀 Hello from ArubaCloud CloudServer!
+- Server name: test-cloudserver
+- Provisioned with: cloud-init (user_data)
+- ✅ Nginx is running successfully!
+
+The page uses UTF-8 encoding, so emojis and special characters display correctly.
 
 ## File Structure
 
@@ -110,8 +109,7 @@ When you curl or visit the URL, you should see:
 - `02-project.tf` - Project resource
 - `03-main.tf` - Terraform required providers configuration
 - `04-network.tf` - VPC, Subnet, Security Groups, Elastic IP, Security Rules
-- `05-compute.tf` - Keypair and CloudServer resources (cloud-init config commented out)
-- `06-provisioning.tf` - Null resource with SSH provisioner for nginx installation
+- `05-compute.tf` - Keypair and CloudServer resources with cloud-init user_data
 - `06-storage.tf` - Block storage volumes (boot and data disks)
 - `07-output.tf` - Output definitions (elastic IP, nginx URL, test command)
 - `terraform.tfvars` - Your credentials (create this file)
@@ -130,7 +128,6 @@ Creates an ArubaCloud project that will contain all resources.
 ### Step 3: Main Configuration
 Specifies required Terraform providers:
 - `arubacloud` provider (local development version)
-- `null` provider for provisioning resources
 
 ### Step 4: Network Resources
 Creates:
@@ -143,15 +140,16 @@ Creates:
 ### Step 5: Compute
 Creates:
 - SSH keypair for server access
-- CloudServer (4 CPU, 8GB RAM)
+- CloudServer (4 CPU, 8GB RAM) with cloud-init user_data for automated nginx installation
 
-### Step 6: Provisioning
-Uses a null_resource with SSH provisioner to install nginx automatically after the CloudServer is created.
+The cloud-init configuration (`user_data`) automatically:
+- Updates and upgrades system packages
+- Installs nginx and curl
+- Configures nginx with UTF-8 charset support
+- Creates a welcome page with proper HTML structure and UTF-8 encoding
+- Enables and starts the nginx service
 
-**Alternative approach**: A cloud-init configuration is available but commented out in `05-compute.tf`. To use cloud-init instead:
-1. Uncomment the `cloud_init_config` locals block in `05-compute.tf`
-2. Uncomment the `user_data` line in the `arubacloud_cloudserver` resource
-3. Comment out or remove the `null_resource` in `06-provisioning.tf`
+**Best Practice**: The cloud-init configuration includes UTF-8 charset settings in both the HTML meta tag (`<meta charset="UTF-8">`) and nginx configuration (`charset utf-8;`) to ensure proper display of emojis and special characters.
 
 ### Step 6 (Storage): Storage Resources
 Creates:
@@ -167,30 +165,61 @@ Defines output values that are displayed after `terraform apply`:
 ## Customization
 
 ### Change the Welcome Page
-Edit the `echo` commands in `06-provisioning.tf`:
+Edit the HTML content in the `cloud_init_config` local variable in `05-compute.tf`:
 ```hcl
-"echo '<h1>Your Custom Message!</h1>' | sudo tee /var/www/html/index.html",
+cloud_init_config = <<-EOF
+  #cloud-config
+  runcmd:
+    - |
+      cat > /var/www/html/index.html <<'HTML'
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+          <meta charset="UTF-8">
+          <title>Your Custom Page</title>
+      </head>
+      <body>
+          <h1>Your Custom Message!</h1>
+      </body>
+      </html>
+      HTML
+EOF
 ```
 
+**Important**: Always include `<meta charset="UTF-8">` in your HTML for proper character encoding.
+
 ### Install Additional Packages
-Add more `apt-get install` commands in `06-provisioning.tf`:
+Add packages to the `packages` list in the `cloud_init_config`:
 ```hcl
-"sudo apt-get install -y nginx git nodejs npm",
+packages:
+  - nginx
+  - curl
+  - git
+  - nodejs
+  - npm
 ```
 
 ### Deploy Your Application
-Modify the provisioner inline commands in `06-provisioning.tf`:
+Add commands to the `runcmd` section in `05-compute.tf`:
 ```hcl
-provisioner "remote-exec" {
-  inline = [
-    "sleep 30",
-    "sudo apt-get update",
-    "sudo apt-get install -y nginx git",
-    "git clone https://github.com/your/repo.git /var/www/html",
-    "sudo systemctl enable nginx",
-    "sudo systemctl start nginx"
-  ]
-}
+runcmd:
+  - git clone https://github.com/your/repo.git /var/www/html
+  - systemctl enable nginx
+  - systemctl start nginx
+```
+
+### Configure Nginx with UTF-8 Support
+When creating nginx configuration files via `write_files`, always include `charset utf-8;`:
+```hcl
+write_files:
+  - path: /etc/nginx/sites-available/default
+    content: |
+      server {
+          listen 80;
+          charset utf-8;  # Important for proper character encoding
+          root /var/www/html;
+          # ... rest of config
+      }
 ```
 
 ### Change Region/Zone
@@ -207,19 +236,24 @@ Update the `location` and `zone` values in all `.tf` files:
 - Check if the Elastic IP is properly associated
 
 ### Package Installation Fails
-- Increase the sleep time if cloud-init needs more time (change from 30 to 60 seconds)
-- Check the OS image supports apt-get (Debian/Ubuntu)
-- For CentOS/RHEL, replace `apt-get` with `yum`:
-  ```hcl
-  "yum update -y",
-  "yum install -y nginx",
+- Check cloud-init logs: `sudo cat /var/log/cloud-init-output.log`
+- Verify the OS image supports apt-get (Debian/Ubuntu)
+- For CentOS/RHEL, update the cloud-init config to use `yum`:
+  ```yaml
+  packages:
+    - nginx
+  runcmd:
+    - yum update -y
+    - yum install -y nginx
   ```
 
 ### Cannot Access Nginx
 - Ensure port 80 (HTTP) security rule is applied and active
-- Check nginx is running: `ssh ubuntu@<elastic-ip> sudo systemctl status nginx`
+- Check cloud-init status: `cloud-init status` (should show "done")
+- Check nginx is running: `sudo systemctl status nginx`
 - Verify the elastic IP is correctly associated with the CloudServer
 - Check your local firewall isn't blocking outbound port 80
+- View cloud-init logs: `sudo cat /var/log/cloud-init-output.log`
 
 ### CloudServer Takes Too Long
 - The provider automatically waits for resources to become active
@@ -231,7 +265,8 @@ Update the `location` and `zone` values in all `.tf` files:
 1. **Resource Dependencies**: Resources automatically wait for dependencies to be active
 2. **Timeouts**: Default timeout is 10 minutes, configurable in the provider block
 3. **Cost**: This example provisions paid resources. Remember to destroy when done testing
-4. **SSH Access**: The provisioner requires SSH access to work. The server must be accessible from your machine
+4. **Cloud-init**: The server is automatically configured via cloud-init. No SSH access is required for provisioning
+5. **UTF-8 Encoding**: The example includes UTF-8 charset settings for proper display of emojis and special characters
 
 ## Cleanup
 

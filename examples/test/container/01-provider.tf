@@ -6,3 +6,8 @@ terraform {
     }
   }
 }
+
+provider "arubacloud" {
+  api_key    = var.arubacloud_api_key
+  api_secret = var.arubacloud_api_secret
+}

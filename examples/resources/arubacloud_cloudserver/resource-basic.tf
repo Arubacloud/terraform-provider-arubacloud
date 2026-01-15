@@ -11,6 +11,6 @@ resource "arubacloud_cloudserver" "basic" {
   subnet_uri_refs       = [arubacloud_subnet.example.uri]
   securitygroup_uri_refs = [arubacloud_securitygroup.example.uri]
   tags                  = ["compute", "example"]
-  # Optional: cloud-init user data for bootstrapping (automatically base64-encoded)
+  # Optional: cloud-init user data for bootstrapping (raw cloud-init YAML content)
   # user_data             = file("cloud-init.yaml")
 }

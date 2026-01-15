@@ -24,8 +24,52 @@ resource "arubacloud_cloudserver" "basic" {
   subnet_uri_refs       = [arubacloud_subnet.example.uri]
   securitygroup_uri_refs = [arubacloud_securitygroup.example.uri]
   tags                  = ["compute", "example"]
-  # Optional: cloud-init user data for bootstrapping (automatically base64-encoded)
+  # Optional: cloud-init user data for bootstrapping (raw cloud-init YAML content)
   # user_data             = file("cloud-init.yaml")
+}
+```
+
+### Example with Cloud-Init User Data
+
+```terraform
+locals {
+  cloud_init_config = <<-EOF
+    #cloud-config
+    package_update: true
+    package_upgrade: true
+    packages:
+      - nginx
+    write_files:
+      - path: /etc/nginx/sites-available/default
+        content: |
+          server {
+              listen 80;
+              charset utf-8;  # Important for UTF-8 encoding
+              root /var/www/html;
+              index index.html;
+          }
+    runcmd:
+      - |
+        cat > /var/www/html/index.html <<'HTML'
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">  # Important for UTF-8 encoding
+            <title>My Server</title>
+        </head>
+        <body>
+            <h1>🚀 Hello World!</h1>
+        </body>
+        </html>
+        HTML
+      - systemctl enable nginx
+      - systemctl start nginx
+  EOF
+}
+
+resource "arubacloud_cloudserver" "example" {
+  # ... other configuration ...
+  user_data = local.cloud_init_config
 }
 ```
 
@@ -49,7 +93,13 @@ resource "arubacloud_cloudserver" "basic" {
 - `elastic_ip_uri_ref` (String) URI reference to the Elastic IP. Should be the Elastic IP URI. You can reference the `uri` attribute from an `arubacloud_elasticip` resource.
 - `key_pair_uri_ref` (String) URI reference to the Key Pair. Should be the Key Pair URI. You can reference the `uri` attribute from an `arubacloud_keypair` resource.
 - `tags` (List of String) List of tags for the Cloud Server
-- `user_data` (String, Sensitive) Cloud-Init user data to use during server creation. This is the content of a cloud-init YAML file that will be used to bootstrap the cloud server. The content will be automatically base64-encoded by the provider before being sent to the API.
+- `user_data` (String, Sensitive) Cloud-Init user data to use during server creation. This is the content of a cloud-init YAML file that will be used to bootstrap the cloud server. The content should be provided as raw cloud-init YAML (not base64-encoded).
+
+  **Best Practice**: When creating HTML content or configuring web servers (e.g., nginx) via cloud-init, always include UTF-8 charset settings:
+  - In HTML: `<meta charset="UTF-8">` in the `<head>` section
+  - In nginx: `charset utf-8;` in the server block
+  
+  This ensures proper display of emojis and special characters.
 
 ### Read-Only
 
