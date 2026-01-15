@@ -5,6 +5,7 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
@@ -114,6 +115,11 @@ func (r *DBaaSUserResource) Create(ctx context.Context, req resource.CreateReque
 	// Create the user using the SDK
 	response, err := r.client.Client.FromDatabase().Users().Create(ctx, projectID, dbaasID, createRequest, nil)
 	if err != nil {
+		tflog.Error(ctx, "DBaaS user create error", map[string]interface{}{
+			"error":      err.Error(),
+			"project_id": projectID,
+			"dbaas_id":   dbaasID,
+		})
 		resp.Diagnostics.AddError(
 			"Error creating DBaaS user",
 			fmt.Sprintf("Unable to create DBaaS user: %s", err),
@@ -129,6 +135,39 @@ func (r *DBaaSUserResource) Create(ctx context.Context, req resource.CreateReque
 		if response.Error.Detail != nil {
 			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
 		}
+		
+		// Log detailed error information for debugging
+		errorDetails := map[string]interface{}{
+			"project_id": projectID,
+			"dbaas_id":   dbaasID,
+			"username":   data.Username.ValueString(),
+		}
+		if response.Error.Title != nil {
+			errorDetails["error_title"] = *response.Error.Title
+		}
+		if response.Error.Detail != nil {
+			errorDetails["error_detail"] = *response.Error.Detail
+		}
+		if response.Error.Status != nil {
+			errorDetails["error_status"] = *response.Error.Status
+		}
+		if response.Error.Type != nil {
+			errorDetails["error_type"] = *response.Error.Type
+		}
+		
+		// Log full request and error response JSON only on errors for debugging
+		if requestJSON, jsonErr := json.MarshalIndent(createRequest, "", "  "); jsonErr == nil {
+			tflog.Debug(ctx, "Full DBaaS user create request JSON (error case)", map[string]interface{}{
+				"request_json": string(requestJSON),
+			})
+		}
+		if errorJSON, jsonErr := json.MarshalIndent(response.Error, "", "  "); jsonErr == nil {
+			tflog.Debug(ctx, "Full API error response JSON", map[string]interface{}{
+				"error_json": string(errorJSON),
+			})
+		}
+		
+		tflog.Error(ctx, "DBaaS user create request failed", errorDetails)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}

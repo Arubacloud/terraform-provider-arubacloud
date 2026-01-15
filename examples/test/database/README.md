@@ -124,7 +124,7 @@ Creates:
 
 ### Step 4: Database Resources
 Creates:
-- **DBaaS instance**: Managed MySQL 8.0 database with autoscaling enabled
+- **DBaaS instance**: Managed MySQL 8.0 database with storage and autoscaling configuration
 - **Database**: A database named `testdb` within the DBaaS instance
 - **DBaaS User**: A user `dbuser` with password authentication
 - **Database Grant**: Currently commented out due to provider limitations (see notes below)
@@ -160,15 +160,29 @@ Available flavors include:
 - `DBO4A8`: 4 CPU, 8GB RAM
 - And more (check the documentation)
 
-### Configure Autoscaling
-Modify the `autoscaling` block in `04-database.tf`:
+### Change Storage Size
+Update the `storage.size_gb` in `04-database.tf`:
 ```hcl
-autoscaling = {
-  enabled         = true
-  available_space = 200  # GB
-  step_size       = 20   # GB
+storage = {
+  size_gb = 200  # Storage size in GB
+  # ... autoscaling configuration
 }
 ```
+
+### Configure Storage and Autoscaling
+Modify the `storage` block in `04-database.tf`:
+```hcl
+storage = {
+  size_gb = 200  # Storage size in GB
+  autoscaling = {
+    enabled         = true
+    available_space = 200  # GB
+    step_size       = 20   # GB
+  }
+}
+```
+
+**Note**: The `autoscaling` block is optional within `storage`. If omitted, autoscaling will be disabled.
 
 ### Restrict Database Access
 Update the security rule in `03-network.tf` to restrict MySQL access to specific IPs:

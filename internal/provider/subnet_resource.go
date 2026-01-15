@@ -572,6 +572,7 @@ func (r *SubnetResource) Read(ctx context.Context, req resource.ReadRequest, res
 			data.Location = types.StringValue(subnet.Metadata.LocationResponse.Value)
 		}
 		data.Type = types.StringValue(string(subnet.Properties.Type))
+		subnetType := string(subnet.Properties.Type)
 
 		// Update network and DHCP if available
 		networkAttrs := make(map[string]attr.Value)
@@ -600,135 +601,147 @@ func (r *SubnetResource) Read(ctx context.Context, req resource.ReadRequest, res
 		}
 
 		// Set network address
-		if subnet.Properties.Network != nil && subnet.Properties.Network.Address != "" {
-			networkAttrs["address"] = types.StringValue(subnet.Properties.Network.Address)
-		} else {
-			networkAttrs["address"] = types.StringNull()
-		}
-
-		// Set DHCP if available
-		if subnet.Properties.DHCP != nil {
-			dhcpAttrs := make(map[string]attr.Value)
-			dhcpAttrs["enabled"] = types.BoolValue(subnet.Properties.DHCP.Enabled)
-
-			// Handle DHCP range
-			if subnet.Properties.DHCP.Range != nil {
-				rangeObj, diags := types.ObjectValue(map[string]attr.Type{
-					"start": types.StringType,
-					"count": types.Int64Type,
-				}, map[string]attr.Value{
-					"start": types.StringValue(subnet.Properties.DHCP.Range.Start),
-					"count": types.Int64Value(int64(subnet.Properties.DHCP.Range.Count)),
-				})
-				resp.Diagnostics.Append(diags...)
-				if !resp.Diagnostics.HasError() {
-					dhcpAttrs["range"] = rangeObj
-				}
+		// For Basic subnets, only set network if it was in the original state (to avoid drift)
+		// For Advanced subnets, always set network if available from API
+		networkWasInState := !data.Network.IsNull() && !data.Network.IsUnknown()
+		shouldSetNetwork := subnetType == "Advanced" || networkWasInState
+		
+		if shouldSetNetwork {
+			// Set network address
+			if subnet.Properties.Network != nil && subnet.Properties.Network.Address != "" {
+				networkAttrs["address"] = types.StringValue(subnet.Properties.Network.Address)
 			} else {
-				dhcpAttrs["range"] = types.ObjectNull(map[string]attr.Type{
-					"start": types.StringType,
-					"count": types.Int64Type,
-				})
+				networkAttrs["address"] = types.StringNull()
 			}
 
-			// Handle DHCP routes
-			if len(subnet.Properties.DHCP.Routes) > 0 {
-				routeObjs := make([]attr.Value, 0, len(subnet.Properties.DHCP.Routes))
-				for _, route := range subnet.Properties.DHCP.Routes {
-					routeObj, diags := types.ObjectValue(map[string]attr.Type{
-						"address": types.StringType,
-						"gateway": types.StringType,
+			// Set DHCP if available
+			if subnet.Properties.DHCP != nil {
+				dhcpAttrs := make(map[string]attr.Value)
+				dhcpAttrs["enabled"] = types.BoolValue(subnet.Properties.DHCP.Enabled)
+
+				// Handle DHCP range
+				if subnet.Properties.DHCP.Range != nil {
+					rangeObj, diags := types.ObjectValue(map[string]attr.Type{
+						"start": types.StringType,
+						"count": types.Int64Type,
 					}, map[string]attr.Value{
-						"address": types.StringValue(route.Address),
-						"gateway": types.StringValue(route.Gateway),
+						"start": types.StringValue(subnet.Properties.DHCP.Range.Start),
+						"count": types.Int64Value(int64(subnet.Properties.DHCP.Range.Count)),
 					})
 					resp.Diagnostics.Append(diags...)
 					if !resp.Diagnostics.HasError() {
-						routeObjs = append(routeObjs, routeObj)
+						dhcpAttrs["range"] = rangeObj
 					}
+				} else {
+					dhcpAttrs["range"] = types.ObjectNull(map[string]attr.Type{
+						"start": types.StringType,
+						"count": types.Int64Type,
+					})
 				}
-				routesList, diags := types.ListValue(types.ObjectType{
-					AttrTypes: map[string]attr.Type{
-						"address": types.StringType,
-						"gateway": types.StringType,
+
+				// Handle DHCP routes
+				if len(subnet.Properties.DHCP.Routes) > 0 {
+					routeObjs := make([]attr.Value, 0, len(subnet.Properties.DHCP.Routes))
+					for _, route := range subnet.Properties.DHCP.Routes {
+						routeObj, diags := types.ObjectValue(map[string]attr.Type{
+							"address": types.StringType,
+							"gateway": types.StringType,
+						}, map[string]attr.Value{
+							"address": types.StringValue(route.Address),
+							"gateway": types.StringValue(route.Gateway),
+						})
+						resp.Diagnostics.Append(diags...)
+						if !resp.Diagnostics.HasError() {
+							routeObjs = append(routeObjs, routeObj)
+						}
+					}
+					routesList, diags := types.ListValue(types.ObjectType{
+						AttrTypes: map[string]attr.Type{
+							"address": types.StringType,
+							"gateway": types.StringType,
+						},
+					}, routeObjs)
+					resp.Diagnostics.Append(diags...)
+					if !resp.Diagnostics.HasError() {
+						dhcpAttrs["routes"] = routesList
+					}
+				} else {
+					dhcpAttrs["routes"] = types.ListNull(types.ObjectType{
+						AttrTypes: map[string]attr.Type{
+							"address": types.StringType,
+							"gateway": types.StringType,
+						},
+					})
+				}
+
+				// Handle DNS
+				if len(subnet.Properties.DHCP.DNS) > 0 {
+					dnsValues := make([]attr.Value, 0, len(subnet.Properties.DHCP.DNS))
+					for _, dns := range subnet.Properties.DHCP.DNS {
+						dnsValues = append(dnsValues, types.StringValue(dns))
+					}
+					dnsList, diags := types.ListValue(types.StringType, dnsValues)
+					resp.Diagnostics.Append(diags...)
+					if !resp.Diagnostics.HasError() {
+						dhcpAttrs["dns"] = dnsList
+					}
+				} else {
+					dhcpAttrs["dns"] = types.ListNull(types.StringType)
+				}
+
+				dhcpObj, diags := types.ObjectValue(map[string]attr.Type{
+					"enabled": types.BoolType,
+					"range": types.ObjectType{
+						AttrTypes: map[string]attr.Type{
+							"start": types.StringType,
+							"count": types.Int64Type,
+						},
 					},
-				}, routeObjs)
+					"routes": types.ListType{
+						ElemType: types.ObjectType{
+							AttrTypes: map[string]attr.Type{
+								"address": types.StringType,
+								"gateway": types.StringType,
+							},
+						},
+					},
+					"dns": types.ListType{ElemType: types.StringType},
+				}, dhcpAttrs)
 				resp.Diagnostics.Append(diags...)
 				if !resp.Diagnostics.HasError() {
-					dhcpAttrs["routes"] = routesList
+					networkAttrs["dhcp"] = dhcpObj
 				}
 			} else {
-				dhcpAttrs["routes"] = types.ListNull(types.ObjectType{
-					AttrTypes: map[string]attr.Type{
-						"address": types.StringType,
-						"gateway": types.StringType,
+				networkAttrs["dhcp"] = types.ObjectNull(map[string]attr.Type{
+					"enabled": types.BoolType,
+					"range": types.ObjectType{
+						AttrTypes: map[string]attr.Type{
+							"start": types.StringType,
+							"count": types.Int64Type,
+						},
 					},
+					"routes": types.ListType{
+						ElemType: types.ObjectType{
+							AttrTypes: map[string]attr.Type{
+								"address": types.StringType,
+								"gateway": types.StringType,
+							},
+						},
+					},
+					"dns": types.ListType{ElemType: types.StringType},
 				})
 			}
 
-			// Handle DNS
-			if len(subnet.Properties.DHCP.DNS) > 0 {
-				dnsValues := make([]attr.Value, 0, len(subnet.Properties.DHCP.DNS))
-				for _, dns := range subnet.Properties.DHCP.DNS {
-					dnsValues = append(dnsValues, types.StringValue(dns))
-				}
-				dnsList, diags := types.ListValue(types.StringType, dnsValues)
-				resp.Diagnostics.Append(diags...)
-				if !resp.Diagnostics.HasError() {
-					dhcpAttrs["dns"] = dnsList
-				}
-			} else {
-				dhcpAttrs["dns"] = types.ListNull(types.StringType)
-			}
-
-			dhcpObj, diags := types.ObjectValue(map[string]attr.Type{
-				"enabled": types.BoolType,
-				"range": types.ObjectType{
-					AttrTypes: map[string]attr.Type{
-						"start": types.StringType,
-						"count": types.Int64Type,
-					},
-				},
-				"routes": types.ListType{
-					ElemType: types.ObjectType{
-						AttrTypes: map[string]attr.Type{
-							"address": types.StringType,
-							"gateway": types.StringType,
-						},
-					},
-				},
-				"dns": types.ListType{ElemType: types.StringType},
-			}, dhcpAttrs)
+			// Build network object with nested dhcp
+			networkObj, diags := types.ObjectValue(networkAttrTypes, networkAttrs)
 			resp.Diagnostics.Append(diags...)
 			if !resp.Diagnostics.HasError() {
-				networkAttrs["dhcp"] = dhcpObj
+				data.Network = networkObj
 			}
 		} else {
-			networkAttrs["dhcp"] = types.ObjectNull(map[string]attr.Type{
-				"enabled": types.BoolType,
-				"range": types.ObjectType{
-					AttrTypes: map[string]attr.Type{
-						"start": types.StringType,
-						"count": types.Int64Type,
-					},
-				},
-				"routes": types.ListType{
-					ElemType: types.ObjectType{
-						AttrTypes: map[string]attr.Type{
-							"address": types.StringType,
-							"gateway": types.StringType,
-						},
-					},
-				},
-				"dns": types.ListType{ElemType: types.StringType},
-			})
-		}
-
-		// Build network object with nested dhcp
-		networkObj, diags := types.ObjectValue(networkAttrTypes, networkAttrs)
-		resp.Diagnostics.Append(diags...)
-		if !resp.Diagnostics.HasError() {
-			data.Network = networkObj
+			// Basic subnet without network in state - set entire network block to null
+			// This prevents drift when API returns network info but it wasn't configured
+			data.Network = types.ObjectNull(networkAttrTypes)
 		}
 
 		// Update tags from response
