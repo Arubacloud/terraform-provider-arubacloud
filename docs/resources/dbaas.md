@@ -22,9 +22,9 @@ description: |-
 - `location` (String) DBaaS location
 - `name` (String) DBaaS name
 - `network` (Attributes) Network configuration for the DBaaS instance (see [below for nested schema](#nestedatt--network))
-- `zone` (String) Zone
 - `project_id` (String) ID of the project this DBaaS belongs to
 - `storage` (Attributes) Storage configuration for the DBaaS instance (see [below for nested schema](#nestedatt--storage))
+- `zone` (String) Zone
 
 ### Optional
 
@@ -49,6 +49,7 @@ Optional:
 
 - `elastic_ip_uri_ref` (String) URI reference to the Elastic IP resource (e.g., `arubacloud_elasticip.example.uri`)
 
+
 <a id="nestedatt--storage"></a>
 ### Nested Schema for `storage`
 
@@ -68,6 +69,7 @@ Required:
 - `available_space` (Number) Minimum available space threshold in GB. When the available storage falls below this value, autoscaling will increase the storage by the step_size amount.
 - `enabled` (Boolean) Enable autoscaling
 - `step_size` (Number) Step size for autoscaling (in GB)
+
 
 
 
