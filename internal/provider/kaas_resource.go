@@ -132,7 +132,7 @@ func (r *KaaSResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				Required:            true,
 			},
 			"kubernetes_version": schema.StringAttribute{
-				MarkdownDescription: "Kubernetes version (e.g., 1.28.0)",
+				MarkdownDescription: "Kubernetes version. Available versions are described in the [ArubaCloud API documentation](https://api.arubacloud.com/docs/metadata#kubernetes-version). For example, `1.33.2`.",
 				Required:            true,
 			},
 			"node_pools": schema.ListNestedAttribute{
@@ -149,7 +149,7 @@ func (r *KaaSResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 							Required:            true,
 						},
 						"instance": schema.StringAttribute{
-							MarkdownDescription: "Instance configuration name for nodes",
+							MarkdownDescription: "KaaS flavor name for nodes. Available flavors are described in the [ArubaCloud API documentation](https://api.arubacloud.com/docs/metadata#kaas-flavors). For example, `K2A4` means 2 CPU, 4GB RAM, and 40GB storage.",
 							Required:            true,
 						},
 						"zone": schema.StringAttribute{

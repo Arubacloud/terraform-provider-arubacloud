@@ -33,14 +33,16 @@ resource "arubacloud_kaas" "basic" {
   }
 
   security_group_name = "kaas-security-group"
-  kubernetes_version  = "1.28.0"  # Kubernetes version
+  kubernetes_version  = "1.33.2"  # Kubernetes version (see https://api.arubacloud.com/docs/metadata#kubernetes-version for available versions)
 
   # Node pools configuration
+  # Using KaaS flavor K2A4: 2 CPU, 4GB RAM, 40GB storage
+  # See https://api.arubacloud.com/docs/metadata#kaas-flavors for available flavors
   node_pools = [
     {
       name        = "pool-1"
       nodes       = 2
-      instance    = "c2.medium"
+      instance    = "K2A4"  # KaaS flavor: 2 CPU, 4GB RAM, 40GB storage
       zone        = "ITBG-1"
       autoscaling = true
       min_count   = 1
@@ -60,7 +62,7 @@ resource "arubacloud_kaas" "basic" {
 
 ### Required
 
-- `kubernetes_version` (String) Kubernetes version (e.g., 1.28.0)
+- `kubernetes_version` (String) Kubernetes version. Available versions are described in the [ArubaCloud API documentation](https://api.arubacloud.com/docs/metadata#kubernetes-version). For example, `1.33.2`.
 - `location` (String) KaaS location
 - `name` (String) KaaS name
 - `node_cidr` (Attributes) Node CIDR configuration (see [below for nested schema](#nestedatt--node_cidr))
@@ -96,7 +98,7 @@ Required:
 
 Required:
 
-- `instance` (String) Instance configuration name for nodes
+- `instance` (String) KaaS flavor name for nodes. Available flavors are described in the [ArubaCloud API documentation](https://api.arubacloud.com/docs/metadata#kaas-flavors). For example, `K2A4` means 2 CPU, 4GB RAM, and 40GB storage.
 - `name` (String) Node pool name
 - `nodes` (Number) Number of nodes in the node pool
 - `zone` (String) Datacenter/zone code for nodes

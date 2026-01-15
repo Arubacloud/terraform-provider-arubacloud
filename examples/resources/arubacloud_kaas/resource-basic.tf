@@ -18,14 +18,16 @@ resource "arubacloud_kaas" "basic" {
   }
 
   security_group_name = "kaas-security-group"
-  kubernetes_version  = "1.28.0"  # Kubernetes version
+  kubernetes_version  = "1.33.2"  # Kubernetes version (see https://api.arubacloud.com/docs/metadata#kubernetes-version)
 
   # Node pools configuration
+  # Using KaaS flavor K2A4: 2 CPU, 4GB RAM, 40GB storage
+  # See https://api.arubacloud.com/docs/metadata#kaas-flavors for available flavors
   node_pools = [
     {
       name        = "pool-1"
       nodes       = 2
-      instance    = "c2.medium"
+      instance    = "K2A4"  # KaaS flavor: 2 CPU, 4GB RAM, 40GB storage
       zone        = "ITBG-1"
       autoscaling = true
       min_count   = 1
