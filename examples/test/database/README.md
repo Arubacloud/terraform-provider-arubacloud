@@ -243,7 +243,7 @@ The password must be base64 encoded using the `base64encode()` function in Terra
 ## Important Notes
 
 ### Database Grant Resource
-The `arubacloud_databasegrant` resource is currently commented out in `04-database.tf` due to provider limitations with GrantRole type conversion. Once this is resolved, you can uncomment it to associate the user with the database and grant permissions:
+The `arubacloud_databasegrant` resource associates a database user with a specific database and grants permissions. To use it, add the following to your configuration:
 
 ```hcl
 resource "arubacloud_databasegrant" "test" {
@@ -251,7 +251,7 @@ resource "arubacloud_databasegrant" "test" {
   dbaas_id   = arubacloud_dbaas.test.id
   database   = arubacloud_database.test.id
   user_id    = arubacloud_dbaasuser.test.id
-  role       = "admin"  # Role: read, write, or admin
+  role       = "readwrite"  # Valid roles: readonly, readwrite, liteadmin
 }
 ```
 

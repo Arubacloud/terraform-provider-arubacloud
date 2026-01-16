@@ -37,7 +37,7 @@ resource "arubacloud_dbaas" "test" {
 resource "arubacloud_database" "test" {
   project_id = arubacloud_project.test.id
   dbaas_id   = arubacloud_dbaas.test.id
-  name       = "testdb"
+  name       = "testdb2"
 }
 
 # DBaaS User - Create a database user
@@ -48,16 +48,14 @@ resource "arubacloud_dbaasuser" "test" {
   project_id = arubacloud_project.test.id
   dbaas_id   = arubacloud_dbaas.test.id
   username   = "restapi"
-  password   = base64encode("Prova123456789AC!")  # In production, use a secure password or variable
+  password   = base64encode("Prova123456789AC@")  # In production, use a secure password or variable
 }
 
 # Database Grant - Associate the user with the database and grant permissions
-# Note: This resource is currently disabled in the provider due to GrantRole type conversion issues
-# Uncomment when the provider issue is resolved
-# resource "arubacloud_databasegrant" "test" {
-#   project_id = arubacloud_project.test.id
-#   dbaas_id   = arubacloud_dbaas.test.id
-#   database   = arubacloud_database.test.id
-#   user_id    = arubacloud_dbaasuser.test.id
-#   role       = "admin"  # Role: read, write, or admin
-# }
+resource "arubacloud_databasegrant" "test" {
+  project_id = arubacloud_project.test.id
+  dbaas_id   = arubacloud_dbaas.test.id
+  database   = arubacloud_database.test.id
+  user_id    = arubacloud_dbaasuser.test.id
+  role       = "liteadmin"  # Valid roles: readonly, readwrite, liteadmin
+}

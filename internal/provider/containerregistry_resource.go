@@ -5,34 +5,33 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 type ContainerRegistryResourceModel struct {
-	Id                  types.String `tfsdk:"id"`
-	Uri                 types.String `tfsdk:"uri"`
-	Name                types.String `tfsdk:"name"`
-	Location            types.String `tfsdk:"location"`
-	Tags                types.List   `tfsdk:"tags"`
-	ProjectID           types.String `tfsdk:"project_id"`
-	PublicIpUriRef      types.String `tfsdk:"public_ip_uri_ref"`
-	VpcUriRef           types.String `tfsdk:"vpc_uri_ref"`
-	SubnetUriRef        types.String `tfsdk:"subnet_uri_ref"`
-	SecurityGroupUriRef types.String `tfsdk:"security_group_uri_ref"`
-	BlockStorageUriRef  types.String `tfsdk:"block_storage_uri_ref"`
-	BillingPeriod       types.String `tfsdk:"billing_period"`
-	AdminUser           types.String `tfsdk:"admin_user"`
-	ConcurrentUsers     types.String `tfsdk:"concurrent_users"`
+	Id            types.String `tfsdk:"id"`
+	Uri           types.String `tfsdk:"uri"`
+	Name          types.String `tfsdk:"name"`
+	Location      types.String `tfsdk:"location"`
+	Tags          types.List   `tfsdk:"tags"`
+	ProjectID     types.String `tfsdk:"project_id"`
+	Network       types.Object `tfsdk:"network"`
+	Storage       types.Object `tfsdk:"storage"`
+	Settings      types.Object `tfsdk:"settings"`
+	BillingPeriod types.String `tfsdk:"billing_period"`
 }
 
 type ContainerRegistryResource struct {
@@ -85,51 +84,72 @@ func (r *ContainerRegistryResource) Schema(ctx context.Context, req resource.Sch
 				MarkdownDescription: "ID of the project this Container Registry belongs to",
 				Required:            true,
 			},
-			"public_ip_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "Public IP URI reference (e.g., /projects/{project-id}/providers/Aruba.Network/elasticIps/{elasticip-id})",
+			"network": schema.SingleNestedAttribute{
+				MarkdownDescription: "Network configuration for the Container Registry",
 				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
+				Attributes: map[string]schema.Attribute{
+					"public_ip_uri_ref": schema.StringAttribute{
+						MarkdownDescription: "Public IP URI reference (e.g., `arubacloud_elasticip.example.uri`)",
+						Required:            true,
+						PlanModifiers: []planmodifier.String{
+							stringplanmodifier.UseStateForUnknown(),
+						},
+					},
+					"vpc_uri_ref": schema.StringAttribute{
+						MarkdownDescription: "VPC URI reference (e.g., `arubacloud_vpc.example.uri`)",
+						Required:            true,
+						PlanModifiers: []planmodifier.String{
+							stringplanmodifier.UseStateForUnknown(),
+						},
+					},
+					"subnet_uri_ref": schema.StringAttribute{
+						MarkdownDescription: "Subnet URI reference (e.g., `arubacloud_subnet.example.uri`)",
+						Required:            true,
+						PlanModifiers: []planmodifier.String{
+							stringplanmodifier.UseStateForUnknown(),
+						},
+					},
+					"security_group_uri_ref": schema.StringAttribute{
+						MarkdownDescription: "Security Group URI reference (e.g., `arubacloud_securitygroup.example.uri`)",
+						Required:            true,
+						PlanModifiers: []planmodifier.String{
+							stringplanmodifier.UseStateForUnknown(),
+						},
+					},
 				},
 			},
-			"vpc_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "VPC URI reference (e.g., /projects/{project-id}/providers/Aruba.Network/vpcs/{vpc-id})",
+			"storage": schema.SingleNestedAttribute{
+				MarkdownDescription: "Storage configuration for the Container Registry",
 				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
+				Attributes: map[string]schema.Attribute{
+					"block_storage_uri_ref": schema.StringAttribute{
+						MarkdownDescription: "Block Storage URI reference (e.g., `arubacloud_blockstorage.example.uri`)",
+						Required:            true,
+						PlanModifiers: []planmodifier.String{
+							stringplanmodifier.UseStateForUnknown(),
+						},
+					},
 				},
 			},
-			"subnet_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "Subnet URI reference (e.g., /projects/{project-id}/providers/Aruba.Network/subnets/{subnet-id})",
+			"settings": schema.SingleNestedAttribute{
+				MarkdownDescription: "Settings configuration for the Container Registry",
 				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"security_group_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "Security Group URI reference (e.g., /projects/{project-id}/providers/Aruba.Network/securityGroups/{sg-id})",
-				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"block_storage_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "Block Storage URI reference (e.g., /projects/{project-id}/providers/Aruba.Storage/volumes/{volume-id})",
-				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
+				Attributes: map[string]schema.Attribute{
+					"concurrent_users_flavor": schema.StringAttribute{
+						MarkdownDescription: "Concurrent users flavor: small, medium, or large",
+						Required:            true,
+						Validators: []validator.String{
+							stringvalidator.OneOf("small", "medium", "large"),
+						},
+					},
+					"admin_user": schema.StringAttribute{
+						MarkdownDescription: "Administrator username",
+						Optional:            true,
+					},
 				},
 			},
 			"billing_period": schema.StringAttribute{
 				MarkdownDescription: "Billing period (Hour, Month, Year)",
-				Optional:            true,
-			},
-			"admin_user": schema.StringAttribute{
-				MarkdownDescription: "Administrator username",
-				Optional:            true,
-			},
-			"concurrent_users": schema.StringAttribute{
-				MarkdownDescription: "Number of concurrent users",
 				Optional:            true,
 			},
 		},
@@ -177,12 +197,71 @@ func (r *ContainerRegistryResource) Create(ctx context.Context, req resource.Cre
 		}
 	}
 
-	// Use URI references directly from the plan
-	publicIPURI := data.PublicIpUriRef.ValueString()
-	vpcURI := data.VpcUriRef.ValueString()
-	subnetURI := data.SubnetUriRef.ValueString()
-	securityGroupURI := data.SecurityGroupUriRef.ValueString()
-	blockStorageURI := data.BlockStorageUriRef.ValueString()
+	// Extract network configuration from nested object
+	if data.Network.IsNull() || data.Network.IsUnknown() {
+		resp.Diagnostics.AddError(
+			"Missing Network Configuration",
+			"Network configuration is required to create a container registry",
+		)
+		return
+	}
+
+	networkObj, diags := data.Network.ToObjectValue(ctx)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	networkAttrs := networkObj.Attributes()
+	publicIPURI := ""
+	vpcURI := ""
+	subnetURI := ""
+	securityGroupURI := ""
+
+	if publicIpAttr, ok := networkAttrs["public_ip_uri_ref"]; ok && publicIpAttr != nil {
+		if publicIpStr, ok := publicIpAttr.(types.String); ok && !publicIpStr.IsNull() && !publicIpStr.IsUnknown() {
+			publicIPURI = publicIpStr.ValueString()
+		}
+	}
+	if vpcAttr, ok := networkAttrs["vpc_uri_ref"]; ok && vpcAttr != nil {
+		if vpcStr, ok := vpcAttr.(types.String); ok && !vpcStr.IsNull() && !vpcStr.IsUnknown() {
+			vpcURI = vpcStr.ValueString()
+		}
+	}
+	if subnetAttr, ok := networkAttrs["subnet_uri_ref"]; ok && subnetAttr != nil {
+		if subnetStr, ok := subnetAttr.(types.String); ok && !subnetStr.IsNull() && !subnetStr.IsUnknown() {
+			subnetURI = subnetStr.ValueString()
+		}
+	}
+	if securityGroupAttr, ok := networkAttrs["security_group_uri_ref"]; ok && securityGroupAttr != nil {
+		if securityGroupStr, ok := securityGroupAttr.(types.String); ok && !securityGroupStr.IsNull() && !securityGroupStr.IsUnknown() {
+			securityGroupURI = securityGroupStr.ValueString()
+		}
+	}
+
+	// Extract storage configuration from nested object
+	if data.Storage.IsNull() || data.Storage.IsUnknown() {
+		resp.Diagnostics.AddError(
+			"Missing Storage Configuration",
+			"Storage configuration is required to create a container registry",
+		)
+		return
+	}
+
+	storageObj, diags := data.Storage.ToObjectValue(ctx)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	storageAttrs := storageObj.Attributes()
+	blockStorageURI := ""
+
+	if blockStorageAttr, ok := storageAttrs["block_storage_uri_ref"]; ok && blockStorageAttr != nil {
+		if blockStorageStr, ok := blockStorageAttr.(types.String); ok && !blockStorageStr.IsNull() && !blockStorageStr.IsUnknown() {
+			blockStorageURI = blockStorageStr.ValueString()
+		}
+	}
 
 	// Build the create request
 	createRequest := sdktypes.ContainerRegistryRequest{
@@ -214,6 +293,54 @@ func (r *ContainerRegistryResource) Create(ctx context.Context, req resource.Cre
 		},
 	}
 
+	// Extract settings configuration (concurrent_users_flavor and admin_user)
+	if data.Settings.IsNull() || data.Settings.IsUnknown() {
+		resp.Diagnostics.AddError(
+			"Missing Settings Configuration",
+			"Settings configuration is required to create a container registry",
+		)
+		return
+	}
+
+	settingsObj, diags := data.Settings.ToObjectValue(ctx)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	settingsAttrs := settingsObj.Attributes()
+	var concurrentUsersFlavor string
+	var adminUser string
+
+	if concurrentUsersAttr, ok := settingsAttrs["concurrent_users_flavor"]; ok && concurrentUsersAttr != nil {
+		if cuStr, ok := concurrentUsersAttr.(types.String); ok && !cuStr.IsNull() && !cuStr.IsUnknown() {
+			concurrentUsersFlavor = cuStr.ValueString()
+		}
+	}
+
+	if adminUserAttr, ok := settingsAttrs["admin_user"]; ok && adminUserAttr != nil {
+		if auStr, ok := adminUserAttr.(types.String); ok && !auStr.IsNull() && !auStr.IsUnknown() {
+			adminUser = auStr.ValueString()
+		}
+	}
+
+	// Debug logging
+	tflog.Debug(ctx, "Container Registry settings extracted", map[string]interface{}{
+		"concurrent_users_flavor": concurrentUsersFlavor,
+		"admin_user":              adminUser,
+	})
+
+	// Add concurrent_users_flavor field (required, maps to 'size' in API)
+	// Note: SDK uses ConcurrentUsers field which maps to 'size' JSON field
+	if concurrentUsersFlavor != "" {
+		createRequest.Properties.ConcurrentUsers = &concurrentUsersFlavor
+		tflog.Debug(ctx, "Setting ConcurrentUsers in request", map[string]interface{}{
+			"value": concurrentUsersFlavor,
+		})
+	} else {
+		tflog.Warn(ctx, "concurrent_users_flavor is empty, size will not be set in request")
+	}
+
 	// Add optional fields
 	if !data.BillingPeriod.IsNull() && !data.BillingPeriod.IsUnknown() {
 		createRequest.Properties.BillingPlan = &sdktypes.BillingPeriodResource{
@@ -221,15 +348,10 @@ func (r *ContainerRegistryResource) Create(ctx context.Context, req resource.Cre
 		}
 	}
 
-	if !data.AdminUser.IsNull() && !data.AdminUser.IsUnknown() {
+	if adminUser != "" {
 		createRequest.Properties.AdminUser = &sdktypes.UserCredential{
-			Username: data.AdminUser.ValueString(),
+			Username: adminUser,
 		}
-	}
-
-	if !data.ConcurrentUsers.IsNull() && !data.ConcurrentUsers.IsUnknown() {
-		concurrentUsers := data.ConcurrentUsers.ValueString()
-		createRequest.Properties.ConcurrentUsers = &concurrentUsers
 	}
 
 	// Create the container registry using the SDK
@@ -251,6 +373,15 @@ func (r *ContainerRegistryResource) Create(ctx context.Context, req resource.Cre
 		return
 	}
 
+	// Debug: Log the full request
+	tflog.Debug(ctx, "Creating container registry with request", map[string]interface{}{
+		"project_id":       projectID,
+		"name":             createRequest.Metadata.Name,
+		"location":         createRequest.Metadata.Location.Value,
+		"concurrent_users": fmt.Sprintf("%v", createRequest.Properties.ConcurrentUsers),
+		"full_request":     fmt.Sprintf("%+v", createRequest),
+	})
+
 	response, err := registryClient.Create(ctx, projectID, createRequest, nil)
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -268,6 +399,38 @@ func (r *ContainerRegistryResource) Create(ctx context.Context, req resource.Cre
 		if response.Error.Detail != nil {
 			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
 		}
+
+		// Log detailed error information for debugging
+		errorDetails := map[string]interface{}{
+			"project_id":  projectID,
+			"status_code": response.StatusCode,
+		}
+		if response.Error.Title != nil {
+			errorDetails["error_title"] = *response.Error.Title
+		}
+		if response.Error.Detail != nil {
+			errorDetails["error_detail"] = *response.Error.Detail
+		}
+		if response.Error.Status != nil {
+			errorDetails["error_status"] = *response.Error.Status
+		}
+		if response.Error.Type != nil {
+			errorDetails["error_type"] = *response.Error.Type
+		}
+
+		// Log full request and error response JSON for debugging
+		if requestJSON, jsonErr := json.MarshalIndent(createRequest, "", "  "); jsonErr == nil {
+			tflog.Debug(ctx, "Full container registry create request JSON (error case)", map[string]interface{}{
+				"request_json": string(requestJSON),
+			})
+		}
+		if errorJSON, jsonErr := json.MarshalIndent(response.Error, "", "  "); jsonErr == nil {
+			tflog.Debug(ctx, "Full API error response JSON", map[string]interface{}{
+				"error_json": string(errorJSON),
+			})
+		}
+
+		tflog.Error(ctx, "Container registry create request failed", errorDetails)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}
@@ -399,29 +562,45 @@ func (r *ContainerRegistryResource) Read(ctx context.Context, req resource.ReadR
 		if registry.Metadata.LocationResponse != nil {
 			data.Location = types.StringValue(registry.Metadata.LocationResponse.Value)
 		}
-		if registry.Properties.PublicIp.URI != "" {
-			data.PublicIpUriRef = types.StringValue(registry.Properties.PublicIp.URI)
-		}
-		if registry.Properties.VPC.URI != "" {
-			data.VpcUriRef = types.StringValue(registry.Properties.VPC.URI)
-		}
-		if registry.Properties.Subnet.URI != "" {
-			data.SubnetUriRef = types.StringValue(registry.Properties.Subnet.URI)
-		}
-		if registry.Properties.SecurityGroup.URI != "" {
-			data.SecurityGroupUriRef = types.StringValue(registry.Properties.SecurityGroup.URI)
-		}
-		if registry.Properties.BlockStorage.URI != "" {
-			data.BlockStorageUriRef = types.StringValue(registry.Properties.BlockStorage.URI)
-		}
+
+		// Network and storage are preserved from state (they're immutable and not fully returned by API)
+		// The network and storage objects are already set from req.State.Get above
+
 		if registry.Properties.BillingPlan.BillingPeriod != "" {
 			data.BillingPeriod = types.StringValue(registry.Properties.BillingPlan.BillingPeriod)
 		}
-		if registry.Properties.AdminUser.Username != "" {
-			data.AdminUser = types.StringValue(registry.Properties.AdminUser.Username)
-		}
+
+		// Parse settings from API (concurrent_users_flavor from ConcurrentUsers field, admin_user from AdminUser field)
+		var concurrentUsersFlavorValue types.String
+		var adminUserValue types.String
+
 		if registry.Properties.ConcurrentUsers != nil {
-			data.ConcurrentUsers = types.StringValue(*registry.Properties.ConcurrentUsers)
+			concurrentUsersFlavorValue = types.StringValue(*registry.Properties.ConcurrentUsers)
+		} else {
+			concurrentUsersFlavorValue = types.StringNull()
+		}
+
+		if registry.Properties.AdminUser.Username != "" {
+			adminUserValue = types.StringValue(registry.Properties.AdminUser.Username)
+		} else {
+			adminUserValue = types.StringNull()
+		}
+
+		// Create settings object
+		settingsAttrs := map[string]attr.Value{
+			"concurrent_users_flavor": concurrentUsersFlavorValue,
+			"admin_user":              adminUserValue,
+		}
+		settingsObj, diags := types.ObjectValue(
+			map[string]attr.Type{
+				"concurrent_users_flavor": types.StringType,
+				"admin_user":              types.StringType,
+			},
+			settingsAttrs,
+		)
+		resp.Diagnostics.Append(diags...)
+		if !resp.Diagnostics.HasError() {
+			data.Settings = settingsObj
 		}
 
 		// Update tags
@@ -539,6 +718,68 @@ func (r *ContainerRegistryResource) Update(ctx context.Context, req resource.Upd
 		tags = current.Metadata.Tags
 	}
 
+	// Extract network configuration from plan or state (network is immutable)
+	var publicIPURI, vpcURI, subnetURI, securityGroupURI string
+	if !data.Network.IsNull() && !data.Network.IsUnknown() {
+		networkObj, diags := data.Network.ToObjectValue(ctx)
+		resp.Diagnostics.Append(diags...)
+		if !resp.Diagnostics.HasError() {
+			networkAttrs := networkObj.Attributes()
+			if publicIpAttr, ok := networkAttrs["public_ip_uri_ref"]; ok && publicIpAttr != nil {
+				if publicIpStr, ok := publicIpAttr.(types.String); ok && !publicIpStr.IsNull() && !publicIpStr.IsUnknown() {
+					publicIPURI = publicIpStr.ValueString()
+				}
+			}
+			if vpcAttr, ok := networkAttrs["vpc_uri_ref"]; ok && vpcAttr != nil {
+				if vpcStr, ok := vpcAttr.(types.String); ok && !vpcStr.IsNull() && !vpcStr.IsUnknown() {
+					vpcURI = vpcStr.ValueString()
+				}
+			}
+			if subnetAttr, ok := networkAttrs["subnet_uri_ref"]; ok && subnetAttr != nil {
+				if subnetStr, ok := subnetAttr.(types.String); ok && !subnetStr.IsNull() && !subnetStr.IsUnknown() {
+					subnetURI = subnetStr.ValueString()
+				}
+			}
+			if securityGroupAttr, ok := networkAttrs["security_group_uri_ref"]; ok && securityGroupAttr != nil {
+				if securityGroupStr, ok := securityGroupAttr.(types.String); ok && !securityGroupStr.IsNull() && !securityGroupStr.IsUnknown() {
+					securityGroupURI = securityGroupStr.ValueString()
+				}
+			}
+		}
+	}
+	// Fallback to current state if not in plan
+	if publicIPURI == "" {
+		publicIPURI = current.Properties.PublicIp.URI
+	}
+	if vpcURI == "" {
+		vpcURI = current.Properties.VPC.URI
+	}
+	if subnetURI == "" {
+		subnetURI = current.Properties.Subnet.URI
+	}
+	if securityGroupURI == "" {
+		securityGroupURI = current.Properties.SecurityGroup.URI
+	}
+
+	// Extract storage configuration from plan or state (storage is immutable)
+	var blockStorageURI string
+	if !data.Storage.IsNull() && !data.Storage.IsUnknown() {
+		storageObj, diags := data.Storage.ToObjectValue(ctx)
+		resp.Diagnostics.Append(diags...)
+		if !resp.Diagnostics.HasError() {
+			storageAttrs := storageObj.Attributes()
+			if blockStorageAttr, ok := storageAttrs["block_storage_uri_ref"]; ok && blockStorageAttr != nil {
+				if blockStorageStr, ok := blockStorageAttr.(types.String); ok && !blockStorageStr.IsNull() && !blockStorageStr.IsUnknown() {
+					blockStorageURI = blockStorageStr.ValueString()
+				}
+			}
+		}
+	}
+	// Fallback to current state if not in plan
+	if blockStorageURI == "" {
+		blockStorageURI = current.Properties.BlockStorage.URI
+	}
+
 	// Build update request - use ContainerRegistryRequest for updates (same as create)
 	updateRequest := sdktypes.ContainerRegistryRequest{
 		Metadata: sdktypes.RegionalResourceMetadataRequest{
@@ -551,13 +792,46 @@ func (r *ContainerRegistryResource) Update(ctx context.Context, req resource.Upd
 			},
 		},
 		Properties: sdktypes.ContainerRegistryPropertiesRequest{
-			// Preserve existing required properties
-			PublicIp:      current.Properties.PublicIp,
-			VPC:           current.Properties.VPC,
-			Subnet:        current.Properties.Subnet,
-			SecurityGroup: current.Properties.SecurityGroup,
-			BlockStorage:  current.Properties.BlockStorage,
+			PublicIp: sdktypes.ReferenceResource{
+				URI: publicIPURI,
+			},
+			VPC: sdktypes.ReferenceResource{
+				URI: vpcURI,
+			},
+			Subnet: sdktypes.ReferenceResource{
+				URI: subnetURI,
+			},
+			SecurityGroup: sdktypes.ReferenceResource{
+				URI: securityGroupURI,
+			},
+			BlockStorage: sdktypes.ReferenceResource{
+				URI: blockStorageURI,
+			},
 		},
+	}
+
+	// Extract settings configuration (concurrent_users_flavor and admin_user)
+	var concurrentUsersFlavor string
+	var adminUser string
+
+	if !data.Settings.IsNull() && !data.Settings.IsUnknown() {
+		settingsObj, diags := data.Settings.ToObjectValue(ctx)
+		resp.Diagnostics.Append(diags...)
+		if !resp.Diagnostics.HasError() {
+			settingsAttrs := settingsObj.Attributes()
+
+			if concurrentUsersAttr, ok := settingsAttrs["concurrent_users_flavor"]; ok && concurrentUsersAttr != nil {
+				if cuStr, ok := concurrentUsersAttr.(types.String); ok && !cuStr.IsNull() && !cuStr.IsUnknown() {
+					concurrentUsersFlavor = cuStr.ValueString()
+				}
+			}
+
+			if adminUserAttr, ok := settingsAttrs["admin_user"]; ok && adminUserAttr != nil {
+				if auStr, ok := adminUserAttr.(types.String); ok && !auStr.IsNull() && !auStr.IsUnknown() {
+					adminUser = auStr.ValueString()
+				}
+			}
+		}
 	}
 
 	// Update billing period if provided, otherwise preserve current
@@ -571,16 +845,20 @@ func (r *ContainerRegistryResource) Update(ctx context.Context, req resource.Upd
 		}
 	}
 
-	// Update concurrent users if provided, otherwise preserve current
-	if !data.ConcurrentUsers.IsNull() && !data.ConcurrentUsers.IsUnknown() {
-		concurrentUsers := data.ConcurrentUsers.ValueString()
-		updateRequest.Properties.ConcurrentUsers = &concurrentUsers
+	// Update concurrent_users_flavor if provided (maps to 'size' in API)
+	// Note: SDK uses ConcurrentUsers field which maps to 'size' JSON field
+	if concurrentUsersFlavor != "" {
+		updateRequest.Properties.ConcurrentUsers = &concurrentUsersFlavor
 	} else if current.Properties.ConcurrentUsers != nil {
 		updateRequest.Properties.ConcurrentUsers = current.Properties.ConcurrentUsers
 	}
 
-	// Preserve admin user if it exists
-	if current.Properties.AdminUser.Username != "" {
+	// Update admin user if provided, otherwise preserve current
+	if adminUser != "" {
+		updateRequest.Properties.AdminUser = &sdktypes.UserCredential{
+			Username: adminUser,
+		}
+	} else if current.Properties.AdminUser.Username != "" {
 		updateRequest.Properties.AdminUser = &sdktypes.UserCredential{
 			Username: current.Properties.AdminUser.Username,
 		}
@@ -612,11 +890,9 @@ func (r *ContainerRegistryResource) Update(ctx context.Context, req resource.Upd
 	data.Id = state.Id
 	data.Uri = state.Uri // Preserve URI from state
 	data.ProjectID = state.ProjectID
-	data.PublicIpUriRef = state.PublicIpUriRef
-	data.VpcUriRef = state.VpcUriRef
-	data.SubnetUriRef = state.SubnetUriRef
-	data.SecurityGroupUriRef = state.SecurityGroupUriRef
-	data.BlockStorageUriRef = state.BlockStorageUriRef
+	// Preserve network and storage from state (they're immutable)
+	data.Network = state.Network
+	data.Storage = state.Storage
 
 	if response != nil && response.Data != nil {
 		// Update from response if available (should match state)
@@ -651,32 +927,8 @@ func (r *ContainerRegistryResource) Update(ctx context.Context, req resource.Upd
 		} else {
 			data.Uri = state.Uri // Fallback to state if not available
 		}
-		// Update URI refs
-		if registry.Properties.PublicIp.URI != "" {
-			data.PublicIpUriRef = types.StringValue(registry.Properties.PublicIp.URI)
-		} else {
-			data.PublicIpUriRef = state.PublicIpUriRef // Fallback to state if not available
-		}
-		if registry.Properties.VPC.URI != "" {
-			data.VpcUriRef = types.StringValue(registry.Properties.VPC.URI)
-		} else {
-			data.VpcUriRef = state.VpcUriRef // Fallback to state if not available
-		}
-		if registry.Properties.Subnet.URI != "" {
-			data.SubnetUriRef = types.StringValue(registry.Properties.Subnet.URI)
-		} else {
-			data.SubnetUriRef = state.SubnetUriRef // Fallback to state if not available
-		}
-		if registry.Properties.SecurityGroup.URI != "" {
-			data.SecurityGroupUriRef = types.StringValue(registry.Properties.SecurityGroup.URI)
-		} else {
-			data.SecurityGroupUriRef = state.SecurityGroupUriRef // Fallback to state if not available
-		}
-		if registry.Properties.BlockStorage.URI != "" {
-			data.BlockStorageUriRef = types.StringValue(registry.Properties.BlockStorage.URI)
-		} else {
-			data.BlockStorageUriRef = state.BlockStorageUriRef // Fallback to state if not available
-		}
+		// Network and storage are preserved from state (they're immutable)
+		// No need to update them from API response
 		// Update other fields from re-read to ensure consistency
 		if registry.Metadata.Name != nil {
 			data.Name = types.StringValue(*registry.Metadata.Name)
@@ -689,16 +941,45 @@ func (r *ContainerRegistryResource) Update(ctx context.Context, req resource.Upd
 		} else {
 			data.BillingPeriod = types.StringNull()
 		}
-		if registry.Properties.AdminUser != nil && registry.Properties.AdminUser.Username != "" {
-			data.AdminUser = types.StringValue(registry.Properties.AdminUser.Username)
-		} else {
-			data.AdminUser = types.StringNull()
-		}
+
+		// Parse settings from API (concurrent_users from ConcurrentUsers field, admin_user from AdminUser field)
+		var concurrentUsersValue types.Int64
+		var adminUserValue types.String
+
 		if registry.Properties.ConcurrentUsers != nil {
-			data.ConcurrentUsers = types.StringValue(*registry.Properties.ConcurrentUsers)
+			var cu int64
+			if _, err := fmt.Sscanf(*registry.Properties.ConcurrentUsers, "%d", &cu); err == nil {
+				concurrentUsersValue = types.Int64Value(cu)
+			} else {
+				concurrentUsersValue = types.Int64Null()
+			}
 		} else {
-			data.ConcurrentUsers = types.StringNull()
+			concurrentUsersValue = types.Int64Null()
 		}
+
+		if registry.Properties.AdminUser != nil && registry.Properties.AdminUser.Username != "" {
+			adminUserValue = types.StringValue(registry.Properties.AdminUser.Username)
+		} else {
+			adminUserValue = types.StringNull()
+		}
+
+		// Create settings object
+		settingsAttrs := map[string]attr.Value{
+			"concurrent_users": concurrentUsersValue,
+			"admin_user":       adminUserValue,
+		}
+		settingsObj, diags := types.ObjectValue(
+			map[string]attr.Type{
+				"concurrent_users": types.Int64Type,
+				"admin_user":       types.StringType,
+			},
+			settingsAttrs,
+		)
+		resp.Diagnostics.Append(diags...)
+		if !resp.Diagnostics.HasError() {
+			data.Settings = settingsObj
+		}
+
 		// Update tags from re-read
 		if len(registry.Metadata.Tags) > 0 {
 			tagValues := make([]types.String, len(registry.Metadata.Tags))
@@ -720,11 +1001,8 @@ func (r *ContainerRegistryResource) Update(ctx context.Context, req resource.Upd
 	} else {
 		// If re-read fails, preserve immutable fields from state
 		data.Uri = state.Uri
-		data.PublicIpUriRef = state.PublicIpUriRef
-		data.VpcUriRef = state.VpcUriRef
-		data.SubnetUriRef = state.SubnetUriRef
-		data.SecurityGroupUriRef = state.SecurityGroupUriRef
-		data.BlockStorageUriRef = state.BlockStorageUriRef
+		data.Network = state.Network
+		data.Storage = state.Storage
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

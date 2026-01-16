@@ -1,7 +1,7 @@
 resource "arubacloud_databasegrant" "example" {
-  name       = "example-database-grant"
+  project_id = "example-project-id"
+  dbaas_id   = "example-dbaas-id"
   database   = "example-database"
-  user       = "example-user"
-  privileges = ["SELECT", "INSERT"]
-  project_id = "example-project"
+  user_id    = "example-user"
+  role       = "readwrite"  # Valid roles: readonly, readwrite, liteadmin
 }

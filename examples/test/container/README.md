@@ -256,6 +256,24 @@ resource "arubacloud_containerregistry" "test" {
 }
 ```
 
+### Change Container Registry Network or Storage
+Update the `network` or `storage` blocks:
+```hcl
+resource "arubacloud_containerregistry" "test" {
+  # ...
+  network = {
+    public_ip_uri_ref      = arubacloud_elasticip.new.uri
+    vpc_uri_ref            = arubacloud_vpc.test.uri
+    subnet_uri_ref         = arubacloud_subnet.test.uri
+    security_group_uri_ref = arubacloud_securitygroup.new.uri
+  }
+  
+  storage = {
+    block_storage_uri_ref = arubacloud_blockstorage.new.uri
+  }
+}
+```
+
 ### Configure Network CIDR Blocks
 Update the node and pod CIDR blocks:
 ```hcl
@@ -302,7 +320,7 @@ terraform destroy
 ```
 
 ### High Availability
-The KaaS cluster is configured with `ha = true` for production readiness. This ensures:
+The KaaS cluster is configured with `controlplane_ha = true` for production readiness. This ensures:
 - Multiple control plane nodes
 - Improved reliability and fault tolerance
 - Higher resource usage

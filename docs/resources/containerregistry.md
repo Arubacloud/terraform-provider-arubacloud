@@ -15,21 +15,32 @@ Manages an ArubaCloud Container Registry.
 # Note: This example assumes you have already created VPC, Subnet, Security Group, Elastic IP, and Block Storage resources
 
 resource "arubacloud_containerregistry" "example" {
-  name                  = "example-container-registry"
-  location              = "ITBG-Bergamo"  # Change to your region
-  project_id            = "your-project-id"  # Replace with your project ID
-  tags                  = ["container", "test"]
+  name       = "example-container-registry"
+  location   = "ITBG-Bergamo"  # Change to your region
+  project_id = "your-project-id"  # Replace with your project ID
+  tags       = ["container", "test"]
 
-  # Use URI references for all required resources
-  public_ip_uri_ref     = arubacloud_elasticip.example.uri
-  vpc_uri_ref           = arubacloud_vpc.example.uri
-  subnet_uri_ref        = arubacloud_subnet.example.uri
-  security_group_uri_ref = arubacloud_securitygroup.example.uri
-  block_storage_uri_ref  = arubacloud_blockstorage.example.uri
+  # Network configuration
+  network = {
+    public_ip_uri_ref      = arubacloud_elasticip.example.uri
+    vpc_uri_ref            = arubacloud_vpc.example.uri
+    subnet_uri_ref         = arubacloud_subnet.example.uri
+    security_group_uri_ref = arubacloud_securitygroup.example.uri
+  }
+
+  # Storage configuration
+  storage = {
+    block_storage_uri_ref = arubacloud_blockstorage.example.uri
+  }
+
+  # Settings configuration
+  settings = {
+    concurrent_users_flavor = "small"  # Options: small, medium, large
+    admin_user       = "adminuser"
+  }
 
   # Optional fields
   billing_period = "Hour"
-  admin_user     = "adminuser"
 }
 ```
 
@@ -38,20 +49,31 @@ resource "arubacloud_containerregistry" "example" {
 
 ### Required
 
-- `block_storage_uri_ref` (String) Block Storage URI reference (e.g., /projects/{project-id}/providers/Aruba.Storage/volumes/{volume-id})
 - `location` (String) Container Registry location
 - `name` (String) Container Registry name
 - `project_id` (String) ID of the project this Container Registry belongs to
+- `settings` (Object) Settings configuration for the Container Registry, including:
+  - `concurrent_users_flavor` (String) Concurrent users flavor: small, medium, or large (required)
+  - `admin_user` (String) Administrator username (optional)
+
+### Nested Schema for `network`
+
+### Required
+
 - `public_ip_uri_ref` (String) Public IP URI reference (e.g., /projects/{project-id}/providers/Aruba.Network/elasticIps/{elasticip-id})
 - `security_group_uri_ref` (String) Security Group URI reference (e.g., /projects/{project-id}/providers/Aruba.Network/securityGroups/{sg-id})
 - `subnet_uri_ref` (String) Subnet URI reference (e.g., /projects/{project-id}/providers/Aruba.Network/subnets/{subnet-id})
 - `vpc_uri_ref` (String) VPC URI reference (e.g., /projects/{project-id}/providers/Aruba.Network/vpcs/{vpc-id})
 
+### Nested Schema for `storage`
+
+### Required
+
+- `block_storage_uri_ref` (String) Block Storage URI reference (e.g., /projects/{project-id}/providers/Aruba.Storage/volumes/{volume-id})
+
 ### Optional
 
-- `admin_user` (String) Administrator username
 - `billing_period` (String) Billing period (Hour, Month, Year)
-- `concurrent_users` (String) Number of concurrent users
 - `tags` (List of String) List of tags for the Container Registry resource
 
 ### Read-Only

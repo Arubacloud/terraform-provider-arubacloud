@@ -64,24 +64,30 @@ func (r *DBaaSUserResource) Schema(ctx context.Context, req resource.SchemaReque
 				MarkdownDescription: "ID of the project this user belongs to",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"dbaas_id": schema.StringAttribute{
 				MarkdownDescription: "DBaaS ID this user belongs to",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"username": schema.StringAttribute{
 				MarkdownDescription: "Username for the DBaaS user",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"password": schema.StringAttribute{
 				MarkdownDescription: "Password for the DBaaS user (must be base64 encoded). The plain password must be 8-20 characters, using at least one number, one uppercase letter, one lowercase letter, and one special character. Spaces are not allowed. Use the `base64encode()` function to encode your plain password.",
 				Required:            true,
 				Sensitive:           true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 		},
 	}
@@ -150,7 +156,7 @@ func (r *DBaaSUserResource) Create(ctx context.Context, req resource.CreateReque
 		if response.Error.Detail != nil {
 			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
 		}
-		
+
 		// Log detailed error information for debugging
 		errorDetails := map[string]interface{}{
 			"project_id": projectID,
@@ -169,7 +175,7 @@ func (r *DBaaSUserResource) Create(ctx context.Context, req resource.CreateReque
 		if response.Error.Type != nil {
 			errorDetails["error_type"] = *response.Error.Type
 		}
-		
+
 		// Log full request and error response JSON only on errors for debugging
 		if requestJSON, jsonErr := json.MarshalIndent(createRequest, "", "  "); jsonErr == nil {
 			tflog.Debug(ctx, "Full DBaaS user create request JSON (error case)", map[string]interface{}{
@@ -181,7 +187,7 @@ func (r *DBaaSUserResource) Create(ctx context.Context, req resource.CreateReque
 				"error_json": string(errorJSON),
 			})
 		}
-		
+
 		tflog.Error(ctx, "DBaaS user create request failed", errorDetails)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
