@@ -32,12 +32,14 @@ resource "arubacloud_kaas" "basic" {
     security_group_name = "kaas-security-group"
 
     # Node CIDR configuration
+    # Must use private IP ranges: 10.0.0.0/8, 172.16.0.0/12, or 192.168.0.0/16
     node_cidr = {
       address = "10.0.2.0/24"  # CIDR notation
       name    = "kaas-node-cidr"
     }
 
     # Pod CIDR configuration
+    # Must use private IP ranges: 10.0.0.0/8, 172.16.0.0/12, or 192.168.0.0/16
     pod_cidr = "10.0.3.0/24"
   }
 
@@ -88,7 +90,7 @@ resource "arubacloud_kaas" "basic" {
 
 - `billing_period` (String) Billing period (Hour, Month, Year)
 - `ha` (Boolean) High availability
-- `pod_cidr` (String) Pod CIDR
+- `pod_cidr` (String) Pod CIDR. Must use private IP ranges: 10.0.0.0/8, 172.16.0.0/12, or 192.168.0.0/16 (e.g., 10.0.3.0/24, 172.16.1.0/24, 192.168.2.0/24)
 - `tags` (List of String) List of tags for the KaaS resource
 
 ### Read-Only
@@ -101,7 +103,7 @@ resource "arubacloud_kaas" "basic" {
 
 Required:
 
-- `address` (String) Node CIDR address in CIDR notation (e.g., 10.0.0.0/16)
+- `address` (String) Node CIDR address in CIDR notation. Must use private IP ranges: 10.0.0.0/8, 172.16.0.0/12, or 192.168.0.0/16 (e.g., 10.0.2.0/24, 172.16.0.0/24, 192.168.1.0/24)
 - `name` (String) Node CIDR name
 
 

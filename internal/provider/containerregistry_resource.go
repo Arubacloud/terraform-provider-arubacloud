@@ -5,7 +5,6 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
@@ -263,37 +262,7 @@ func (r *ContainerRegistryResource) Create(ctx context.Context, req resource.Cre
 		}
 	}
 
-	// Build the create request
-	createRequest := sdktypes.ContainerRegistryRequest{
-		Metadata: sdktypes.RegionalResourceMetadataRequest{
-			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
-				Name: data.Name.ValueString(),
-				Tags: tags,
-			},
-			Location: sdktypes.LocationRequest{
-				Value: data.Location.ValueString(),
-			},
-		},
-		Properties: sdktypes.ContainerRegistryPropertiesRequest{
-			PublicIp: sdktypes.ReferenceResource{
-				URI: publicIPURI,
-			},
-			VPC: sdktypes.ReferenceResource{
-				URI: vpcURI,
-			},
-			Subnet: sdktypes.ReferenceResource{
-				URI: subnetURI,
-			},
-			SecurityGroup: sdktypes.ReferenceResource{
-				URI: securityGroupURI,
-			},
-			BlockStorage: sdktypes.ReferenceResource{
-				URI: blockStorageURI,
-			},
-		},
-	}
-
-	// Extract settings configuration (concurrent_users_flavor and admin_user)
+	// Extract settings configuration (concurrent_users_flavor and admin_user) BEFORE building request
 	if data.Settings.IsNull() || data.Settings.IsUnknown() {
 		resp.Diagnostics.AddError(
 			"Missing Settings Configuration",
@@ -324,21 +293,36 @@ func (r *ContainerRegistryResource) Create(ctx context.Context, req resource.Cre
 		}
 	}
 
-	// Debug logging
-	tflog.Debug(ctx, "Container Registry settings extracted", map[string]interface{}{
-		"concurrent_users_flavor": concurrentUsersFlavor,
-		"admin_user":              adminUser,
-	})
-
-	// Add concurrent_users_flavor field (required, maps to 'size' in API)
-	// Note: SDK uses ConcurrentUsers field which maps to 'size' JSON field
-	if concurrentUsersFlavor != "" {
-		createRequest.Properties.ConcurrentUsers = &concurrentUsersFlavor
-		tflog.Debug(ctx, "Setting ConcurrentUsers in request", map[string]interface{}{
-			"value": concurrentUsersFlavor,
-		})
-	} else {
-		tflog.Warn(ctx, "concurrent_users_flavor is empty, size will not be set in request")
+	// Build the create request with all required fields
+	createRequest := sdktypes.ContainerRegistryRequest{
+		Metadata: sdktypes.RegionalResourceMetadataRequest{
+			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
+				Name: data.Name.ValueString(),
+				Tags: tags,
+			},
+			Location: sdktypes.LocationRequest{
+				Value: data.Location.ValueString(),
+			},
+		},
+		Properties: sdktypes.ContainerRegistryPropertiesRequest{
+			PublicIp: sdktypes.ReferenceResource{
+				URI: publicIPURI,
+			},
+			VPC: sdktypes.ReferenceResource{
+				URI: vpcURI,
+			},
+			Subnet: sdktypes.ReferenceResource{
+				URI: subnetURI,
+			},
+			SecurityGroup: sdktypes.ReferenceResource{
+				URI: securityGroupURI,
+			},
+			BlockStorage: sdktypes.ReferenceResource{
+				URI: blockStorageURI,
+			},
+			// Add concurrent_users_flavor (maps to 'size' in API)
+			ConcurrentUsers: &concurrentUsersFlavor,
+		},
 	}
 
 	// Add optional fields
@@ -416,18 +400,6 @@ func (r *ContainerRegistryResource) Create(ctx context.Context, req resource.Cre
 		}
 		if response.Error.Type != nil {
 			errorDetails["error_type"] = *response.Error.Type
-		}
-
-		// Log full request and error response JSON for debugging
-		if requestJSON, jsonErr := json.MarshalIndent(createRequest, "", "  "); jsonErr == nil {
-			tflog.Debug(ctx, "Full container registry create request JSON (error case)", map[string]interface{}{
-				"request_json": string(requestJSON),
-			})
-		}
-		if errorJSON, jsonErr := json.MarshalIndent(response.Error, "", "  "); jsonErr == nil {
-			tflog.Debug(ctx, "Full API error response JSON", map[string]interface{}{
-				"error_json": string(errorJSON),
-			})
 		}
 
 		tflog.Error(ctx, "Container registry create request failed", errorDetails)

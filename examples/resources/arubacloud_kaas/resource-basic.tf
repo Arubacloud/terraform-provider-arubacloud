@@ -17,12 +17,14 @@ resource "arubacloud_kaas" "basic" {
     security_group_name = "kaas-security-group"
 
     # Node CIDR configuration
+    # Must use private IP ranges: 10.0.0.0/8, 172.16.0.0/12, or 192.168.0.0/16
     node_cidr = {
       address = "10.0.2.0/24"  # CIDR notation
       name    = "kaas-node-cidr"
     }
 
     # Pod CIDR configuration
+    # Must use private IP ranges: 10.0.0.0/8, 172.16.0.0/12, or 192.168.0.0/16
     pod_cidr = "10.0.3.0/24"
   }
 

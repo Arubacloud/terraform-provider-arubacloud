@@ -5,7 +5,6 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
@@ -151,37 +150,10 @@ func (r *DatabaseGrantResource) Create(ctx context.Context, req resource.CreateR
 		},
 	}
 
-	// Serialize request to JSON for debugging
-	requestJSON, _ := json.Marshal(createRequest)
-
-	// Debug logging for request
-	tflog.Debug(ctx, "Creating database grant", map[string]interface{}{
-		"project_id":    projectID,
-		"dbaas_id":      dbaasID,
-		"database_name": databaseName,
-		"user_id":       userID,
-		"role":          roleStr,
-		"request":       fmt.Sprintf("%+v", createRequest),
-		"request_json":  string(requestJSON),
-	})
-
 	// Create the grant using the SDK
 	response, err := r.client.Client.FromDatabase().Grants().Create(ctx, projectID, dbaasID, databaseName, createRequest, nil)
 
-	// Serialize response to JSON for debugging
-	responseJSON, _ := json.Marshal(response)
-
-	// Debug logging for response
-	tflog.Debug(ctx, "Create database grant response", map[string]interface{}{
-		"error":         fmt.Sprintf("%v", err),
-		"response":      fmt.Sprintf("%+v", response),
-		"response_json": string(responseJSON),
-	})
-
 	if err != nil {
-		tflog.Error(ctx, "SDK returned error", map[string]interface{}{
-			"error": err.Error(),
-		})
 		resp.Diagnostics.AddError(
 			"Error creating database grant",
 			fmt.Sprintf("Unable to create database grant: %s", err),
@@ -197,17 +169,6 @@ func (r *DatabaseGrantResource) Create(ctx context.Context, req resource.CreateR
 		if response.Error.Detail != nil {
 			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
 		}
-
-		// Enhanced error logging with full response details
-		errorJSON, _ := json.Marshal(response.Error)
-		tflog.Error(ctx, "API Error creating database grant", map[string]interface{}{
-			"error_title":  response.Error.Title,
-			"error_detail": response.Error.Detail,
-			"error_status": response.Error.Status,
-			"full_error":   fmt.Sprintf("%+v", response.Error),
-			"error_json":   string(errorJSON),
-		})
-
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}
