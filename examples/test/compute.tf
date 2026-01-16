@@ -22,7 +22,7 @@ resource "arubacloud_cloudserver" "example" {
   key_pair_uri_ref     = arubacloud_keypair.example.uri                 # URI reference
   subnet_uri_refs      = [arubacloud_subnet.example.uri, arubacloud_subnet.example2.uri]  # URI references
   securitygroup_uri_refs = [arubacloud_securitygroup.example.uri, arubacloud_securitygroup.example2.uri]  # URI references
-  # Optional: cloud-init user data for bootstrapping (automatically base64-encoded)
+  # Optional: cloud-init user data for bootstrapping (raw cloud-init YAML content)
   # user_data            = file("cloud-init.yaml")
 }
 

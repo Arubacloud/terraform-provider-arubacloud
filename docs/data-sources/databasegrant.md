@@ -10,11 +10,8 @@ description: |-
 Retrieves an ArubaCloud Database Grant.
 
 ```terraform
-data "arubacloud_database_grant" "example" {
-  name       = "example-database-grant"
-  project_id = "example-project"
-  database   = "example-db"
-  privileges = ["SELECT", "INSERT"]
+data "arubacloud_databasegrant" "example" {
+  id = "example-grant-id"
 }
 ```
 

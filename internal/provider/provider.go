@@ -184,7 +184,7 @@ func (p *ArubaCloudProvider) Resources(ctx context.Context) []func() resource.Re
 		NewRestoreResource,
 		NewDBaaSResource,
 		NewDatabaseResource,
-		// NewDatabaseGrantResource, // TODO: Temporarily disabled - GrantRole type conversion issue
+		NewDatabaseGrantResource,
 		NewDatabaseBackupResource,
 		NewDBaaSUserResource,
 		NewScheduleJobResource,

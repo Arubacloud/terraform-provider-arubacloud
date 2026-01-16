@@ -6,9 +6,15 @@ package provider
 import (
 	"context"
 	"fmt"
+
+	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -45,30 +51,54 @@ func (r *DatabaseGrantResource) Schema(ctx context.Context, req resource.SchemaR
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Database Grant identifier",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"uri": schema.StringAttribute{
 				MarkdownDescription: "Database Grant URI",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project this grant belongs to",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"dbaas_id": schema.StringAttribute{
 				MarkdownDescription: "DBaaS ID this grant belongs to",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"database": schema.StringAttribute{
 				MarkdownDescription: "Database name",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"user_id": schema.StringAttribute{
 				MarkdownDescription: "User ID (username) to grant access",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"role": schema.StringAttribute{
-				MarkdownDescription: "Role to grant (e.g., read, write, admin)",
+				MarkdownDescription: "Role to grant: readonly, readwrite, or liteadmin",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{
+					stringvalidator.OneOf("readonly", "readwrite", "liteadmin"),
+				},
 			},
 		},
 	}
@@ -110,16 +140,59 @@ func (r *DatabaseGrantResource) Create(ctx context.Context, req resource.CreateR
 	}
 
 	// Build the create request
-	// NOTE: GrantRole is a custom type that doesn't accept string conversion
-	// This requires checking the SDK for GrantRole enum constants or if Role field accepts string
-	// TODO: Fix GrantRole - check if Role field in GrantRequest is actually string type
-	// or if we need to use GrantRole enum constants like sdktypes.GrantRoleRead, etc.
 	roleStr := data.Role.ValueString()
+	createRequest := sdktypes.GrantRequest{
+		User: sdktypes.GrantUser{
+			Username: userID,
+		},
+		Role: sdktypes.GrantRole{
+			Name: roleStr,
+		},
+	}
 
-	resp.Diagnostics.AddError(
-		"Unimplemented: GrantRole Type",
-		fmt.Sprintf("DatabaseGrant resource requires proper GrantRole type handling. Role value: %s. Please check SDK for GrantRole enum values (e.g., sdktypes.GrantRoleRead) or if Role field accepts string directly.", roleStr),
-	)
+	// Create the grant using the SDK
+	response, err := r.client.Client.FromDatabase().Grants().Create(ctx, projectID, dbaasID, databaseName, createRequest, nil)
+
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error creating database grant",
+			fmt.Sprintf("Unable to create database grant: %s", err),
+		)
+		return
+	}
+
+	if response != nil && response.IsError() && response.Error != nil {
+		errorMsg := "Failed to create database grant"
+		if response.Error.Title != nil {
+			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
+		}
+		if response.Error.Detail != nil {
+			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
+		}
+		resp.Diagnostics.AddError("API Error", errorMsg)
+		return
+	}
+
+	if response != nil && response.Data != nil {
+		// Set ID as composite: projectID/dbaasID/databaseName/userID
+		grantID := fmt.Sprintf("%s/%s/%s/%s", projectID, dbaasID, databaseName, userID)
+		data.Id = types.StringValue(grantID)
+		data.Uri = types.StringNull() // Grants don't have URIs
+		data.ProjectID = types.StringValue(projectID)
+		data.DBaaSID = types.StringValue(dbaasID)
+		data.Database = types.StringValue(databaseName)
+		data.UserID = types.StringValue(userID)
+		data.Role = types.StringValue(response.Data.Role.Name)
+	} else {
+		resp.Diagnostics.AddError(
+			"Invalid API Response",
+			"The API response did not contain expected data",
+		)
+		return
+	}
+
+	tflog.Trace(ctx, "created a Database Grant resource")
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
 func (r *DatabaseGrantResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -143,48 +216,57 @@ func (r *DatabaseGrantResource) Read(ctx context.Context, req resource.ReadReque
 	}
 
 	// Get grant details using the SDK
-	// Grants().Get signature: (ctx, projectID, dbaasID, databaseName, userID, nil)
-	// NOTE: DatabaseGrant resource is temporarily disabled due to GrantRole type issue
-	resp.Diagnostics.AddError(
-		"Unimplemented: DatabaseGrant Resource",
-		"DatabaseGrant resource is temporarily disabled. GrantRole type conversion needs to be resolved. Please check SDK for GrantRole enum values.",
-	)
-}
-
-func (r *DatabaseGrantResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var data DatabaseGrantResourceModel
-	var state DatabaseGrantResourceModel
-
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	// Get IDs from state (not plan) - IDs are immutable and should always be in state
-	projectID := state.ProjectID.ValueString()
-	dbaasID := state.DBaaSID.ValueString()
-	databaseName := state.Database.ValueString()
-	userID := state.UserID.ValueString()
-
-	if projectID == "" || dbaasID == "" || databaseName == "" || userID == "" {
+	response, err := r.client.Client.FromDatabase().Grants().Get(ctx, projectID, dbaasID, databaseName, userID, nil)
+	if err != nil {
 		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID, DBaaS ID, Database name, and User ID are required to update the database grant",
+			"Error reading database grant",
+			fmt.Sprintf("Unable to read database grant: %s", err),
 		)
 		return
 	}
 
-	// Build update request
-	// NOTE: Same GrantRole issue as Create
-	roleStr := data.Role.ValueString()
+	if response != nil && response.IsError() && response.Error != nil {
+		// Check if it's a 404 - resource not found
+		if response.Error.Status != nil && *response.Error.Status == 404 {
+			// Resource no longer exists, remove from state
+			resp.State.RemoveResource(ctx)
+			return
+		}
+
+		errorMsg := "Failed to read database grant"
+		if response.Error.Title != nil {
+			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
+		}
+		if response.Error.Detail != nil {
+			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
+		}
+		resp.Diagnostics.AddError("API Error", errorMsg)
+		return
+	}
+
+	if response != nil && response.Data != nil {
+		// Update state with current values
+		data.Role = types.StringValue(response.Data.Role.Name)
+		data.UserID = types.StringValue(response.Data.User.Username)
+		data.Database = types.StringValue(response.Data.Database.Name)
+	} else {
+		resp.Diagnostics.AddError(
+			"Invalid API Response",
+			"The API response did not contain expected data",
+		)
+		return
+	}
+
+	tflog.Trace(ctx, "read a Database Grant resource")
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+}
+
+func (r *DatabaseGrantResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	// Database grants cannot be updated - they can only be created or deleted
+	// If you need to change a grant's role or other attributes, delete the existing grant and create a new one
 	resp.Diagnostics.AddError(
-		"Unimplemented: GrantRole Type",
-		fmt.Sprintf("DatabaseGrant update requires proper GrantRole type handling. Role value: %s. Please check SDK for GrantRole enum values.", roleStr),
+		"Update Not Supported",
+		"Database grants cannot be updated. To change a grant's role or other attributes, delete the existing grant and create a new one.",
 	)
 }
 

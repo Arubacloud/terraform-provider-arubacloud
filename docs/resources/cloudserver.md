@@ -24,7 +24,7 @@ resource "arubacloud_cloudserver" "basic" {
   subnet_uri_refs       = [arubacloud_subnet.example.uri]
   securitygroup_uri_refs = [arubacloud_securitygroup.example.uri]
   tags                  = ["compute", "example"]
-  # Optional: cloud-init user data for bootstrapping (automatically base64-encoded)
+  # Optional: cloud-init user data for bootstrapping (raw cloud-init YAML content)
   # user_data             = file("cloud-init.yaml")
 }
 ```
@@ -49,7 +49,7 @@ resource "arubacloud_cloudserver" "basic" {
 - `elastic_ip_uri_ref` (String) URI reference to the Elastic IP. Should be the Elastic IP URI. You can reference the `uri` attribute from an `arubacloud_elasticip` resource.
 - `key_pair_uri_ref` (String) URI reference to the Key Pair. Should be the Key Pair URI. You can reference the `uri` attribute from an `arubacloud_keypair` resource.
 - `tags` (List of String) List of tags for the Cloud Server
-- `user_data` (String, Sensitive) Cloud-Init user data to use during server creation. This is the content of a cloud-init YAML file that will be used to bootstrap the cloud server. The content will be automatically base64-encoded by the provider before being sent to the API.
+- `user_data` (String, Sensitive) Cloud-Init user data to use during server creation. This is the content of a cloud-init YAML file that will be used to bootstrap the cloud server. The content should be provided as raw cloud-init YAML (not base64-encoded).
 
 ### Read-Only
 

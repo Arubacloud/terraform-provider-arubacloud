@@ -51,10 +51,16 @@ func (r *SnapshotResource) Schema(ctx context.Context, req resource.SchemaReques
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Snapshot identifier",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"uri": schema.StringAttribute{
 				MarkdownDescription: "Snapshot URI",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Snapshot name",

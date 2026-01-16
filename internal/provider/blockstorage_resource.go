@@ -55,6 +55,9 @@ func (r *BlockStorageResource) Schema(ctx context.Context, req resource.SchemaRe
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Block Storage identifier",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"uri": schema.StringAttribute{
 				MarkdownDescription: "Block Storage URI",

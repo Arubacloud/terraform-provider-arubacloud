@@ -63,6 +63,34 @@ func normalizeProtocol(protocol string) string {
 	}
 }
 
+// protocolNormalizePlanModifier normalizes protocol values during planning
+// to prevent false positives when comparing state ("Any") with config ("ANY")
+type protocolNormalizePlanModifier struct{}
+
+func (m protocolNormalizePlanModifier) Description(ctx context.Context) string {
+	return "Normalizes protocol values to prevent case-sensitivity issues"
+}
+
+func (m protocolNormalizePlanModifier) MarkdownDescription(ctx context.Context) string {
+	return "Normalizes protocol values to prevent case-sensitivity issues"
+}
+
+func (m protocolNormalizePlanModifier) PlanModifyString(ctx context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+	// Normalize the plan value to uppercase to match state format
+	// State stores protocol in uppercase (e.g., "ANY") to match user input format
+	if !req.PlanValue.IsNull() && !req.PlanValue.IsUnknown() {
+		normalized := strings.ToUpper(req.PlanValue.ValueString())
+		resp.PlanValue = types.StringValue(normalized)
+		return
+	}
+	
+	// If plan is null/unknown, use state value (already in uppercase)
+	if !req.StateValue.IsNull() && !req.StateValue.IsUnknown() {
+		resp.PlanValue = req.StateValue
+		return
+	}
+}
+
 // normalizeTargetKind normalizes target kind values to match API expectations
 // API expects: IP (not Ip, ip, etc.)
 func normalizeTargetKind(kind string) string {
@@ -182,6 +210,11 @@ func (r *SecurityRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 						MarkdownDescription: "Protocol (ANY, TCP, UDP, ICMP)",
 						Required:            true,
 						// Validators removed for v1.16.1 compatibility
+						PlanModifiers: []planmodifier.String{
+							// Custom plan modifier to normalize protocol values
+							// This prevents false positives when comparing state ("Any") with config ("ANY")
+							protocolNormalizePlanModifier{},
+						},
 					},
 					"port": schema.StringAttribute{
 						MarkdownDescription: "Port or port range (for TCP/UDP)",
@@ -499,9 +532,6 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 		}
 	}
 	
-	tflog.Debug(ctx, "Full request JSON", map[string]interface{}{
-		"json": string(requestJSON),
-	})
 	tflog.Info(ctx, "Creating security rule", map[string]interface{}{
 		"name":            data.Name.ValueString(),
 		"direction":       direction,
@@ -680,10 +710,16 @@ func (r *SecurityRuleResource) Read(ctx context.Context, req resource.ReadReques
 			data.Location = types.StringValue(rule.Metadata.LocationResponse.Value)
 		}
 
+		// Store protocol in user-friendly format (uppercase) to match typical user input
+		// API returns "Any" but users typically write "ANY", so store in uppercase format
+		// This prevents false positives when comparing state with config
+		protocolFromAPI := rule.Properties.Protocol
+		protocolForState := strings.ToUpper(protocolFromAPI) // Store as "ANY" instead of "Any"
+		
 		// Update properties from response
 		propertiesMap := map[string]attr.Value{
 			"direction": types.StringValue(string(rule.Properties.Direction)),
-			"protocol":  types.StringValue(rule.Properties.Protocol),
+			"protocol":  types.StringValue(protocolForState),
 			"port":      types.StringValue(rule.Properties.Port),
 		}
 
@@ -814,7 +850,9 @@ func (r *SecurityRuleResource) Update(ctx context.Context, req resource.UpdateRe
 			}
 			if prot, ok := propertiesAttrs["protocol"]; ok && prot != nil {
 				if protStr, ok := prot.(types.String); ok {
-					planProtocol = normalizeProtocol(protStr.ValueString())
+					// Keep protocol in uppercase format (matching state format)
+					// Will be normalized to API format ("Any") when sending to API
+					planProtocol = strings.ToUpper(protStr.ValueString())
 				}
 			}
 			if portAttr, ok := propertiesAttrs["port"]; ok && portAttr != nil {
@@ -823,9 +861,9 @@ func (r *SecurityRuleResource) Update(ctx context.Context, req resource.UpdateRe
 				}
 			}
 
-			// Adapter: If protocol is Any or ICMP, port must not be set (API requirement)
-			// Use case-insensitive check for protocol
-			if strings.EqualFold(planProtocol, "Any") || strings.EqualFold(planProtocol, "ICMP") {
+			// Adapter: If protocol is ANY or ICMP, port must not be set (API requirement)
+			// planProtocol is now in uppercase format
+			if planProtocol == "ANY" || planProtocol == "ICMP" {
 				planPort = ""
 			}
 
@@ -851,11 +889,16 @@ func (r *SecurityRuleResource) Update(ctx context.Context, req resource.UpdateRe
 	}
 
 	// Compare with current properties
+	// Normalize both current and plan protocol values to uppercase before comparison
+	// State stores protocol in uppercase (e.g., "ANY"), plan is also normalized to uppercase by plan modifier
+	currentProtocolNormalized := strings.ToUpper(current.Properties.Protocol)
+	planProtocolNormalized := strings.ToUpper(planProtocol)
+	
 	var propertiesChanged bool
 	if planDirection != "" && string(current.Properties.Direction) != planDirection {
 		propertiesChanged = true
 	}
-	if planProtocol != "" && current.Properties.Protocol != planProtocol {
+	if planProtocol != "" && currentProtocolNormalized != planProtocolNormalized {
 		propertiesChanged = true
 	}
 	currentPort := current.Properties.Port
@@ -983,7 +1026,17 @@ func (r *SecurityRuleResource) Update(ctx context.Context, req resource.UpdateRe
 		if response.StatusCode > 0 {
 			errorMsg = fmt.Sprintf("%s (HTTP %d)", errorMsg, response.StatusCode)
 		}
-		tflog.Error(ctx, fmt.Sprintf("API returned error: %+v", response.Error))
+		
+		// Log full error response JSON only on errors for debugging
+		if errorJSON, jsonErr := json.MarshalIndent(response.Error, "", "  "); jsonErr == nil {
+			tflog.Debug(ctx, "Full API error response JSON", map[string]interface{}{
+				"error_json": string(errorJSON),
+			})
+		}
+		
+		tflog.Error(ctx, "API error updating security rule", map[string]interface{}{
+			"error": fmt.Sprintf("%+v", response.Error),
+		})
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}

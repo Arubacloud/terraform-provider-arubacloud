@@ -16,12 +16,14 @@ resource "arubacloud_kaas" "example" {
     name    = "kaas-node-cidr"
   }
   security_group_name = arubacloud_securitygroup.example.name
-  kubernetes_version  = "1.28.0"
+  kubernetes_version  = "1.33.2"  # See https://api.arubacloud.com/docs/metadata#kubernetes-version for available versions
+  # Node pools configuration
+  # Using KaaS flavors: see https://api.arubacloud.com/docs/metadata#kaas-flavors for available flavors
   node_pools = [
     {
       name        = "pool-1"
       nodes       = 2
-      instance    = "c2.medium"
+      instance    = "K2A4"  # KaaS flavor: 2 CPU, 4GB RAM, 40GB storage
       zone        = "ITBG-1"
       autoscaling = true
       min_count   = 1
@@ -30,7 +32,7 @@ resource "arubacloud_kaas" "example" {
     {
       name        = "pool-2"
       nodes       = 1
-      instance    = "c2.large"
+      instance    = "K4A8"  # KaaS flavor: 4 CPU, 8GB RAM, 80GB storage
       zone        = "ITBG-2"
       autoscaling = false
     }

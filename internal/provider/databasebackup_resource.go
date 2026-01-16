@@ -12,6 +12,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -51,10 +53,16 @@ func (r *DatabaseBackupResource) Schema(ctx context.Context, req resource.Schema
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Database Backup identifier",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"uri": schema.StringAttribute{
 				MarkdownDescription: "Database Backup URI",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project this backup belongs to",
