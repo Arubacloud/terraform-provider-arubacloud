@@ -29,17 +29,6 @@ description: |-
 
 
 
-## Important Notes
-
-### Updates Not Supported
-
-Databases **cannot be updated**. Databases can only be created or deleted. If you need to change a database's name or other attributes, you must:
-
-1. Delete the existing database: `terraform destroy -target=arubacloud_database.example`
-2. Create a new database with the desired attributes
-
-Attempting to update a database will result in an error: "Update Not Supported - Databases cannot be updated."
-
 ## Import
 
 Aruba Cloud Database can be imported using the `database_id`.

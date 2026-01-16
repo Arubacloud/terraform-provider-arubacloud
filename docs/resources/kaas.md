@@ -76,21 +76,15 @@ resource "arubacloud_kaas" "basic" {
 
 ### Required
 
-- `kubernetes_version` (String) Kubernetes version. Available versions are described in the [ArubaCloud API documentation](https://api.arubacloud.com/docs/metadata#kubernetes-version). For example, `1.33.2`.
 - `location` (String) KaaS location
 - `name` (String) KaaS name
-- `node_cidr` (Attributes) Node CIDR configuration (see [below for nested schema](#nestedatt--node_cidr))
-- `node_pools` (Attributes List) Node pools configuration (see [below for nested schema](#nestedatt--node_pools))
+- `network` (Attributes) Network configuration for the KaaS cluster (see [below for nested schema](#nestedatt--network))
 - `project_id` (String) ID of the project this KaaS resource belongs to
-- `security_group_name` (String) Security group name
-- `subnet_uri_ref` (String) Subnet URI reference for the KaaS resource (e.g., /projects/{project-id}/providers/Aruba.Network/subnets/{subnet-id})
-- `vpc_uri_ref` (String) VPC URI reference for the KaaS resource (e.g., /projects/{project-id}/providers/Aruba.Network/vpcs/{vpc-id})
+- `settings` (Attributes) KaaS cluster settings (see [below for nested schema](#nestedatt--settings))
 
 ### Optional
 
 - `billing_period` (String) Billing period (Hour, Month, Year)
-- `ha` (Boolean) High availability
-- `pod_cidr` (String) Pod CIDR. Must use private IP ranges: 10.0.0.0/8, 172.16.0.0/12, or 192.168.0.0/16 (e.g., 10.0.3.0/24, 172.16.1.0/24, 192.168.2.0/24)
 - `tags` (List of String) List of tags for the KaaS resource
 
 ### Read-Only
@@ -98,17 +92,44 @@ resource "arubacloud_kaas" "basic" {
 - `id` (String) KaaS identifier
 - `uri` (String) KaaS URI
 
-<a id="nestedatt--node_cidr"></a>
-### Nested Schema for `node_cidr`
+<a id="nestedatt--network"></a>
+### Nested Schema for `network`
 
 Required:
 
-- `address` (String) Node CIDR address in CIDR notation. Must use private IP ranges: 10.0.0.0/8, 172.16.0.0/12, or 192.168.0.0/16 (e.g., 10.0.2.0/24, 172.16.0.0/24, 192.168.1.0/24)
+- `node_cidr` (Attributes) Node CIDR configuration (see [below for nested schema](#nestedatt--network--node_cidr))
+- `security_group_name` (String) Security group name (must match an existing security group)
+- `subnet_uri_ref` (String) Subnet URI reference (e.g., `arubacloud_subnet.example.uri`)
+- `vpc_uri_ref` (String) VPC URI reference (e.g., `arubacloud_vpc.example.uri`)
+
+Optional:
+
+- `pod_cidr` (String) Pod CIDR in CIDR notation (e.g., 10.0.3.0/24)
+
+<a id="nestedatt--network--node_cidr"></a>
+### Nested Schema for `network.node_cidr`
+
+Required:
+
+- `address` (String) Node CIDR address in CIDR notation (e.g., 10.0.0.0/24)
 - `name` (String) Node CIDR name
 
 
-<a id="nestedatt--node_pools"></a>
-### Nested Schema for `node_pools`
+
+<a id="nestedatt--settings"></a>
+### Nested Schema for `settings`
+
+Required:
+
+- `kubernetes_version` (String) Kubernetes version. Available versions are described in the [ArubaCloud API documentation](https://api.arubacloud.com/docs/metadata#kubernetes-version). For example, `1.33.2`.
+- `node_pools` (Attributes List) Node pools configuration (see [below for nested schema](#nestedatt--settings--node_pools))
+
+Optional:
+
+- `controlplane_ha` (Boolean) Control plane high availability
+
+<a id="nestedatt--settings--node_pools"></a>
+### Nested Schema for `settings.node_pools`
 
 Required:
 
@@ -122,6 +143,7 @@ Optional:
 - `autoscaling` (Boolean) Enable autoscaling for node pool
 - `max_count` (Number) Maximum number of nodes for autoscaling
 - `min_count` (Number) Minimum number of nodes for autoscaling
+
 
 
 

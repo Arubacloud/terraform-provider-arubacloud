@@ -35,7 +35,7 @@ resource "arubacloud_containerregistry" "example" {
 
   # Settings configuration
   settings = {
-    concurrent_users_flavor = "small"  # Options: small, medium, large
+    concurrent_users_flavor = "medium"  # Options: small, medium, large
     admin_user       = "adminuser"
   }
 
@@ -51,25 +51,10 @@ resource "arubacloud_containerregistry" "example" {
 
 - `location` (String) Container Registry location
 - `name` (String) Container Registry name
+- `network` (Attributes) Network configuration for the Container Registry (see [below for nested schema](#nestedatt--network))
 - `project_id` (String) ID of the project this Container Registry belongs to
-- `settings` (Object) Settings configuration for the Container Registry, including:
-  - `concurrent_users_flavor` (String) Concurrent users flavor: small, medium, or large (required)
-  - `admin_user` (String) Administrator username (optional)
-
-### Nested Schema for `network`
-
-### Required
-
-- `public_ip_uri_ref` (String) Public IP URI reference (e.g., /projects/{project-id}/providers/Aruba.Network/elasticIps/{elasticip-id})
-- `security_group_uri_ref` (String) Security Group URI reference (e.g., /projects/{project-id}/providers/Aruba.Network/securityGroups/{sg-id})
-- `subnet_uri_ref` (String) Subnet URI reference (e.g., /projects/{project-id}/providers/Aruba.Network/subnets/{subnet-id})
-- `vpc_uri_ref` (String) VPC URI reference (e.g., /projects/{project-id}/providers/Aruba.Network/vpcs/{vpc-id})
-
-### Nested Schema for `storage`
-
-### Required
-
-- `block_storage_uri_ref` (String) Block Storage URI reference (e.g., /projects/{project-id}/providers/Aruba.Storage/volumes/{volume-id})
+- `settings` (Attributes) Settings configuration for the Container Registry (see [below for nested schema](#nestedatt--settings))
+- `storage` (Attributes) Storage configuration for the Container Registry (see [below for nested schema](#nestedatt--storage))
 
 ### Optional
 
@@ -80,6 +65,37 @@ resource "arubacloud_containerregistry" "example" {
 
 - `id` (String) Container Registry identifier
 - `uri` (String) Container Registry URI
+
+<a id="nestedatt--network"></a>
+### Nested Schema for `network`
+
+Required:
+
+- `public_ip_uri_ref` (String) Public IP URI reference (e.g., `arubacloud_elasticip.example.uri`)
+- `security_group_uri_ref` (String) Security Group URI reference (e.g., `arubacloud_securitygroup.example.uri`)
+- `subnet_uri_ref` (String) Subnet URI reference (e.g., `arubacloud_subnet.example.uri`)
+- `vpc_uri_ref` (String) VPC URI reference (e.g., `arubacloud_vpc.example.uri`)
+
+
+<a id="nestedatt--settings"></a>
+### Nested Schema for `settings`
+
+Required:
+
+- `concurrent_users_flavor` (String) Concurrent users flavor: small, medium, or large
+
+Optional:
+
+- `admin_user` (String) Administrator username
+
+
+<a id="nestedatt--storage"></a>
+### Nested Schema for `storage`
+
+Required:
+
+- `block_storage_uri_ref` (String) Block Storage URI reference (e.g., `arubacloud_blockstorage.example.uri`)
+
 
 
 

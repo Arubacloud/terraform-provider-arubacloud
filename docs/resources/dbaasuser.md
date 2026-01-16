@@ -29,17 +29,6 @@ description: |-
 
 
 
-## Important Notes
-
-### Updates Not Supported
-
-DBaaS users **cannot be updated**. Users can only be created or deleted. If you need to change a user's password or other attributes, you must:
-
-1. Delete the existing user: `terraform destroy -target=arubacloud_dbaasuser.example`
-2. Create a new user with the desired attributes
-
-Attempting to update a user will result in an error: "Update Not Supported - DBaaS users cannot be updated."
-
 ## Import
 
 Aruba Cloud DBaaS User can be imported using the `dbaasuser_id`.
