@@ -41,11 +41,14 @@ resource "arubacloud_database" "test" {
 }
 
 # DBaaS User - Create a database user
+# Password must be 8-20 characters, using at least one number, one uppercase letter, 
+# one lowercase letter, and one special character. Spaces are not allowed.
+# The password must be base64 encoded using the base64encode() function.
 resource "arubacloud_dbaasuser" "test" {
   project_id = arubacloud_project.test.id
   dbaas_id   = arubacloud_dbaas.test.id
   username   = "restapi"
-  password   = "Prova123456789AC@!"  # In production, use a secure password or variable
+  password   = base64encode("Prova123456789AC!")  # In production, use a secure password or variable
 }
 
 # Database Grant - Associate the user with the database and grant permissions

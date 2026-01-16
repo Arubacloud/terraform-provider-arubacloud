@@ -11,6 +11,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -45,18 +47,30 @@ func (r *DatabaseResource) Schema(ctx context.Context, req resource.SchemaReques
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Database identifier (same as name)",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"uri": schema.StringAttribute{
 				MarkdownDescription: "Database URI",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project this database belongs to",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"dbaas_id": schema.StringAttribute{
 				MarkdownDescription: "DBaaS ID this database belongs to",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Database name",
@@ -222,6 +236,8 @@ func (r *DatabaseResource) Read(ctx context.Context, req resource.ReadRequest, r
 		data.Name = types.StringValue(db.Name)
 		// Database response doesn't have Metadata.URI
 		data.Uri = types.StringNull()
+		// Preserve immutable fields from state (dbaas_id and project_id are not in API response)
+		// These are already set from req.State.Get above, but we ensure they're preserved
 	} else {
 		resp.State.RemoveResource(ctx)
 		return
@@ -231,77 +247,12 @@ func (r *DatabaseResource) Read(ctx context.Context, req resource.ReadRequest, r
 }
 
 func (r *DatabaseResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var data DatabaseResourceModel
-	var state DatabaseResourceModel
-
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	// Get IDs from state (not plan) - IDs are immutable and should always be in state
-	projectID := state.ProjectID.ValueString()
-	dbaasID := state.DBaaSID.ValueString()
-	oldDatabaseName := state.Id.ValueString()
-
-	if projectID == "" || dbaasID == "" || oldDatabaseName == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID, DBaaS ID, and Database Name are required to update the database",
-		)
-		return
-	}
-
-	// Build update request
-	updateRequest := sdktypes.DatabaseRequest{
-		Name: data.Name.ValueString(),
-	}
-
-	// Update the database using the SDK
-	response, err := r.client.Client.FromDatabase().Databases().Update(ctx, projectID, dbaasID, oldDatabaseName, updateRequest, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error updating database",
-			fmt.Sprintf("Unable to update database: %s", err),
-		)
-		return
-	}
-
-	if response != nil && response.IsError() && response.Error != nil {
-		errorMsg := "Failed to update database"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
-		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
-		resp.Diagnostics.AddError("API Error", errorMsg)
-		return
-	}
-
-	if response != nil && response.Data != nil {
-		// Update ID to new name
-		data.Id = types.StringValue(response.Data.Name)
-		// Database response doesn't have Metadata.URI
-		data.Uri = types.StringNull()
-	}
-
-	// Ensure immutable fields are set from state before saving
-	data.Id = state.Id
-	data.ProjectID = state.ProjectID
-	data.DBaaSID = state.DBaaSID
-
-	if response != nil && response.Data != nil {
-		// Update ID from response (database name can change, so use response)
-		data.Id = types.StringValue(response.Data.Name)
-	}
-
-	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	// Databases cannot be updated - they can only be created or deleted
+	// If you need to change a database's name or other attributes, delete the existing database and create a new one
+	resp.Diagnostics.AddError(
+		"Update Not Supported",
+		"Databases cannot be updated. To change a database's name or other attributes, delete the existing database and create a new one.",
+	)
 }
 
 func (r *DatabaseResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

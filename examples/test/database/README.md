@@ -194,23 +194,51 @@ target = {
 ```
 
 ### Change Database Name
-Update the `name` field in the `arubacloud_database` resource:
+
+**Important:** Databases **cannot be updated**. To change a database's name, you must delete the existing database and create a new one.
+
+**To delete a database:**
+```bash
+terraform destroy -target=arubacloud_database.test
+```
+
+**To create a new database with a different name:**
 ```hcl
 resource "arubacloud_database" "test" {
-  # ...
-  name = "myappdb"
+  project_id = arubacloud_project.test.id
+  dbaas_id   = arubacloud_dbaas.test.id
+  name       = "myappdb"
 }
 ```
 
 ### Change User Credentials
-Update the `username` and `password` in the `arubacloud_dbaasuser` resource:
+
+**Important:** DBaaS users **cannot be updated**. To change a user's password or username, you must delete the existing user and create a new one.
+
+**To delete a user:**
+```bash
+terraform destroy -target=arubacloud_dbaasuser.test
+```
+
+**To create a new user with different credentials:**
 ```hcl
 resource "arubacloud_dbaasuser" "test" {
-  # ...
-  username = "myuser"
-  password = var.database_password  # Use a variable for security
+  project_id = arubacloud_project.test.id
+  dbaas_id   = arubacloud_dbaas.test.id
+  username   = "myuser"
+  password   = base64encode(var.database_password)  # Password must be 8-20 chars with number, uppercase, lowercase, and special char.
 }
 ```
+
+**Password Requirements:**
+- 8-20 characters
+- At least one number
+- At least one uppercase letter
+- At least one lowercase letter
+- At least one special character
+- No spaces allowed
+
+The password must be base64 encoded using the `base64encode()` function in Terraform before passing to the provider.
 
 ## Important Notes
 

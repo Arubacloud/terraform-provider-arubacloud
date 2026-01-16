@@ -12,6 +12,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -47,25 +49,37 @@ func (r *DBaaSUserResource) Schema(ctx context.Context, req resource.SchemaReque
 			"id": schema.StringAttribute{
 				MarkdownDescription: "DBaaS User identifier (same as username)",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"uri": schema.StringAttribute{
 				MarkdownDescription: "DBaaS User URI",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project this user belongs to",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"dbaas_id": schema.StringAttribute{
 				MarkdownDescription: "DBaaS ID this user belongs to",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"username": schema.StringAttribute{
 				MarkdownDescription: "Username for the DBaaS user",
 				Required:            true,
 			},
 			"password": schema.StringAttribute{
-				MarkdownDescription: "Password for the DBaaS user",
+				MarkdownDescription: "Password for the DBaaS user (must be base64 encoded). The plain password must be 8-20 characters, using at least one number, one uppercase letter, one lowercase letter, and one special character. Spaces are not allowed. Use the `base64encode()` function to encode your plain password.",
 				Required:            true,
 				Sensitive:           true,
 			},
@@ -106,7 +120,8 @@ func (r *DBaaSUserResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 
-	// Build the create request
+	// Password should already be base64 encoded from Terraform (using base64encode() function)
+	// Pass it through to the API as-is
 	createRequest := sdktypes.UserRequest{
 		Username: data.Username.ValueString(),
 		Password: data.Password.ValueString(),
@@ -269,6 +284,8 @@ func (r *DBaaSUserResource) Read(ctx context.Context, req resource.ReadRequest, 
 		data.Uri = types.StringNull()
 		data.Username = types.StringValue(user.Username)
 		// Password is not returned from API, so we keep the existing value
+		// Preserve immutable fields from state (dbaas_id and project_id are not in API response)
+		// These are already set from req.State.Get above, but we ensure they're preserved
 	} else {
 		resp.State.RemoveResource(ctx)
 		return
@@ -278,79 +295,12 @@ func (r *DBaaSUserResource) Read(ctx context.Context, req resource.ReadRequest, 
 }
 
 func (r *DBaaSUserResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var data DBaaSUserResourceModel
-	var state DBaaSUserResourceModel
-
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	// Get IDs from state (not plan) - IDs are immutable and should always be in state
-	projectID := state.ProjectID.ValueString()
-	dbaasID := state.DBaaSID.ValueString()
-	username := state.Id.ValueString()
-
-	if projectID == "" || dbaasID == "" || username == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID, DBaaS ID, and Username are required to update the DBaaS user",
-		)
-		return
-	}
-
-	// Only password can be updated
-	updateRequest := sdktypes.UserRequest{
-		Username: username,
-		Password: data.Password.ValueString(),
-	}
-
-	// Update the user using the SDK
-	response, err := r.client.Client.FromDatabase().Users().Update(ctx, projectID, dbaasID, username, updateRequest, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error updating DBaaS user",
-			fmt.Sprintf("Unable to update DBaaS user: %s", err),
-		)
-		return
-	}
-
-	if response != nil && response.IsError() && response.Error != nil {
-		errorMsg := "Failed to update DBaaS user"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
-		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
-		resp.Diagnostics.AddError("API Error", errorMsg)
-		return
-	}
-
-	if response != nil && response.Data != nil {
-		data.Id = types.StringValue(response.Data.Username)
-		// UserResponse doesn't have Metadata.URI
-		data.Uri = types.StringNull()
-		data.Username = types.StringValue(response.Data.Username)
-	}
-
-	// Ensure immutable fields are set from state before saving
-	data.Id = state.Id
-	data.ProjectID = state.ProjectID
-	data.DBaaSID = state.DBaaSID
-
-	if response != nil && response.Data != nil {
-		// Update ID from response (username can change, so use response)
-		data.Id = types.StringValue(response.Data.Username)
-		data.Username = types.StringValue(response.Data.Username)
-	}
-
-	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	// DBaaS users cannot be updated - they can only be created or deleted
+	// If you need to change a user's password or other attributes, delete and recreate the user
+	resp.Diagnostics.AddError(
+		"Update Not Supported",
+		"DBaaS users cannot be updated. To change a user's password or other attributes, delete the existing user and create a new one.",
+	)
 }
 
 func (r *DBaaSUserResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

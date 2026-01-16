@@ -39,10 +39,14 @@ resource "arubacloud_database" "example" {
 }
 
 # DBaaS User Example
+# Password must be 8-20 characters, using at least one number, one uppercase letter, 
+# one lowercase letter, and one special character. Spaces are not allowed.
+# The password must be base64 encoded using the base64encode() function.
 resource "arubacloud_dbaasuser" "example" {
-  dbaas_id = arubacloud_dbaas.example.id
-  username = "dbuser"
-  password = "supersecretpassword"
+  project_id = arubacloud_project.example.id
+  dbaas_id   = arubacloud_dbaas.example.id
+  username   = "dbuser"
+  password   = base64encode("SuperSecret123!")  # In production, use a secure password or variable
 }
 
 # Database Grant Example

@@ -18,7 +18,7 @@ description: |-
 ### Required
 
 - `dbaas_id` (String) DBaaS ID this user belongs to
-- `password` (String, Sensitive) Password for the DBaaS user
+- `password` (String, Sensitive) Password for the DBaaS user (must be base64 encoded). The plain password must be 8-20 characters, using at least one number, one uppercase letter, one lowercase letter, and one special character. Spaces are not allowed. Use the `base64encode()` function to encode your plain password.
 - `project_id` (String) ID of the project this user belongs to
 - `username` (String) Username for the DBaaS user
 
@@ -28,6 +28,17 @@ description: |-
 - `uri` (String) DBaaS User URI
 
 
+
+## Important Notes
+
+### Updates Not Supported
+
+DBaaS users **cannot be updated**. Users can only be created or deleted. If you need to change a user's password or other attributes, you must:
+
+1. Delete the existing user: `terraform destroy -target=arubacloud_dbaasuser.example`
+2. Create a new user with the desired attributes
+
+Attempting to update a user will result in an error: "Update Not Supported - DBaaS users cannot be updated."
 
 ## Import
 

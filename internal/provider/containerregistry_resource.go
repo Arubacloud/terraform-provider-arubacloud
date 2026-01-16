@@ -57,6 +57,9 @@ func (r *ContainerRegistryResource) Schema(ctx context.Context, req resource.Sch
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Container Registry identifier",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"uri": schema.StringAttribute{
 				MarkdownDescription: "Container Registry URI",

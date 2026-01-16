@@ -59,10 +59,16 @@ func (r *CloudServerResource) Schema(ctx context.Context, req resource.SchemaReq
 			"id": schema.StringAttribute{
 				MarkdownDescription: "CloudServer identifier",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"uri": schema.StringAttribute{
 				MarkdownDescription: "CloudServer URI",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "CloudServer name",
