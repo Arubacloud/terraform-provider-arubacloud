@@ -245,13 +245,8 @@ func (r *ScheduleJobResource) Create(ctx context.Context, req resource.CreateReq
 	}
 
 	if response != nil && response.IsError() && response.Error != nil {
-		errorMsg := "Failed to create schedule job"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
-		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
+		logContext := map[string]interface{}{}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create schedule job", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}
@@ -345,13 +340,11 @@ func (r *ScheduleJobResource) Read(ctx context.Context, req resource.ReadRequest
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		errorMsg := "Failed to read schedule job"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
+		logContext := map[string]interface{}{
+			"project_id": projectID,
+			"job_id":     jobID,
 		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read schedule job", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}
@@ -546,13 +539,8 @@ func (r *ScheduleJobResource) Update(ctx context.Context, req resource.UpdateReq
 	}
 
 	if response != nil && response.IsError() && response.Error != nil {
-		errorMsg := "Failed to update schedule job"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
-		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
+		logContext := map[string]interface{}{}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to update schedule job", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}

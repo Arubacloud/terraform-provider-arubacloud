@@ -258,13 +258,10 @@ func (r *ContainerRegistryResource) Create(ctx context.Context, req resource.Cre
 	}
 
 	if response != nil && response.IsError() && response.Error != nil {
-		errorMsg := "Failed to create container registry"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
+		logContext := map[string]interface{}{
+			"project_id": projectID,
 		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create container registry", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}
@@ -368,13 +365,11 @@ func (r *ContainerRegistryResource) Read(ctx context.Context, req resource.ReadR
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		errorMsg := "Failed to read container registry"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
+		logContext := map[string]interface{}{
+			"project_id":  projectID,
+			"registry_id": registryID,
 		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read container registry", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}
@@ -594,13 +589,11 @@ func (r *ContainerRegistryResource) Update(ctx context.Context, req resource.Upd
 	}
 
 	if response != nil && response.IsError() && response.Error != nil {
-		errorMsg := "Failed to update container registry"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
+		logContext := map[string]interface{}{
+			"project_id":  projectID,
+			"registry_id": registryID,
 		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to update container registry", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}

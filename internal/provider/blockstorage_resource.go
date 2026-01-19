@@ -205,13 +205,10 @@ func (r *BlockStorageResource) Create(ctx context.Context, req resource.CreateRe
 	}
 
 	if response != nil && response.IsError() && response.Error != nil {
-		errorMsg := "Failed to create block storage"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
+		logContext := map[string]interface{}{
+			"project_id": projectID,
 		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create block storage", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}
@@ -379,13 +376,11 @@ func (r *BlockStorageResource) Read(ctx context.Context, req resource.ReadReques
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		errorMsg := "Failed to read block storage"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
+		logContext := map[string]interface{}{
+			"project_id": projectID,
+			"volume_id":  volumeID,
 		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read block storage", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}
@@ -598,13 +593,11 @@ func (r *BlockStorageResource) Update(ctx context.Context, req resource.UpdateRe
 	}
 
 	if response != nil && response.IsError() && response.Error != nil {
-		errorMsg := "Failed to update block storage"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
+		logContext := map[string]interface{}{
+			"project_id": projectID,
+			"volume_id":  volumeID,
 		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to update block storage", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}

@@ -154,27 +154,11 @@ func (r *KeypairResource) Create(ctx context.Context, req resource.CreateRequest
 	}
 
 	if response != nil && response.IsError() && response.Error != nil {
-		errorMsg := "Failed to create keypair"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
-		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
-		// Include status code for better debugging
-		if response.StatusCode > 0 {
-			errorMsg = fmt.Sprintf("%s (HTTP %d)", errorMsg, response.StatusCode)
-		}
-
-		// Log the full error for debugging
-		tflog.Error(ctx, "Keypair creation failed", map[string]interface{}{
-			"error_title":  response.Error.Title,
-			"error_detail": response.Error.Detail,
-			"status_code":  response.StatusCode,
+		logContext := map[string]interface{}{
 			"keypair_name": data.Name.ValueString(),
 			"project_id":   projectID,
-		})
-
+		}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create keypair", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}
@@ -309,20 +293,11 @@ func (r *KeypairResource) Read(ctx context.Context, req resource.ReadRequest, re
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		errorMsg := "Failed to read keypair"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
+		logContext := map[string]interface{}{
+			"project_id": projectID,
+			"keypair_id": keypairID,
 		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
-		tflog.Error(ctx, "API error reading keypair", map[string]interface{}{
-			"status_code":  response.StatusCode,
-			"error_title":  response.Error.Title,
-			"error_detail": response.Error.Detail,
-			"project_id":   projectID,
-			"keypair_id":   keypairID,
-		})
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read keypair", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}

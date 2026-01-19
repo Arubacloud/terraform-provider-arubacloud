@@ -148,13 +148,8 @@ func (r *KMSResource) Create(ctx context.Context, req resource.CreateRequest, re
 	}
 
 	if response != nil && response.IsError() && response.Error != nil {
-		errorMsg := "Failed to create KMS"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
-		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
+		logContext := map[string]interface{}{}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create KMS", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}
@@ -248,13 +243,11 @@ func (r *KMSResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		errorMsg := "Failed to read KMS"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
+		logContext := map[string]interface{}{
+			"project_id": projectID,
+			"kms_id":     kmsID,
 		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read KMS", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}
@@ -399,13 +392,8 @@ func (r *KMSResource) Update(ctx context.Context, req resource.UpdateRequest, re
 	}
 
 	if response != nil && response.IsError() && response.Error != nil {
-		errorMsg := "Failed to update KMS"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
-		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
+		logContext := map[string]interface{}{}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to update KMS", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}

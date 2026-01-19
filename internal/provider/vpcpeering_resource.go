@@ -162,13 +162,8 @@ func (r *VpcPeeringResource) Create(ctx context.Context, req resource.CreateRequ
 	}
 
 	if response != nil && response.IsError() && response.Error != nil {
-		errorMsg := "Failed to create VPC peering"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
-		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
+		logContext := map[string]interface{}{}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create VPC peering", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}
@@ -255,13 +250,11 @@ func (r *VpcPeeringResource) Read(ctx context.Context, req resource.ReadRequest,
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		errorMsg := "Failed to read VPC peering"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
+		logContext := map[string]interface{}{
+			"project_id": projectID,
+			"peering_id": peeringID,
 		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read VPC peering", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}
@@ -422,13 +415,8 @@ func (r *VpcPeeringResource) Update(ctx context.Context, req resource.UpdateRequ
 	}
 
 	if response != nil && response.IsError() && response.Error != nil {
-		errorMsg := "Failed to update VPC peering"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
-		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
+		logContext := map[string]interface{}{}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to update VPC peering", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}

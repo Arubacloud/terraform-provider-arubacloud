@@ -566,13 +566,8 @@ func (r *VPNTunnelResource) Create(ctx context.Context, req resource.CreateReque
 	}
 
 	if response != nil && response.IsError() && response.Error != nil {
-		errorMsg := "Failed to create VPN tunnel"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
-		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
+		logContext := map[string]interface{}{}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create VPN tunnel", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}
@@ -658,13 +653,11 @@ func (r *VPNTunnelResource) Read(ctx context.Context, req resource.ReadRequest, 
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		errorMsg := "Failed to read VPN tunnel"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
+		logContext := map[string]interface{}{
+			"project_id": projectID,
+			"tunnel_id":  tunnelID,
 		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read VPN tunnel", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}
@@ -828,13 +821,8 @@ func (r *VPNTunnelResource) Update(ctx context.Context, req resource.UpdateReque
 	}
 
 	if response != nil && response.IsError() && response.Error != nil {
-		errorMsg := "Failed to update VPN tunnel"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
-		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
+		logContext := map[string]interface{}{}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to update VPN tunnel", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}

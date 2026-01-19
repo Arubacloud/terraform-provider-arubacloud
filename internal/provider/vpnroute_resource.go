@@ -186,13 +186,8 @@ func (r *VPNRouteResource) Create(ctx context.Context, req resource.CreateReques
 	}
 
 	if response != nil && response.IsError() && response.Error != nil {
-		errorMsg := "Failed to create VPN route"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
-		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
+		logContext := map[string]interface{}{}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create VPN route", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}
@@ -279,13 +274,11 @@ func (r *VPNRouteResource) Read(ctx context.Context, req resource.ReadRequest, r
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		errorMsg := "Failed to read VPN route"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
+		logContext := map[string]interface{}{
+			"project_id": projectID,
+			"route_id":   routeID,
 		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read VPN route", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}
@@ -480,13 +473,8 @@ func (r *VPNRouteResource) Update(ctx context.Context, req resource.UpdateReques
 	}
 
 	if response != nil && response.IsError() && response.Error != nil {
-		errorMsg := "Failed to update VPN route"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
-		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
+		logContext := map[string]interface{}{}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to update VPN route", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}

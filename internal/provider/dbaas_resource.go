@@ -125,34 +125,34 @@ func (r *DBaaSResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				MarkdownDescription: "Network configuration for the DBaaS instance",
 				Required:            true,
 				Attributes: map[string]schema.Attribute{
-			"vpc_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "URI reference to the VPC resource (e.g., `arubacloud_vpc.example.uri`)",
-				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"subnet_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "URI reference to the Subnet resource (e.g., `arubacloud_subnet.example.uri`)",
-				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"security_group_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "URI reference to the Security Group resource (e.g., `arubacloud_securitygroup.example.uri`)",
-				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"elastic_ip_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "URI reference to the Elastic IP resource (e.g., `arubacloud_elasticip.example.uri`)",
-				Optional:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
+					"vpc_uri_ref": schema.StringAttribute{
+						MarkdownDescription: "URI reference to the VPC resource (e.g., `arubacloud_vpc.example.uri`)",
+						Required:            true,
+						PlanModifiers: []planmodifier.String{
+							stringplanmodifier.UseStateForUnknown(),
+						},
+					},
+					"subnet_uri_ref": schema.StringAttribute{
+						MarkdownDescription: "URI reference to the Subnet resource (e.g., `arubacloud_subnet.example.uri`)",
+						Required:            true,
+						PlanModifiers: []planmodifier.String{
+							stringplanmodifier.UseStateForUnknown(),
+						},
+					},
+					"security_group_uri_ref": schema.StringAttribute{
+						MarkdownDescription: "URI reference to the Security Group resource (e.g., `arubacloud_securitygroup.example.uri`)",
+						Required:            true,
+						PlanModifiers: []planmodifier.String{
+							stringplanmodifier.UseStateForUnknown(),
+						},
+					},
+					"elastic_ip_uri_ref": schema.StringAttribute{
+						MarkdownDescription: "URI reference to the Elastic IP resource (e.g., `arubacloud_elasticip.example.uri`)",
+						Optional:            true,
+						PlanModifiers: []planmodifier.String{
+							stringplanmodifier.UseStateForUnknown(),
+						},
+					},
 				},
 			},
 			"billing_period": schema.StringAttribute{
@@ -322,7 +322,7 @@ func (r *DBaaSResource) Create(ctx context.Context, req resource.CreateRequest, 
 		SubnetURI:        &subnetUriRef,
 		SecurityGroupURI: &securityGroupUriRef,
 	}
-	
+
 	// Add optional Elastic IP if provided
 	if elasticIpUriRef != "" {
 		networking.ElasticIPURI = &elasticIpUriRef
@@ -349,8 +349,8 @@ func (r *DBaaSResource) Create(ctx context.Context, req resource.CreateRequest, 
 				SizeGB: storageSizeGBPtr,
 			},
 			Autoscaling: autoscaling,
-			Networking: networking,
-			Zone:       &zone,
+			Networking:  networking,
+			Zone:        &zone,
 		},
 	}
 
@@ -364,18 +364,18 @@ func (r *DBaaSResource) Create(ctx context.Context, req resource.CreateRequest, 
 
 	// Log the full request for debugging
 	debugMap := map[string]interface{}{
-		"project_id":        projectID,
-		"name":              data.Name.ValueString(),
-		"location":          data.Location.ValueString(),
-		"zone":              zone,
-		"engine_id":         engineID,
-		"flavor":            flavor,
-		"storage_size_gb":   storageSizeGB,
-		"vpc_uri":           vpcUriRef,
-		"subnet_uri":        subnetUriRef,
+		"project_id":         projectID,
+		"name":               data.Name.ValueString(),
+		"location":           data.Location.ValueString(),
+		"zone":               zone,
+		"engine_id":          engineID,
+		"flavor":             flavor,
+		"storage_size_gb":    storageSizeGB,
+		"vpc_uri":            vpcUriRef,
+		"subnet_uri":         subnetUriRef,
 		"security_group_uri": securityGroupUriRef,
-		"elastic_ip_uri":    elasticIpUriRef,
-		"autoscaling":       autoscaling != nil,
+		"elastic_ip_uri":     elasticIpUriRef,
+		"autoscaling":        autoscaling != nil,
 	}
 	if !data.BillingPeriod.IsNull() && !data.BillingPeriod.IsUnknown() {
 		debugMap["billing_period"] = data.BillingPeriod.ValueString()
@@ -397,14 +397,6 @@ func (r *DBaaSResource) Create(ctx context.Context, req resource.CreateRequest, 
 	}
 
 	if response != nil && response.IsError() && response.Error != nil {
-		errorMsg := "Failed to create DBaaS instance"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
-		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
-		
 		// Log detailed error information for debugging
 		errorDetails := map[string]interface{}{
 			"project_id": projectID,
@@ -414,19 +406,7 @@ func (r *DBaaSResource) Create(ctx context.Context, req resource.CreateRequest, 
 			"subnet_uri": subnetUriRef,
 			"sg_uri":     securityGroupUriRef,
 		}
-		if response.Error.Title != nil {
-			errorDetails["error_title"] = *response.Error.Title
-		}
-		if response.Error.Detail != nil {
-			errorDetails["error_detail"] = *response.Error.Detail
-		}
-		if response.Error.Status != nil {
-			errorDetails["error_status"] = *response.Error.Status
-		}
-		if response.Error.Type != nil {
-			errorDetails["error_type"] = *response.Error.Type
-		}
-		
+
 		// Log full request and error response JSON only on errors for debugging
 		if requestJSON, jsonErr := json.MarshalIndent(createRequest, "", "  "); jsonErr == nil {
 			tflog.Debug(ctx, "Full DBaaS create request JSON (error case)", map[string]interface{}{
@@ -438,8 +418,8 @@ func (r *DBaaSResource) Create(ctx context.Context, req resource.CreateRequest, 
 				"error_json": string(errorJSON),
 			})
 		}
-		
-		tflog.Error(ctx, "DBaaS create request failed", errorDetails)
+
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create DBaaS instance", errorDetails)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}
@@ -557,13 +537,11 @@ func (r *DBaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		errorMsg := "Failed to read DBaaS instance"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
+		logContext := map[string]interface{}{
+			"project_id": projectID,
+			"dbaas_id":   dbaasID,
 		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read DBaaS instance", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}
@@ -602,7 +580,7 @@ func (r *DBaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp
 		// Build nested storage object from API response
 		storageAttrs := make(map[string]attr.Value)
 		storageAttrTypes := map[string]attr.Type{
-			"size_gb":    types.Int64Type,
+			"size_gb": types.Int64Type,
 			"autoscaling": types.ObjectType{
 				AttrTypes: map[string]attr.Type{
 					"enabled":         types.BoolType,
@@ -818,7 +796,7 @@ func (r *DBaaSResource) Update(ctx context.Context, req resource.UpdateRequest, 
 		storageObj, diags := data.Storage.ToObjectValue(ctx)
 		if !diags.HasError() {
 			storageAttrs := storageObj.Attributes()
-			
+
 			// Extract size_gb
 			if sizeGBAttr, ok := storageAttrs["size_gb"].(types.Int64); ok && !sizeGBAttr.IsNull() && !sizeGBAttr.IsUnknown() {
 				storageSizeGB := int32(sizeGBAttr.ValueInt64())
@@ -1011,14 +989,11 @@ func (r *DBaaSResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	}
 
 	if response != nil && response.IsError() && response.Error != nil {
-		errorMsg := "Failed to update DBaaS instance"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
+		logContext := map[string]interface{}{
+			"project_id": projectID,
+			"dbaas_id":   dbaasID,
 		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
-		
+
 		// Log full request and error response JSON only on errors for debugging
 		if requestJSON, jsonErr := json.MarshalIndent(updateRequest, "", "  "); jsonErr == nil {
 			tflog.Debug(ctx, "Full DBaaS update request JSON (error case)", map[string]interface{}{
@@ -1030,7 +1005,8 @@ func (r *DBaaSResource) Update(ctx context.Context, req resource.UpdateRequest, 
 				"error_json": string(errorJSON),
 			})
 		}
-		
+
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to update DBaaS instance", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}

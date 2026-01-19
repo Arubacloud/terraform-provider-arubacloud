@@ -6,6 +6,8 @@ package provider
 import (
 	"context"
 	"fmt"
+
+	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -110,16 +112,58 @@ func (r *DatabaseGrantResource) Create(ctx context.Context, req resource.CreateR
 	}
 
 	// Build the create request
-	// NOTE: GrantRole is a custom type that doesn't accept string conversion
-	// This requires checking the SDK for GrantRole enum constants or if Role field accepts string
-	// TODO: Fix GrantRole - check if Role field in GrantRequest is actually string type
-	// or if we need to use GrantRole enum constants like sdktypes.GrantRoleRead, etc.
-	roleStr := data.Role.ValueString()
+	// GrantRequest requires both User and Role fields
+	createRequest := sdktypes.GrantRequest{
+		User: sdktypes.GrantUser{Username: userID},
+		Role: sdktypes.GrantRole{Name: data.Role.ValueString()},
+	}
 
-	resp.Diagnostics.AddError(
-		"Unimplemented: GrantRole Type",
-		fmt.Sprintf("DatabaseGrant resource requires proper GrantRole type handling. Role value: %s. Please check SDK for GrantRole enum values (e.g., sdktypes.GrantRoleRead) or if Role field accepts string directly.", roleStr),
-	)
+	// Create the grant using the SDK
+	response, err := r.client.Client.FromDatabase().Grants().Create(ctx, projectID, dbaasID, databaseName, createRequest, nil)
+	if err != nil {
+		tflog.Error(ctx, "Database grant create error", map[string]interface{}{
+			"error":      err.Error(),
+			"project_id": projectID,
+			"dbaas_id":   dbaasID,
+			"database":   databaseName,
+			"user_id":    userID,
+		})
+		resp.Diagnostics.AddError(
+			"Error creating database grant",
+			fmt.Sprintf("Unable to create database grant: %s", err),
+		)
+		return
+	}
+
+	if response != nil && response.IsError() && response.Error != nil {
+		logContext := map[string]interface{}{
+			"project_id": projectID,
+			"dbaas_id":   dbaasID,
+			"database":   databaseName,
+			"user_id":    userID,
+		}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create database grant", logContext)
+		resp.Diagnostics.AddError("API Error", errorMsg)
+		return
+	}
+
+	if response != nil && response.Data != nil {
+		// Set the grant ID - using a composite key
+		data.Id = types.StringValue(fmt.Sprintf("%s/%s/%s/%s", projectID, dbaasID, databaseName, userID))
+		data.Uri = types.StringNull() // Grants don't have URIs
+	} else {
+		resp.Diagnostics.AddError(
+			"Invalid API Response",
+			"Database grant created but no data returned from API",
+		)
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+
+	tflog.Trace(ctx, "created a Database Grant resource", map[string]interface{}{
+		"grant_id": data.Id.ValueString(),
+	})
 }
 
 func (r *DatabaseGrantResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -143,12 +187,58 @@ func (r *DatabaseGrantResource) Read(ctx context.Context, req resource.ReadReque
 	}
 
 	// Get grant details using the SDK
-	// Grants().Get signature: (ctx, projectID, dbaasID, databaseName, userID, nil)
-	// NOTE: DatabaseGrant resource is temporarily disabled due to GrantRole type issue
-	resp.Diagnostics.AddError(
-		"Unimplemented: DatabaseGrant Resource",
-		"DatabaseGrant resource is temporarily disabled. GrantRole type conversion needs to be resolved. Please check SDK for GrantRole enum values.",
-	)
+	response, err := r.client.Client.FromDatabase().Grants().Get(ctx, projectID, dbaasID, databaseName, userID, nil)
+	if err != nil {
+		tflog.Error(ctx, "Database grant read error", map[string]interface{}{
+			"error":      err.Error(),
+			"project_id": projectID,
+			"dbaas_id":   dbaasID,
+			"database":   databaseName,
+			"user_id":    userID,
+		})
+		resp.Diagnostics.AddError(
+			"Error reading database grant",
+			fmt.Sprintf("Unable to read database grant: %s", err),
+		)
+		return
+	}
+
+	if response != nil && response.IsError() && response.Error != nil {
+		// Handle 404 - Resource no longer exists
+		if response.Error.Status != nil && *response.Error.Status == 404 {
+			tflog.Info(ctx, "Database grant not found, removing from state", map[string]interface{}{
+				"project_id": projectID,
+				"dbaas_id":   dbaasID,
+				"database":   databaseName,
+				"user_id":    userID,
+			})
+			resp.State.RemoveResource(ctx)
+			return
+		}
+
+		logContext := map[string]interface{}{
+			"project_id": projectID,
+			"dbaas_id":   dbaasID,
+			"database":   databaseName,
+			"user_id":    userID,
+		}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read database grant", logContext)
+		resp.Diagnostics.AddError("API Error", errorMsg)
+		return
+	}
+
+	if response != nil && response.Data != nil {
+		// Update state with current grant info
+		data.Role = types.StringValue(response.Data.Role.Name)
+	} else {
+		resp.Diagnostics.AddError(
+			"Invalid API Response",
+			"Database grant not found or no data returned from API",
+		)
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
 func (r *DatabaseGrantResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -180,12 +270,56 @@ func (r *DatabaseGrantResource) Update(ctx context.Context, req resource.UpdateR
 	}
 
 	// Build update request
-	// NOTE: Same GrantRole issue as Create
-	roleStr := data.Role.ValueString()
-	resp.Diagnostics.AddError(
-		"Unimplemented: GrantRole Type",
-		fmt.Sprintf("DatabaseGrant update requires proper GrantRole type handling. Role value: %s. Please check SDK for GrantRole enum values.", roleStr),
-	)
+	updateRequest := sdktypes.GrantRequest{
+		User: sdktypes.GrantUser{Username: userID},
+		Role: sdktypes.GrantRole{Name: data.Role.ValueString()},
+	}
+
+	// Update the grant using the SDK
+	response, err := r.client.Client.FromDatabase().Grants().Update(ctx, projectID, dbaasID, databaseName, userID, updateRequest, nil)
+	if err != nil {
+		tflog.Error(ctx, "Database grant update error", map[string]interface{}{
+			"error":      err.Error(),
+			"project_id": projectID,
+			"dbaas_id":   dbaasID,
+			"database":   databaseName,
+			"user_id":    userID,
+		})
+		resp.Diagnostics.AddError(
+			"Error updating database grant",
+			fmt.Sprintf("Unable to update database grant: %s", err),
+		)
+		return
+	}
+
+	if response != nil && response.IsError() && response.Error != nil {
+		logContext := map[string]interface{}{
+			"project_id": projectID,
+			"dbaas_id":   dbaasID,
+			"database":   databaseName,
+			"user_id":    userID,
+		}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to update database grant", logContext)
+		resp.Diagnostics.AddError("API Error", errorMsg)
+		return
+	}
+
+	if response != nil && response.Data != nil {
+		// Update state with the response data
+		data.Role = types.StringValue(response.Data.Role.Name)
+	} else {
+		resp.Diagnostics.AddError(
+			"Invalid API Response",
+			"Database grant updated but no data returned from API",
+		)
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+
+	tflog.Trace(ctx, "updated a Database Grant resource", map[string]interface{}{
+		"grant_id": data.Id.ValueString(),
+	})
 }
 
 func (r *DatabaseGrantResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

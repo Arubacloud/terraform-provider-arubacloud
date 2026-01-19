@@ -1,6 +1,6 @@
-data "arubacloud_database_grant" "example" {
-  name       = "example-database-grant"
-  project_id = "example-project"
-  database   = "example-db"
-  privileges = ["SELECT", "INSERT"]
+data "arubacloud_databasegrant" "example" {
+  project_id = "project-123"
+  dbaas_id   = "dbaas-456"
+  database   = "mydb"
+  user_id    = "myuser"
 }

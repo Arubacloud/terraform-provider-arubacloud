@@ -408,13 +408,8 @@ func (r *SubnetResource) Create(ctx context.Context, req resource.CreateRequest,
 	}
 
 	if response != nil && response.IsError() && response.Error != nil {
-		errorMsg := "Failed to create subnet"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
-		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
+		logContext := map[string]interface{}{}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create subnet", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}
@@ -543,13 +538,11 @@ func (r *SubnetResource) Read(ctx context.Context, req resource.ReadRequest, res
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		errorMsg := "Failed to read subnet"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
+		logContext := map[string]interface{}{
+			"project_id": projectID,
+			"subnet_id":  subnetID,
 		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read subnet", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}
@@ -605,7 +598,7 @@ func (r *SubnetResource) Read(ctx context.Context, req resource.ReadRequest, res
 		// For Advanced subnets, always set network if available from API
 		networkWasInState := !data.Network.IsNull() && !data.Network.IsUnknown()
 		shouldSetNetwork := subnetType == "Advanced" || networkWasInState
-		
+
 		if shouldSetNetwork {
 			// Set network address
 			if subnet.Properties.Network != nil && subnet.Properties.Network.Address != "" {
@@ -969,13 +962,8 @@ func (r *SubnetResource) Update(ctx context.Context, req resource.UpdateRequest,
 	}
 
 	if response != nil && response.IsError() && response.Error != nil {
-		errorMsg := "Failed to update subnet"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
-		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
+		logContext := map[string]interface{}{}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to update subnet", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}

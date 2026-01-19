@@ -5,6 +5,7 @@ package provider
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 
@@ -107,9 +108,11 @@ func (r *DBaaSUserResource) Create(ctx context.Context, req resource.CreateReque
 	}
 
 	// Build the create request
+	// Password must be base64 encoded for the API
+	passwordBase64 := base64.StdEncoding.EncodeToString([]byte(data.Password.ValueString()))
 	createRequest := sdktypes.UserRequest{
 		Username: data.Username.ValueString(),
-		Password: data.Password.ValueString(),
+		Password: passwordBase64,
 	}
 
 	// Create the user using the SDK
@@ -128,46 +131,19 @@ func (r *DBaaSUserResource) Create(ctx context.Context, req resource.CreateReque
 	}
 
 	if response != nil && response.IsError() && response.Error != nil {
-		errorMsg := "Failed to create DBaaS user"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
-		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
-		
-		// Log detailed error information for debugging
-		errorDetails := map[string]interface{}{
-			"project_id": projectID,
-			"dbaas_id":   dbaasID,
-			"username":   data.Username.ValueString(),
-		}
-		if response.Error.Title != nil {
-			errorDetails["error_title"] = *response.Error.Title
-		}
-		if response.Error.Detail != nil {
-			errorDetails["error_detail"] = *response.Error.Detail
-		}
-		if response.Error.Status != nil {
-			errorDetails["error_status"] = *response.Error.Status
-		}
-		if response.Error.Type != nil {
-			errorDetails["error_type"] = *response.Error.Type
-		}
-		
-		// Log full request and error response JSON only on errors for debugging
+		// Log full request JSON only on errors for debugging
 		if requestJSON, jsonErr := json.MarshalIndent(createRequest, "", "  "); jsonErr == nil {
 			tflog.Debug(ctx, "Full DBaaS user create request JSON (error case)", map[string]interface{}{
 				"request_json": string(requestJSON),
 			})
 		}
-		if errorJSON, jsonErr := json.MarshalIndent(response.Error, "", "  "); jsonErr == nil {
-			tflog.Debug(ctx, "Full API error response JSON", map[string]interface{}{
-				"error_json": string(errorJSON),
-			})
+
+		logContext := map[string]interface{}{
+			"project_id": projectID,
+			"dbaas_id":   dbaasID,
+			"username":   data.Username.ValueString(),
 		}
-		
-		tflog.Error(ctx, "DBaaS user create request failed", errorDetails)
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create DBaaS user", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}
@@ -251,13 +227,12 @@ func (r *DBaaSUserResource) Read(ctx context.Context, req resource.ReadRequest, 
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		errorMsg := "Failed to read DBaaS user"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
+		logContext := map[string]interface{}{
+			"project_id": projectID,
+			"dbaas_id":   dbaasID,
+			"username":   username,
 		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read DBaaS user", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}
@@ -305,9 +280,11 @@ func (r *DBaaSUserResource) Update(ctx context.Context, req resource.UpdateReque
 	}
 
 	// Only password can be updated
+	// Password must be base64 encoded for the API
+	passwordBase64 := base64.StdEncoding.EncodeToString([]byte(data.Password.ValueString()))
 	updateRequest := sdktypes.UserRequest{
 		Username: username,
-		Password: data.Password.ValueString(),
+		Password: passwordBase64,
 	}
 
 	// Update the user using the SDK
@@ -321,13 +298,12 @@ func (r *DBaaSUserResource) Update(ctx context.Context, req resource.UpdateReque
 	}
 
 	if response != nil && response.IsError() && response.Error != nil {
-		errorMsg := "Failed to update DBaaS user"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
+		logContext := map[string]interface{}{
+			"project_id": projectID,
+			"dbaas_id":   dbaasID,
+			"username":   username,
 		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to update DBaaS user", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}

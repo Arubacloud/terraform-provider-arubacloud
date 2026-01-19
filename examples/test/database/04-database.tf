@@ -3,24 +3,24 @@
 
 # DBaaS (Database as a Service) - Managed database instance
 resource "arubacloud_dbaas" "test" {
-  name                  = "test-dbaas"
-  location              = "ITBG-Bergamo"  # Change to your region
-  zone                  = "ITBG-1"  # Change to your zone
-  tags                  = ["dbaas", "database", "test"]
-  project_id            = arubacloud_project.test.id
-  engine_id             = "mysql-8.0"  # See https://api.arubacloud.com/docs/metadata/#dbaas-engines
-  flavor                = "DBO2A8"    # 2 CPU, 8GB RAM (see https://api.arubacloud.com/docs/metadata/#dbaas-flavors)
-  
+  name       = "test-dbaas"
+  location   = "ITBG-Bergamo" # Change to your region
+  zone       = "ITBG-1"       # Change to your zone
+  tags       = ["dbaas", "database", "test"]
+  project_id = arubacloud_project.test.id
+  engine_id  = "mysql-8.0" # See https://api.arubacloud.com/docs/metadata/#dbaas-engines
+  flavor     = "DBO2A8"    # 2 CPU, 8GB RAM (see https://api.arubacloud.com/docs/metadata/#dbaas-flavors)
+
   # Storage configuration
   storage = {
-    size_gb = 10  # Storage size in GB
+    size_gb = 10 # Storage size in GB
     autoscaling = {
       enabled         = true
-      available_space = 2  # Minimum threshold in GB - autoscaling triggers when available space falls below this
-      step_size       = 5   # Amount in GB to increase storage by when autoscaling triggers
+      available_space = 2 # Minimum threshold in GB - autoscaling triggers when available space falls below this
+      step_size       = 5 # Amount in GB to increase storage by when autoscaling triggers
     }
   }
-  
+
   # Network configuration
   network = {
     vpc_uri_ref            = arubacloud_vpc.test.uri
@@ -28,7 +28,7 @@ resource "arubacloud_dbaas" "test" {
     security_group_uri_ref = arubacloud_securitygroup.dbaas.uri
     elastic_ip_uri_ref     = arubacloud_elasticip.dbaas.uri
   }
-  
+
   # Billing period
   billing_period = "Hour"
 }
@@ -45,16 +45,14 @@ resource "arubacloud_dbaasuser" "test" {
   project_id = arubacloud_project.test.id
   dbaas_id   = arubacloud_dbaas.test.id
   username   = "restapi"
-  password   = "Prova123456789AC@!"  # In production, use a secure password or variable
+  password   = "Prova123456789AC@" # In production, use a secure password or variable
 }
 
 # Database Grant - Associate the user with the database and grant permissions
-# Note: This resource is currently disabled in the provider due to GrantRole type conversion issues
-# Uncomment when the provider issue is resolved
-# resource "arubacloud_databasegrant" "test" {
-#   project_id = arubacloud_project.test.id
-#   dbaas_id   = arubacloud_dbaas.test.id
-#   database   = arubacloud_database.test.id
-#   user_id    = arubacloud_dbaasuser.test.id
-#   role       = "admin"  # Role: read, write, or admin
-# }
+resource "arubacloud_databasegrant" "test" {
+  project_id = arubacloud_project.test.id
+  dbaas_id   = arubacloud_dbaas.test.id
+  database   = arubacloud_database.test.id
+  user_id    = arubacloud_dbaasuser.test.id
+  role       = "liteadmin" # Role: liteadmin, readwrite, readonly
+}
