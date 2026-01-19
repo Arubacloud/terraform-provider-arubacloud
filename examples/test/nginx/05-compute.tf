@@ -92,23 +92,38 @@ locals {
 }
 
 # Cloud Server - Virtual machine instance
-# Note: vpc_uri_ref, subnet_uri_refs, securitygroup_uri_refs, key_pair_uri_ref, and elastic_ip_uri_ref use URI references
+# Note: Uses nested network, settings, and storage blocks for better organization
 # The boot_volume_uri_ref field should reference a bootable block storage URI (created with bootable=true and image set)
 # Using cloud-init user_data for nginx installation (raw cloud-init YAML content)
 resource "arubacloud_cloudserver" "test" {
-  name                  = local.server_name
-  location              = "ITBG-Bergamo"  # Change to your region
-  project_id            = arubacloud_project.test.id
-  zone                  = "ITBG-1"  # Change to your zone
-  vpc_uri_ref           = arubacloud_vpc.test.uri                    # URI reference
-  flavor_name           = "CSO4A8"  # 4 CPU, 8GB RAM (see https://api.arubacloud.com/docs/metadata/#cloudserver-flavors)
-  elastic_ip_uri_ref    = arubacloud_elasticip.test.uri              # URI reference
-  boot_volume_uri_ref   = arubacloud_blockstorage.boot_disk.uri  # URI reference to bootable block storage
-  key_pair_uri_ref      = arubacloud_keypair.test.uri                # URI reference
-  subnet_uri_refs       = [arubacloud_subnet.test.uri]               # URI reference
-  securitygroup_uri_refs = [arubacloud_securitygroup.test.uri]        # URI reference
-  tags                  = ["compute", "test"]
-  user_data             = local.cloud_init_config  # Cloud-init configuration (raw YAML content)
+  name       = local.server_name
+  location   = "ITBG-Bergamo"  # Change to your region
+  project_id = arubacloud_project.test.id
+  zone       = "ITBG-1"  # Change to your zone
+  tags       = ["compute", "test"]
+
+  network = {
+    vpc_uri_ref              = arubacloud_vpc.test.uri
+    elastic_ip_uri_ref       = arubacloud_elasticip.test.uri
+    subnet_uri_refs          = [arubacloud_subnet.test.uri]
+    securitygroup_uri_refs   = [arubacloud_securitygroup.test.uri]
+  }
+
+  settings = {
+    flavor_name      = "CSO4A8"  # 4 CPU, 8GB RAM (see https://api.arubacloud.com/docs/metadata/#cloudserver-flavors)
+    key_pair_uri_ref = arubacloud_keypair.test.uri
+    user_data        = local.cloud_init_config  # Cloud-init configuration (raw YAML content)
+  }
+
+  storage = {
+    boot_volume_uri_ref = arubacloud_blockstorage.boot_disk.uri
+    
+    # Note: Additional data volumes (like arubacloud_blockstorage.data_disk) are created
+    # in 06-storage.tf but cannot be attached during CloudServer creation.
+    # Data volumes must be attached to the CloudServer through the ArubaCloud console
+    # or API after the server is created, as the CloudServer API doesn't support
+    # attaching data volumes at creation time.
+  }
   
   # Ensure all security rules are created before the cloudserver
   depends_on = [

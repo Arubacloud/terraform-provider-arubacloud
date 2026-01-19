@@ -15,21 +15,31 @@ Manages an ArubaCloud Container Registry.
 # Note: This example assumes you have already created VPC, Subnet, Security Group, Elastic IP, and Block Storage resources
 
 resource "arubacloud_containerregistry" "example" {
-  name                  = "example-container-registry"
-  location              = "ITBG-Bergamo"  # Change to your region
-  project_id            = "your-project-id"  # Replace with your project ID
-  tags                  = ["container", "test"]
+  name       = "example-container-registry"
+  location   = "ITBG-Bergamo"  # Change to your region
+  project_id = "your-project-id"  # Replace with your project ID
+  tags       = ["container", "test"]
 
-  # Use URI references for all required resources
-  public_ip_uri_ref     = arubacloud_elasticip.example.uri
-  vpc_uri_ref           = arubacloud_vpc.example.uri
-  subnet_uri_ref        = arubacloud_subnet.example.uri
-  security_group_uri_ref = arubacloud_securitygroup.example.uri
-  block_storage_uri_ref  = arubacloud_blockstorage.example.uri
+  # Network configuration
+  network = {
+    public_ip_uri_ref      = arubacloud_elasticip.example.uri
+    vpc_uri_ref            = arubacloud_vpc.example.uri
+    subnet_uri_ref         = arubacloud_subnet.example.uri
+    security_group_uri_ref = arubacloud_securitygroup.example.uri
+  }
 
-  # Optional fields
+  # Storage configuration
+  storage = {
+    block_storage_uri_ref = arubacloud_blockstorage.example.uri
+  }
+
+  # Optional settings
   billing_period = "Hour"
-  admin_user     = "adminuser"
+
+  settings = {
+    admin_user               = "adminuser"
+    concurrent_users_flavor  = "Small"  # Options: Small, Medium, HighPerf
+  }
 }
 ```
 
@@ -38,20 +48,16 @@ resource "arubacloud_containerregistry" "example" {
 
 ### Required
 
-- `block_storage_uri_ref` (String) Block Storage URI reference (e.g., /projects/{project-id}/providers/Aruba.Storage/volumes/{volume-id})
 - `location` (String) Container Registry location
 - `name` (String) Container Registry name
+- `network` (Block, Required) Network configuration for the container registry (see [below for nested schema](#nestedblock--network))
 - `project_id` (String) ID of the project this Container Registry belongs to
-- `public_ip_uri_ref` (String) Public IP URI reference (e.g., /projects/{project-id}/providers/Aruba.Network/elasticIps/{elasticip-id})
-- `security_group_uri_ref` (String) Security Group URI reference (e.g., /projects/{project-id}/providers/Aruba.Network/securityGroups/{sg-id})
-- `subnet_uri_ref` (String) Subnet URI reference (e.g., /projects/{project-id}/providers/Aruba.Network/subnets/{subnet-id})
-- `vpc_uri_ref` (String) VPC URI reference (e.g., /projects/{project-id}/providers/Aruba.Network/vpcs/{vpc-id})
+- `storage` (Block, Required) Storage configuration for the container registry (see [below for nested schema](#nestedblock--storage))
 
 ### Optional
 
-- `admin_user` (String) Administrator username
 - `billing_period` (String) Billing period (Hour, Month, Year)
-- `concurrent_users` (String) Number of concurrent users
+- `settings` (Block, Optional) Container registry settings (see [below for nested schema](#nestedblock--settings))
 - `tags` (List of String) List of tags for the Container Registry resource
 
 ### Read-Only
@@ -59,6 +65,30 @@ resource "arubacloud_containerregistry" "example" {
 - `id` (String) Container Registry identifier
 - `uri` (String) Container Registry URI
 
+<a id="nestedblock--network"></a>
+### Nested Schema for `network`
+
+Required:
+
+- `public_ip_uri_ref` (String) Public IP URI reference (e.g., arubacloud_elasticip.example.uri)
+- `vpc_uri_ref` (String) VPC URI reference (e.g., arubacloud_vpc.example.uri)
+- `subnet_uri_ref` (String) Subnet URI reference (e.g., arubacloud_subnet.example.uri)
+- `security_group_uri_ref` (String) Security Group URI reference (e.g., arubacloud_securitygroup.example.uri)
+
+<a id="nestedblock--storage"></a>
+### Nested Schema for `storage`
+
+Required:
+
+- `block_storage_uri_ref` (String) Block Storage URI reference (e.g., arubacloud_blockstorage.example.uri)
+
+<a id="nestedblock--settings"></a>
+### Nested Schema for `settings`
+
+Optional:
+
+- `admin_user` (String) Administrator username
+- `concurrent_users_flavor` (String) Concurrent users flavor size. Must be one of: Small, Medium, HighPerf
 
 
 ## Import

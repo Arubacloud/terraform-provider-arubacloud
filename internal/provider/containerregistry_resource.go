@@ -9,30 +9,44 @@ import (
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 type ContainerRegistryResourceModel struct {
-	Id                  types.String `tfsdk:"id"`
-	Uri                 types.String `tfsdk:"uri"`
-	Name                types.String `tfsdk:"name"`
-	Location            types.String `tfsdk:"location"`
-	Tags                types.List   `tfsdk:"tags"`
-	ProjectID           types.String `tfsdk:"project_id"`
+	Id            types.String `tfsdk:"id"`
+	Uri           types.String `tfsdk:"uri"`
+	Name          types.String `tfsdk:"name"`
+	Location      types.String `tfsdk:"location"`
+	Tags          types.List   `tfsdk:"tags"`
+	ProjectID     types.String `tfsdk:"project_id"`
+	BillingPeriod types.String `tfsdk:"billing_period"`
+	Network       types.Object `tfsdk:"network"`
+	Storage       types.Object `tfsdk:"storage"`
+	Settings      types.Object `tfsdk:"settings"`
+}
+
+type ContainerRegistryNetworkModel struct {
 	PublicIpUriRef      types.String `tfsdk:"public_ip_uri_ref"`
 	VpcUriRef           types.String `tfsdk:"vpc_uri_ref"`
 	SubnetUriRef        types.String `tfsdk:"subnet_uri_ref"`
 	SecurityGroupUriRef types.String `tfsdk:"security_group_uri_ref"`
-	BlockStorageUriRef  types.String `tfsdk:"block_storage_uri_ref"`
-	BillingPeriod       types.String `tfsdk:"billing_period"`
-	AdminUser           types.String `tfsdk:"admin_user"`
-	ConcurrentUsers     types.String `tfsdk:"concurrent_users"`
+}
+
+type ContainerRegistryStorageModel struct {
+	BlockStorageUriRef types.String `tfsdk:"block_storage_uri_ref"`
+}
+
+type ContainerRegistrySettingsModel struct {
+	AdminUser             types.String `tfsdk:"admin_user"`
+	ConcurrentUsersFlavor types.String `tfsdk:"concurrent_users_flavor"`
 }
 
 type ContainerRegistryResource struct {
@@ -82,52 +96,70 @@ func (r *ContainerRegistryResource) Schema(ctx context.Context, req resource.Sch
 				MarkdownDescription: "ID of the project this Container Registry belongs to",
 				Required:            true,
 			},
-			"public_ip_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "Public IP URI reference (e.g., /projects/{project-id}/providers/Aruba.Network/elasticIps/{elasticip-id})",
-				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"vpc_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "VPC URI reference (e.g., /projects/{project-id}/providers/Aruba.Network/vpcs/{vpc-id})",
-				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"subnet_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "Subnet URI reference (e.g., /projects/{project-id}/providers/Aruba.Network/subnets/{subnet-id})",
-				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"security_group_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "Security Group URI reference (e.g., /projects/{project-id}/providers/Aruba.Network/securityGroups/{sg-id})",
-				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"block_storage_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "Block Storage URI reference (e.g., /projects/{project-id}/providers/Aruba.Storage/volumes/{volume-id})",
-				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
 			"billing_period": schema.StringAttribute{
 				MarkdownDescription: "Billing period (Hour, Month, Year)",
 				Optional:            true,
 			},
-			"admin_user": schema.StringAttribute{
-				MarkdownDescription: "Administrator username",
-				Optional:            true,
+			"network": schema.SingleNestedAttribute{
+				MarkdownDescription: "Network configuration for the container registry",
+				Required:            true,
+				Attributes: map[string]schema.Attribute{
+					"public_ip_uri_ref": schema.StringAttribute{
+						MarkdownDescription: "Public IP URI reference (e.g., arubacloud_elasticip.example.uri)",
+						Required:            true,
+						PlanModifiers: []planmodifier.String{
+							stringplanmodifier.UseStateForUnknown(),
+						},
+					},
+					"vpc_uri_ref": schema.StringAttribute{
+						MarkdownDescription: "VPC URI reference (e.g., arubacloud_vpc.example.uri)",
+						Required:            true,
+						PlanModifiers: []planmodifier.String{
+							stringplanmodifier.UseStateForUnknown(),
+						},
+					},
+					"subnet_uri_ref": schema.StringAttribute{
+						MarkdownDescription: "Subnet URI reference (e.g., arubacloud_subnet.example.uri)",
+						Required:            true,
+						PlanModifiers: []planmodifier.String{
+							stringplanmodifier.UseStateForUnknown(),
+						},
+					},
+					"security_group_uri_ref": schema.StringAttribute{
+						MarkdownDescription: "Security Group URI reference (e.g., arubacloud_securitygroup.example.uri)",
+						Required:            true,
+						PlanModifiers: []planmodifier.String{
+							stringplanmodifier.UseStateForUnknown(),
+						},
+					},
+				},
 			},
-			"concurrent_users": schema.StringAttribute{
-				MarkdownDescription: "Number of concurrent users",
+			"storage": schema.SingleNestedAttribute{
+				MarkdownDescription: "Storage configuration for the container registry",
+				Required:            true,
+				Attributes: map[string]schema.Attribute{
+					"block_storage_uri_ref": schema.StringAttribute{
+						MarkdownDescription: "Block Storage URI reference (e.g., arubacloud_blockstorage.example.uri)",
+						Required:            true,
+						PlanModifiers: []planmodifier.String{
+							stringplanmodifier.UseStateForUnknown(),
+						},
+					},
+				},
+			},
+			"settings": schema.SingleNestedAttribute{
+				MarkdownDescription: "Container registry settings",
 				Optional:            true,
+				Attributes: map[string]schema.Attribute{
+					"admin_user": schema.StringAttribute{
+						MarkdownDescription: "Administrator username",
+						Optional:            true,
+					},
+					"concurrent_users_flavor": schema.StringAttribute{
+						MarkdownDescription: "Concurrent users flavor size. Must be one of: Small, Medium, HighPerf",
+						Optional:            true,
+					},
+				},
 			},
 		},
 	}
@@ -174,12 +206,21 @@ func (r *ContainerRegistryResource) Create(ctx context.Context, req resource.Cre
 		}
 	}
 
-	// Use URI references directly from the plan
-	publicIPURI := data.PublicIpUriRef.ValueString()
-	vpcURI := data.VpcUriRef.ValueString()
-	subnetURI := data.SubnetUriRef.ValueString()
-	securityGroupURI := data.SecurityGroupUriRef.ValueString()
-	blockStorageURI := data.BlockStorageUriRef.ValueString()
+	// Extract network configuration
+	var networkModel ContainerRegistryNetworkModel
+	diags := data.Network.As(ctx, &networkModel, basetypes.ObjectAsOptions{})
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Extract storage configuration
+	var storageModel ContainerRegistryStorageModel
+	diags = data.Storage.As(ctx, &storageModel, basetypes.ObjectAsOptions{})
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	// Build the create request
 	createRequest := sdktypes.ContainerRegistryRequest{
@@ -194,19 +235,19 @@ func (r *ContainerRegistryResource) Create(ctx context.Context, req resource.Cre
 		},
 		Properties: sdktypes.ContainerRegistryPropertiesRequest{
 			PublicIp: sdktypes.ReferenceResource{
-				URI: publicIPURI,
+				URI: networkModel.PublicIpUriRef.ValueString(),
 			},
 			VPC: sdktypes.ReferenceResource{
-				URI: vpcURI,
+				URI: networkModel.VpcUriRef.ValueString(),
 			},
 			Subnet: sdktypes.ReferenceResource{
-				URI: subnetURI,
+				URI: networkModel.SubnetUriRef.ValueString(),
 			},
 			SecurityGroup: sdktypes.ReferenceResource{
-				URI: securityGroupURI,
+				URI: networkModel.SecurityGroupUriRef.ValueString(),
 			},
 			BlockStorage: sdktypes.ReferenceResource{
-				URI: blockStorageURI,
+				URI: storageModel.BlockStorageUriRef.ValueString(),
 			},
 		},
 	}
@@ -218,15 +259,25 @@ func (r *ContainerRegistryResource) Create(ctx context.Context, req resource.Cre
 		}
 	}
 
-	if !data.AdminUser.IsNull() && !data.AdminUser.IsUnknown() {
-		createRequest.Properties.AdminUser = &sdktypes.UserCredential{
-			Username: data.AdminUser.ValueString(),
+	// Extract settings if provided
+	if !data.Settings.IsNull() && !data.Settings.IsUnknown() {
+		var settingsModel ContainerRegistrySettingsModel
+		diags = data.Settings.As(ctx, &settingsModel, basetypes.ObjectAsOptions{})
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
 		}
-	}
 
-	if !data.ConcurrentUsers.IsNull() && !data.ConcurrentUsers.IsUnknown() {
-		concurrentUsers := data.ConcurrentUsers.ValueString()
-		createRequest.Properties.ConcurrentUsers = &concurrentUsers
+		if !settingsModel.AdminUser.IsNull() && !settingsModel.AdminUser.IsUnknown() {
+			createRequest.Properties.AdminUser = &sdktypes.UserCredential{
+				Username: settingsModel.AdminUser.ValueString(),
+			}
+		}
+
+		if !settingsModel.ConcurrentUsersFlavor.IsNull() && !settingsModel.ConcurrentUsersFlavor.IsUnknown() {
+			concurrentUsersFlavor := settingsModel.ConcurrentUsersFlavor.ValueString()
+			createRequest.Properties.ConcurrentUsers = &concurrentUsersFlavor
+		}
 	}
 
 	// Create the container registry using the SDK
@@ -391,29 +442,79 @@ func (r *ContainerRegistryResource) Read(ctx context.Context, req resource.ReadR
 		if registry.Metadata.LocationResponse != nil {
 			data.Location = types.StringValue(registry.Metadata.LocationResponse.Value)
 		}
-		if registry.Properties.PublicIp.URI != "" {
-			data.PublicIpUriRef = types.StringValue(registry.Properties.PublicIp.URI)
+
+		// Build network object
+		networkAttrs := map[string]attr.Value{
+			"public_ip_uri_ref":      types.StringValue(registry.Properties.PublicIp.URI),
+			"vpc_uri_ref":            types.StringValue(registry.Properties.VPC.URI),
+			"subnet_uri_ref":         types.StringValue(registry.Properties.Subnet.URI),
+			"security_group_uri_ref": types.StringValue(registry.Properties.SecurityGroup.URI),
 		}
-		if registry.Properties.VPC.URI != "" {
-			data.VpcUriRef = types.StringValue(registry.Properties.VPC.URI)
+		networkObj, diags := types.ObjectValue(
+			map[string]attr.Type{
+				"public_ip_uri_ref":      types.StringType,
+				"vpc_uri_ref":            types.StringType,
+				"subnet_uri_ref":         types.StringType,
+				"security_group_uri_ref": types.StringType,
+			},
+			networkAttrs,
+		)
+		resp.Diagnostics.Append(diags...)
+		if !resp.Diagnostics.HasError() {
+			data.Network = networkObj
 		}
-		if registry.Properties.Subnet.URI != "" {
-			data.SubnetUriRef = types.StringValue(registry.Properties.Subnet.URI)
+
+		// Build storage object
+		storageAttrs := map[string]attr.Value{
+			"block_storage_uri_ref": types.StringValue(registry.Properties.BlockStorage.URI),
 		}
-		if registry.Properties.SecurityGroup.URI != "" {
-			data.SecurityGroupUriRef = types.StringValue(registry.Properties.SecurityGroup.URI)
+		storageObj, diags := types.ObjectValue(
+			map[string]attr.Type{
+				"block_storage_uri_ref": types.StringType,
+			},
+			storageAttrs,
+		)
+		resp.Diagnostics.Append(diags...)
+		if !resp.Diagnostics.HasError() {
+			data.Storage = storageObj
 		}
-		if registry.Properties.BlockStorage.URI != "" {
-			data.BlockStorageUriRef = types.StringValue(registry.Properties.BlockStorage.URI)
+
+		// Build settings object if there are any settings
+		var settingsAdminUser types.String
+		var settingsConcurrentUsersFlavor types.String
+
+		if registry.Properties.AdminUser.Username != "" {
+			settingsAdminUser = types.StringValue(registry.Properties.AdminUser.Username)
+		} else {
+			settingsAdminUser = types.StringNull()
 		}
+
+		if registry.Properties.ConcurrentUsers != nil && *registry.Properties.ConcurrentUsers != "" {
+			settingsConcurrentUsersFlavor = types.StringValue(*registry.Properties.ConcurrentUsers)
+		} else {
+			settingsConcurrentUsersFlavor = types.StringNull()
+		}
+
+		settingsAttrs := map[string]attr.Value{
+			"admin_user":              settingsAdminUser,
+			"concurrent_users_flavor": settingsConcurrentUsersFlavor,
+		}
+		settingsObj, diags := types.ObjectValue(
+			map[string]attr.Type{
+				"admin_user":              types.StringType,
+				"concurrent_users_flavor": types.StringType,
+			},
+			settingsAttrs,
+		)
+		resp.Diagnostics.Append(diags...)
+		if !resp.Diagnostics.HasError() {
+			data.Settings = settingsObj
+		}
+
 		if registry.Properties.BillingPlan.BillingPeriod != "" {
 			data.BillingPeriod = types.StringValue(registry.Properties.BillingPlan.BillingPeriod)
-		}
-		if registry.Properties.AdminUser.Username != "" {
-			data.AdminUser = types.StringValue(registry.Properties.AdminUser.Username)
-		}
-		if registry.Properties.ConcurrentUsers != nil {
-			data.ConcurrentUsers = types.StringValue(*registry.Properties.ConcurrentUsers)
+		} else {
+			data.BillingPeriod = types.StringNull()
 		}
 
 		// Update tags
@@ -522,13 +623,31 @@ func (r *ContainerRegistryResource) Update(ctx context.Context, req resource.Upd
 	// Extract tags
 	var tags []string
 	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
-		diags := data.Tags.ElementsAs(ctx, &tags, false)
+		var diags diag.Diagnostics
+		diags = data.Tags.ElementsAs(ctx, &tags, false)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
 	} else {
 		tags = current.Metadata.Tags
+	}
+
+	// Extract network configuration from plan
+	var networkModel ContainerRegistryNetworkModel
+	var diags diag.Diagnostics
+	diags = data.Network.As(ctx, &networkModel, basetypes.ObjectAsOptions{})
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Extract storage configuration from plan
+	var storageModel ContainerRegistryStorageModel
+	diags = data.Storage.As(ctx, &storageModel, basetypes.ObjectAsOptions{})
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
 	// Build update request - use ContainerRegistryRequest for updates (same as create)
@@ -543,12 +662,22 @@ func (r *ContainerRegistryResource) Update(ctx context.Context, req resource.Upd
 			},
 		},
 		Properties: sdktypes.ContainerRegistryPropertiesRequest{
-			// Preserve existing required properties
-			PublicIp:      current.Properties.PublicIp,
-			VPC:           current.Properties.VPC,
-			Subnet:        current.Properties.Subnet,
-			SecurityGroup: current.Properties.SecurityGroup,
-			BlockStorage:  current.Properties.BlockStorage,
+			// Use network configuration from plan
+			PublicIp: sdktypes.ReferenceResource{
+				URI: networkModel.PublicIpUriRef.ValueString(),
+			},
+			VPC: sdktypes.ReferenceResource{
+				URI: networkModel.VpcUriRef.ValueString(),
+			},
+			Subnet: sdktypes.ReferenceResource{
+				URI: networkModel.SubnetUriRef.ValueString(),
+			},
+			SecurityGroup: sdktypes.ReferenceResource{
+				URI: networkModel.SecurityGroupUriRef.ValueString(),
+			},
+			BlockStorage: sdktypes.ReferenceResource{
+				URI: storageModel.BlockStorageUriRef.ValueString(),
+			},
 		},
 	}
 
@@ -563,18 +692,40 @@ func (r *ContainerRegistryResource) Update(ctx context.Context, req resource.Upd
 		}
 	}
 
-	// Update concurrent users if provided, otherwise preserve current
-	if !data.ConcurrentUsers.IsNull() && !data.ConcurrentUsers.IsUnknown() {
-		concurrentUsers := data.ConcurrentUsers.ValueString()
-		updateRequest.Properties.ConcurrentUsers = &concurrentUsers
-	} else if current.Properties.ConcurrentUsers != nil {
-		updateRequest.Properties.ConcurrentUsers = current.Properties.ConcurrentUsers
-	}
+	// Extract and update settings if provided
+	if !data.Settings.IsNull() && !data.Settings.IsUnknown() {
+		var settingsModel ContainerRegistrySettingsModel
+		diags = data.Settings.As(ctx, &settingsModel, basetypes.ObjectAsOptions{})
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 
-	// Preserve admin user if it exists
-	if current.Properties.AdminUser.Username != "" {
-		updateRequest.Properties.AdminUser = &sdktypes.UserCredential{
-			Username: current.Properties.AdminUser.Username,
+		if !settingsModel.AdminUser.IsNull() && !settingsModel.AdminUser.IsUnknown() {
+			updateRequest.Properties.AdminUser = &sdktypes.UserCredential{
+				Username: settingsModel.AdminUser.ValueString(),
+			}
+		} else if current.Properties.AdminUser.Username != "" {
+			updateRequest.Properties.AdminUser = &sdktypes.UserCredential{
+				Username: current.Properties.AdminUser.Username,
+			}
+		}
+
+		if !settingsModel.ConcurrentUsersFlavor.IsNull() && !settingsModel.ConcurrentUsersFlavor.IsUnknown() {
+			concurrentUsersFlavor := settingsModel.ConcurrentUsersFlavor.ValueString()
+			updateRequest.Properties.ConcurrentUsers = &concurrentUsersFlavor
+		} else if current.Properties.ConcurrentUsers != nil {
+			updateRequest.Properties.ConcurrentUsers = current.Properties.ConcurrentUsers
+		}
+	} else {
+		// Preserve current settings if not in plan
+		if current.Properties.AdminUser.Username != "" {
+			updateRequest.Properties.AdminUser = &sdktypes.UserCredential{
+				Username: current.Properties.AdminUser.Username,
+			}
+		}
+		if current.Properties.ConcurrentUsers != nil {
+			updateRequest.Properties.ConcurrentUsers = current.Properties.ConcurrentUsers
 		}
 	}
 
@@ -602,11 +753,9 @@ func (r *ContainerRegistryResource) Update(ctx context.Context, req resource.Upd
 	data.Id = state.Id
 	data.Uri = state.Uri // Preserve URI from state
 	data.ProjectID = state.ProjectID
-	data.PublicIpUriRef = state.PublicIpUriRef
-	data.VpcUriRef = state.VpcUriRef
-	data.SubnetUriRef = state.SubnetUriRef
-	data.SecurityGroupUriRef = state.SecurityGroupUriRef
-	data.BlockStorageUriRef = state.BlockStorageUriRef
+	data.Network = state.Network
+	data.Storage = state.Storage
+	data.Settings = state.Settings
 
 	if response != nil && response.Data != nil {
 		// Update from response if available (should match state)
@@ -641,32 +790,75 @@ func (r *ContainerRegistryResource) Update(ctx context.Context, req resource.Upd
 		} else {
 			data.Uri = state.Uri // Fallback to state if not available
 		}
-		// Update URI refs
-		if registry.Properties.PublicIp.URI != "" {
-			data.PublicIpUriRef = types.StringValue(registry.Properties.PublicIp.URI)
-		} else {
-			data.PublicIpUriRef = state.PublicIpUriRef // Fallback to state if not available
+
+		// Build network object from response
+		networkAttrs := map[string]attr.Value{
+			"public_ip_uri_ref":      types.StringValue(registry.Properties.PublicIp.URI),
+			"vpc_uri_ref":            types.StringValue(registry.Properties.VPC.URI),
+			"subnet_uri_ref":         types.StringValue(registry.Properties.Subnet.URI),
+			"security_group_uri_ref": types.StringValue(registry.Properties.SecurityGroup.URI),
 		}
-		if registry.Properties.VPC.URI != "" {
-			data.VpcUriRef = types.StringValue(registry.Properties.VPC.URI)
-		} else {
-			data.VpcUriRef = state.VpcUriRef // Fallback to state if not available
+		networkObj, diagsNetwork := types.ObjectValue(
+			map[string]attr.Type{
+				"public_ip_uri_ref":      types.StringType,
+				"vpc_uri_ref":            types.StringType,
+				"subnet_uri_ref":         types.StringType,
+				"security_group_uri_ref": types.StringType,
+			},
+			networkAttrs,
+		)
+		resp.Diagnostics.Append(diagsNetwork...)
+		if !resp.Diagnostics.HasError() {
+			data.Network = networkObj
 		}
-		if registry.Properties.Subnet.URI != "" {
-			data.SubnetUriRef = types.StringValue(registry.Properties.Subnet.URI)
-		} else {
-			data.SubnetUriRef = state.SubnetUriRef // Fallback to state if not available
+
+		// Build storage object from response
+		storageAttrs := map[string]attr.Value{
+			"block_storage_uri_ref": types.StringValue(registry.Properties.BlockStorage.URI),
 		}
-		if registry.Properties.SecurityGroup.URI != "" {
-			data.SecurityGroupUriRef = types.StringValue(registry.Properties.SecurityGroup.URI)
-		} else {
-			data.SecurityGroupUriRef = state.SecurityGroupUriRef // Fallback to state if not available
+		storageObj, diagsStorage := types.ObjectValue(
+			map[string]attr.Type{
+				"block_storage_uri_ref": types.StringType,
+			},
+			storageAttrs,
+		)
+		resp.Diagnostics.Append(diagsStorage...)
+		if !resp.Diagnostics.HasError() {
+			data.Storage = storageObj
 		}
-		if registry.Properties.BlockStorage.URI != "" {
-			data.BlockStorageUriRef = types.StringValue(registry.Properties.BlockStorage.URI)
+
+		// Build settings object from response
+		var settingsAdminUser types.String
+		var settingsConcurrentUsersFlavor types.String
+
+		if registry.Properties.AdminUser != nil && registry.Properties.AdminUser.Username != "" {
+			settingsAdminUser = types.StringValue(registry.Properties.AdminUser.Username)
 		} else {
-			data.BlockStorageUriRef = state.BlockStorageUriRef // Fallback to state if not available
+			settingsAdminUser = types.StringNull()
 		}
+
+		if registry.Properties.ConcurrentUsers != nil && *registry.Properties.ConcurrentUsers != "" {
+			settingsConcurrentUsersFlavor = types.StringValue(*registry.Properties.ConcurrentUsers)
+		} else {
+			settingsConcurrentUsersFlavor = types.StringNull()
+		}
+
+		settingsAttrs := map[string]attr.Value{
+			"admin_user":              settingsAdminUser,
+			"concurrent_users_flavor": settingsConcurrentUsersFlavor,
+		}
+		settingsObj, diagsSettings := types.ObjectValue(
+			map[string]attr.Type{
+				"admin_user":              types.StringType,
+				"concurrent_users_flavor": types.StringType,
+			},
+			settingsAttrs,
+		)
+		resp.Diagnostics.Append(diagsSettings...)
+		if !resp.Diagnostics.HasError() {
+			data.Settings = settingsObj
+		}
+
 		// Update other fields from re-read to ensure consistency
 		if registry.Metadata.Name != nil {
 			data.Name = types.StringValue(*registry.Metadata.Name)
@@ -679,30 +871,21 @@ func (r *ContainerRegistryResource) Update(ctx context.Context, req resource.Upd
 		} else {
 			data.BillingPeriod = types.StringNull()
 		}
-		if registry.Properties.AdminUser != nil && registry.Properties.AdminUser.Username != "" {
-			data.AdminUser = types.StringValue(registry.Properties.AdminUser.Username)
-		} else {
-			data.AdminUser = types.StringNull()
-		}
-		if registry.Properties.ConcurrentUsers != nil {
-			data.ConcurrentUsers = types.StringValue(*registry.Properties.ConcurrentUsers)
-		} else {
-			data.ConcurrentUsers = types.StringNull()
-		}
+
 		// Update tags from re-read
 		if len(registry.Metadata.Tags) > 0 {
 			tagValues := make([]types.String, len(registry.Metadata.Tags))
 			for i, tag := range registry.Metadata.Tags {
 				tagValues[i] = types.StringValue(tag)
 			}
-			tagsList, diags := types.ListValueFrom(ctx, types.StringType, tagValues)
-			resp.Diagnostics.Append(diags...)
+			tagsList, diagsTags := types.ListValueFrom(ctx, types.StringType, tagValues)
+			resp.Diagnostics.Append(diagsTags...)
 			if !resp.Diagnostics.HasError() {
 				data.Tags = tagsList
 			}
 		} else {
-			emptyList, diags := types.ListValue(types.StringType, []attr.Value{})
-			resp.Diagnostics.Append(diags...)
+			emptyList, diagsTags := types.ListValue(types.StringType, []attr.Value{})
+			resp.Diagnostics.Append(diagsTags...)
 			if !resp.Diagnostics.HasError() {
 				data.Tags = emptyList
 			}
@@ -710,11 +893,9 @@ func (r *ContainerRegistryResource) Update(ctx context.Context, req resource.Upd
 	} else {
 		// If re-read fails, preserve immutable fields from state
 		data.Uri = state.Uri
-		data.PublicIpUriRef = state.PublicIpUriRef
-		data.VpcUriRef = state.VpcUriRef
-		data.SubnetUriRef = state.SubnetUriRef
-		data.SecurityGroupUriRef = state.SecurityGroupUriRef
-		data.BlockStorageUriRef = state.BlockStorageUriRef
+		data.Network = state.Network
+		data.Storage = state.Storage
+		data.Settings = state.Settings
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

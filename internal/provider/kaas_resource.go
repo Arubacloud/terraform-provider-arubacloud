@@ -9,6 +9,7 @@ import (
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -31,21 +32,16 @@ func NewKaaSResource() resource.Resource {
 }
 
 type KaaSResourceModel struct {
-	Id                types.String `tfsdk:"id"`
-	Uri               types.String `tfsdk:"uri"`
-	Name              types.String `tfsdk:"name"`
-	Location          types.String `tfsdk:"location"`
-	Tags              types.List   `tfsdk:"tags"`
-	ProjectID         types.String `tfsdk:"project_id"`
-	VpcUriRef         types.String `tfsdk:"vpc_uri_ref"`
-	SubnetUriRef      types.String `tfsdk:"subnet_uri_ref"`
-	NodeCIDR          types.Object `tfsdk:"node_cidr"`
-	SecurityGroupName types.String `tfsdk:"security_group_name"`
-	KubernetesVersion types.String `tfsdk:"kubernetes_version"`
-	NodePools         types.List   `tfsdk:"node_pools"`
-	HA                types.Bool   `tfsdk:"ha"`
-	BillingPeriod     types.String `tfsdk:"billing_period"`
-	PodCIDR           types.String `tfsdk:"pod_cidr"`
+	Id            types.String `tfsdk:"id"`
+	Uri           types.String `tfsdk:"uri"`
+	Name          types.String `tfsdk:"name"`
+	Location      types.String `tfsdk:"location"`
+	Tags          types.List   `tfsdk:"tags"`
+	ProjectID     types.String `tfsdk:"project_id"`
+	BillingPeriod types.String `tfsdk:"billing_period"`
+	ManagementIP  types.String `tfsdk:"management_ip"`
+	Network       types.Object `tfsdk:"network"`
+	Settings      types.Object `tfsdk:"settings"`
 }
 
 type KaaSNodeCIDRModel struct {
@@ -63,6 +59,20 @@ type KaaSNodePoolModel struct {
 	MaxCount    types.Int64  `tfsdk:"max_count"`
 }
 
+type KaaSNetworkModel struct {
+	VpcUriRef         types.String `tfsdk:"vpc_uri_ref"`
+	SubnetUriRef      types.String `tfsdk:"subnet_uri_ref"`
+	NodeCIDR          types.Object `tfsdk:"node_cidr"`
+	SecurityGroupName types.String `tfsdk:"security_group_name"`
+	PodCIDR           types.String `tfsdk:"pod_cidr"`
+}
+
+type KaaSSettingsModel struct {
+	KubernetesVersion types.String `tfsdk:"kubernetes_version"`
+	NodePools         types.List   `tfsdk:"node_pools"`
+	HA                types.Bool   `tfsdk:"ha"`
+}
+
 func (r *KaaSResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_kaas"
 }
@@ -74,6 +84,9 @@ func (r *KaaSResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 			"id": schema.StringAttribute{
 				MarkdownDescription: "KaaS identifier",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"uri": schema.StringAttribute{
 				MarkdownDescription: "KaaS URI",
@@ -99,89 +112,105 @@ func (r *KaaSResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				MarkdownDescription: "ID of the project this KaaS resource belongs to",
 				Required:            true,
 			},
-			"vpc_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "VPC URI reference for the KaaS resource (e.g., /projects/{project-id}/providers/Aruba.Network/vpcs/{vpc-id})",
-				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"subnet_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "Subnet URI reference for the KaaS resource (e.g., /projects/{project-id}/providers/Aruba.Network/subnets/{subnet-id})",
-				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"node_cidr": schema.SingleNestedAttribute{
-				MarkdownDescription: "Node CIDR configuration",
-				Required:            true,
-				Attributes: map[string]schema.Attribute{
-					"address": schema.StringAttribute{
-						MarkdownDescription: "Node CIDR address in CIDR notation (e.g., 10.0.0.0/16)",
-						Required:            true,
-					},
-					"name": schema.StringAttribute{
-						MarkdownDescription: "Node CIDR name",
-						Required:            true,
-					},
-				},
-			},
-			"security_group_name": schema.StringAttribute{
-				MarkdownDescription: "Security group name",
-				Required:            true,
-			},
-			"kubernetes_version": schema.StringAttribute{
-				MarkdownDescription: "Kubernetes version. Available versions are described in the [ArubaCloud API documentation](https://api.arubacloud.com/docs/metadata#kubernetes-version). For example, `1.33.2`.",
-				Required:            true,
-			},
-			"node_pools": schema.ListNestedAttribute{
-				MarkdownDescription: "Node pools configuration",
-				Required:            true,
-				NestedObject: schema.NestedAttributeObject{
-					Attributes: map[string]schema.Attribute{
-						"name": schema.StringAttribute{
-							MarkdownDescription: "Node pool name",
-							Required:            true,
-						},
-						"nodes": schema.Int64Attribute{
-							MarkdownDescription: "Number of nodes in the node pool",
-							Required:            true,
-						},
-						"instance": schema.StringAttribute{
-							MarkdownDescription: "KaaS flavor name for nodes. Available flavors are described in the [ArubaCloud API documentation](https://api.arubacloud.com/docs/metadata#kaas-flavors). For example, `K2A4` means 2 CPU, 4GB RAM, and 40GB storage.",
-							Required:            true,
-						},
-						"zone": schema.StringAttribute{
-							MarkdownDescription: "Datacenter/zone code for nodes",
-							Required:            true,
-						},
-						"autoscaling": schema.BoolAttribute{
-							MarkdownDescription: "Enable autoscaling for node pool",
-							Optional:            true,
-						},
-						"min_count": schema.Int64Attribute{
-							MarkdownDescription: "Minimum number of nodes for autoscaling",
-							Optional:            true,
-						},
-						"max_count": schema.Int64Attribute{
-							MarkdownDescription: "Maximum number of nodes for autoscaling",
-							Optional:            true,
-						},
-					},
-				},
-			},
-			"ha": schema.BoolAttribute{
-				MarkdownDescription: "High availability",
-				Optional:            true,
-			},
 			"billing_period": schema.StringAttribute{
 				MarkdownDescription: "Billing period (Hour, Month, Year)",
 				Optional:            true,
 			},
-			"pod_cidr": schema.StringAttribute{
-				MarkdownDescription: "Pod CIDR",
-				Optional:            true,
+			"management_ip": schema.StringAttribute{
+				MarkdownDescription: "Management IP address (available when KaaS is active)",
+				Computed:            true,
+			},
+			"network": schema.SingleNestedAttribute{
+				MarkdownDescription: "Network configuration for the KaaS cluster",
+				Required:            true,
+				Attributes: map[string]schema.Attribute{
+					"vpc_uri_ref": schema.StringAttribute{
+						MarkdownDescription: "VPC URI reference for the KaaS resource (e.g., arubacloud_vpc.example.uri)",
+						Required:            true,
+						PlanModifiers: []planmodifier.String{
+							stringplanmodifier.UseStateForUnknown(),
+						},
+					},
+					"subnet_uri_ref": schema.StringAttribute{
+						MarkdownDescription: "Subnet URI reference for the KaaS resource (e.g., arubacloud_subnet.example.uri)",
+						Required:            true,
+						PlanModifiers: []planmodifier.String{
+							stringplanmodifier.UseStateForUnknown(),
+						},
+					},
+					"node_cidr": schema.SingleNestedAttribute{
+						MarkdownDescription: "Node CIDR configuration",
+						Required:            true,
+						Attributes: map[string]schema.Attribute{
+							"address": schema.StringAttribute{
+								MarkdownDescription: "Node CIDR address in CIDR notation (e.g., 10.0.0.0/24)",
+								Required:            true,
+							},
+							"name": schema.StringAttribute{
+								MarkdownDescription: "Node CIDR name",
+								Required:            true,
+							},
+						},
+					},
+					"security_group_name": schema.StringAttribute{
+						MarkdownDescription: "Security group name",
+						Required:            true,
+					},
+					"pod_cidr": schema.StringAttribute{
+						MarkdownDescription: "Pod CIDR in CIDR notation (e.g., 10.0.3.0/24)",
+						Optional:            true,
+					},
+				},
+			},
+			"settings": schema.SingleNestedAttribute{
+				MarkdownDescription: "Kubernetes cluster settings",
+				Required:            true,
+				Attributes: map[string]schema.Attribute{
+					"kubernetes_version": schema.StringAttribute{
+						MarkdownDescription: "Kubernetes version. Available versions are described in the [ArubaCloud API documentation](https://api.arubacloud.com/docs/metadata#kubernetes-version). For example, `1.33.2`.",
+						Required:            true,
+					},
+					"node_pools": schema.ListNestedAttribute{
+						MarkdownDescription: "Node pools configuration",
+						Required:            true,
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"name": schema.StringAttribute{
+									MarkdownDescription: "Node pool name",
+									Required:            true,
+								},
+								"nodes": schema.Int64Attribute{
+									MarkdownDescription: "Number of nodes in the node pool",
+									Required:            true,
+								},
+								"instance": schema.StringAttribute{
+									MarkdownDescription: "KaaS flavor name for nodes. Available flavors are described in the [ArubaCloud API documentation](https://api.arubacloud.com/docs/metadata#kaas-flavors). For example, `K2A4` means 2 CPU, 4GB RAM, and 40GB storage.",
+									Required:            true,
+								},
+								"zone": schema.StringAttribute{
+									MarkdownDescription: "Datacenter/zone code for nodes",
+									Required:            true,
+								},
+								"autoscaling": schema.BoolAttribute{
+									MarkdownDescription: "Enable autoscaling for node pool",
+									Optional:            true,
+								},
+								"min_count": schema.Int64Attribute{
+									MarkdownDescription: "Minimum number of nodes for autoscaling",
+									Optional:            true,
+								},
+								"max_count": schema.Int64Attribute{
+									MarkdownDescription: "Maximum number of nodes for autoscaling",
+									Optional:            true,
+								},
+							},
+						},
+					},
+					"ha": schema.BoolAttribute{
+						MarkdownDescription: "High availability",
+						Optional:            true,
+					},
+				},
 			},
 		},
 	}
@@ -228,22 +257,38 @@ func (r *KaaSResource) Create(ctx context.Context, req resource.CreateRequest, r
 		}
 	}
 
-	// Use VPC and Subnet URIs directly from the plan
-	vpcURI := data.VpcUriRef.ValueString()
-	subnetURI := data.SubnetUriRef.ValueString()
-
-	// Extract Node CIDR
-	var nodeCIDRModel KaaSNodeCIDRModel
-	diags := data.NodeCIDR.As(ctx, &nodeCIDRModel, basetypes.ObjectAsOptions{})
+	// Extract Network configuration
+	var networkModel KaaSNetworkModel
+	diags := data.Network.As(ctx, &networkModel, basetypes.ObjectAsOptions{})
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Extract Node Pools
+	// Use VPC and Subnet URIs from network config
+	vpcURI := networkModel.VpcUriRef.ValueString()
+	subnetURI := networkModel.SubnetUriRef.ValueString()
+
+	// Extract Node CIDR from network config
+	var nodeCIDRModel KaaSNodeCIDRModel
+	diags = networkModel.NodeCIDR.As(ctx, &nodeCIDRModel, basetypes.ObjectAsOptions{})
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Extract Settings configuration
+	var settingsModel KaaSSettingsModel
+	diags = data.Settings.As(ctx, &settingsModel, basetypes.ObjectAsOptions{})
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Extract Node Pools from settings
 	var nodePoolModels []KaaSNodePoolModel
-	if !data.NodePools.IsNull() && !data.NodePools.IsUnknown() {
-		diags := data.NodePools.ElementsAs(ctx, &nodePoolModels, false)
+	if !settingsModel.NodePools.IsNull() && !settingsModel.NodePools.IsUnknown() {
+		diags := settingsModel.NodePools.ElementsAs(ctx, &nodePoolModels, false)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
 			return
@@ -302,23 +347,23 @@ func (r *KaaSResource) Create(ctx context.Context, req resource.CreateRequest, r
 				Name:    nodeCIDRModel.Name.ValueString(),
 			},
 			SecurityGroup: sdktypes.SecurityGroupProperties{
-				Name: data.SecurityGroupName.ValueString(),
+				Name: networkModel.SecurityGroupName.ValueString(),
 			},
 			KubernetesVersion: sdktypes.KubernetesVersionInfo{
-				Value: data.KubernetesVersion.ValueString(),
+				Value: settingsModel.KubernetesVersion.ValueString(),
 			},
 			NodePools: nodePools,
 		},
 	}
 
 	// Add optional fields
-	if !data.PodCIDR.IsNull() && !data.PodCIDR.IsUnknown() {
-		podCIDR := data.PodCIDR.ValueString()
+	if !networkModel.PodCIDR.IsNull() && !networkModel.PodCIDR.IsUnknown() {
+		podCIDR := networkModel.PodCIDR.ValueString()
 		createRequest.Properties.PodCIDR = &podCIDR
 	}
 
-	if !data.HA.IsNull() && !data.HA.IsUnknown() {
-		ha := data.HA.ValueBool()
+	if !settingsModel.HA.IsNull() && !settingsModel.HA.IsUnknown() {
+		ha := settingsModel.HA.ValueBool()
 		createRequest.Properties.HA = &ha
 	}
 
@@ -354,6 +399,86 @@ func (r *KaaSResource) Create(ctx context.Context, req resource.CreateRequest, r
 		} else {
 			data.Uri = types.StringNull()
 		}
+
+		// Build Network object from response
+		networkAttrs := map[string]attr.Value{
+			"vpc_uri_ref":         types.StringValue(vpcURI),
+			"subnet_uri_ref":      types.StringValue(subnetURI),
+			"security_group_name": types.StringValue(networkModel.SecurityGroupName.ValueString()),
+		}
+
+		// Set node_cidr
+		nodeCIDRAttrs := map[string]attr.Value{
+			"address": types.StringValue(nodeCIDRModel.Address.ValueString()),
+			"name":    types.StringValue(nodeCIDRModel.Name.ValueString()),
+		}
+		nodeCIDRObj, diags := types.ObjectValue(map[string]attr.Type{
+			"address": types.StringType,
+			"name":    types.StringType,
+		}, nodeCIDRAttrs)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		networkAttrs["node_cidr"] = nodeCIDRObj
+
+		// Set pod_cidr
+		if !networkModel.PodCIDR.IsNull() && !networkModel.PodCIDR.IsUnknown() {
+			networkAttrs["pod_cidr"] = types.StringValue(networkModel.PodCIDR.ValueString())
+		} else {
+			networkAttrs["pod_cidr"] = types.StringNull()
+		}
+
+		// Create Network object
+		networkObj, diags := types.ObjectValue(map[string]attr.Type{
+			"vpc_uri_ref":         types.StringType,
+			"subnet_uri_ref":      types.StringType,
+			"node_cidr":           types.ObjectType{AttrTypes: map[string]attr.Type{"address": types.StringType, "name": types.StringType}},
+			"security_group_name": types.StringType,
+			"pod_cidr":            types.StringType,
+		}, networkAttrs)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		data.Network = networkObj
+
+		// Build Settings object from response
+		settingsAttrs := map[string]attr.Value{
+			"kubernetes_version": types.StringValue(settingsModel.KubernetesVersion.ValueString()),
+			"node_pools":         settingsModel.NodePools,
+		}
+
+		// Set HA
+		if !settingsModel.HA.IsNull() && !settingsModel.HA.IsUnknown() {
+			settingsAttrs["ha"] = types.BoolValue(settingsModel.HA.ValueBool())
+		} else {
+			settingsAttrs["ha"] = types.BoolNull()
+		}
+
+		// Create Settings object
+		settingsObj, diags := types.ObjectValue(map[string]attr.Type{
+			"kubernetes_version": types.StringType,
+			"node_pools": types.ListType{
+				ElemType: types.ObjectType{
+					AttrTypes: map[string]attr.Type{
+						"name":        types.StringType,
+						"nodes":       types.Int64Type,
+						"instance":    types.StringType,
+						"zone":        types.StringType,
+						"autoscaling": types.BoolType,
+						"min_count":   types.Int64Type,
+						"max_count":   types.Int64Type,
+					},
+				},
+			},
+			"ha": types.BoolType,
+		}, settingsAttrs)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		data.Settings = settingsObj
 	} else {
 		resp.Diagnostics.AddError(
 			"Invalid API Response",
@@ -385,6 +510,16 @@ func (r *KaaSResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
+	// Re-read to get management IP now that KaaS is active
+	finalGetResp, err := r.client.Client.FromContainer().KaaS().Get(ctx, projectID, kaasID, nil)
+	if err == nil && finalGetResp != nil && finalGetResp.Data != nil {
+		if finalGetResp.Data.Properties.ManagementIP != nil && *finalGetResp.Data.Properties.ManagementIP != "" {
+			data.ManagementIP = types.StringValue(*finalGetResp.Data.Properties.ManagementIP)
+		} else {
+			data.ManagementIP = types.StringNull()
+		}
+	}
+
 	tflog.Trace(ctx, "created a KaaS resource", map[string]interface{}{
 		"kaas_id":   data.Id.ValueString(),
 		"kaas_name": data.Name.ValueString(),
@@ -399,6 +534,10 @@ func (r *KaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	// Preserve the original state to fallback for fields not returned by API
+	var originalState KaaSResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &originalState)...)
 
 	projectID := data.ProjectID.ValueString()
 	kaasID := data.Id.ValueString()
@@ -452,48 +591,109 @@ func (r *KaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		if kaas.Metadata.LocationResponse != nil {
 			data.Location = types.StringValue(kaas.Metadata.LocationResponse.Value)
 		}
-		if kaas.Properties.KubernetesVersion.Value != nil {
-			data.KubernetesVersion = types.StringValue(*kaas.Properties.KubernetesVersion.Value)
+
+		if kaas.Properties.BillingPlan != nil && kaas.Properties.BillingPlan.BillingPeriod != nil {
+			data.BillingPeriod = types.StringValue(*kaas.Properties.BillingPlan.BillingPeriod)
 		}
+
+		// Set Management IP if available
+		if kaas.Properties.ManagementIP != nil && *kaas.Properties.ManagementIP != "" {
+			data.ManagementIP = types.StringValue(*kaas.Properties.ManagementIP)
+		} else {
+			data.ManagementIP = types.StringNull()
+		}
+
+		// Build Network object
+		networkAttrs := map[string]attr.Value{
+			"vpc_uri_ref":         types.StringNull(),
+			"subnet_uri_ref":      types.StringNull(),
+			"node_cidr":           types.ObjectNull(map[string]attr.Type{"address": types.StringType, "name": types.StringType}),
+			"security_group_name": types.StringNull(),
+			"pod_cidr":            types.StringNull(),
+		}
+
 		if kaas.Properties.VPC.URI != nil && *kaas.Properties.VPC.URI != "" {
-			data.VpcUriRef = types.StringValue(*kaas.Properties.VPC.URI)
+			networkAttrs["vpc_uri_ref"] = types.StringValue(*kaas.Properties.VPC.URI)
 		}
 		if kaas.Properties.Subnet.URI != nil && *kaas.Properties.Subnet.URI != "" {
-			data.SubnetUriRef = types.StringValue(*kaas.Properties.Subnet.URI)
+			networkAttrs["subnet_uri_ref"] = types.StringValue(*kaas.Properties.Subnet.URI)
 		}
 		if kaas.Properties.SecurityGroup.Name != nil && *kaas.Properties.SecurityGroup.Name != "" {
-			data.SecurityGroupName = types.StringValue(*kaas.Properties.SecurityGroup.Name)
+			networkAttrs["security_group_name"] = types.StringValue(*kaas.Properties.SecurityGroup.Name)
+		} else if !originalState.Network.IsNull() && !originalState.Network.IsUnknown() {
+			// Preserve security_group_name from state if API doesn't return it
+			var originalNetwork KaaSNetworkModel
+			diags := originalState.Network.As(ctx, &originalNetwork, basetypes.ObjectAsOptions{})
+			if diags.HasError() == false && !originalNetwork.SecurityGroupName.IsNull() {
+				networkAttrs["security_group_name"] = originalNetwork.SecurityGroupName
+			}
 		}
 		if kaas.Properties.NodeCIDR.Address != nil && *kaas.Properties.NodeCIDR.Address != "" {
+			nodeCIDRName := ""
+			if kaas.Properties.NodeCIDR.Name != nil && *kaas.Properties.NodeCIDR.Name != "" {
+				nodeCIDRName = *kaas.Properties.NodeCIDR.Name
+			} else if !originalState.Network.IsNull() && !originalState.Network.IsUnknown() {
+				// Preserve node_cidr.name from state if API doesn't return it
+				var originalNetwork KaaSNetworkModel
+				diags := originalState.Network.As(ctx, &originalNetwork, basetypes.ObjectAsOptions{})
+				if diags.HasError() == false && !originalNetwork.NodeCIDR.IsNull() {
+					var originalNodeCIDR struct {
+						Address types.String `tfsdk:"address"`
+						Name    types.String `tfsdk:"name"`
+					}
+					diagsNodeCIDR := originalNetwork.NodeCIDR.As(ctx, &originalNodeCIDR, basetypes.ObjectAsOptions{})
+					if diagsNodeCIDR.HasError() == false && !originalNodeCIDR.Name.IsNull() {
+						nodeCIDRName = originalNodeCIDR.Name.ValueString()
+					}
+				}
+			}
+
 			nodeCIDRObj, diags := types.ObjectValue(map[string]attr.Type{
 				"address": types.StringType,
 				"name":    types.StringType,
 			}, map[string]attr.Value{
 				"address": types.StringValue(*kaas.Properties.NodeCIDR.Address),
-				"name": types.StringValue(func() string {
-					if kaas.Properties.NodeCIDR.Name != nil {
-						return *kaas.Properties.NodeCIDR.Name
-					}
-					return ""
-				}()),
+				"name":    types.StringValue(nodeCIDRName),
 			})
 			resp.Diagnostics.Append(diags...)
 			if !resp.Diagnostics.HasError() {
-				data.NodeCIDR = nodeCIDRObj
+				networkAttrs["node_cidr"] = nodeCIDRObj
 			}
 		}
-		if kaas.Properties.HA != nil {
-			data.HA = types.BoolValue(*kaas.Properties.HA)
-		}
 		if kaas.Properties.PodCIDR != nil && kaas.Properties.PodCIDR.Address != nil {
-			data.PodCIDR = types.StringValue(*kaas.Properties.PodCIDR.Address)
-		}
-		if kaas.Properties.BillingPlan != nil && kaas.Properties.BillingPlan.BillingPeriod != nil {
-			data.BillingPeriod = types.StringValue(*kaas.Properties.BillingPlan.BillingPeriod)
+			networkAttrs["pod_cidr"] = types.StringValue(*kaas.Properties.PodCIDR.Address)
 		}
 
-		// Update node pools
-		if kaas.Properties.NodePools != nil {
+		// Create Network object
+		networkObj, diags := types.ObjectValue(map[string]attr.Type{
+			"vpc_uri_ref":         types.StringType,
+			"subnet_uri_ref":      types.StringType,
+			"node_cidr":           types.ObjectType{AttrTypes: map[string]attr.Type{"address": types.StringType, "name": types.StringType}},
+			"security_group_name": types.StringType,
+			"pod_cidr":            types.StringType,
+		}, networkAttrs)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		data.Network = networkObj
+
+		// Build Settings object
+		settingsAttrs := map[string]attr.Value{
+			"kubernetes_version": types.StringNull(),
+			"node_pools":         types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType, "nodes": types.Int64Type, "instance": types.StringType, "zone": types.StringType, "autoscaling": types.BoolType, "min_count": types.Int64Type, "max_count": types.Int64Type}}),
+			"ha":                 types.BoolNull(),
+		}
+
+		if kaas.Properties.KubernetesVersion.Value != nil {
+			settingsAttrs["kubernetes_version"] = types.StringValue(*kaas.Properties.KubernetesVersion.Value)
+		}
+		if kaas.Properties.HA != nil {
+			settingsAttrs["ha"] = types.BoolValue(*kaas.Properties.HA)
+		}
+
+		// Build node pools
+		if kaas.Properties.NodePools != nil && len(*kaas.Properties.NodePools) > 0 {
 			nodePoolValues := make([]attr.Value, 0)
 			for _, np := range *kaas.Properties.NodePools {
 				nodePoolMap := map[string]attr.Value{
@@ -561,9 +761,40 @@ func (r *KaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 			}, nodePoolValues)
 			resp.Diagnostics.Append(diags...)
 			if !resp.Diagnostics.HasError() {
-				data.NodePools = nodePoolsList
+				settingsAttrs["node_pools"] = nodePoolsList
+			}
+		} else if !originalState.Settings.IsNull() && !originalState.Settings.IsUnknown() {
+			// If API doesn't return node_pools, preserve from original state
+			var originalSettings KaaSSettingsModel
+			diags := originalState.Settings.As(ctx, &originalSettings, basetypes.ObjectAsOptions{})
+			if diags.HasError() == false && !originalSettings.NodePools.IsNull() {
+				settingsAttrs["node_pools"] = originalSettings.NodePools
 			}
 		}
+
+		// Create Settings object
+		settingsObj, diags := types.ObjectValue(map[string]attr.Type{
+			"kubernetes_version": types.StringType,
+			"node_pools": types.ListType{
+				ElemType: types.ObjectType{
+					AttrTypes: map[string]attr.Type{
+						"name":        types.StringType,
+						"nodes":       types.Int64Type,
+						"instance":    types.StringType,
+						"zone":        types.StringType,
+						"autoscaling": types.BoolType,
+						"min_count":   types.Int64Type,
+						"max_count":   types.Int64Type,
+					},
+				},
+			},
+			"ha": types.BoolType,
+		}, settingsAttrs)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		data.Settings = settingsObj
 
 		// Update tags
 		if len(kaas.Metadata.Tags) > 0 {
@@ -652,8 +883,9 @@ func (r *KaaSResource) Update(ctx context.Context, req resource.UpdateRequest, r
 
 	// Extract tags
 	var tags []string
+	var diags diag.Diagnostics
 	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
-		diags := data.Tags.ElementsAs(ctx, &tags, false)
+		diags = data.Tags.ElementsAs(ctx, &tags, false)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
 			return
@@ -662,10 +894,18 @@ func (r *KaaSResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		tags = current.Metadata.Tags
 	}
 
-	// Extract Node Pools
+	// Extract Settings configuration
+	var settingsModel KaaSSettingsModel
+	diags = data.Settings.As(ctx, &settingsModel, basetypes.ObjectAsOptions{})
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Extract Node Pools from settings
 	var nodePoolModels []KaaSNodePoolModel
-	if !data.NodePools.IsNull() && !data.NodePools.IsUnknown() {
-		diags := data.NodePools.ElementsAs(ctx, &nodePoolModels, false)
+	if !settingsModel.NodePools.IsNull() && !settingsModel.NodePools.IsUnknown() {
+		diags := settingsModel.NodePools.ElementsAs(ctx, &nodePoolModels, false)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
 			return
@@ -694,7 +934,7 @@ func (r *KaaSResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	}
 
 	// Build Kubernetes version update
-	kubernetesVersionValue := data.KubernetesVersion.ValueString()
+	kubernetesVersionValue := settingsModel.KubernetesVersion.ValueString()
 	if kubernetesVersionValue == "" && current.Properties.KubernetesVersion.Value != nil {
 		kubernetesVersionValue = *current.Properties.KubernetesVersion.Value
 	}
@@ -721,8 +961,8 @@ func (r *KaaSResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	}
 
 	// Add optional fields
-	if !data.HA.IsNull() && !data.HA.IsUnknown() {
-		ha := data.HA.ValueBool()
+	if !settingsModel.HA.IsNull() && !settingsModel.HA.IsUnknown() {
+		ha := settingsModel.HA.ValueBool()
 		updateRequest.Properties.HA = &ha
 	} else if current.Properties.HA != nil {
 		updateRequest.Properties.HA = current.Properties.HA
@@ -759,8 +999,7 @@ func (r *KaaSResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	data.Id = state.Id
 	data.Uri = state.Uri // Preserve URI from state
 	data.ProjectID = state.ProjectID
-	data.VpcUriRef = state.VpcUriRef
-	data.SubnetUriRef = state.SubnetUriRef
+	// Don't overwrite Network and Settings yet - preserve from plan until we read from API
 
 	if response != nil && response.Data != nil {
 		// Update from response if available (should match state)
@@ -795,17 +1034,6 @@ func (r *KaaSResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		} else {
 			data.Uri = state.Uri // Fallback to state if not available
 		}
-		// Update VPC and Subnet URI refs
-		if kaas.Properties.VPC.URI != nil {
-			data.VpcUriRef = types.StringValue(*kaas.Properties.VPC.URI)
-		} else {
-			data.VpcUriRef = state.VpcUriRef // Fallback to state if not available
-		}
-		if kaas.Properties.Subnet.URI != nil {
-			data.SubnetUriRef = types.StringValue(*kaas.Properties.Subnet.URI)
-		} else {
-			data.SubnetUriRef = state.SubnetUriRef // Fallback to state if not available
-		}
 		// Update other fields from re-read to ensure consistency
 		if kaas.Metadata.Name != nil {
 			data.Name = types.StringValue(*kaas.Metadata.Name)
@@ -813,42 +1041,112 @@ func (r *KaaSResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		if kaas.Metadata.LocationResponse != nil {
 			data.Location = types.StringValue(kaas.Metadata.LocationResponse.Value)
 		}
-		if kaas.Properties.KubernetesVersion.Value != nil {
-			data.KubernetesVersion = types.StringValue(*kaas.Properties.KubernetesVersion.Value)
-		}
-		if kaas.Properties.SecurityGroup.Name != nil {
-			data.SecurityGroupName = types.StringValue(*kaas.Properties.SecurityGroup.Name)
-		}
-		if kaas.Properties.NodeCIDR.Address != nil && kaas.Properties.NodeCIDR.Name != nil {
-			nodeCIDRObj, diags := types.ObjectValue(map[string]attr.Type{
-				"address": types.StringType,
-				"name":    types.StringType,
-			}, map[string]attr.Value{
-				"address": types.StringValue(*kaas.Properties.NodeCIDR.Address),
-				"name":    types.StringValue(*kaas.Properties.NodeCIDR.Name),
-			})
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.NodeCIDR = nodeCIDRObj
-			}
-		}
-		if kaas.Properties.HA != nil {
-			data.HA = types.BoolValue(*kaas.Properties.HA)
-		} else {
-			data.HA = types.BoolNull()
-		}
-		if kaas.Properties.PodCIDR != nil && kaas.Properties.PodCIDR.Address != nil {
-			data.PodCIDR = types.StringValue(*kaas.Properties.PodCIDR.Address)
-		} else {
-			data.PodCIDR = types.StringNull()
-		}
 		if kaas.Properties.BillingPlan != nil && kaas.Properties.BillingPlan.BillingPeriod != nil {
 			data.BillingPeriod = types.StringValue(*kaas.Properties.BillingPlan.BillingPeriod)
 		} else {
 			data.BillingPeriod = types.StringNull()
 		}
-		// Update node pools from re-read
-		if kaas.Properties.NodePools != nil {
+
+		// Set Management IP if available
+		if kaas.Properties.ManagementIP != nil && *kaas.Properties.ManagementIP != "" {
+			data.ManagementIP = types.StringValue(*kaas.Properties.ManagementIP)
+		} else {
+			data.ManagementIP = types.StringNull()
+		}
+
+		// Build Network object from re-read, preserving fields not returned by API from the plan
+		var planNetwork KaaSNetworkModel
+		diagsNet := data.Network.As(ctx, &planNetwork, basetypes.ObjectAsOptions{})
+
+		networkAttrs := map[string]attr.Value{
+			"vpc_uri_ref":         types.StringNull(),
+			"subnet_uri_ref":      types.StringNull(),
+			"node_cidr":           types.ObjectNull(map[string]attr.Type{"address": types.StringType, "name": types.StringType}),
+			"security_group_name": types.StringNull(),
+			"pod_cidr":            types.StringNull(),
+		}
+
+		if kaas.Properties.VPC.URI != nil && *kaas.Properties.VPC.URI != "" {
+			networkAttrs["vpc_uri_ref"] = types.StringValue(*kaas.Properties.VPC.URI)
+		}
+		if kaas.Properties.Subnet.URI != nil && *kaas.Properties.Subnet.URI != "" {
+			networkAttrs["subnet_uri_ref"] = types.StringValue(*kaas.Properties.Subnet.URI)
+		}
+
+		// Preserve security_group_name from plan if API doesn't return it
+		if kaas.Properties.SecurityGroup.Name != nil && *kaas.Properties.SecurityGroup.Name != "" {
+			networkAttrs["security_group_name"] = types.StringValue(*kaas.Properties.SecurityGroup.Name)
+		} else if diagsNet.HasError() == false && !planNetwork.SecurityGroupName.IsNull() {
+			networkAttrs["security_group_name"] = planNetwork.SecurityGroupName
+		}
+
+		// Build node_cidr, preserving name from plan if API doesn't return it
+		if kaas.Properties.NodeCIDR.Address != nil && *kaas.Properties.NodeCIDR.Address != "" {
+			nodeCIDRName := ""
+			if kaas.Properties.NodeCIDR.Name != nil && *kaas.Properties.NodeCIDR.Name != "" {
+				nodeCIDRName = *kaas.Properties.NodeCIDR.Name
+			} else if diagsNet.HasError() == false && !planNetwork.NodeCIDR.IsNull() {
+				var planNodeCIDR struct {
+					Address types.String `tfsdk:"address"`
+					Name    types.String `tfsdk:"name"`
+				}
+				diagsNodeCIDR := planNetwork.NodeCIDR.As(ctx, &planNodeCIDR, basetypes.ObjectAsOptions{})
+				if diagsNodeCIDR.HasError() == false && !planNodeCIDR.Name.IsNull() {
+					nodeCIDRName = planNodeCIDR.Name.ValueString()
+				}
+			}
+
+			nodeCIDRObj, diags := types.ObjectValue(map[string]attr.Type{
+				"address": types.StringType,
+				"name":    types.StringType,
+			}, map[string]attr.Value{
+				"address": types.StringValue(*kaas.Properties.NodeCIDR.Address),
+				"name":    types.StringValue(nodeCIDRName),
+			})
+			resp.Diagnostics.Append(diags...)
+			if !resp.Diagnostics.HasError() {
+				networkAttrs["node_cidr"] = nodeCIDRObj
+			}
+		}
+
+		if kaas.Properties.PodCIDR != nil && kaas.Properties.PodCIDR.Address != nil {
+			networkAttrs["pod_cidr"] = types.StringValue(*kaas.Properties.PodCIDR.Address)
+		}
+
+		// Create Network object
+		networkObj, diags := types.ObjectValue(map[string]attr.Type{
+			"vpc_uri_ref":         types.StringType,
+			"subnet_uri_ref":      types.StringType,
+			"node_cidr":           types.ObjectType{AttrTypes: map[string]attr.Type{"address": types.StringType, "name": types.StringType}},
+			"security_group_name": types.StringType,
+			"pod_cidr":            types.StringType,
+		}, networkAttrs)
+		resp.Diagnostics.Append(diags...)
+		if !resp.Diagnostics.HasError() {
+			data.Network = networkObj
+		} else {
+			// Keep Network from plan on error
+		}
+
+		// Build Settings object from re-read, preserving node_pools from plan if API doesn't return them
+		var planSettings KaaSSettingsModel
+		diagsSettings := data.Settings.As(ctx, &planSettings, basetypes.ObjectAsOptions{})
+
+		settingsAttrs := map[string]attr.Value{
+			"kubernetes_version": types.StringNull(),
+			"node_pools":         types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType, "nodes": types.Int64Type, "instance": types.StringType, "zone": types.StringType, "autoscaling": types.BoolType, "min_count": types.Int64Type, "max_count": types.Int64Type}}),
+			"ha":                 types.BoolNull(),
+		}
+
+		if kaas.Properties.KubernetesVersion.Value != nil {
+			settingsAttrs["kubernetes_version"] = types.StringValue(*kaas.Properties.KubernetesVersion.Value)
+		}
+		if kaas.Properties.HA != nil {
+			settingsAttrs["ha"] = types.BoolValue(*kaas.Properties.HA)
+		}
+
+		// Build node pools from re-read, or preserve from plan if not returned
+		if kaas.Properties.NodePools != nil && len(*kaas.Properties.NodePools) > 0 {
 			nodePoolValues := make([]attr.Value, 0)
 			for _, np := range *kaas.Properties.NodePools {
 				nodePoolMap := map[string]attr.Value{
@@ -916,9 +1214,38 @@ func (r *KaaSResource) Update(ctx context.Context, req resource.UpdateRequest, r
 			}, nodePoolValues)
 			resp.Diagnostics.Append(diags...)
 			if !resp.Diagnostics.HasError() {
-				data.NodePools = nodePoolsList
+				settingsAttrs["node_pools"] = nodePoolsList
 			}
+		} else if diagsSettings.HasError() == false && !planSettings.NodePools.IsNull() {
+			// Preserve node_pools from plan if API doesn't return them
+			settingsAttrs["node_pools"] = planSettings.NodePools
 		}
+
+		// Create Settings object
+		settingsObj, diags := types.ObjectValue(map[string]attr.Type{
+			"kubernetes_version": types.StringType,
+			"node_pools": types.ListType{
+				ElemType: types.ObjectType{
+					AttrTypes: map[string]attr.Type{
+						"name":        types.StringType,
+						"nodes":       types.Int64Type,
+						"instance":    types.StringType,
+						"zone":        types.StringType,
+						"autoscaling": types.BoolType,
+						"min_count":   types.Int64Type,
+						"max_count":   types.Int64Type,
+					},
+				},
+			},
+			"ha": types.BoolType,
+		}, settingsAttrs)
+		resp.Diagnostics.Append(diags...)
+		if !resp.Diagnostics.HasError() {
+			data.Settings = settingsObj
+		} else {
+			data.Settings = state.Settings // Fallback to state on error
+		}
+
 		// Update tags from re-read
 		if len(kaas.Metadata.Tags) > 0 {
 			tagValues := make([]types.String, len(kaas.Metadata.Tags))
@@ -938,10 +1265,10 @@ func (r *KaaSResource) Update(ctx context.Context, req resource.UpdateRequest, r
 			}
 		}
 	} else {
-		// If re-read fails, preserve immutable fields from state
+		// If re-read fails, preserve fields from state
 		data.Uri = state.Uri
-		data.VpcUriRef = state.VpcUriRef
-		data.SubnetUriRef = state.SubnetUriRef
+		data.Network = state.Network
+		data.Settings = state.Settings
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

@@ -12,29 +12,41 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 type CloudServerResourceModel struct {
-	Id                   types.String `tfsdk:"id"`
-	Uri                  types.String `tfsdk:"uri"`
-	Name                 types.String `tfsdk:"name"`
-	Location             types.String `tfsdk:"location"`
-	ProjectID            types.String `tfsdk:"project_id"`
-	Zone                 types.String `tfsdk:"zone"`
+	Id        types.String `tfsdk:"id"`
+	Uri       types.String `tfsdk:"uri"`
+	Name      types.String `tfsdk:"name"`
+	Location  types.String `tfsdk:"location"`
+	ProjectID types.String `tfsdk:"project_id"`
+	Zone      types.String `tfsdk:"zone"`
+	Tags      types.List   `tfsdk:"tags"`
+	Network   types.Object `tfsdk:"network"`
+	Settings  types.Object `tfsdk:"settings"`
+	Storage   types.Object `tfsdk:"storage"`
+}
+
+type CloudServerNetworkModel struct {
 	VpcUriRef            types.String `tfsdk:"vpc_uri_ref"`
-	FlavorName           types.String `tfsdk:"flavor_name"`
 	ElasticIpUriRef      types.String `tfsdk:"elastic_ip_uri_ref"`
-	BootVolumeUriRef     types.String `tfsdk:"boot_volume_uri_ref"`
-	KeyPairUriRef        types.String `tfsdk:"key_pair_uri_ref"`
 	SubnetUriRefs        types.List   `tfsdk:"subnet_uri_refs"`
 	SecurityGroupUriRefs types.List   `tfsdk:"securitygroup_uri_refs"`
-	Tags                 types.List   `tfsdk:"tags"`
-	UserData             types.String `tfsdk:"user_data"`
+}
+
+type CloudServerSettingsModel struct {
+	FlavorName    types.String `tfsdk:"flavor_name"`
+	KeyPairUriRef types.String `tfsdk:"key_pair_uri_ref"`
+	UserData      types.String `tfsdk:"user_data"`
+}
+
+type CloudServerStorageModel struct {
+	BootVolumeUriRef types.String `tfsdk:"boot_volume_uri_ref"`
 }
 
 type CloudServerResource struct {
@@ -59,10 +71,16 @@ func (r *CloudServerResource) Schema(ctx context.Context, req resource.SchemaReq
 			"id": schema.StringAttribute{
 				MarkdownDescription: "CloudServer identifier",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"uri": schema.StringAttribute{
 				MarkdownDescription: "CloudServer URI",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "CloudServer name",
@@ -80,65 +98,75 @@ func (r *CloudServerResource) Schema(ctx context.Context, req resource.SchemaReq
 				MarkdownDescription: "Zone",
 				Required:            true,
 			},
-			"vpc_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "URI reference to the VPC. Should be the VPC URI (e.g., `/projects/{project_id}/providers/Aruba.Network/vpcs/{vpc_id}`). You can reference the `uri` attribute from an `arubacloud_vpc` resource.",
-				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"flavor_name": schema.StringAttribute{
-				MarkdownDescription: "Flavor name. Available flavors are described in the [ArubaCloud API documentation](https://api.arubacloud.com/docs/metadata/#cloudserver-flavors). For example, `CSO4A8` means 4 CPU and 8GB RAM.",
-				Required:            true,
-			},
-			"elastic_ip_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "URI reference to the Elastic IP. Should be the Elastic IP URI. You can reference the `uri` attribute from an `arubacloud_elasticip` resource.",
-				Optional:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"boot_volume_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "URI reference to the boot volume (block storage). Should be the block storage URI. You can reference the `uri` attribute from an `arubacloud_blockstorage` resource.",
-				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"key_pair_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "URI reference to the Key Pair. Should be the Key Pair URI. You can reference the `uri` attribute from an `arubacloud_keypair` resource.",
-				Optional:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"subnet_uri_refs": schema.ListAttribute{
-				ElementType:         types.StringType,
-				MarkdownDescription: "List of subnet URI references. Should be subnet URIs. You can reference the `uri` attribute from `arubacloud_subnet` resources like `[arubacloud_subnet.example.uri]`",
-				Required:            true,
-				PlanModifiers: []planmodifier.List{
-					listplanmodifier.RequiresReplace(),
-					listplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"securitygroup_uri_refs": schema.ListAttribute{
-				ElementType:         types.StringType,
-				MarkdownDescription: "List of security group URI references. Should be security group URIs. You can reference the `uri` attribute from `arubacloud_securitygroup` resources like `[arubacloud_securitygroup.example.uri]`",
-				Required:            true,
-				PlanModifiers: []planmodifier.List{
-					listplanmodifier.RequiresReplace(),
-					listplanmodifier.UseStateForUnknown(),
-				},
-			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
 				MarkdownDescription: "List of tags for the Cloud Server",
 				Optional:            true,
 			},
-			"user_data": schema.StringAttribute{
-				MarkdownDescription: "Cloud-Init user data to use during server creation. This is the content of a cloud-init YAML file that will be used to bootstrap the cloud server. The content should be provided as raw cloud-init YAML (not base64-encoded).",
-				Optional:            true,
-				Sensitive:           true,
+			"network": schema.SingleNestedAttribute{
+				MarkdownDescription: "Network configuration for the cloud server",
+				Required:            true,
+				Attributes: map[string]schema.Attribute{
+					"vpc_uri_ref": schema.StringAttribute{
+						MarkdownDescription: "VPC URI reference (e.g., arubacloud_vpc.example.uri)",
+						Required:            true,
+						PlanModifiers: []planmodifier.String{
+							stringplanmodifier.UseStateForUnknown(),
+						},
+					},
+					"elastic_ip_uri_ref": schema.StringAttribute{
+						MarkdownDescription: "Elastic IP URI reference (e.g., arubacloud_elasticip.example.uri)",
+						Optional:            true,
+						PlanModifiers: []planmodifier.String{
+							stringplanmodifier.UseStateForUnknown(),
+						},
+					},
+					"subnet_uri_refs": schema.ListAttribute{
+						ElementType:         types.StringType,
+						MarkdownDescription: "List of subnet URI references (e.g., [arubacloud_subnet.example.uri])",
+						Required:            true,
+					},
+					"securitygroup_uri_refs": schema.ListAttribute{
+						ElementType:         types.StringType,
+						MarkdownDescription: "List of security group URI references (e.g., [arubacloud_securitygroup.example.uri])",
+						Required:            true,
+					},
+				},
+			},
+			"settings": schema.SingleNestedAttribute{
+				MarkdownDescription: "Cloud server settings",
+				Required:            true,
+				Attributes: map[string]schema.Attribute{
+					"flavor_name": schema.StringAttribute{
+						MarkdownDescription: "Flavor name (e.g., CSO4A8 for 4 CPU, 8GB RAM). See https://api.arubacloud.com/docs/metadata/#cloudserver-flavors",
+						Required:            true,
+					},
+					"key_pair_uri_ref": schema.StringAttribute{
+						MarkdownDescription: "Key Pair URI reference (e.g., arubacloud_keypair.example.uri)",
+						Optional:            true,
+						PlanModifiers: []planmodifier.String{
+							stringplanmodifier.UseStateForUnknown(),
+						},
+					},
+					"user_data": schema.StringAttribute{
+						MarkdownDescription: "Cloud-Init user data (raw YAML content)",
+						Optional:            true,
+						Sensitive:           true,
+					},
+				},
+			},
+			"storage": schema.SingleNestedAttribute{
+				MarkdownDescription: "Storage configuration for the cloud server",
+				Required:            true,
+				Attributes: map[string]schema.Attribute{
+					"boot_volume_uri_ref": schema.StringAttribute{
+						MarkdownDescription: "Boot volume URI reference (e.g., arubacloud_blockstorage.example.uri)",
+						Required:            true,
+						PlanModifiers: []planmodifier.String{
+							stringplanmodifier.UseStateForUnknown(),
+						},
+					},
+				},
 			},
 		},
 	}
@@ -175,16 +203,39 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
-	// Extract subnets from Terraform list (these are URIs)
+	// Extract network model
+	var networkModel CloudServerNetworkModel
+	diags := data.Network.As(ctx, &networkModel, basetypes.ObjectAsOptions{})
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Extract settings model
+	var settingsModel CloudServerSettingsModel
+	diags = data.Settings.As(ctx, &settingsModel, basetypes.ObjectAsOptions{})
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Extract storage model
+	var storageModel CloudServerStorageModel
+	diags = data.Storage.As(ctx, &storageModel, basetypes.ObjectAsOptions{})
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Extract subnets from network model
 	var subnetRefs []sdktypes.ReferenceResource
-	if !data.SubnetUriRefs.IsNull() && !data.SubnetUriRefs.IsUnknown() {
+	if !networkModel.SubnetUriRefs.IsNull() && !networkModel.SubnetUriRefs.IsUnknown() {
 		var subnetURIs []string
-		diags := data.SubnetUriRefs.ElementsAs(ctx, &subnetURIs, false)
+		diags := networkModel.SubnetUriRefs.ElementsAs(ctx, &subnetURIs, false)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
-		// Subnet URIs should already be full URIs from resource references
 		for _, subnetURI := range subnetURIs {
 			subnetRefs = append(subnetRefs, sdktypes.ReferenceResource{
 				URI: subnetURI,
@@ -192,16 +243,15 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 		}
 	}
 
-	// Extract security groups from Terraform list (these are URIs)
+	// Extract security groups from network model
 	var securityGroupRefs []sdktypes.ReferenceResource
-	if !data.SecurityGroupUriRefs.IsNull() && !data.SecurityGroupUriRefs.IsUnknown() {
+	if !networkModel.SecurityGroupUriRefs.IsNull() && !networkModel.SecurityGroupUriRefs.IsUnknown() {
 		var sgURIs []string
-		diags := data.SecurityGroupUriRefs.ElementsAs(ctx, &sgURIs, false)
+		diags := networkModel.SecurityGroupUriRefs.ElementsAs(ctx, &sgURIs, false)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
-		// Security group URIs should already be full URIs from resource references
 		for _, sgURI := range sgURIs {
 			securityGroupRefs = append(securityGroupRefs, sdktypes.ReferenceResource{
 				URI: sgURI,
@@ -219,17 +269,8 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 		}
 	}
 
-	// Boot volume URI should already be a full URI from resource reference
-	bootVolumeURI := data.BootVolumeUriRef.ValueString()
-
-	// VPC URI should already be a full URI from resource reference
-	vpcURI := data.VpcUriRef.ValueString()
-
-	// Note: Elastic IP might be handled differently in the API
-	// For now, we'll include VPC, subnets, security groups, and zone which are required
-
 	// Build the create request
-	flavorName := data.FlavorName.ValueString()
+	flavorName := settingsModel.FlavorName.ValueString()
 	zone := data.Zone.ValueString()
 	createRequest := sdktypes.CloudServerRequest{
 		Metadata: sdktypes.RegionalResourceMetadataRequest{
@@ -245,33 +286,33 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 			FlavorName: &flavorName,
 			Zone:       zone,
 			BootVolume: sdktypes.ReferenceResource{
-				URI: bootVolumeURI,
+				URI: storageModel.BootVolumeUriRef.ValueString(),
 			},
 			VPC: sdktypes.ReferenceResource{
-				URI: vpcURI,
+				URI: networkModel.VpcUriRef.ValueString(),
 			},
 			Subnets:        subnetRefs,
 			SecurityGroups: securityGroupRefs,
 		},
 	}
 
-	// Add keypair if provided (URI should already be a full URI from resource reference)
-	if !data.KeyPairUriRef.IsNull() && !data.KeyPairUriRef.IsUnknown() {
+	// Add keypair if provided
+	if !settingsModel.KeyPairUriRef.IsNull() && !settingsModel.KeyPairUriRef.IsUnknown() {
 		createRequest.Properties.KeyPair = sdktypes.ReferenceResource{
-			URI: data.KeyPairUriRef.ValueString(),
+			URI: settingsModel.KeyPairUriRef.ValueString(),
 		}
 	}
 
-	// Add elastic IP if provided (URI should already be a full URI from resource reference)
-	if !data.ElasticIpUriRef.IsNull() && !data.ElasticIpUriRef.IsUnknown() {
+	// Add elastic IP if provided
+	if !networkModel.ElasticIpUriRef.IsNull() && !networkModel.ElasticIpUriRef.IsUnknown() {
 		createRequest.Properties.ElastcIP = sdktypes.ReferenceResource{
-			URI: data.ElasticIpUriRef.ValueString(),
+			URI: networkModel.ElasticIpUriRef.ValueString(),
 		}
 	}
 
-	// Add user data if provided (send raw cloud-init content, SDK handles encoding if needed)
-	if !data.UserData.IsNull() && !data.UserData.IsUnknown() {
-		userDataRaw := data.UserData.ValueString()
+	// Add user data if provided
+	if !settingsModel.UserData.IsNull() && !settingsModel.UserData.IsUnknown() {
+		userDataRaw := settingsModel.UserData.ValueString()
 		createRequest.Properties.UserData = &userDataRaw
 	}
 
@@ -396,16 +437,14 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 
 func (r *CloudServerResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var data CloudServerResourceModel
-	var state CloudServerResourceModel
-	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	var originalState CloudServerResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &originalState)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	// Preserve immutable URI refs from state (they're not returned by API)
-	data = state
 
-	projectID := data.ProjectID.ValueString()
-	serverID := data.Id.ValueString()
+	projectID := originalState.ProjectID.ValueString()
+	serverID := originalState.Id.ValueString()
 
 	if projectID == "" || serverID == "" {
 		resp.Diagnostics.AddError(
@@ -440,76 +479,133 @@ func (r *CloudServerResource) Read(ctx context.Context, req resource.ReadRequest
 		return
 	}
 
-	if response != nil && response.Data != nil {
-		server := response.Data
-
-		// Update data from API response (SDK v0.1.13+ has ResourceMetadataResponse with ID and URI)
-		if server.Metadata.ID != nil {
-			data.Id = types.StringValue(*server.Metadata.ID)
-		}
-
-		if server.Metadata.URI != nil {
-			data.Uri = types.StringValue(*server.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-
-		if server.Metadata.Name != nil {
-			data.Name = types.StringValue(*server.Metadata.Name)
-		}
-
-		if server.Metadata.LocationResponse != nil && server.Metadata.LocationResponse.Value != "" {
-			data.Location = types.StringValue(server.Metadata.LocationResponse.Value)
-		}
-
-		data.FlavorName = types.StringValue(server.Properties.Flavor.Name)
-
-		if server.Properties.BootVolume.URI != "" {
-			data.BootVolumeUriRef = types.StringValue(server.Properties.BootVolume.URI)
-		}
-
-		// Update VPC URI reference
-		if server.Properties.VPC.URI != "" {
-			data.VpcUriRef = types.StringValue(server.Properties.VPC.URI)
-		}
-
-		// Update KeyPair URI reference
-		if server.Properties.KeyPair.URI != "" {
-			data.KeyPairUriRef = types.StringValue(server.Properties.KeyPair.URI)
-		} else {
-			data.KeyPairUriRef = types.StringNull()
-		}
-
-		// Note: Subnets and SecurityGroups are not returned in the API response
-		// They are immutable after creation, so we preserve them from state
-		// These will be set from state in the Update function
-
-		// Update tags from response
-		if len(server.Metadata.Tags) > 0 {
-			tagValues := make([]types.String, len(server.Metadata.Tags))
-			for i, tag := range server.Metadata.Tags {
-				tagValues[i] = types.StringValue(tag)
-			}
-			tagsList, diags := types.ListValueFrom(ctx, types.StringType, tagValues)
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = tagsList
-			}
-		} else {
-			emptyList, diags := types.ListValue(types.StringType, []attr.Value{})
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = emptyList
-			}
-		}
-
-		// Note: Subnets and SecurityGroups might need to be extracted from LinkedResources
-		// This is a simplified version - you may need to adjust based on actual API response structure
-	} else {
-		// Cloud server not found, mark as removed
+	if response == nil || response.Data == nil {
 		resp.State.RemoveResource(ctx)
 		return
 	}
+
+	server := response.Data
+
+	// Extract original nested models to preserve fields not returned by API
+	var originalNetworkModel CloudServerNetworkModel
+	diags := originalState.Network.As(ctx, &originalNetworkModel, basetypes.ObjectAsOptions{})
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	var originalSettingsModel CloudServerSettingsModel
+	diags = originalState.Settings.As(ctx, &originalSettingsModel, basetypes.ObjectAsOptions{})
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	var originalStorageModel CloudServerStorageModel
+	diags = originalState.Storage.As(ctx, &originalStorageModel, basetypes.ObjectAsOptions{})
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Update basic fields from API response
+	if server.Metadata.ID != nil {
+		data.Id = types.StringValue(*server.Metadata.ID)
+	}
+
+	if server.Metadata.URI != nil {
+		data.Uri = types.StringValue(*server.Metadata.URI)
+	} else {
+		data.Uri = types.StringNull()
+	}
+
+	if server.Metadata.Name != nil {
+		data.Name = types.StringValue(*server.Metadata.Name)
+	}
+
+	if server.Metadata.LocationResponse != nil && server.Metadata.LocationResponse.Value != "" {
+		data.Location = types.StringValue(server.Metadata.LocationResponse.Value)
+	}
+
+	data.ProjectID = originalState.ProjectID
+	data.Zone = originalState.Zone
+
+	// Update tags from response
+	if len(server.Metadata.Tags) > 0 {
+		tagValues := make([]types.String, len(server.Metadata.Tags))
+		for i, tag := range server.Metadata.Tags {
+			tagValues[i] = types.StringValue(tag)
+		}
+		tagsList, diags := types.ListValueFrom(ctx, types.StringType, tagValues)
+		resp.Diagnostics.Append(diags...)
+		if !resp.Diagnostics.HasError() {
+			data.Tags = tagsList
+		}
+	} else {
+		emptyList, diags := types.ListValue(types.StringType, []attr.Value{})
+		resp.Diagnostics.Append(diags...)
+		if !resp.Diagnostics.HasError() {
+			data.Tags = emptyList
+		}
+	}
+
+	// Build network object (preserve fields not returned by API)
+	networkAttrs := map[string]attr.Value{
+		"vpc_uri_ref":            originalNetworkModel.VpcUriRef,
+		"elastic_ip_uri_ref":     originalNetworkModel.ElasticIpUriRef,
+		"subnet_uri_refs":        originalNetworkModel.SubnetUriRefs,
+		"securitygroup_uri_refs": originalNetworkModel.SecurityGroupUriRefs,
+	}
+	networkObj, diags := types.ObjectValue(
+		map[string]attr.Type{
+			"vpc_uri_ref":            types.StringType,
+			"elastic_ip_uri_ref":     types.StringType,
+			"subnet_uri_refs":        types.ListType{ElemType: types.StringType},
+			"securitygroup_uri_refs": types.ListType{ElemType: types.StringType},
+		},
+		networkAttrs,
+	)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	data.Network = networkObj
+
+	// Build settings object
+	settingsAttrs := map[string]attr.Value{
+		"flavor_name":      types.StringValue(server.Properties.Flavor.Name),
+		"key_pair_uri_ref": originalSettingsModel.KeyPairUriRef,
+		"user_data":        originalSettingsModel.UserData,
+	}
+	settingsObj, diags := types.ObjectValue(
+		map[string]attr.Type{
+			"flavor_name":      types.StringType,
+			"key_pair_uri_ref": types.StringType,
+			"user_data":        types.StringType,
+		},
+		settingsAttrs,
+	)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	data.Settings = settingsObj
+
+	// Build storage object (preserve from state)
+	storageAttrs := map[string]attr.Value{
+		"boot_volume_uri_ref": originalStorageModel.BootVolumeUriRef,
+	}
+	storageObj, diags := types.ObjectValue(
+		map[string]attr.Type{
+			"boot_volume_uri_ref": types.StringType,
+		},
+		storageAttrs,
+	)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	data.Storage = storageObj
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -525,6 +621,28 @@ func (r *CloudServerResource) Update(ctx context.Context, req resource.UpdateReq
 
 	// Read current state to preserve values
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Extract nested models from plan to preserve for inconsistent result check
+	var planNetworkModel CloudServerNetworkModel
+	diags := data.Network.As(ctx, &planNetworkModel, basetypes.ObjectAsOptions{})
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	var planSettingsModel CloudServerSettingsModel
+	diags = data.Settings.As(ctx, &planSettingsModel, basetypes.ObjectAsOptions{})
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	var planStorageModel CloudServerStorageModel
+	diags = data.Storage.As(ctx, &planStorageModel, basetypes.ObjectAsOptions{})
+	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -618,9 +736,7 @@ func (r *CloudServerResource) Update(ctx context.Context, req resource.UpdateReq
 	}
 
 	// Update state with response data if available
-	// Note: Update response may have different structure
 	if response != nil && response.Data != nil {
-		// Response may be a request type, so handle carefully
 		if response.Data.Metadata.Name != nil && *response.Data.Metadata.Name != "" {
 			data.Name = types.StringValue(*response.Data.Metadata.Name)
 		}
@@ -644,25 +760,69 @@ func (r *CloudServerResource) Update(ctx context.Context, req resource.UpdateReq
 		}
 	}
 
-	// Ensure immutable fields are set from state before saving
+	// Ensure immutable fields are set from state/plan before saving
 	data.Id = state.Id
 	data.ProjectID = state.ProjectID
-	data.VpcUriRef = state.VpcUriRef
 	data.Zone = state.Zone
-	data.FlavorName = state.FlavorName
-	data.BootVolumeUriRef = state.BootVolumeUriRef
-	data.KeyPairUriRef = state.KeyPairUriRef
-	data.SubnetUriRefs = state.SubnetUriRefs
-	data.SecurityGroupUriRefs = state.SecurityGroupUriRefs
-	// Preserve elastic_ip_uri_ref from state if not in plan
-	if data.ElasticIpUriRef.IsNull() || data.ElasticIpUriRef.IsUnknown() {
-		data.ElasticIpUriRef = state.ElasticIpUriRef
-	}
-	// Preserve user_data from state (it's only used during creation, not returned by API)
-	data.UserData = state.UserData
 
-	// Note: CloudServer uses name as ID and response doesn't have Metadata.ID
-	// ID is already set from state above
+	// Rebuild nested objects from plan to avoid inconsistent result
+	// Network object (preserve from plan)
+	networkAttrs := map[string]attr.Value{
+		"vpc_uri_ref":            planNetworkModel.VpcUriRef,
+		"elastic_ip_uri_ref":     planNetworkModel.ElasticIpUriRef,
+		"subnet_uri_refs":        planNetworkModel.SubnetUriRefs,
+		"securitygroup_uri_refs": planNetworkModel.SecurityGroupUriRefs,
+	}
+	networkObj, diags := types.ObjectValue(
+		map[string]attr.Type{
+			"vpc_uri_ref":            types.StringType,
+			"elastic_ip_uri_ref":     types.StringType,
+			"subnet_uri_refs":        types.ListType{ElemType: types.StringType},
+			"securitygroup_uri_refs": types.ListType{ElemType: types.StringType},
+		},
+		networkAttrs,
+	)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	data.Network = networkObj
+
+	// Settings object (preserve from plan)
+	settingsAttrs := map[string]attr.Value{
+		"flavor_name":      planSettingsModel.FlavorName,
+		"key_pair_uri_ref": planSettingsModel.KeyPairUriRef,
+		"user_data":        planSettingsModel.UserData,
+	}
+	settingsObj, diags := types.ObjectValue(
+		map[string]attr.Type{
+			"flavor_name":      types.StringType,
+			"key_pair_uri_ref": types.StringType,
+			"user_data":        types.StringType,
+		},
+		settingsAttrs,
+	)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	data.Settings = settingsObj
+
+	// Storage object (preserve from plan)
+	storageAttrs := map[string]attr.Value{
+		"boot_volume_uri_ref": planStorageModel.BootVolumeUriRef,
+	}
+	storageObj, diags := types.ObjectValue(
+		map[string]attr.Type{
+			"boot_volume_uri_ref": types.StringType,
+		},
+		storageAttrs,
+	)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	data.Storage = storageObj
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

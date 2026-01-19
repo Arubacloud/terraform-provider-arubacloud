@@ -12,20 +12,29 @@ Manages an ArubaCloud CloudServer.
 
 ```terraform
 resource "arubacloud_cloudserver" "basic" {
-  name                  = "example-cloudserver"
-  location              = "ITBG-Bergamo"
-  project_id            = arubacloud_project.example.id
-  zone                  = "ITBG-1"
-  vpc_uri_ref           = arubacloud_vpc.example.uri
-  flavor_name           = "CSO4A8"  # 4 CPU, 8GB RAM (see https://api.arubacloud.com/docs/metadata/#cloudserver-flavors)
-  elastic_ip_uri_ref    = arubacloud_elasticip.example.uri
-  boot_volume_uri_ref   = arubacloud_blockstorage.example.uri  # URI reference to bootable block storage
-  key_pair_uri_ref      = arubacloud_keypair.example.uri
-  subnet_uri_refs       = [arubacloud_subnet.example.uri]
-  securitygroup_uri_refs = [arubacloud_securitygroup.example.uri]
-  tags                  = ["compute", "example"]
-  # Optional: cloud-init user data for bootstrapping (raw cloud-init YAML content)
-  # user_data             = file("cloud-init.yaml")
+  name       = "example-cloudserver"
+  location   = "ITBG-Bergamo"
+  project_id = arubacloud_project.example.id
+  zone       = "ITBG-1"
+  tags       = ["compute", "example"]
+
+  network = {
+    vpc_uri_ref            = arubacloud_vpc.example.uri
+    elastic_ip_uri_ref     = arubacloud_elasticip.example.uri
+    subnet_uri_refs        = [arubacloud_subnet.example.uri]
+    securitygroup_uri_refs = [arubacloud_securitygroup.example.uri]
+  }
+
+  settings = {
+    flavor_name      = "CSO4A8"  # 4 CPU, 8GB RAM (see https://api.arubacloud.com/docs/metadata/#cloudserver-flavors)
+    key_pair_uri_ref = arubacloud_keypair.example.uri
+    # Optional: cloud-init user data for bootstrapping (raw cloud-init YAML content)
+    # user_data      = file("cloud-init.yaml")
+  }
+
+  storage = {
+    boot_volume_uri_ref = arubacloud_blockstorage.example.uri
+  }
 }
 ```
 
@@ -34,27 +43,56 @@ resource "arubacloud_cloudserver" "basic" {
 
 ### Required
 
-- `boot_volume_uri_ref` (String) URI reference to the boot volume (block storage). Should be the block storage URI. You can reference the `uri` attribute from an `arubacloud_blockstorage` resource.
-- `flavor_name` (String) Flavor name. Available flavors are described in the [ArubaCloud API documentation](https://api.arubacloud.com/docs/metadata/#cloudserver-flavors). For example, `CSO4A8` means 4 CPU and 8GB RAM.
 - `location` (String) CloudServer location
 - `name` (String) CloudServer name
+- `network` (Attributes) Network configuration for the cloud server (see [below for nested schema](#nestedatt--network))
 - `project_id` (String) Project ID
-- `securitygroup_uri_refs` (List of String) List of security group URI references. Should be security group URIs. You can reference the `uri` attribute from `arubacloud_securitygroup` resources like `[arubacloud_securitygroup.example.uri]`
-- `subnet_uri_refs` (List of String) List of subnet URI references. Should be subnet URIs. You can reference the `uri` attribute from `arubacloud_subnet` resources like `[arubacloud_subnet.example.uri]`
-- `vpc_uri_ref` (String) URI reference to the VPC. Should be the VPC URI (e.g., `/projects/{project_id}/providers/Aruba.Network/vpcs/{vpc_id}`). You can reference the `uri` attribute from an `arubacloud_vpc` resource.
+- `settings` (Attributes) Cloud server settings (see [below for nested schema](#nestedatt--settings))
+- `storage` (Attributes) Storage configuration for the cloud server (see [below for nested schema](#nestedatt--storage))
 - `zone` (String) Zone
 
 ### Optional
 
-- `elastic_ip_uri_ref` (String) URI reference to the Elastic IP. Should be the Elastic IP URI. You can reference the `uri` attribute from an `arubacloud_elasticip` resource.
-- `key_pair_uri_ref` (String) URI reference to the Key Pair. Should be the Key Pair URI. You can reference the `uri` attribute from an `arubacloud_keypair` resource.
 - `tags` (List of String) List of tags for the Cloud Server
-- `user_data` (String, Sensitive) Cloud-Init user data to use during server creation. This is the content of a cloud-init YAML file that will be used to bootstrap the cloud server. The content should be provided as raw cloud-init YAML (not base64-encoded).
 
 ### Read-Only
 
 - `id` (String) CloudServer identifier
 - `uri` (String) CloudServer URI
+
+<a id="nestedatt--network"></a>
+### Nested Schema for `network`
+
+Required:
+
+- `securitygroup_uri_refs` (List of String) List of security group URI references (e.g., [arubacloud_securitygroup.example.uri])
+- `subnet_uri_refs` (List of String) List of subnet URI references (e.g., [arubacloud_subnet.example.uri])
+- `vpc_uri_ref` (String) VPC URI reference (e.g., arubacloud_vpc.example.uri)
+
+Optional:
+
+- `elastic_ip_uri_ref` (String) Elastic IP URI reference (e.g., arubacloud_elasticip.example.uri)
+
+
+<a id="nestedatt--settings"></a>
+### Nested Schema for `settings`
+
+Required:
+
+- `flavor_name` (String) Flavor name (e.g., CSO4A8 for 4 CPU, 8GB RAM). See https://api.arubacloud.com/docs/metadata/#cloudserver-flavors
+
+Optional:
+
+- `key_pair_uri_ref` (String) Key Pair URI reference (e.g., arubacloud_keypair.example.uri)
+- `user_data` (String, Sensitive) Cloud-Init user data (raw YAML content)
+
+
+<a id="nestedatt--storage"></a>
+### Nested Schema for `storage`
+
+Required:
+
+- `boot_volume_uri_ref` (String) Boot volume URI reference (e.g., arubacloud_blockstorage.example.uri)
 
 
 
