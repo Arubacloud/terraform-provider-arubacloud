@@ -24,10 +24,12 @@ type SnapshotDataSource struct {
 }
 
 type SnapshotDataSourceModel struct {
-	Id          types.String `tfsdk:"id"`
-	Name        types.String `tfsdk:"name"`
-	Description types.String `tfsdk:"description"`
-	CreatedAt   types.String `tfsdk:"created_at"`
+	Id            types.String `tfsdk:"id"`
+	Name          types.String `tfsdk:"name"`
+	ProjectId     types.String `tfsdk:"project_id"`
+	Location      types.String `tfsdk:"location"`
+	BillingPeriod types.String `tfsdk:"billing_period"`
+	VolumeId      types.String `tfsdk:"volume_id"`
 }
 
 func (d *SnapshotDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -88,8 +90,10 @@ func (d *SnapshotDataSource) Read(ctx context.Context, req datasource.ReadReques
 		return
 	}
 	data.Name = types.StringValue("example-snapshot")
-	data.Description = types.StringValue("Simulated snapshot description")
-	data.CreatedAt = types.StringValue("2025-11-25T00:00:00Z")
+	data.ProjectId = types.StringValue("example-project-id")
+	data.Location = types.StringValue("it-dc1")
+	data.BillingPeriod = types.StringValue("Hour")
+	data.VolumeId = types.StringValue("example-volume-id")
 	tflog.Trace(ctx, "read a Snapshot data source")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
