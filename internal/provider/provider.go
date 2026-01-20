@@ -219,6 +219,7 @@ func (p *ArubaCloudProvider) DataSources(ctx context.Context) []func() datasourc
 		NewDatabaseBackupDataSource,
 		NewDatabaseGrantDataSource,
 		NewDBaaSDataSource,
+		NewDBaaSUserDataSource,
 		// NewKMIPDataSource, // TODO: KMIP not available in SDK yet
 		NewKMSDataSource,
 		NewRestoreDataSource,

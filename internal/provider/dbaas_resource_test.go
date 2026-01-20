@@ -75,8 +75,9 @@ resource "arubacloud_dbaas" "test" {
   }
   
   network = {
-    vpc_uri_ref    = "test-vpc-uri"
-    subnet_uri_ref = "test-subnet-uri"
+    vpc_uri_ref            = "test-vpc-uri"
+    subnet_uri_ref         = "test-subnet-uri"
+    security_group_uri_ref = "test-sg-uri"
   }
 }
 `, name)

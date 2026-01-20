@@ -65,13 +65,13 @@ func testAccKaasResourceConfig(name string) string {
 resource "arubacloud_kaas" "test" {
   name           = %[1]q
   location       = "it-1"
-  zone           = "it-1"
   project_id     = "test-project-id"
   billing_period = "Hour"
   
   network = {
-    vpc_uri_ref    = "test-vpc-uri"
-    subnet_uri_ref = "test-subnet-uri"
+    vpc_uri_ref         = "test-vpc-uri"
+    subnet_uri_ref      = "test-subnet-uri"
+    security_group_name = "test-sg"
     node_cidr = {
       address = "10.0.1.0/24"
       name    = "node-cidr"

@@ -74,7 +74,9 @@ resource "arubacloud_cloudserver" "test" {
   zone       = "it-1"
   
   network = {
-    vpc_uri_ref = "test-vpc-uri"
+    vpc_uri_ref              = "test-vpc-uri"
+    subnet_uri_refs          = ["test-subnet-uri"]
+    securitygroup_uri_refs   = ["test-sg-uri"]
   }
   
   settings = {

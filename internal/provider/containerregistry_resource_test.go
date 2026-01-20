@@ -72,6 +72,7 @@ resource "arubacloud_containerregistry" "test" {
     vpc_uri_ref              = "test-vpc-uri"
     subnet_uri_ref           = "test-subnet-uri"
     security_group_uri_ref   = "test-sg-uri"
+    public_ip_uri_ref        = "test-eip-uri"
   }
   
   storage = {
