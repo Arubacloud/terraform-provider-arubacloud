@@ -23,12 +23,33 @@ func TestAccBlockStorageDataSource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_blockstorage.test",
 						tfjsonpath.New("id"),
-						knownvalue.StringExact("blockstorage-id"),
+						knownvalue.NotNull(),
 					),
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_blockstorage.test",
 						tfjsonpath.New("name"),
 						knownvalue.StringExact("example-blockstorage"),
+					),
+					// Test flattened fields (not nested in properties)
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_blockstorage.test",
+						tfjsonpath.New("size_gb"),
+						knownvalue.NotNull(),
+					),
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_blockstorage.test",
+						tfjsonpath.New("billing_period"),
+						knownvalue.NotNull(),
+					),
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_blockstorage.test",
+						tfjsonpath.New("zone"),
+						knownvalue.NotNull(),
+					),
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_blockstorage.test",
+						tfjsonpath.New("type"),
+						knownvalue.NotNull(),
 					),
 				},
 			},
@@ -38,6 +59,6 @@ func TestAccBlockStorageDataSource(t *testing.T) {
 
 const testAccBlockStorageDataSourceConfig = `
 data "arubacloud_blockstorage" "test" {
-  name = "example-blockstorage"
+  id = "test-blockstorage-id"
 }
 `

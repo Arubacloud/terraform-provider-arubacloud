@@ -23,7 +23,22 @@ func TestAccProjectDataSource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_project.test",
 						tfjsonpath.New("id"),
-						knownvalue.StringExact("project-id"),
+						knownvalue.NotNull(),
+					),
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_project.test",
+						tfjsonpath.New("name"),
+						knownvalue.StringExact("example-project"),
+					),
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_project.test",
+						tfjsonpath.New("description"),
+						knownvalue.NotNull(),
+					),
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_project.test",
+						tfjsonpath.New("tags"),
+						knownvalue.NotNull(),
 					),
 				},
 			},
@@ -33,6 +48,6 @@ func TestAccProjectDataSource(t *testing.T) {
 
 const testAccProjectDataSourceConfig = `
 data "arubacloud_project" "test" {
-  name = "example"
+  id = "test-project-id"
 }
 `
