@@ -70,26 +70,22 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `uri` (String) DBaaS URI reference
-- `name` (String) DBaaS name
-- `location` (String) DBaaS location
-- `zone` (String) Zone (ITBG-1, ITBG-2, ITBG-3)
-- `tags` (List of String) List of tags for the DBaaS resource
-- `project_id` (String) ID of the project this DBaaS belongs to
-- `engine_id` (String) Database engine ID (mysql-8.0, mssql-2022-web, mssql-2022-standard, mssql-2022-enterprise)
-- `flavor` (String) Flavor type
-- `billing_period` (String) Billing period
-- `storage_size_gb` (Number) Storage size in GB
-- `autoscaling_enabled` (Boolean) Whether autoscaling is enabled
-- `autoscaling_available_space` (Number) Available space threshold for autoscaling
-- `autoscaling_step_size` (Number) Step size for autoscaling in GB
-- `vpc_uri_ref` (String) VPC URI reference
-- `subnet_uri_ref` (String) Subnet URI reference
-- `security_group_uri_ref` (String) Security group URI reference
+- `autoscaling_available_space` (Number) Minimum available space threshold in GB for autoscaling
+- `autoscaling_enabled` (Boolean) Enable autoscaling
+- `autoscaling_step_size` (Number) Step size for autoscaling (in GB)
+- `billing_period` (String) Billing period (Hour, Month, Year)
 - `elastic_ip_uri_ref` (String) Elastic IP URI reference
-- `security_group_id` (String) Security Group ID
-- `subnet_id` (String) Subnet ID
-- `vpc_id` (String) VPC ID
-
+- `engine_id` (String) Database engine ID (e.g., mysql-8.0, mssql-2022-web)
+- `flavor` (String) DBaaS flavor name (e.g., DBO2A4)
+- `location` (String) DBaaS location
+- `name` (String) DBaaS name
+- `project_id` (String) ID of the project this DBaaS belongs to
+- `security_group_uri_ref` (String) Security Group URI reference
+- `storage_size_gb` (Number) Storage size in GB
+- `subnet_uri_ref` (String) Subnet URI reference
+- `tags` (List of String) List of tags for the DBaaS resource
+- `uri` (String) DBaaS URI
+- `vpc_uri_ref` (String) VPC URI reference
+- `zone` (String) Zone
 
 

@@ -76,32 +76,35 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `uri` (String) KaaS URI reference
-- `name` (String) KaaS name
-- `location` (String) KaaS location
-- `tags` (List of String) List of tags for the KaaS resource
-- `project_id` (String) ID of the project this KaaS resource belongs to
-- `billing_period` (String) Billing period
-- `management_ip` (String) Management IP address
-- `vpc_uri_ref` (String) VPC URI reference
-- `subnet_uri_ref` (String) Subnet URI reference
-- `node_cidr_address` (String) Node CIDR address
-- `node_cidr_name` (String) Node CIDR name
-- `security_group_name` (String) Security group name
-- `pod_cidr` (String) Pod CIDR range
+- `billing_period` (String) Billing period (Hour, Month, Year)
+- `ha` (Boolean) High availability
 - `kubernetes_version` (String) Kubernetes version
-- `node_pools` (List of Object) List of node pools with autoscaling configuration
-
+- `location` (String) KaaS location
+- `management_ip` (String) Management IP address
+- `name` (String) KaaS name
+- `node_cidr_address` (String) Node CIDR address in CIDR notation
+- `node_cidr_name` (String) Node CIDR name
+- `node_pools` (Attributes List) Node pools configuration (see [below for nested schema](#nestedatt--node_pools))
+- `pod_cidr` (String) Pod CIDR in CIDR notation
+- `project_id` (String) ID of the project this KaaS resource belongs to
+- `security_group_name` (String) Security group name
+- `subnet_uri_ref` (String) Subnet URI reference
+- `tags` (List of String) List of tags for the KaaS resource
+- `uri` (String) KaaS URI
+- `vpc_uri_ref` (String) VPC URI reference
 
 <a id="nestedatt--node_pools"></a>
 ### Nested Schema for `node_pools`
 
 Read-Only:
 
-- `node_pool_name` (String)
-- `replicas` (Number)
-- `type` (String)
-- `zone` (String)
+- `autoscaling` (Boolean) Enable autoscaling for node pool
+- `instance` (String) KaaS flavor name for nodes
+- `max_count` (Number) Maximum number of nodes for autoscaling
+- `min_count` (Number) Minimum number of nodes for autoscaling
+- `name` (String) Node pool name
+- `nodes` (Number) Number of nodes in the node pool
+- `zone` (String) Datacenter/zone code for nodes
 
 
 

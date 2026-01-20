@@ -76,17 +76,17 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `uri` (String) CloudServer URI reference
-- `name` (String) CloudServer name
-- `location` (String) CloudServer location
-- `project_id` (String) Project ID
-- `zone` (String) Zone
-- `tags` (List of String) List of tags
-- `vpc_uri_ref` (String) VPC URI reference
-- `elastic_ip_uri_ref` (String) Elastic IP URI reference
-- `subnet_uri_refs` (List of String) List of subnet URI references
-- `securitygroup_uri_refs` (List of String) List of security group URI references
-- `flavor_name` (String) Flavor name
-- `key_pair_uri_ref` (String) Key pair URI reference
-- `user_data` (String) User data for cloud-init
 - `boot_volume_uri_ref` (String) Boot volume URI reference
+- `elastic_ip_uri_ref` (String) Elastic IP URI reference
+- `flavor_name` (String) Flavor name (e.g., CSO4A8 for 4 CPU, 8GB RAM)
+- `key_pair_uri_ref` (String) Key Pair URI reference
+- `location` (String) CloudServer location
+- `name` (String) CloudServer name
+- `project_id` (String) Project ID
+- `securitygroup_uri_refs` (List of String) List of security group URI references
+- `subnet_uri_refs` (List of String) List of subnet URI references
+- `tags` (List of String) List of tags for the Cloud Server
+- `uri` (String) CloudServer URI
+- `user_data` (String) Cloud-Init user data
+- `vpc_uri_ref` (String) VPC URI reference
+- `zone` (String) Zone

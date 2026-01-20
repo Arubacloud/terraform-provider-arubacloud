@@ -52,8 +52,8 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `name` (String) Keypair name
 - `location` (String) Keypair location
+- `name` (String) Keypair name
 - `project_id` (String) ID of the project this keypair belongs to
-- `value` (String) Keypair value (public key)
 - `tags` (List of String) List of tags for the keypair
+- `value` (String) Keypair value (public key)

@@ -69,19 +69,16 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `name` (String) Block Storage name
-- `project_id` (String) ID of the project this Block Storage belongs to
-- `location` (String) Location of the block storage
-- `size_gb` (Number) Size of the block storage in GB
-- `billing_period` (String) Billing period of the block storage (only 'Hour' allowed)
-- `zone` (String) Zone of the block storage
-- `type` (String) Type of the block storage (Standard or Performance)
-- `tags` (List of String) List of tags for the block storage
-- `snapshot_id` (String) Snapshot ID for the block storage
+- `billing_period` (String) Billing period of the block storage
 - `bootable` (Boolean) Whether the block storage is bootable
 - `image` (String) Image for the block storage
+- `location` (String) Location of the block storage
+- `name` (String) Block Storage name
+- `project_id` (String) ID of the project this Block Storage belongs to
+- `size_gb` (Number) Size of the block storage in GB
+- `snapshot_id` (String) Snapshot ID for the block storage
+- `tags` (List of String) List of tags for the block storage
 - `type` (String) Type of block storage (Standard, Performance)
 - `zone` (String) Zone of the block storage
-
 
 

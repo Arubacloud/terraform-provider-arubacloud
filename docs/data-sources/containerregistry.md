@@ -69,17 +69,18 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `uri` (String) Container Registry URI reference
-- `name` (String) Container Registry name
+- `admin_user` (String) Administrator username
+- `billing_period` (String) Billing period (Hour, Month, Year)
+- `block_storage_uri_ref` (String) Block Storage URI reference
+- `concurrent_users_flavor` (String) Concurrent users flavor size (Small, Medium, HighPerf)
 - `location` (String) Container Registry location
-- `tags` (List of String) List of tags for the Container Registry resource
+- `name` (String) Container Registry name
 - `project_id` (String) ID of the project this Container Registry belongs to
-- `billing_period` (String) Billing period
 - `public_ip_uri_ref` (String) Public IP URI reference
-- `vpc_uri_ref` (String) VPC URI reference
+- `security_group_uri_ref` (String) Security Group URI reference
 - `subnet_uri_ref` (String) Subnet URI reference
-- `security_group_uri_ref` (String) Security group URI reference
-- `block_storage_uri_ref` (String) Block storage URI reference
-- `concurrent_users_flavor` (String) Concurrent users flavor (Small, Medium, Large)
+- `tags` (List of String) List of tags for the Container Registry resource
+- `uri` (String) Container Registry URI
+- `vpc_uri_ref` (String) VPC URI reference
 
 

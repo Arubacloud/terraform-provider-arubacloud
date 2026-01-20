@@ -46,8 +46,8 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `project_id` (String) ID of the project this database belongs to
 - `dbaas_id` (String) DBaaS ID this database belongs to
 - `name` (String) Database name
+- `project_id` (String) ID of the project this database belongs to
 
 
