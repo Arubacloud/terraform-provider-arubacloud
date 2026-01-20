@@ -40,8 +40,8 @@ const (
 	EndpointTypeIP EndpointTypeDto = "Ip"
 )
 
-// normalizeProtocol normalizes protocol values to match API expectations
-// API expects: Any, TCP, UDP, ICMP (case-sensitive)
+// normalizeProtocol normalizes protocol values to match API expectations.
+// API expects: Any, TCP, UDP, ICMP (case-sensitive).
 func normalizeProtocol(protocol string) string {
 	protocolUpper := strings.ToUpper(protocol)
 	switch protocolUpper {
@@ -64,7 +64,7 @@ func normalizeProtocol(protocol string) string {
 }
 
 // protocolNormalizePlanModifier normalizes protocol values during planning
-// to prevent false positives when comparing state ("Any") with config ("ANY")
+// to prevent false positives when comparing state ("Any") with config ("ANY").
 type protocolNormalizePlanModifier struct{}
 
 func (m protocolNormalizePlanModifier) Description(ctx context.Context) string {
@@ -83,7 +83,7 @@ func (m protocolNormalizePlanModifier) PlanModifyString(ctx context.Context, req
 		resp.PlanValue = types.StringValue(normalized)
 		return
 	}
-	
+
 	// If plan is null/unknown, use state value (already in uppercase)
 	if !req.StateValue.IsNull() && !req.StateValue.IsUnknown() {
 		resp.PlanValue = req.StateValue
@@ -328,7 +328,7 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 	if strings.EqualFold(protocol, "Any") || strings.EqualFold(protocol, "ICMP") {
 		port = ""
 		tflog.Info(ctx, "Clearing port field for Any/ICMP protocol (will be omitted from JSON)", map[string]interface{}{
-			"protocol":    protocol,
+			"protocol":     protocol,
 			"originalPort": originalPort,
 			"clearedPort":  port,
 		})
@@ -366,12 +366,12 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 	targetValue := targetValueAttr.ValueString()
 
 	tflog.Debug(ctx, "Creating security rule request", map[string]interface{}{
-		"protocol":     protocol,
-		"port":         port,
-		"portEmpty":    port == "",
-		"direction":    direction,
-		"targetKind":   targetKind,
-		"targetValue":  targetValue,
+		"protocol":    protocol,
+		"port":        port,
+		"portEmpty":   port == "",
+		"direction":   direction,
+		"targetKind":  targetKind,
+		"targetValue": targetValue,
 	})
 
 	// Build the properties
@@ -387,7 +387,7 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 	// IMPORTANT: For Any/ICMP, port MUST be empty string (cleared above) and Port field MUST be omitted
 	// Use JSON manipulation to ensure Port is completely omitted when empty
 	var properties sdktypes.SecurityRulePropertiesRequest
-	
+
 	// Double-check: If protocol is Any/ICMP, ensure port is empty (safety check)
 	if strings.EqualFold(protocol, "Any") || strings.EqualFold(protocol, "ICMP") {
 		if port != "" {
@@ -398,7 +398,7 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 			port = ""
 		}
 	}
-	
+
 	if port == "" {
 		// For Any/ICMP protocols, omit Port field completely (match CLI behavior)
 		tflog.Debug(ctx, "Omitting Port field for Any/ICMP protocol (matching CLI behavior)", map[string]interface{}{
@@ -440,7 +440,7 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 			Target:    target,
 		}
 	}
-	
+
 	tflog.Debug(ctx, "Properties built", map[string]interface{}{
 		"direction":    properties.Direction,
 		"protocol":     properties.Protocol,
@@ -449,7 +449,7 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 		"hasTarget":    properties.Target != nil,
 		"originalPort": port,
 	})
-	
+
 	// Verify properties JSON doesn't include port when it should be omitted
 	propsJSON, _ := json.Marshal(properties)
 	if port == "" && strings.Contains(string(propsJSON), `"port"`) {
@@ -469,7 +469,7 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 	if len(tags) > 0 {
 		metadataRequest.Tags = tags
 	}
-	
+
 	createRequest := sdktypes.SecurityRuleRequest{
 		Metadata: sdktypes.RegionalResourceMetadataRequest{
 			ResourceMetadataRequest: metadataRequest,
@@ -483,16 +483,16 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 	// Debug: Log the actual JSON that will be sent
 	requestJSON, _ := json.MarshalIndent(createRequest, "", "  ")
 	requestJSONStr := string(requestJSON)
-	
+
 	// Verify Port field is not present in JSON when it should be omitted
 	// CRITICAL: If port should be omitted but is still in JSON, rebuild request without it
 	if port == "" || strings.EqualFold(protocol, "Any") || strings.EqualFold(protocol, "ICMP") {
 		if strings.Contains(requestJSONStr, `"port"`) {
 			tflog.Error(ctx, "CRITICAL: Port field found in final JSON when it should be omitted! Rebuilding request...", map[string]interface{}{
-				"json":          requestJSONStr,
+				"json":           requestJSONStr,
 				"propertiesPort": properties.Port,
-				"port":          port,
-				"protocol":      protocol,
+				"port":           port,
+				"protocol":       protocol,
 			})
 			// Rebuild the entire request using JSON manipulation to ensure Port is omitted
 			requestMap := map[string]interface{}{
@@ -513,8 +513,9 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 			}
 			// Only add tags if they exist
 			if len(tags) > 0 {
-				metadata := requestMap["metadata"].(map[string]interface{})
-				metadata["tags"] = tags
+				if metadata, ok := requestMap["metadata"].(map[string]interface{}); ok {
+					metadata["tags"] = tags
+				}
 			}
 			// Rebuild request from JSON to ensure Port is omitted
 			rebuildJSON, err := json.Marshal(requestMap)
@@ -531,16 +532,16 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 			tflog.Debug(ctx, "Port field correctly omitted from final JSON")
 		}
 	}
-	
+
 	tflog.Info(ctx, "Creating security rule", map[string]interface{}{
-		"name":            data.Name.ValueString(),
-		"direction":       direction,
-		"protocol":        protocol,
-		"port":            port,
-		"targetKind":      targetKind,
-		"targetValue":     targetValue,
-		"portOmitted":     port == "",
-		"propertiesPort":  properties.Port,
+		"name":           data.Name.ValueString(),
+		"direction":      direction,
+		"protocol":       protocol,
+		"port":           port,
+		"targetKind":     targetKind,
+		"targetValue":    targetValue,
+		"portOmitted":    port == "",
+		"propertiesPort": properties.Port,
 	})
 
 	// Create the security rule using the SDK
@@ -566,9 +567,9 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 		}
 		// Log detailed error information including full response
 		tflog.Error(ctx, "API error creating security rule", map[string]interface{}{
-			"statusCode": response.StatusCode,
-			"title":      response.Error.Title,
-			"detail":     response.Error.Detail,
+			"statusCode":  response.StatusCode,
+			"title":       response.Error.Title,
+			"detail":      response.Error.Detail,
 			"requestJSON": string(requestJSON),
 			"fullError":   fmt.Sprintf("%+v", response.Error),
 		})
@@ -715,7 +716,7 @@ func (r *SecurityRuleResource) Read(ctx context.Context, req resource.ReadReques
 		// This prevents false positives when comparing state with config
 		protocolFromAPI := rule.Properties.Protocol
 		protocolForState := strings.ToUpper(protocolFromAPI) // Store as "ANY" instead of "Any"
-		
+
 		// Update properties from response
 		propertiesMap := map[string]attr.Value{
 			"direction": types.StringValue(string(rule.Properties.Direction)),
@@ -893,7 +894,7 @@ func (r *SecurityRuleResource) Update(ctx context.Context, req resource.UpdateRe
 	// State stores protocol in uppercase (e.g., "ANY"), plan is also normalized to uppercase by plan modifier
 	currentProtocolNormalized := strings.ToUpper(current.Properties.Protocol)
 	planProtocolNormalized := strings.ToUpper(planProtocol)
-	
+
 	var propertiesChanged bool
 	if planDirection != "" && string(current.Properties.Direction) != planDirection {
 		propertiesChanged = true
@@ -971,7 +972,10 @@ func (r *SecurityRuleResource) Update(ctx context.Context, req resource.UpdateRe
 		}
 		// Marshal to JSON and back to ensure Port field is not present
 		jsonData, _ := json.Marshal(propertiesMap)
-		json.Unmarshal(jsonData, &updateProperties)
+		if err := json.Unmarshal(jsonData, &updateProperties); err != nil {
+			resp.Diagnostics.AddError("Failed to unmarshal properties", err.Error())
+			return
+		}
 	} else {
 		// Normal case with Port field
 		updateProperties = sdktypes.SecurityRulePropertiesRequest{
@@ -1026,14 +1030,14 @@ func (r *SecurityRuleResource) Update(ctx context.Context, req resource.UpdateRe
 		if response.StatusCode > 0 {
 			errorMsg = fmt.Sprintf("%s (HTTP %d)", errorMsg, response.StatusCode)
 		}
-		
+
 		// Log full error response JSON only on errors for debugging
 		if errorJSON, jsonErr := json.MarshalIndent(response.Error, "", "  "); jsonErr == nil {
 			tflog.Debug(ctx, "Full API error response JSON", map[string]interface{}{
 				"error_json": string(errorJSON),
 			})
 		}
-		
+
 		tflog.Error(ctx, "API error updating security rule", map[string]interface{}{
 			"error": fmt.Sprintf("%+v", response.Error),
 		})

@@ -623,8 +623,7 @@ func (r *ContainerRegistryResource) Update(ctx context.Context, req resource.Upd
 	// Extract tags
 	var tags []string
 	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
-		var diags diag.Diagnostics
-		diags = data.Tags.ElementsAs(ctx, &tags, false)
+		diags := data.Tags.ElementsAs(ctx, &tags, false)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
 			return

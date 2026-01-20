@@ -624,7 +624,7 @@ func (r *KaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 			// Preserve security_group_name from state if API doesn't return it
 			var originalNetwork KaaSNetworkModel
 			diags := originalState.Network.As(ctx, &originalNetwork, basetypes.ObjectAsOptions{})
-			if diags.HasError() == false && !originalNetwork.SecurityGroupName.IsNull() {
+			if !diags.HasError() && !originalNetwork.SecurityGroupName.IsNull() {
 				networkAttrs["security_group_name"] = originalNetwork.SecurityGroupName
 			}
 		}
@@ -636,13 +636,13 @@ func (r *KaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 				// Preserve node_cidr.name from state if API doesn't return it
 				var originalNetwork KaaSNetworkModel
 				diags := originalState.Network.As(ctx, &originalNetwork, basetypes.ObjectAsOptions{})
-				if diags.HasError() == false && !originalNetwork.NodeCIDR.IsNull() {
+				if !diags.HasError() && !originalNetwork.NodeCIDR.IsNull() {
 					var originalNodeCIDR struct {
 						Address types.String `tfsdk:"address"`
 						Name    types.String `tfsdk:"name"`
 					}
 					diagsNodeCIDR := originalNetwork.NodeCIDR.As(ctx, &originalNodeCIDR, basetypes.ObjectAsOptions{})
-					if diagsNodeCIDR.HasError() == false && !originalNodeCIDR.Name.IsNull() {
+					if !diagsNodeCIDR.HasError() && !originalNodeCIDR.Name.IsNull() {
 						nodeCIDRName = originalNodeCIDR.Name.ValueString()
 					}
 				}
@@ -767,7 +767,7 @@ func (r *KaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 			// If API doesn't return node_pools, preserve from original state
 			var originalSettings KaaSSettingsModel
 			diags := originalState.Settings.As(ctx, &originalSettings, basetypes.ObjectAsOptions{})
-			if diags.HasError() == false && !originalSettings.NodePools.IsNull() {
+			if !diags.HasError() && !originalSettings.NodePools.IsNull() {
 				settingsAttrs["node_pools"] = originalSettings.NodePools
 			}
 		}
@@ -1076,7 +1076,7 @@ func (r *KaaSResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		// Preserve security_group_name from plan if API doesn't return it
 		if kaas.Properties.SecurityGroup.Name != nil && *kaas.Properties.SecurityGroup.Name != "" {
 			networkAttrs["security_group_name"] = types.StringValue(*kaas.Properties.SecurityGroup.Name)
-		} else if diagsNet.HasError() == false && !planNetwork.SecurityGroupName.IsNull() {
+		} else if !diagsNet.HasError() && !planNetwork.SecurityGroupName.IsNull() {
 			networkAttrs["security_group_name"] = planNetwork.SecurityGroupName
 		}
 
@@ -1085,13 +1085,13 @@ func (r *KaaSResource) Update(ctx context.Context, req resource.UpdateRequest, r
 			nodeCIDRName := ""
 			if kaas.Properties.NodeCIDR.Name != nil && *kaas.Properties.NodeCIDR.Name != "" {
 				nodeCIDRName = *kaas.Properties.NodeCIDR.Name
-			} else if diagsNet.HasError() == false && !planNetwork.NodeCIDR.IsNull() {
+			} else if !diagsNet.HasError() && !planNetwork.NodeCIDR.IsNull() {
 				var planNodeCIDR struct {
 					Address types.String `tfsdk:"address"`
 					Name    types.String `tfsdk:"name"`
 				}
 				diagsNodeCIDR := planNetwork.NodeCIDR.As(ctx, &planNodeCIDR, basetypes.ObjectAsOptions{})
-				if diagsNodeCIDR.HasError() == false && !planNodeCIDR.Name.IsNull() {
+				if !diagsNodeCIDR.HasError() && !planNodeCIDR.Name.IsNull() {
 					nodeCIDRName = planNodeCIDR.Name.ValueString()
 				}
 			}
@@ -1124,8 +1124,6 @@ func (r *KaaSResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		resp.Diagnostics.Append(diags...)
 		if !resp.Diagnostics.HasError() {
 			data.Network = networkObj
-		} else {
-			// Keep Network from plan on error
 		}
 
 		// Build Settings object from re-read, preserving node_pools from plan if API doesn't return them
@@ -1216,7 +1214,7 @@ func (r *KaaSResource) Update(ctx context.Context, req resource.UpdateRequest, r
 			if !resp.Diagnostics.HasError() {
 				settingsAttrs["node_pools"] = nodePoolsList
 			}
-		} else if diagsSettings.HasError() == false && !planSettings.NodePools.IsNull() {
+		} else if !diagsSettings.HasError() && !planSettings.NodePools.IsNull() {
 			// Preserve node_pools from plan if API doesn't return them
 			settingsAttrs["node_pools"] = planSettings.NodePools
 		}

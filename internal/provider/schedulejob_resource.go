@@ -460,7 +460,7 @@ func (r *ScheduleJobResource) Read(ctx context.Context, req resource.ReadRequest
 
 		// Convert steps from API response
 		var stepsListValue types.List
-		if job.Properties.Steps != nil && len(job.Properties.Steps) > 0 {
+		if len(job.Properties.Steps) > 0 {
 			stepObjects := make([]attr.Value, len(job.Properties.Steps))
 			for i, step := range job.Properties.Steps {
 				stepAttrs := map[string]attr.Value{
