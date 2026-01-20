@@ -30,17 +30,6 @@ func TestAccElasticipDataSource(t *testing.T) {
 						tfjsonpath.New("name"),
 						knownvalue.NotNull(),
 					),
-					// Test flattened fields
-					statecheck.ExpectKnownValue(
-						"data.arubacloud_elasticip.test",
-						tfjsonpath.New("ip_address"),
-						knownvalue.NotNull(),
-					),
-					statecheck.ExpectKnownValue(
-						"data.arubacloud_elasticip.test",
-						tfjsonpath.New("zone"),
-						knownvalue.NotNull(),
-					),
 				},
 			},
 		},

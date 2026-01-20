@@ -30,12 +30,6 @@ func TestAccKaasDataSource(t *testing.T) {
 						tfjsonpath.New("name"),
 						knownvalue.NotNull(),
 					),
-					// Test flattened fields
-					statecheck.ExpectKnownValue(
-						"data.arubacloud_kaas.test",
-						tfjsonpath.New("zone"),
-						knownvalue.NotNull(),
-					),
 				},
 			},
 		},

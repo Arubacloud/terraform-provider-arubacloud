@@ -12,6 +12,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -57,6 +59,9 @@ func (r *ProjectResource) Schema(ctx context.Context, req resource.SchemaRequest
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Project Identifier",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}
@@ -149,6 +154,19 @@ func (r *ProjectResource) Create(ctx context.Context, req resource.CreateRequest
 			resp.Diagnostics.Append(diags...)
 			if !resp.Diagnostics.HasError() {
 				data.Tags = tagsList
+			}
+		} else {
+			// If the config had null tags, keep it null to avoid drift
+			// If it had an empty list, set empty list
+			if data.Tags.IsNull() {
+				data.Tags = types.ListNull(types.StringType)
+			} else {
+				// Set empty list if no tags and config had a list
+				emptyList, diags := types.ListValue(types.StringType, []attr.Value{})
+				resp.Diagnostics.Append(diags...)
+				if !resp.Diagnostics.HasError() {
+					data.Tags = emptyList
+				}
 			}
 		}
 	} else {
@@ -256,11 +274,17 @@ func (r *ProjectResource) Read(ctx context.Context, req resource.ReadRequest, re
 				data.Tags = tagsList
 			}
 		} else {
-			// Set empty list if no tags
-			emptyList, diags := types.ListValue(types.StringType, []attr.Value{})
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = emptyList
+			// If the config had null tags, keep it null to avoid drift
+			// If it had an empty list, set empty list
+			if data.Tags.IsNull() {
+				data.Tags = types.ListNull(types.StringType)
+			} else {
+				// Set empty list if no tags and config had a list
+				emptyList, diags := types.ListValue(types.StringType, []attr.Value{})
+				resp.Diagnostics.Append(diags...)
+				if !resp.Diagnostics.HasError() {
+					data.Tags = emptyList
+				}
 			}
 		}
 	} else {
@@ -418,11 +442,17 @@ func (r *ProjectResource) Update(ctx context.Context, req resource.UpdateRequest
 				data.Tags = tagsList
 			}
 		} else {
-			// Set empty list if no tags
-			emptyList, diags := types.ListValue(types.StringType, []attr.Value{})
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = emptyList
+			// If the config had null tags, keep it null to avoid drift
+			// If it had an empty list, set empty list
+			if data.Tags.IsNull() {
+				data.Tags = types.ListNull(types.StringType)
+			} else {
+				// Set empty list if no tags and config had a list
+				emptyList, diags := types.ListValue(types.StringType, []attr.Value{})
+				resp.Diagnostics.Append(diags...)
+				if !resp.Diagnostics.HasError() {
+					data.Tags = emptyList
+				}
 			}
 		}
 	}

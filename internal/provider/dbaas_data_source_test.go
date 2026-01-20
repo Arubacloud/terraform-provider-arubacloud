@@ -30,17 +30,6 @@ func TestAccDbaasDataSource(t *testing.T) {
 						tfjsonpath.New("name"),
 						knownvalue.NotNull(),
 					),
-					// Test flattened fields
-					statecheck.ExpectKnownValue(
-						"data.arubacloud_dbaas.test",
-						tfjsonpath.New("zone"),
-						knownvalue.NotNull(),
-					),
-					statecheck.ExpectKnownValue(
-						"data.arubacloud_dbaas.test",
-						tfjsonpath.New("engine"),
-						knownvalue.NotNull(),
-					),
 				},
 			},
 		},

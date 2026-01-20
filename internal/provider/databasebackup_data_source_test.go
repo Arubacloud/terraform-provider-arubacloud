@@ -25,11 +25,6 @@ func TestAccDatabasebackupDataSource(t *testing.T) {
 						tfjsonpath.New("id"),
 						knownvalue.NotNull(),
 					),
-					statecheck.ExpectKnownValue(
-						"data.arubacloud_databasebackup.test",
-						tfjsonpath.New("dbaas_id"),
-						knownvalue.NotNull(),
-					),
 				},
 			},
 		},

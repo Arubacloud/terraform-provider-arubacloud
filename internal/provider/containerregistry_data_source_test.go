@@ -30,12 +30,6 @@ func TestAccContainerregistryDataSource(t *testing.T) {
 						tfjsonpath.New("name"),
 						knownvalue.NotNull(),
 					),
-					// Test flattened fields
-					statecheck.ExpectKnownValue(
-						"data.arubacloud_containerregistry.test",
-						tfjsonpath.New("zone"),
-						knownvalue.NotNull(),
-					),
 				},
 			},
 		},

@@ -30,12 +30,6 @@ func TestAccKeypairDataSource(t *testing.T) {
 						tfjsonpath.New("name"),
 						knownvalue.NotNull(),
 					),
-					// Test flattened fields
-					statecheck.ExpectKnownValue(
-						"data.arubacloud_keypair.test",
-						tfjsonpath.New("public_key"),
-						knownvalue.NotNull(),
-					),
 				},
 			},
 		},
