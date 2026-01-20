@@ -3,7 +3,7 @@
 [![GitHub release](https://img.shields.io/github/tag/arubacloud/terraform-provider-arubacloud.svg?label=release)](https://github.com/arubacloud/terraform-provider-arubacloud/releases/latest)
 [![Tests](https://github.com/arubacloud/terraform-provider-arubacloud/actions/workflows/test.yml/badge.svg)](https://github.com/arubacloud/terraform-provider-arubacloud/actions/workflows/test.yml)
 [![Release](https://github.com/arubacloud/terraform-provider-arubacloud/actions/workflows/release.yml/badge.svg)](https://github.com/arubacloud/terraform-provider-arubacloud/actions/workflows/release.yml)
-[![Coverage](https://img.shields.io/badge/coverage-2.2%25-yellow)](TEST_IMPROVEMENTS.md)
+[![Coverage](https://img.shields.io/badge/coverage-9.9%25-green)](TEST_RESULTS.md)
 
 > **⚠️ Development Status**: This provider is currently under active development and is **not production-ready yet**. APIs and resource schemas may change. Use at your own risk in production environments.
 
