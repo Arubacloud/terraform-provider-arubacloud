@@ -24,9 +24,10 @@ type DatabaseDataSource struct {
 }
 
 type DatabaseDataSourceModel struct {
-	Id      types.String `tfsdk:"id"`
-	DBaaSID types.String `tfsdk:"dbaas_id"`
-	Name    types.String `tfsdk:"name"`
+	Id        types.String `tfsdk:"id"`
+	ProjectID types.String `tfsdk:"project_id"`
+	DBaaSID   types.String `tfsdk:"dbaas_id"`
+	Name      types.String `tfsdk:"name"`
 }
 
 func (d *DatabaseDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -40,6 +41,10 @@ func (d *DatabaseDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Database identifier",
 				Required:            true,
+			},
+			"project_id": schema.StringAttribute{
+				MarkdownDescription: "ID of the project this database belongs to",
+				Computed:            true,
 			},
 			"dbaas_id": schema.StringAttribute{
 				MarkdownDescription: "DBaaS ID this database belongs to",
@@ -74,7 +79,12 @@ func (d *DatabaseDataSource) Read(ctx context.Context, req datasource.ReadReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	// Populate all fields with example data
 	data.Name = types.StringValue("example-database")
+	data.ProjectID = types.StringValue("68398923fb2cb026400d4d31")
+	data.DBaaSID = types.StringValue("68ff8d8fc1445aeb83f79438")
+
 	tflog.Trace(ctx, "read a Database data source")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

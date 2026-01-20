@@ -13,6 +13,40 @@ Reads an existing ArubaCloud DBaaS instance.
 data "arubacloud_dbaas" "basic" {
   id = "dbaas-id"
 }
+
+output "dbaas_name" {
+  value = data.arubacloud_dbaas.basic.name
+}
+output "dbaas_location" {
+  value = data.arubacloud_dbaas.basic.location
+}
+output "dbaas_project_id" {
+  value = data.arubacloud_dbaas.basic.project_id
+}
+output "dbaas_storage_size_gb" {
+  value = data.arubacloud_dbaas.basic.storage_size_gb
+}
+output "dbaas_autoscaling_enabled" {
+  value = data.arubacloud_dbaas.basic.autoscaling_enabled
+}
+output "dbaas_autoscaling_available_space" {
+  value = data.arubacloud_dbaas.basic.autoscaling_available_space
+}
+output "dbaas_autoscaling_step_size" {
+  value = data.arubacloud_dbaas.basic.autoscaling_step_size
+}
+output "dbaas_vpc_uri_ref" {
+  value = data.arubacloud_dbaas.basic.vpc_uri_ref
+}
+output "dbaas_subnet_uri_ref" {
+  value = data.arubacloud_dbaas.basic.subnet_uri_ref
+}
+output "dbaas_security_group_uri_ref" {
+  value = data.arubacloud_dbaas.basic.security_group_uri_ref
+}
+output "dbaas_elastic_ip_uri_ref" {
+  value = data.arubacloud_dbaas.basic.elastic_ip_uri_ref
+}
 ```
 
 
@@ -36,34 +70,23 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `autoscaling` (Attributes) (see [below for nested schema](#nestedatt--autoscaling))
-- `billing_period` (String) Billing period
-- `engine` (String) Database engine (mysql-8.0, mssql-2022-web, mssql-2022-standard, mssql-2022-enterprise)
-- `flavor` (String) Flavor type
-- `location` (String) DBaaS location
+- `uri` (String) DBaaS URI reference
 - `name` (String) DBaaS name
-- `network` (Attributes) (see [below for nested schema](#nestedatt--network))
-- `project_id` (String) ID of the project this DBaaS belongs to
-- `storage_size` (Number) Storage size
-- `tags` (List of String) List of tags for the DBaaS resource
+- `location` (String) DBaaS location
 - `zone` (String) Zone (ITBG-1, ITBG-2, ITBG-3)
-
-<a id="nestedatt--autoscaling"></a>
-### Nested Schema for `autoscaling`
-
-Read-Only:
-
-- `available_space` (Number) Available space for autoscaling
-- `enabled` (Boolean) Autoscaling enabled
-- `step_size` (Number) Step size for autoscaling
-
-
-<a id="nestedatt--network"></a>
-### Nested Schema for `network`
-
-Read-Only:
-
-- `elastic_ip_id` (String) Elastic IP ID
+- `tags` (List of String) List of tags for the DBaaS resource
+- `project_id` (String) ID of the project this DBaaS belongs to
+- `engine_id` (String) Database engine ID (mysql-8.0, mssql-2022-web, mssql-2022-standard, mssql-2022-enterprise)
+- `flavor` (String) Flavor type
+- `billing_period` (String) Billing period
+- `storage_size_gb` (Number) Storage size in GB
+- `autoscaling_enabled` (Boolean) Whether autoscaling is enabled
+- `autoscaling_available_space` (Number) Available space threshold for autoscaling
+- `autoscaling_step_size` (Number) Step size for autoscaling in GB
+- `vpc_uri_ref` (String) VPC URI reference
+- `subnet_uri_ref` (String) Subnet URI reference
+- `security_group_uri_ref` (String) Security group URI reference
+- `elastic_ip_uri_ref` (String) Elastic IP URI reference
 - `security_group_id` (String) Security Group ID
 - `subnet_id` (String) Subnet ID
 - `vpc_id` (String) VPC ID

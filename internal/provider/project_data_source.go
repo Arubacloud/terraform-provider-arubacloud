@@ -81,13 +81,16 @@ func (d *ProjectDataSource) Read(ctx context.Context, req datasource.ReadRequest
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	// Simulate API response for all attributes
+
+	// Populate all fields with example data
 	data.Name = types.StringValue("example-project")
-	data.Description = types.StringValue("Example project description")
+	data.Description = types.StringValue("Example project for demonstration purposes")
 	data.Tags = types.ListValueMust(types.StringType, []attr.Value{
-		types.StringValue("tag1"),
-		types.StringValue("tag2"),
+		types.StringValue("production"),
+		types.StringValue("web-services"),
+		types.StringValue("team-alpha"),
 	})
+
 	tflog.Trace(ctx, "read project data source")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

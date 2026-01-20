@@ -26,32 +26,32 @@ output "kaas_tags" {
 output "kaas_project_id" {
   value = data.arubacloud_kaas.basic.project_id
 }
-output "kaas_preset" {
-  value = data.arubacloud_kaas.basic.preset
+output "kaas_billing_period" {
+  value = data.arubacloud_kaas.basic.billing_period
 }
-output "kaas_vpc_id" {
-  value = data.arubacloud_kaas.basic.vpc_id
+output "kaas_vpc_uri_ref" {
+  value = data.arubacloud_kaas.basic.vpc_uri_ref
 }
-output "kaas_subnet_id" {
-  value = data.arubacloud_kaas.basic.subnet_id
+output "kaas_subnet_uri_ref" {
+  value = data.arubacloud_kaas.basic.subnet_uri_ref
 }
-output "kaas_node_cidr" {
-  value = data.arubacloud_kaas.basic.node_cidr
+output "kaas_node_cidr_address" {
+  value = data.arubacloud_kaas.basic.node_cidr_address
+}
+output "kaas_node_cidr_name" {
+  value = data.arubacloud_kaas.basic.node_cidr_name
 }
 output "kaas_security_group_name" {
   value = data.arubacloud_kaas.basic.security_group_name
 }
-output "kaas_version" {
-  value = data.arubacloud_kaas.basic.version
+output "kaas_pod_cidr" {
+  value = data.arubacloud_kaas.basic.pod_cidr
+}
+output "kaas_kubernetes_version" {
+  value = data.arubacloud_kaas.basic.kubernetes_version
 }
 output "kaas_node_pools" {
   value = data.arubacloud_kaas.basic.node_pools
-}
-output "kaas_ha" {
-  value = data.arubacloud_kaas.basic.ha
-}
-output "kaas_billing_period" {
-  value = data.arubacloud_kaas.basic.billing_period
 }
 ```
 
@@ -76,27 +76,21 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `billing_period` (String) Billing period
-- `ha` (Boolean) High availability
-- `location` (String) KaaS location
+- `uri` (String) KaaS URI reference
 - `name` (String) KaaS name
-- `node_cidr` (Attributes) (see [below for nested schema](#nestedatt--node_cidr))
-- `node_pools` (Attributes List) (see [below for nested schema](#nestedatt--node_pools))
-- `preset` (Boolean) Whether to use a preset configuration
-- `project_id` (String) ID of the project this KaaS resource belongs to
-- `security_group_name` (String) Security group name
-- `subnet_id` (String) Subnet ID for the KaaS resource
+- `location` (String) KaaS location
 - `tags` (List of String) List of tags for the KaaS resource
-- `version` (String) Kubernetes version
-- `vpc_id` (String) VPC ID for the KaaS resource
-
-<a id="nestedatt--node_cidr"></a>
-### Nested Schema for `node_cidr`
-
-Read-Only:
-
-- `address` (String) Node CIDR address
-- `subnet_name` (String) Node CIDR subnet name
+- `project_id` (String) ID of the project this KaaS resource belongs to
+- `billing_period` (String) Billing period
+- `management_ip` (String) Management IP address
+- `vpc_uri_ref` (String) VPC URI reference
+- `subnet_uri_ref` (String) Subnet URI reference
+- `node_cidr_address` (String) Node CIDR address
+- `node_cidr_name` (String) Node CIDR name
+- `security_group_name` (String) Security group name
+- `pod_cidr` (String) Pod CIDR range
+- `kubernetes_version` (String) Kubernetes version
+- `node_pools` (List of Object) List of node pools with autoscaling configuration
 
 
 <a id="nestedatt--node_pools"></a>

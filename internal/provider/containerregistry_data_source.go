@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -24,17 +25,23 @@ type ContainerRegistryDataSource struct {
 }
 
 type ContainerRegistryDataSourceModel struct {
-	Id              types.String `tfsdk:"id"`
-	Name            types.String `tfsdk:"name"`
-	Location        types.String `tfsdk:"location"`
-	Tags            types.List   `tfsdk:"tags"`
-	ProjectID       types.String `tfsdk:"project_id"`
-	ElasticIPID     types.String `tfsdk:"elasticip_id"`
-	SubnetID        types.String `tfsdk:"subnet_id"`
-	SecurityGroupID types.String `tfsdk:"security_group_id"`
-	BlockStorageID  types.String `tfsdk:"block_storage_id"`
-	BillingPeriod   types.String `tfsdk:"billing_period"`
-	AdminUser       types.String `tfsdk:"admin_user"`
+	Id            types.String `tfsdk:"id"`
+	Uri           types.String `tfsdk:"uri"`
+	Name          types.String `tfsdk:"name"`
+	Location      types.String `tfsdk:"location"`
+	Tags          types.List   `tfsdk:"tags"`
+	ProjectID     types.String `tfsdk:"project_id"`
+	BillingPeriod types.String `tfsdk:"billing_period"`
+	// Network fields (flattened)
+	PublicIpUriRef      types.String `tfsdk:"public_ip_uri_ref"`
+	VpcUriRef           types.String `tfsdk:"vpc_uri_ref"`
+	SubnetUriRef        types.String `tfsdk:"subnet_uri_ref"`
+	SecurityGroupUriRef types.String `tfsdk:"security_group_uri_ref"`
+	// Storage fields (flattened)
+	BlockStorageUriRef types.String `tfsdk:"block_storage_uri_ref"`
+	// Settings fields (flattened)
+	AdminUser             types.String `tfsdk:"admin_user"`
+	ConcurrentUsersFlavor types.String `tfsdk:"concurrent_users_flavor"`
 }
 
 func (d *ContainerRegistryDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -48,6 +55,10 @@ func (d *ContainerRegistryDataSource) Schema(ctx context.Context, req datasource
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Container Registry identifier",
 				Required:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "Container Registry URI",
+				Computed:            true,
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Container Registry name",
@@ -66,28 +77,36 @@ func (d *ContainerRegistryDataSource) Schema(ctx context.Context, req datasource
 				MarkdownDescription: "ID of the project this Container Registry belongs to",
 				Computed:            true,
 			},
-			"elasticip_id": schema.StringAttribute{
-				MarkdownDescription: "Elastic IP ID",
-				Computed:            true,
-			},
-			"subnet_id": schema.StringAttribute{
-				MarkdownDescription: "Subnet ID",
-				Computed:            true,
-			},
-			"security_group_id": schema.StringAttribute{
-				MarkdownDescription: "Security Group ID",
-				Computed:            true,
-			},
-			"block_storage_id": schema.StringAttribute{
-				MarkdownDescription: "Block Storage ID",
-				Computed:            true,
-			},
 			"billing_period": schema.StringAttribute{
-				MarkdownDescription: "Billing period",
+				MarkdownDescription: "Billing period (Hour, Month, Year)",
+				Computed:            true,
+			},
+			"public_ip_uri_ref": schema.StringAttribute{
+				MarkdownDescription: "Public IP URI reference",
+				Computed:            true,
+			},
+			"vpc_uri_ref": schema.StringAttribute{
+				MarkdownDescription: "VPC URI reference",
+				Computed:            true,
+			},
+			"subnet_uri_ref": schema.StringAttribute{
+				MarkdownDescription: "Subnet URI reference",
+				Computed:            true,
+			},
+			"security_group_uri_ref": schema.StringAttribute{
+				MarkdownDescription: "Security Group URI reference",
+				Computed:            true,
+			},
+			"block_storage_uri_ref": schema.StringAttribute{
+				MarkdownDescription: "Block Storage URI reference",
 				Computed:            true,
 			},
 			"admin_user": schema.StringAttribute{
-				MarkdownDescription: "Admin user for the Container Registry",
+				MarkdownDescription: "Administrator username",
+				Computed:            true,
+			},
+			"concurrent_users_flavor": schema.StringAttribute{
+				MarkdownDescription: "Concurrent users flavor size (Small, Medium, HighPerf)",
 				Computed:            true,
 			},
 		},
@@ -115,7 +134,26 @@ func (d *ContainerRegistryDataSource) Read(ctx context.Context, req datasource.R
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	// Populate all fields with example data
+	data.Uri = types.StringValue("/v2/containerregistries/cr-68398923fb2cb026400d4d31")
 	data.Name = types.StringValue("example-containerregistry")
+	data.Location = types.StringValue("ITBG-Bergamo")
+	data.Tags = types.ListValueMust(types.StringType, []attr.Value{
+		types.StringValue("registry"),
+		types.StringValue("docker"),
+	})
+	data.ProjectID = types.StringValue("68398923fb2cb026400d4d31")
+	data.BillingPeriod = types.StringValue("Hour")
+	// Network fields
+	data.PublicIpUriRef = types.StringValue("/v2/elasticips/eip-68398923fb2cb026400d4d32")
+	data.VpcUriRef = types.StringValue("/v2/vpcs/vpc-68398923fb2cb026400d4d33")
+	data.SubnetUriRef = types.StringValue("/v2/subnets/subnet-68398923fb2cb026400d4d34")
+	data.SecurityGroupUriRef = types.StringValue("/v2/securitygroups/sg-68398923fb2cb026400d4d35")
+	// Storage fields
+	data.BlockStorageUriRef = types.StringValue("/v2/blockstorages/bs-68398923fb2cb026400d4d36")
+	// Settings fields
+	data.AdminUser = types.StringValue("admin")
+	data.ConcurrentUsersFlavor = types.StringValue("Medium")
 	tflog.Trace(ctx, "read a Container Registry data source")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

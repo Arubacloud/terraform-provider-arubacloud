@@ -17,6 +17,18 @@ output "securityrule_vpc_id" {
 output "securityrule_security_group_id" {
   value = data.arubacloud_security_rule.example.security_group_id
 }
-output "securityrule_properties" {
-  value = data.arubacloud_security_rule.example.properties
+output "securityrule_direction" {
+  value = data.arubacloud_security_rule.example.direction
+}
+output "securityrule_protocol" {
+  value = data.arubacloud_security_rule.example.protocol
+}
+output "securityrule_port" {
+  value = data.arubacloud_security_rule.example.port
+}
+output "securityrule_target_kind" {
+  value = data.arubacloud_security_rule.example.target_kind
+}
+output "securityrule_target_value" {
+  value = data.arubacloud_security_rule.example.target_value
 }

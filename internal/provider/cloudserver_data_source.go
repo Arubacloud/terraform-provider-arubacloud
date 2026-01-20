@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -14,18 +15,24 @@ import (
 )
 
 type CloudServerDataSourceModel struct {
-	Id             types.String `tfsdk:"id"`
-	Name           types.String `tfsdk:"name"`
-	Location       types.String `tfsdk:"location"`
-	ProjectID      types.String `tfsdk:"project_id"`
-	Zone           types.String `tfsdk:"zone"`
-	VpcID          types.String `tfsdk:"vpc_id"`
-	FlavorName     types.String `tfsdk:"flavor_name"`
-	ElasticIPID    types.String `tfsdk:"elastic_ip_id"`
-	BootVolume     types.String `tfsdk:"boot_volume"`
-	KeyPairID      types.String `tfsdk:"key_pair_id"`
-	Subnets        types.List   `tfsdk:"subnets"`
-	SecurityGroups types.List   `tfsdk:"securitygroups"`
+	Id        types.String `tfsdk:"id"`
+	Uri       types.String `tfsdk:"uri"`
+	Name      types.String `tfsdk:"name"`
+	Location  types.String `tfsdk:"location"`
+	ProjectID types.String `tfsdk:"project_id"`
+	Zone      types.String `tfsdk:"zone"`
+	Tags      types.List   `tfsdk:"tags"`
+	// Network fields (flattened from Network object)
+	VpcUriRef            types.String `tfsdk:"vpc_uri_ref"`
+	ElasticIpUriRef      types.String `tfsdk:"elastic_ip_uri_ref"`
+	SubnetUriRefs        types.List   `tfsdk:"subnet_uri_refs"`
+	SecurityGroupUriRefs types.List   `tfsdk:"securitygroup_uri_refs"`
+	// Settings fields (flattened from Settings object)
+	FlavorName    types.String `tfsdk:"flavor_name"`
+	KeyPairUriRef types.String `tfsdk:"key_pair_uri_ref"`
+	UserData      types.String `tfsdk:"user_data"`
+	// Storage fields (flattened from Storage object)
+	BootVolumeUriRef types.String `tfsdk:"boot_volume_uri_ref"`
 }
 
 type CloudServerDataSource struct {
@@ -50,6 +57,10 @@ func (d *CloudServerDataSource) Schema(ctx context.Context, req datasource.Schem
 				MarkdownDescription: "CloudServer identifier",
 				Required:            true,
 			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "CloudServer URI",
+				Computed:            true,
+			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "CloudServer name",
 				Computed:            true,
@@ -66,34 +77,43 @@ func (d *CloudServerDataSource) Schema(ctx context.Context, req datasource.Schem
 				MarkdownDescription: "Zone",
 				Computed:            true,
 			},
-			"vpc_id": schema.StringAttribute{
-				MarkdownDescription: "VPC ID",
+			"tags": schema.ListAttribute{
+				ElementType:         types.StringType,
+				MarkdownDescription: "List of tags for the Cloud Server",
+				Computed:            true,
+			},
+			"vpc_uri_ref": schema.StringAttribute{
+				MarkdownDescription: "VPC URI reference",
+				Computed:            true,
+			},
+			"elastic_ip_uri_ref": schema.StringAttribute{
+				MarkdownDescription: "Elastic IP URI reference",
+				Computed:            true,
+			},
+			"subnet_uri_refs": schema.ListAttribute{
+				ElementType:         types.StringType,
+				MarkdownDescription: "List of subnet URI references",
+				Computed:            true,
+			},
+			"securitygroup_uri_refs": schema.ListAttribute{
+				ElementType:         types.StringType,
+				MarkdownDescription: "List of security group URI references",
 				Computed:            true,
 			},
 			"flavor_name": schema.StringAttribute{
-				MarkdownDescription: "Flavor name",
+				MarkdownDescription: "Flavor name (e.g., CSO4A8 for 4 CPU, 8GB RAM)",
 				Computed:            true,
 			},
-			"elastic_ip_id": schema.StringAttribute{
-				MarkdownDescription: "Elastic IP ID",
+			"key_pair_uri_ref": schema.StringAttribute{
+				MarkdownDescription: "Key Pair URI reference",
 				Computed:            true,
 			},
-			"boot_volume": schema.StringAttribute{
-				MarkdownDescription: "Boot volume ID",
+			"user_data": schema.StringAttribute{
+				MarkdownDescription: "Cloud-Init user data",
 				Computed:            true,
 			},
-			"key_pair_id": schema.StringAttribute{
-				MarkdownDescription: "Key pair ID",
-				Computed:            true,
-			},
-			"subnets": schema.ListAttribute{
-				ElementType:         types.StringType,
-				MarkdownDescription: "List of subnet IDs",
-				Computed:            true,
-			},
-			"securitygroups": schema.ListAttribute{
-				ElementType:         types.StringType,
-				MarkdownDescription: "List of security group reference IDs",
+			"boot_volume_uri_ref": schema.StringAttribute{
+				MarkdownDescription: "Boot volume URI reference",
 				Computed:            true,
 			},
 		},
@@ -121,8 +141,35 @@ func (d *CloudServerDataSource) Read(ctx context.Context, req datasource.ReadReq
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	// Simulate API response
-	data.Id = types.StringValue("cloudserver-id")
+
+	// Populate all fields with example data
+	data.Uri = types.StringValue("/v2/cloudservers/68398923fb2cb026400d4d31")
+	data.Name = types.StringValue("example-cloudserver")
+	data.Location = types.StringValue("ITBG-Bergamo")
+	data.ProjectID = types.StringValue("68398923fb2cb026400d4d31")
+	data.Zone = types.StringValue("ITBG-1")
+	data.Tags = types.ListValueMust(types.StringType, []attr.Value{
+		types.StringValue("compute"),
+		types.StringValue("production"),
+	})
+	// Network fields
+	data.VpcUriRef = types.StringValue("/v2/vpcs/vpc-68398923fb2cb026400d4d32")
+	data.ElasticIpUriRef = types.StringValue("/v2/elasticips/eip-68398923fb2cb026400d4d33")
+	data.SubnetUriRefs = types.ListValueMust(types.StringType, []attr.Value{
+		types.StringValue("/v2/subnets/subnet-68398923fb2cb026400d4d35"),
+		types.StringValue("/v2/subnets/subnet-68398923fb2cb026400d4d36"),
+	})
+	data.SecurityGroupUriRefs = types.ListValueMust(types.StringType, []attr.Value{
+		types.StringValue("/v2/securitygroups/sg-68398923fb2cb026400d4d37"),
+		types.StringValue("/v2/securitygroups/sg-68398923fb2cb026400d4d38"),
+	})
+	// Settings fields
+	data.FlavorName = types.StringValue("CSO4A8")
+	data.KeyPairUriRef = types.StringValue("/v2/keypairs/keypair-example")
+	data.UserData = types.StringValue("#cloud-config\npackages:\n  - nginx")
+	// Storage fields
+	data.BootVolumeUriRef = types.StringValue("/v2/blockstorages/vol-68398923fb2cb026400d4d34")
+
 	tflog.Trace(ctx, "read a CloudServer data source")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

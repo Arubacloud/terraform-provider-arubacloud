@@ -91,15 +91,18 @@ func (d *SecurityGroupDataSource) Read(ctx context.Context, req datasource.ReadR
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	// Simulate API response for all attributes
+
+	// Populate all fields with example data
 	data.Name = types.StringValue("example-securitygroup")
-	data.Location = types.StringValue("example-location")
+	data.Location = types.StringValue("ITBG-Bergamo")
+	data.ProjectId = types.StringValue("68398923fb2cb026400d4d31")
+	data.VpcId = types.StringValue("vpc-68398923fb2cb026400d4d32")
 	data.Tags = types.ListValueMust(types.StringType, []attr.Value{
-		types.StringValue("tag1"),
-		types.StringValue("tag2"),
+		types.StringValue("security"),
+		types.StringValue("firewall"),
+		types.StringValue("production"),
 	})
-	data.ProjectId = types.StringValue("example-project-id")
-	data.VpcId = types.StringValue("example-vpc-id")
+
 	tflog.Trace(ctx, "read a Security Group data source")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

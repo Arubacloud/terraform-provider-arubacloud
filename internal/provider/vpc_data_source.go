@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -24,10 +25,11 @@ type VPCDataSource struct {
 }
 
 type VPCDataSourceModel struct {
-	Id       types.String `tfsdk:"id"`
-	Name     types.String `tfsdk:"name"`
-	Location types.String `tfsdk:"location"`
-	Tags     types.List   `tfsdk:"tags"`
+	Id        types.String `tfsdk:"id"`
+	Name      types.String `tfsdk:"name"`
+	Location  types.String `tfsdk:"location"`
+	ProjectId types.String `tfsdk:"project_id"`
+	Tags      types.List   `tfsdk:"tags"`
 }
 
 func (d *VPCDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -48,6 +50,10 @@ func (d *VPCDataSource) Schema(ctx context.Context, req datasource.SchemaRequest
 			},
 			"location": schema.StringAttribute{
 				MarkdownDescription: "VPC location",
+				Computed:            true,
+			},
+			"project_id": schema.StringAttribute{
+				MarkdownDescription: "ID of the project this VPC belongs to",
 				Computed:            true,
 			},
 			"tags": schema.ListAttribute{
@@ -80,7 +86,17 @@ func (d *VPCDataSource) Read(ctx context.Context, req datasource.ReadRequest, re
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	// Populate all fields with example data
 	data.Name = types.StringValue("example-vpc")
+	data.Location = types.StringValue("ITBG-Bergamo")
+	data.ProjectId = types.StringValue("68398923fb2cb026400d4d31")
+	data.Tags = types.ListValueMust(types.StringType, []attr.Value{
+		types.StringValue("network"),
+		types.StringValue("production"),
+		types.StringValue("vpc-main"),
+	})
+
 	tflog.Trace(ctx, "read a VPC data source")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

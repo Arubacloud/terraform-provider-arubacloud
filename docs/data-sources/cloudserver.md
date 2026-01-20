@@ -29,26 +29,32 @@ output "cloudserver_project_id" {
 output "cloudserver_zone" {
   value = data.arubacloud_cloudserver.example.zone
 }
-output "cloudserver_vpc_id" {
-  value = data.arubacloud_cloudserver.example.vpc_id
+output "cloudserver_tags" {
+  value = data.arubacloud_cloudserver.example.tags
+}
+output "cloudserver_vpc_uri_ref" {
+  value = data.arubacloud_cloudserver.example.vpc_uri_ref
+}
+output "cloudserver_elastic_ip_uri_ref" {
+  value = data.arubacloud_cloudserver.example.elastic_ip_uri_ref
+}
+output "cloudserver_subnet_uri_refs" {
+  value = data.arubacloud_cloudserver.example.subnet_uri_refs
+}
+output "cloudserver_securitygroup_uri_refs" {
+  value = data.arubacloud_cloudserver.example.securitygroup_uri_refs
 }
 output "cloudserver_flavor_name" {
   value = data.arubacloud_cloudserver.example.flavor_name
 }
-output "cloudserver_elastic_ip_id" {
-  value = data.arubacloud_cloudserver.example.elastic_ip_id
+output "cloudserver_key_pair_uri_ref" {
+  value = data.arubacloud_cloudserver.example.key_pair_uri_ref
 }
-output "cloudserver_boot_volume" {
-  value = data.arubacloud_cloudserver.example.boot_volume
+output "cloudserver_user_data" {
+  value = data.arubacloud_cloudserver.example.user_data
 }
-output "cloudserver_key_pair_id" {
-  value = data.arubacloud_cloudserver.example.key_pair_id
-}
-output "cloudserver_subnets" {
-  value = data.arubacloud_cloudserver.example.subnets
-}
-output "cloudserver_securitygroups" {
-  value = data.arubacloud_cloudserver.example.securitygroups
+output "cloudserver_boot_volume_uri_ref" {
+  value = data.arubacloud_cloudserver.example.boot_volume_uri_ref
 }
 ```
 
@@ -70,14 +76,17 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `boot_volume` (String) Boot volume ID
-- `elastic_ip_id` (String) Elastic IP ID
-- `flavor_name` (String) Flavor name
-- `key_pair_id` (String) Key pair ID
-- `location` (String) CloudServer location
+- `uri` (String) CloudServer URI reference
 - `name` (String) CloudServer name
+- `location` (String) CloudServer location
 - `project_id` (String) Project ID
-- `securitygroups` (List of String) List of security group reference IDs
-- `subnets` (List of String) List of subnet IDs
-- `vpc_id` (String) VPC ID
 - `zone` (String) Zone
+- `tags` (List of String) List of tags
+- `vpc_uri_ref` (String) VPC URI reference
+- `elastic_ip_uri_ref` (String) Elastic IP URI reference
+- `subnet_uri_refs` (List of String) List of subnet URI references
+- `securitygroup_uri_refs` (List of String) List of security group URI references
+- `flavor_name` (String) Flavor name
+- `key_pair_uri_ref` (String) Key pair URI reference
+- `user_data` (String) User data for cloud-init
+- `boot_volume_uri_ref` (String) Boot volume URI reference

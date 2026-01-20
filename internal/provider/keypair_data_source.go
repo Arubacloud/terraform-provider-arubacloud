@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -14,11 +15,12 @@ import (
 )
 
 type KeypairDataSourceModel struct {
-	Id       types.String `tfsdk:"id"`
-	Name     types.String `tfsdk:"name"`
-	Location types.String `tfsdk:"location"`
-	Tags     types.List   `tfsdk:"tags"`
-	Value    types.String `tfsdk:"value"`
+	Id        types.String `tfsdk:"id"`
+	Name      types.String `tfsdk:"name"`
+	Location  types.String `tfsdk:"location"`
+	ProjectID types.String `tfsdk:"project_id"`
+	Value     types.String `tfsdk:"value"`
+	Tags      types.List   `tfsdk:"tags"`
 }
 
 type KeypairDataSource struct {
@@ -51,13 +53,17 @@ func (d *KeypairDataSource) Schema(ctx context.Context, req datasource.SchemaReq
 				MarkdownDescription: "Keypair location",
 				Computed:            true,
 			},
-			"tags": schema.ListAttribute{
-				ElementType:         types.StringType,
-				MarkdownDescription: "List of tags for the keypair",
+			"project_id": schema.StringAttribute{
+				MarkdownDescription: "ID of the project this keypair belongs to",
 				Computed:            true,
 			},
 			"value": schema.StringAttribute{
-				MarkdownDescription: "Keypair value",
+				MarkdownDescription: "Keypair value (public key)",
+				Computed:            true,
+			},
+			"tags": schema.ListAttribute{
+				ElementType:         types.StringType,
+				MarkdownDescription: "List of tags for the keypair",
 				Computed:            true,
 			},
 		},
@@ -85,9 +91,18 @@ func (d *KeypairDataSource) Read(ctx context.Context, req datasource.ReadRequest
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	// Simulate API response
-	data.Id = types.StringValue("keypair-id")
-	data.Value = types.StringValue("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC...")
+
+	// Populate all fields with example data
+	data.Name = types.StringValue("example-keypair")
+	data.Location = types.StringValue("ITBG-Bergamo")
+	data.ProjectID = types.StringValue("68398923fb2cb026400d4d31")
+	data.Value = types.StringValue("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC3o7qyMh8...")
+	data.Tags = types.ListValueMust(types.StringType, []attr.Value{
+		types.StringValue("ssh"),
+		types.StringValue("production"),
+		types.StringValue("keypair-main"),
+	})
+
 	tflog.Trace(ctx, "read a Keypair data source")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

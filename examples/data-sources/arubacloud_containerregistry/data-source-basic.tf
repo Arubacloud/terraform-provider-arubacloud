@@ -14,21 +14,24 @@ output "containerregistry_tags" {
 output "containerregistry_project_id" {
   value = data.arubacloud_containerregistry.example.project_id
 }
-output "containerregistry_elasticip_id" {
-  value = data.arubacloud_containerregistry.example.elasticip_id
-}
-output "containerregistry_subnet_id" {
-  value = data.arubacloud_containerregistry.example.subnet_id
-}
-output "containerregistry_security_group_id" {
-  value = data.arubacloud_containerregistry.example.security_group_id
-}
-output "containerregistry_block_storage_id" {
-  value = data.arubacloud_containerregistry.example.block_storage_id
-}
 output "containerregistry_billing_period" {
   value = data.arubacloud_containerregistry.example.billing_period
 }
-output "containerregistry_admin_user" {
-  value = data.arubacloud_containerregistry.example.admin_user
+output "containerregistry_public_ip_uri_ref" {
+  value = data.arubacloud_containerregistry.example.public_ip_uri_ref
+}
+output "containerregistry_vpc_uri_ref" {
+  value = data.arubacloud_containerregistry.example.vpc_uri_ref
+}
+output "containerregistry_subnet_uri_ref" {
+  value = data.arubacloud_containerregistry.example.subnet_uri_ref
+}
+output "containerregistry_security_group_uri_ref" {
+  value = data.arubacloud_containerregistry.example.security_group_uri_ref
+}
+output "containerregistry_block_storage_uri_ref" {
+  value = data.arubacloud_containerregistry.example.block_storage_uri_ref
+}
+output "containerregistry_concurrent_users_flavor" {
+  value = data.arubacloud_containerregistry.example.concurrent_users_flavor
 }

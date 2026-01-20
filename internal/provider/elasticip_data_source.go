@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -24,8 +25,13 @@ type ElasticIPDataSource struct {
 }
 
 type ElasticIPDataSourceModel struct {
-	Id types.String `tfsdk:"id"`
-	Ip types.String `tfsdk:"ip"`
+	Id            types.String `tfsdk:"id"`
+	Name          types.String `tfsdk:"name"`
+	Location      types.String `tfsdk:"location"`
+	ProjectId     types.String `tfsdk:"project_id"`
+	Address       types.String `tfsdk:"address"`
+	BillingPeriod types.String `tfsdk:"billing_period"`
+	Tags          types.List   `tfsdk:"tags"`
 }
 
 func (d *ElasticIPDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -40,8 +46,29 @@ func (d *ElasticIPDataSource) Schema(ctx context.Context, req datasource.SchemaR
 				MarkdownDescription: "Elastic IP identifier",
 				Required:            true,
 			},
-			"ip": schema.StringAttribute{
+			"name": schema.StringAttribute{
+				MarkdownDescription: "Elastic IP name",
+				Computed:            true,
+			},
+			"location": schema.StringAttribute{
+				MarkdownDescription: "Elastic IP location",
+				Computed:            true,
+			},
+			"project_id": schema.StringAttribute{
+				MarkdownDescription: "ID of the project this Elastic IP belongs to",
+				Computed:            true,
+			},
+			"address": schema.StringAttribute{
 				MarkdownDescription: "Elastic IP address",
+				Computed:            true,
+			},
+			"billing_period": schema.StringAttribute{
+				MarkdownDescription: "Billing period for the Elastic IP",
+				Computed:            true,
+			},
+			"tags": schema.ListAttribute{
+				ElementType:         types.StringType,
+				MarkdownDescription: "List of tags for the Elastic IP",
 				Computed:            true,
 			},
 		},
@@ -69,7 +96,18 @@ func (d *ElasticIPDataSource) Read(ctx context.Context, req datasource.ReadReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	data.Ip = types.StringValue("1.2.3.4")
+
+	// Populate all fields with example data
+	data.Name = types.StringValue("example-elasticip")
+	data.Location = types.StringValue("ITBG-Bergamo")
+	data.ProjectId = types.StringValue("68398923fb2cb026400d4d31")
+	data.Address = types.StringValue("203.0.113.10")
+	data.BillingPeriod = types.StringValue("Hour")
+	data.Tags = types.ListValueMust(types.StringType, []attr.Value{
+		types.StringValue("public-ip"),
+		types.StringValue("production"),
+	})
+
 	tflog.Trace(ctx, "read an Elastic IP data source")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

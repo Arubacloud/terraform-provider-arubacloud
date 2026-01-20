@@ -10,10 +10,27 @@ description: |-
 Reads an existing ArubaCloud Elastic IP.
 
 ```terraform
-data "arubacloud_elastic_ip" "example" {
-  name       = "example-elastic-ip"
-  project_id = "example-project"
-  location   = "eu-1"
+data "arubacloud_elasticip" "example" {
+  id = "your-elasticip-id"
+}
+
+output "elasticip_name" {
+  value = data.arubacloud_elasticip.example.name
+}
+output "elasticip_location" {
+  value = data.arubacloud_elasticip.example.location
+}
+output "elasticip_project_id" {
+  value = data.arubacloud_elasticip.example.project_id
+}
+output "elasticip_address" {
+  value = data.arubacloud_elasticip.example.address
+}
+output "elasticip_billing_period" {
+  value = data.arubacloud_elasticip.example.billing_period
+}
+output "elasticip_tags" {
+  value = data.arubacloud_elasticip.example.tags
 }
 ```
 
@@ -38,6 +55,11 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `ip` (String) Elastic IP address
+- `name` (String) Elastic IP name
+- `location` (String) Elastic IP location
+- `project_id` (String) ID of the project this Elastic IP belongs to
+- `address` (String) Elastic IP address
+- `billing_period` (String) Billing period
+- `tags` (List of String) List of tags for the Elastic IP
 
 

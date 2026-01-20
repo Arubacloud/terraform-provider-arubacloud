@@ -26,23 +26,26 @@ output "containerregistry_tags" {
 output "containerregistry_project_id" {
   value = data.arubacloud_containerregistry.example.project_id
 }
-output "containerregistry_elasticip_id" {
-  value = data.arubacloud_containerregistry.example.elasticip_id
-}
-output "containerregistry_subnet_id" {
-  value = data.arubacloud_containerregistry.example.subnet_id
-}
-output "containerregistry_security_group_id" {
-  value = data.arubacloud_containerregistry.example.security_group_id
-}
-output "containerregistry_block_storage_id" {
-  value = data.arubacloud_containerregistry.example.block_storage_id
-}
 output "containerregistry_billing_period" {
   value = data.arubacloud_containerregistry.example.billing_period
 }
-output "containerregistry_admin_user" {
-  value = data.arubacloud_containerregistry.example.admin_user
+output "containerregistry_public_ip_uri_ref" {
+  value = data.arubacloud_containerregistry.example.public_ip_uri_ref
+}
+output "containerregistry_vpc_uri_ref" {
+  value = data.arubacloud_containerregistry.example.vpc_uri_ref
+}
+output "containerregistry_subnet_uri_ref" {
+  value = data.arubacloud_containerregistry.example.subnet_uri_ref
+}
+output "containerregistry_security_group_uri_ref" {
+  value = data.arubacloud_containerregistry.example.security_group_uri_ref
+}
+output "containerregistry_block_storage_uri_ref" {
+  value = data.arubacloud_containerregistry.example.block_storage_uri_ref
+}
+output "containerregistry_concurrent_users_flavor" {
+  value = data.arubacloud_containerregistry.example.concurrent_users_flavor
 }
 ```
 
@@ -66,15 +69,17 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `admin_user` (String) Admin user for the Container Registry
-- `billing_period` (String) Billing period
-- `block_storage_id` (String) Block Storage ID
-- `elasticip_id` (String) Elastic IP ID
-- `location` (String) Container Registry location
+- `uri` (String) Container Registry URI reference
 - `name` (String) Container Registry name
-- `project_id` (String) ID of the project this Container Registry belongs to
-- `security_group_id` (String) Security Group ID
-- `subnet_id` (String) Subnet ID
+- `location` (String) Container Registry location
 - `tags` (List of String) List of tags for the Container Registry resource
+- `project_id` (String) ID of the project this Container Registry belongs to
+- `billing_period` (String) Billing period
+- `public_ip_uri_ref` (String) Public IP URI reference
+- `vpc_uri_ref` (String) VPC URI reference
+- `subnet_uri_ref` (String) Subnet URI reference
+- `security_group_uri_ref` (String) Security group URI reference
+- `block_storage_uri_ref` (String) Block storage URI reference
+- `concurrent_users_flavor` (String) Concurrent users flavor (Small, Medium, Large)
 
 

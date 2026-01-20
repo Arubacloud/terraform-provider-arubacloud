@@ -20,26 +20,32 @@ output "blockstorage_name" {
 output "blockstorage_project_id" {
   value = data.arubacloud_blockstorage.example.project_id
 }
+output "blockstorage_location" {
+  value = data.arubacloud_blockstorage.example.location
+}
 output "blockstorage_size_gb" {
-  value = data.arubacloud_blockstorage.example.properties.size_gb
+  value = data.arubacloud_blockstorage.example.size_gb
 }
 output "blockstorage_billing_period" {
-  value = data.arubacloud_blockstorage.example.properties.billing_period
+  value = data.arubacloud_blockstorage.example.billing_period
 }
 output "blockstorage_zone" {
-  value = data.arubacloud_blockstorage.example.properties.zone
+  value = data.arubacloud_blockstorage.example.zone
 }
 output "blockstorage_type" {
-  value = data.arubacloud_blockstorage.example.properties.type
+  value = data.arubacloud_blockstorage.example.type
+}
+output "blockstorage_tags" {
+  value = data.arubacloud_blockstorage.example.tags
 }
 output "blockstorage_snapshot_id" {
-  value = data.arubacloud_blockstorage.example.properties.snapshot_id
+  value = data.arubacloud_blockstorage.example.snapshot_id
 }
 output "blockstorage_bootable" {
-  value = data.arubacloud_blockstorage.example.properties.bootable
+  value = data.arubacloud_blockstorage.example.bootable
 }
 output "blockstorage_image" {
-  value = data.arubacloud_blockstorage.example.properties.image
+  value = data.arubacloud_blockstorage.example.image
 }
 ```
 
@@ -65,18 +71,15 @@ In addition to all arguments above, the following attributes are exported:
 
 - `name` (String) Block Storage name
 - `project_id` (String) ID of the project this Block Storage belongs to
-- `properties` (Attributes) Properties of the Block Storage (see [below for nested schema](#nestedatt--properties))
-
-<a id="nestedatt--properties"></a>
-### Nested Schema for `properties`
-
-Read-Only:
-
+- `location` (String) Location of the block storage
+- `size_gb` (Number) Size of the block storage in GB
 - `billing_period` (String) Billing period of the block storage (only 'Hour' allowed)
+- `zone` (String) Zone of the block storage
+- `type` (String) Type of the block storage (Standard or Performance)
+- `tags` (List of String) List of tags for the block storage
+- `snapshot_id` (String) Snapshot ID for the block storage
 - `bootable` (Boolean) Whether the block storage is bootable
 - `image` (String) Image for the block storage
-- `size_gb` (Number) Size of the block storage in GB
-- `snapshot_id` (String) Snapshot ID for the block storage
 - `type` (String) Type of block storage (Standard, Performance)
 - `zone` (String) Zone of the block storage
 
