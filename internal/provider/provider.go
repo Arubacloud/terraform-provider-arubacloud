@@ -50,12 +50,13 @@ func (p *ArubaCloudProvider) Schema(ctx context.Context, req provider.SchemaRequ
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"api_key": schema.StringAttribute{
-				MarkdownDescription: "API key for ArubaCloud",
-				Required:            true,
+				MarkdownDescription: "API key for ArubaCloud. Can also be set via ARUBACLOUD_API_KEY environment variable.",
+				Optional:            true,
 			},
 			"api_secret": schema.StringAttribute{
-				MarkdownDescription: "API secret for ArubaCloud",
-				Required:            true,
+				MarkdownDescription: "API secret for ArubaCloud. Can also be set via ARUBACLOUD_API_SECRET environment variable.",
+				Optional:            true,
+				Sensitive:           true,
 			},
 			"resource_timeout": schema.StringAttribute{
 				MarkdownDescription: "Timeout for waiting for resources to become active after creation (e.g., \"5m\", \"10m\", \"15m\"). This timeout applies to all resources that need to wait for active state. Default: \"10m\"",

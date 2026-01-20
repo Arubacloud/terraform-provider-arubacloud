@@ -33,6 +33,6 @@ func TestAccDbaasuserDataSource(t *testing.T) {
 
 const testAccDbaasuserDataSourceConfig = `
 data "arubacloud_dbaasuser" "test" {
-  id = "test-dbaasuser-id"
+  username = "test-user"
 }
 `

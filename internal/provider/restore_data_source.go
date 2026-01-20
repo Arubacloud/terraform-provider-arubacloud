@@ -24,9 +24,12 @@ type RestoreDataSource struct {
 }
 
 type RestoreDataSourceModel struct {
-	Id          types.String `tfsdk:"id"`
-	Name        types.String `tfsdk:"name"`
-	Description types.String `tfsdk:"description"`
+	Id        types.String   `tfsdk:"id"`
+	Name      types.String   `tfsdk:"name"`
+	Location  types.String   `tfsdk:"location"`
+	Tags      []types.String `tfsdk:"tags"`
+	ProjectId types.String   `tfsdk:"project_id"`
+	VolumeId  types.String   `tfsdk:"volume_id"`
 }
 
 func (d *RestoreDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -88,7 +91,10 @@ func (d *RestoreDataSource) Read(ctx context.Context, req datasource.ReadRequest
 		return
 	}
 	data.Name = types.StringValue("example-restore")
-	data.Description = types.StringValue("Simulated restore description")
+	data.Location = types.StringValue("it-dc1")
+	data.ProjectId = types.StringValue("example-project-id")
+	data.VolumeId = types.StringValue("example-volume-id")
+	data.Tags = []types.String{types.StringValue("tag1"), types.StringValue("tag2")}
 	tflog.Trace(ctx, "read a Restore data source")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
