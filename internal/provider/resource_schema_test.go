@@ -311,7 +311,7 @@ func TestSubnetResourceSchema(t *testing.T) {
 	}
 
 	// Check for required attributes
-	requiredAttrs := []string{"id", "name", "vpc_uri_ref", "location", "project_id"}
+	requiredAttrs := []string{"id", "name", "vpc_id", "location", "project_id", "type"}
 	for _, attr := range requiredAttrs {
 		if _, ok := schemaResp.Schema.Attributes[attr]; !ok {
 			t.Errorf("Missing required attribute: %s", attr)
