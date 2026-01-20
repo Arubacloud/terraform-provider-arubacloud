@@ -58,9 +58,10 @@ func TestAccKeypairResource(t *testing.T) {
 func testAccKeypairResourceConfig(name string) string {
 	return fmt.Sprintf(`
 resource "arubacloud_keypair" "test" {
-  name = %[1]q
-  # TODO: Add required fields based on the schema
-  # Check keypair_resource.go for required attributes
+  name       = %[1]q
+  location   = "it-1"
+  project_id = "test-project-id"
+  value      = "ssh-rsa AAAAB3NzaC1yc2EAAAA..."
 }
 `, name)
 }

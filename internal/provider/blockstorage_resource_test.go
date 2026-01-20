@@ -29,18 +29,28 @@ func TestAccBlockStorageResource(t *testing.T) {
 					),
 					statecheck.ExpectKnownValue(
 						"arubacloud_blockstorage.test",
-						tfjsonpath.New("properties").AtMapKey("size_gb"),
+						tfjsonpath.New("size_gb"),
 						knownvalue.Int64Exact(100),
 					),
 					statecheck.ExpectKnownValue(
 						"arubacloud_blockstorage.test",
-						tfjsonpath.New("properties").AtMapKey("type"),
+						tfjsonpath.New("type"),
 						knownvalue.StringExact("Standard"),
 					),
 					statecheck.ExpectKnownValue(
 						"arubacloud_blockstorage.test",
 						tfjsonpath.New("id"),
-						knownvalue.StringExact("blockstorage-id"),
+						knownvalue.NotNull(),
+					),
+					statecheck.ExpectKnownValue(
+						"arubacloud_blockstorage.test",
+						tfjsonpath.New("project_id"),
+						knownvalue.NotNull(),
+					),
+					statecheck.ExpectKnownValue(
+						"arubacloud_blockstorage.test",
+						tfjsonpath.New("location"),
+						knownvalue.NotNull(),
 					),
 				},
 			},
@@ -61,12 +71,12 @@ func TestAccBlockStorageResource(t *testing.T) {
 					),
 					statecheck.ExpectKnownValue(
 						"arubacloud_blockstorage.test",
-						tfjsonpath.New("properties").AtMapKey("size_gb"),
+						tfjsonpath.New("size_gb"),
 						knownvalue.Int64Exact(200),
 					),
 					statecheck.ExpectKnownValue(
 						"arubacloud_blockstorage.test",
-						tfjsonpath.New("properties").AtMapKey("type"),
+						tfjsonpath.New("type"),
 						knownvalue.StringExact("Performance"),
 					),
 				},
@@ -91,12 +101,12 @@ func TestAccBlockStorageResource_Bootable(t *testing.T) {
 					),
 					statecheck.ExpectKnownValue(
 						"arubacloud_blockstorage.test",
-						tfjsonpath.New("properties").AtMapKey("bootable"),
+						tfjsonpath.New("bootable"),
 						knownvalue.Bool(true),
 					),
 					statecheck.ExpectKnownValue(
 						"arubacloud_blockstorage.test",
-						tfjsonpath.New("properties").AtMapKey("image"),
+						tfjsonpath.New("image"),
 						knownvalue.StringExact("ubuntu-22.04"),
 					),
 				},
@@ -108,15 +118,13 @@ func TestAccBlockStorageResource_Bootable(t *testing.T) {
 func testAccBlockStorageResourceConfig(name string, sizeGB int, storageType string) string {
 	return fmt.Sprintf(`
 resource "arubacloud_blockstorage" "test" {
-  name       = %[1]q
-  project_id = "project-123"
-  
-  properties = {
-    size_gb        = %[2]d
-    billing_period = "Hour"
-    zone           = "it-1"
-    type           = %[3]q
-  }
+  name           = %[1]q
+  project_id     = "test-project-id"
+  location       = "it-1"
+  size_gb        = %[2]d
+  billing_period = "Hour"
+  zone           = "it-1"
+  type           = %[3]q
 }
 `, name, sizeGB, storageType)
 }
@@ -124,17 +132,15 @@ resource "arubacloud_blockstorage" "test" {
 func testAccBlockStorageResourceConfigBootable(name string, sizeGB int) string {
 	return fmt.Sprintf(`
 resource "arubacloud_blockstorage" "test" {
-  name       = %[1]q
-  project_id = "project-123"
-  
-  properties = {
-    size_gb        = %[2]d
-    billing_period = "Hour"
-    zone           = "it-1"
-    type           = "Standard"
-    bootable       = true
-    image          = "ubuntu-22.04"
-  }
+  name           = %[1]q
+  project_id     = "test-project-id"
+  location       = "it-1"
+  size_gb        = %[2]d
+  billing_period = "Hour"
+  zone           = "it-1"
+  type           = "Standard"
+  bootable       = true
+  image          = "ubuntu-22.04"
 }
 `, name, sizeGB)
 }

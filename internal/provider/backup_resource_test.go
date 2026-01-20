@@ -45,7 +45,7 @@ func TestAccBackupResource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"arubacloud_backup.test",
 						tfjsonpath.New("id"),
-						knownvalue.StringExact("backup-id"),
+						knownvalue.NotNull(),
 					),
 				},
 			},

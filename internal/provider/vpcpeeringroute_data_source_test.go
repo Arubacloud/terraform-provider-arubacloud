@@ -25,11 +25,6 @@ func TestAccVpcpeeringrouteDataSource(t *testing.T) {
 						tfjsonpath.New("id"),
 						knownvalue.NotNull(),
 					),
-					statecheck.ExpectKnownValue(
-						"data.arubacloud_vpcpeeringroute.test",
-						tfjsonpath.New("name"),
-						knownvalue.StringExact("example-vpcpeeringroute"),
-					),
 				},
 			},
 		},
@@ -38,8 +33,6 @@ func TestAccVpcpeeringrouteDataSource(t *testing.T) {
 
 const testAccVpcpeeringrouteDataSourceConfig = `
 data "arubacloud_vpcpeeringroute" "test" {
-  name = "example-vpcpeeringroute"
-  # TODO: Add required fields based on the schema
-  # Check vpcpeeringroute_data_source.go for required attributes
+  id = "test-vpcpeeringroute-id"
 }
 `

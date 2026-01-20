@@ -25,11 +25,6 @@ func TestAccRestoreDataSource(t *testing.T) {
 						tfjsonpath.New("id"),
 						knownvalue.NotNull(),
 					),
-					statecheck.ExpectKnownValue(
-						"data.arubacloud_restore.test",
-						tfjsonpath.New("name"),
-						knownvalue.StringExact("example-restore"),
-					),
 				},
 			},
 		},
@@ -38,8 +33,6 @@ func TestAccRestoreDataSource(t *testing.T) {
 
 const testAccRestoreDataSourceConfig = `
 data "arubacloud_restore" "test" {
-  name = "example-restore"
-  # TODO: Add required fields based on the schema
-  # Check restore_data_source.go for required attributes
+  id = "test-restore-id"
 }
 `

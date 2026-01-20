@@ -32,6 +32,11 @@ func TestAccSchedulejobResource(t *testing.T) {
 						tfjsonpath.New("id"),
 						knownvalue.NotNull(),
 					),
+					statecheck.ExpectKnownValue(
+						"arubacloud_schedulejob.test",
+						tfjsonpath.New("location"),
+						knownvalue.NotNull(),
+					),
 				},
 			},
 			// ImportState testing
@@ -58,9 +63,15 @@ func TestAccSchedulejobResource(t *testing.T) {
 func testAccSchedulejobResourceConfig(name string) string {
 	return fmt.Sprintf(`
 resource "arubacloud_schedulejob" "test" {
-  name = %[1]q
-  # TODO: Add required fields based on the schema
-  # Check schedulejob_resource.go for required attributes
+  name       = %[1]q
+  project_id = "test-project-id"
+  location   = "it-1"
+  
+  properties = {
+    schedule_job_type = "OneShot"
+    schedule_at       = "2025-12-31T23:59:59Z"
+    steps             = []
+  }
 }
 `, name)
 }

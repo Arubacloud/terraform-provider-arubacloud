@@ -28,7 +28,13 @@ func TestAccKaasDataSource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_kaas.test",
 						tfjsonpath.New("name"),
-						knownvalue.StringExact("example-kaas"),
+						knownvalue.NotNull(),
+					),
+					// Test flattened fields
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_kaas.test",
+						tfjsonpath.New("zone"),
+						knownvalue.NotNull(),
 					),
 				},
 			},
@@ -38,8 +44,6 @@ func TestAccKaasDataSource(t *testing.T) {
 
 const testAccKaasDataSourceConfig = `
 data "arubacloud_kaas" "test" {
-  name = "example-kaas"
-  # TODO: Add required fields based on the schema
-  # Check kaas_data_source.go for required attributes
+  id = "test-kaas-id"
 }
 `

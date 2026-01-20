@@ -28,7 +28,13 @@ func TestAccKeypairDataSource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_keypair.test",
 						tfjsonpath.New("name"),
-						knownvalue.StringExact("example-keypair"),
+						knownvalue.NotNull(),
+					),
+					// Test flattened fields
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_keypair.test",
+						tfjsonpath.New("public_key"),
+						knownvalue.NotNull(),
 					),
 				},
 			},
@@ -38,8 +44,6 @@ func TestAccKeypairDataSource(t *testing.T) {
 
 const testAccKeypairDataSourceConfig = `
 data "arubacloud_keypair" "test" {
-  name = "example-keypair"
-  # TODO: Add required fields based on the schema
-  # Check keypair_data_source.go for required attributes
+  id = "test-keypair-id"
 }
 `

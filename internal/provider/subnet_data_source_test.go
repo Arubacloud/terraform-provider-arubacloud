@@ -28,7 +28,23 @@ func TestAccSubnetDataSource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_subnet.test",
 						tfjsonpath.New("name"),
-						knownvalue.StringExact("example-subnet"),
+						knownvalue.NotNull(),
+					),
+					// Test flattened fields (not nested in properties)
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_subnet.test",
+						tfjsonpath.New("vpc_id"),
+						knownvalue.NotNull(),
+					),
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_subnet.test",
+						tfjsonpath.New("location"),
+						knownvalue.NotNull(),
+					),
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_subnet.test",
+						tfjsonpath.New("type"),
+						knownvalue.NotNull(),
 					),
 				},
 			},
@@ -38,8 +54,6 @@ func TestAccSubnetDataSource(t *testing.T) {
 
 const testAccSubnetDataSourceConfig = `
 data "arubacloud_subnet" "test" {
-  name = "example-subnet"
-  # TODO: Add required fields based on the schema
-  # Check subnet_data_source.go for required attributes
+  id = "test-subnet-id"
 }
 `

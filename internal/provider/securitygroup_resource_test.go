@@ -32,6 +32,11 @@ func TestAccSecuritygroupResource(t *testing.T) {
 						tfjsonpath.New("id"),
 						knownvalue.NotNull(),
 					),
+					statecheck.ExpectKnownValue(
+						"arubacloud_securitygroup.test",
+						tfjsonpath.New("vpc_id"),
+						knownvalue.NotNull(),
+					),
 				},
 			},
 			// ImportState testing
@@ -58,9 +63,10 @@ func TestAccSecuritygroupResource(t *testing.T) {
 func testAccSecuritygroupResourceConfig(name string) string {
 	return fmt.Sprintf(`
 resource "arubacloud_securitygroup" "test" {
-  name = %[1]q
-  # TODO: Add required fields based on the schema
-  # Check securitygroup_resource.go for required attributes
+  name       = %[1]q
+  location   = "it-1"
+  project_id = "test-project-id"
+  vpc_id     = "test-vpc-id"
 }
 `, name)
 }

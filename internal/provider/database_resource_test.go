@@ -32,6 +32,11 @@ func TestAccDatabaseResource(t *testing.T) {
 						tfjsonpath.New("id"),
 						knownvalue.NotNull(),
 					),
+					statecheck.ExpectKnownValue(
+						"arubacloud_database.test",
+						tfjsonpath.New("dbaas_id"),
+						knownvalue.NotNull(),
+					),
 				},
 			},
 			// ImportState testing
@@ -58,9 +63,9 @@ func TestAccDatabaseResource(t *testing.T) {
 func testAccDatabaseResourceConfig(name string) string {
 	return fmt.Sprintf(`
 resource "arubacloud_database" "test" {
-  name = %[1]q
-  # TODO: Add required fields based on the schema
-  # Check database_resource.go for required attributes
+  name       = %[1]q
+  project_id = "test-project-id"
+  dbaas_id   = "test-dbaas-id"
 }
 `, name)
 }

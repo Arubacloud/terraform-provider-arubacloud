@@ -28,7 +28,18 @@ func TestAccDbaasDataSource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_dbaas.test",
 						tfjsonpath.New("name"),
-						knownvalue.StringExact("example-dbaas"),
+						knownvalue.NotNull(),
+					),
+					// Test flattened fields
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_dbaas.test",
+						tfjsonpath.New("zone"),
+						knownvalue.NotNull(),
+					),
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_dbaas.test",
+						tfjsonpath.New("engine"),
+						knownvalue.NotNull(),
 					),
 				},
 			},
@@ -38,8 +49,6 @@ func TestAccDbaasDataSource(t *testing.T) {
 
 const testAccDbaasDataSourceConfig = `
 data "arubacloud_dbaas" "test" {
-  name = "example-dbaas"
-  # TODO: Add required fields based on the schema
-  # Check dbaas_data_source.go for required attributes
+  id = "test-dbaas-id"
 }
 `

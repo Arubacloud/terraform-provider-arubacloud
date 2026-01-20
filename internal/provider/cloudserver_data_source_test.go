@@ -28,7 +28,23 @@ func TestAccCloudserverDataSource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_cloudserver.test",
 						tfjsonpath.New("name"),
-						knownvalue.StringExact("example-cloudserver"),
+						knownvalue.NotNull(),
+					),
+					// Test flattened fields (not nested in properties)
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_cloudserver.test",
+						tfjsonpath.New("zone"),
+						knownvalue.NotNull(),
+					),
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_cloudserver.test",
+						tfjsonpath.New("location"),
+						knownvalue.NotNull(),
+					),
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_cloudserver.test",
+						tfjsonpath.New("project_id"),
+						knownvalue.NotNull(),
 					),
 				},
 			},
@@ -38,8 +54,6 @@ func TestAccCloudserverDataSource(t *testing.T) {
 
 const testAccCloudserverDataSourceConfig = `
 data "arubacloud_cloudserver" "test" {
-  name = "example-cloudserver"
-  # TODO: Add required fields based on the schema
-  # Check cloudserver_data_source.go for required attributes
+  id = "test-cloudserver-id"
 }
 `

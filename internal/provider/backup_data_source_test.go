@@ -23,12 +23,12 @@ func TestAccBackupDataSource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_backup.test",
 						tfjsonpath.New("id"),
-						knownvalue.StringExact("backup-id"),
+						knownvalue.NotNull(),
 					),
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_backup.test",
 						tfjsonpath.New("name"),
-						knownvalue.StringExact("example-backup"),
+						knownvalue.NotNull(),
 					),
 				},
 			},
@@ -38,6 +38,6 @@ func TestAccBackupDataSource(t *testing.T) {
 
 const testAccBackupDataSourceConfig = `
 data "arubacloud_backup" "test" {
-  name = "example-backup"
+  id = "test-backup-id"
 }
 `

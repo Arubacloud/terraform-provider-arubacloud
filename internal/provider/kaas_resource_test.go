@@ -32,6 +32,11 @@ func TestAccKaasResource(t *testing.T) {
 						tfjsonpath.New("id"),
 						knownvalue.NotNull(),
 					),
+					statecheck.ExpectKnownValue(
+						"arubacloud_kaas.test",
+						tfjsonpath.New("zone"),
+						knownvalue.NotNull(),
+					),
 				},
 			},
 			// ImportState testing
@@ -58,9 +63,26 @@ func TestAccKaasResource(t *testing.T) {
 func testAccKaasResourceConfig(name string) string {
 	return fmt.Sprintf(`
 resource "arubacloud_kaas" "test" {
-  name = %[1]q
-  # TODO: Add required fields based on the schema
-  # Check kaas_resource.go for required attributes
+  name           = %[1]q
+  location       = "it-1"
+  zone           = "it-1"
+  project_id     = "test-project-id"
+  billing_period = "Hour"
+  
+  network = {
+    vpc_uri_ref    = "test-vpc-uri"
+    subnet_uri_ref = "test-subnet-uri"
+    node_cidr = {
+      address = "10.0.1.0/24"
+      name    = "node-cidr"
+    }
+  }
+  
+  settings = {
+    kubernetes_version = "1.28"
+    ha                 = false
+    node_pools = []
+  }
 }
 `, name)
 }

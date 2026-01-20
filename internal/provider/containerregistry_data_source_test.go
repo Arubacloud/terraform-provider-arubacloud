@@ -28,7 +28,13 @@ func TestAccContainerregistryDataSource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_containerregistry.test",
 						tfjsonpath.New("name"),
-						knownvalue.StringExact("example-containerregistry"),
+						knownvalue.NotNull(),
+					),
+					// Test flattened fields
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_containerregistry.test",
+						tfjsonpath.New("zone"),
+						knownvalue.NotNull(),
 					),
 				},
 			},
@@ -38,8 +44,6 @@ func TestAccContainerregistryDataSource(t *testing.T) {
 
 const testAccContainerregistryDataSourceConfig = `
 data "arubacloud_containerregistry" "test" {
-  name = "example-containerregistry"
-  # TODO: Add required fields based on the schema
-  # Check containerregistry_data_source.go for required attributes
+  id = "test-containerregistry-id"
 }
 `

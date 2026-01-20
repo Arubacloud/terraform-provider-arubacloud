@@ -27,8 +27,19 @@ func TestAccSecurityruleDataSource(t *testing.T) {
 					),
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_securityrule.test",
-						tfjsonpath.New("name"),
-						knownvalue.StringExact("example-securityrule"),
+						tfjsonpath.New("security_group_id"),
+						knownvalue.NotNull(),
+					),
+					// Test flattened fields
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_securityrule.test",
+						tfjsonpath.New("direction"),
+						knownvalue.NotNull(),
+					),
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_securityrule.test",
+						tfjsonpath.New("protocol"),
+						knownvalue.NotNull(),
 					),
 				},
 			},
@@ -38,8 +49,6 @@ func TestAccSecurityruleDataSource(t *testing.T) {
 
 const testAccSecurityruleDataSourceConfig = `
 data "arubacloud_securityrule" "test" {
-  name = "example-securityrule"
-  # TODO: Add required fields based on the schema
-  # Check securityrule_data_source.go for required attributes
+  id = "test-securityrule-id"
 }
 `

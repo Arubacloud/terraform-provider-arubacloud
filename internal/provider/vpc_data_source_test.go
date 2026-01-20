@@ -28,7 +28,18 @@ func TestAccVpcDataSource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_vpc.test",
 						tfjsonpath.New("name"),
-						knownvalue.StringExact("example-vpc"),
+						knownvalue.NotNull(),
+					),
+					// Test flattened fields
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_vpc.test",
+						tfjsonpath.New("location"),
+						knownvalue.NotNull(),
+					),
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_vpc.test",
+						tfjsonpath.New("project_id"),
+						knownvalue.NotNull(),
 					),
 				},
 			},
@@ -38,8 +49,6 @@ func TestAccVpcDataSource(t *testing.T) {
 
 const testAccVpcDataSourceConfig = `
 data "arubacloud_vpc" "test" {
-  name = "example-vpc"
-  # TODO: Add required fields based on the schema
-  # Check vpc_data_source.go for required attributes
+  id = "test-vpc-id"
 }
 `

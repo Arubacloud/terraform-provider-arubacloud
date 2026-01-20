@@ -32,6 +32,11 @@ func TestAccVpcpeeringResource(t *testing.T) {
 						tfjsonpath.New("id"),
 						knownvalue.NotNull(),
 					),
+					statecheck.ExpectKnownValue(
+						"arubacloud_vpcpeering.test",
+						tfjsonpath.New("vpc_id"),
+						knownvalue.NotNull(),
+					),
 				},
 			},
 			// ImportState testing
@@ -58,9 +63,11 @@ func TestAccVpcpeeringResource(t *testing.T) {
 func testAccVpcpeeringResourceConfig(name string) string {
 	return fmt.Sprintf(`
 resource "arubacloud_vpcpeering" "test" {
-  name = %[1]q
-  # TODO: Add required fields based on the schema
-  # Check vpcpeering_resource.go for required attributes
+  name       = %[1]q
+  location   = "it-1"
+  project_id = "test-project-id"
+  vpc_id     = "test-vpc-id"
+  peer_vpc   = "peer-vpc-id"
 }
 `, name)
 }

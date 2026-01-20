@@ -59,8 +59,6 @@ func testAccProjectResourceConfig(name string) string {
 	return fmt.Sprintf(`
 resource "arubacloud_project" "test" {
   name = %[1]q
-  # TODO: Add required fields based on the schema
-  # Check project_resource.go for required attributes
 }
 `, name)
 }

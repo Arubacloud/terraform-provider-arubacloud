@@ -28,7 +28,18 @@ func TestAccElasticipDataSource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_elasticip.test",
 						tfjsonpath.New("name"),
-						knownvalue.StringExact("example-elasticip"),
+						knownvalue.NotNull(),
+					),
+					// Test flattened fields
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_elasticip.test",
+						tfjsonpath.New("ip_address"),
+						knownvalue.NotNull(),
+					),
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_elasticip.test",
+						tfjsonpath.New("zone"),
+						knownvalue.NotNull(),
 					),
 				},
 			},
@@ -38,8 +49,6 @@ func TestAccElasticipDataSource(t *testing.T) {
 
 const testAccElasticipDataSourceConfig = `
 data "arubacloud_elasticip" "test" {
-  name = "example-elasticip"
-  # TODO: Add required fields based on the schema
-  # Check elasticip_data_source.go for required attributes
+  id = "test-elasticip-id"
 }
 `

@@ -32,6 +32,11 @@ func TestAccDbaasResource(t *testing.T) {
 						tfjsonpath.New("id"),
 						knownvalue.NotNull(),
 					),
+					statecheck.ExpectKnownValue(
+						"arubacloud_dbaas.test",
+						tfjsonpath.New("engine_id"),
+						knownvalue.NotNull(),
+					),
 				},
 			},
 			// ImportState testing
@@ -58,9 +63,21 @@ func TestAccDbaasResource(t *testing.T) {
 func testAccDbaasResourceConfig(name string) string {
 	return fmt.Sprintf(`
 resource "arubacloud_dbaas" "test" {
-  name = %[1]q
-  # TODO: Add required fields based on the schema
-  # Check dbaas_resource.go for required attributes
+  name       = %[1]q
+  location   = "it-1"
+  zone       = "it-1"
+  project_id = "test-project-id"
+  engine_id  = "mysql-8.0"
+  flavor     = "DBO2A4"
+  
+  storage = {
+    size_gb = 20
+  }
+  
+  network = {
+    vpc_uri_ref    = "test-vpc-uri"
+    subnet_uri_ref = "test-subnet-uri"
+  }
 }
 `, name)
 }

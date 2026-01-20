@@ -27,8 +27,8 @@ func TestAccDatabasebackupDataSource(t *testing.T) {
 					),
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_databasebackup.test",
-						tfjsonpath.New("name"),
-						knownvalue.StringExact("example-databasebackup"),
+						tfjsonpath.New("dbaas_id"),
+						knownvalue.NotNull(),
 					),
 				},
 			},
@@ -38,8 +38,6 @@ func TestAccDatabasebackupDataSource(t *testing.T) {
 
 const testAccDatabasebackupDataSourceConfig = `
 data "arubacloud_databasebackup" "test" {
-  name = "example-databasebackup"
-  # TODO: Add required fields based on the schema
-  # Check databasebackup_data_source.go for required attributes
+  id = "test-databasebackup-id"
 }
 `

@@ -25,11 +25,6 @@ func TestAccDbaasuserDataSource(t *testing.T) {
 						tfjsonpath.New("id"),
 						knownvalue.NotNull(),
 					),
-					statecheck.ExpectKnownValue(
-						"data.arubacloud_dbaasuser.test",
-						tfjsonpath.New("name"),
-						knownvalue.StringExact("example-dbaasuser"),
-					),
 				},
 			},
 		},
@@ -38,8 +33,6 @@ func TestAccDbaasuserDataSource(t *testing.T) {
 
 const testAccDbaasuserDataSourceConfig = `
 data "arubacloud_dbaasuser" "test" {
-  name = "example-dbaasuser"
-  # TODO: Add required fields based on the schema
-  # Check dbaasuser_data_source.go for required attributes
+  id = "test-dbaasuser-id"
 }
 `

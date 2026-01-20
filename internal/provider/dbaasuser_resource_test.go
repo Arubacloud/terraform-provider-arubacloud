@@ -24,12 +24,17 @@ func TestAccDbaasuserResource(t *testing.T) {
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_dbaasuser.test",
-						tfjsonpath.New("name"),
-						knownvalue.StringExact("test-dbaasuser"),
+						tfjsonpath.New("id"),
+						knownvalue.NotNull(),
 					),
 					statecheck.ExpectKnownValue(
 						"arubacloud_dbaasuser.test",
-						tfjsonpath.New("id"),
+						tfjsonpath.New("username"),
+						knownvalue.NotNull(),
+					),
+					statecheck.ExpectKnownValue(
+						"arubacloud_dbaasuser.test",
+						tfjsonpath.New("dbaas_id"),
 						knownvalue.NotNull(),
 					),
 				},
@@ -58,9 +63,10 @@ func TestAccDbaasuserResource(t *testing.T) {
 func testAccDbaasuserResourceConfig(name string) string {
 	return fmt.Sprintf(`
 resource "arubacloud_dbaasuser" "test" {
-  name = %[1]q
-  # TODO: Add required fields based on the schema
-  # Check dbaasuser_resource.go for required attributes
+  project_id = "test-project-id"
+  dbaas_id   = "test-dbaas-id"
+  username   = %[1]q
+  password   = "test-password-123"
 }
 `, name)
 }

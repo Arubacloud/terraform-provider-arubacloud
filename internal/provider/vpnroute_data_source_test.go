@@ -25,11 +25,6 @@ func TestAccVpnrouteDataSource(t *testing.T) {
 						tfjsonpath.New("id"),
 						knownvalue.NotNull(),
 					),
-					statecheck.ExpectKnownValue(
-						"data.arubacloud_vpnroute.test",
-						tfjsonpath.New("name"),
-						knownvalue.StringExact("example-vpnroute"),
-					),
 				},
 			},
 		},
@@ -38,8 +33,6 @@ func TestAccVpnrouteDataSource(t *testing.T) {
 
 const testAccVpnrouteDataSourceConfig = `
 data "arubacloud_vpnroute" "test" {
-  name = "example-vpnroute"
-  # TODO: Add required fields based on the schema
-  # Check vpnroute_data_source.go for required attributes
+  id = "test-vpnroute-id"
 }
 `

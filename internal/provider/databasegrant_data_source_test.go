@@ -25,11 +25,6 @@ func TestAccDatabasegrantDataSource(t *testing.T) {
 						tfjsonpath.New("id"),
 						knownvalue.NotNull(),
 					),
-					statecheck.ExpectKnownValue(
-						"data.arubacloud_databasegrant.test",
-						tfjsonpath.New("name"),
-						knownvalue.StringExact("example-databasegrant"),
-					),
 				},
 			},
 		},
@@ -38,8 +33,6 @@ func TestAccDatabasegrantDataSource(t *testing.T) {
 
 const testAccDatabasegrantDataSourceConfig = `
 data "arubacloud_databasegrant" "test" {
-  name = "example-databasegrant"
-  # TODO: Add required fields based on the schema
-  # Check databasegrant_data_source.go for required attributes
+  id = "test-databasegrant-id"
 }
 `

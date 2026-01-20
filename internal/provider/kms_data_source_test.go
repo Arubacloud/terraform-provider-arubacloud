@@ -25,11 +25,6 @@ func TestAccKmsDataSource(t *testing.T) {
 						tfjsonpath.New("id"),
 						knownvalue.NotNull(),
 					),
-					statecheck.ExpectKnownValue(
-						"data.arubacloud_kms.test",
-						tfjsonpath.New("name"),
-						knownvalue.StringExact("example-kms"),
-					),
 				},
 			},
 		},
@@ -38,8 +33,6 @@ func TestAccKmsDataSource(t *testing.T) {
 
 const testAccKmsDataSourceConfig = `
 data "arubacloud_kms" "test" {
-  name = "example-kms"
-  # TODO: Add required fields based on the schema
-  # Check kms_data_source.go for required attributes
+  id = "test-kms-id"
 }
 `

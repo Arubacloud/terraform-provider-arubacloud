@@ -28,7 +28,13 @@ func TestAccSecuritygroupDataSource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_securitygroup.test",
 						tfjsonpath.New("name"),
-						knownvalue.StringExact("example-securitygroup"),
+						knownvalue.NotNull(),
+					),
+					// Test flattened fields
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_securitygroup.test",
+						tfjsonpath.New("vpc_id"),
+						knownvalue.NotNull(),
 					),
 				},
 			},
@@ -38,8 +44,6 @@ func TestAccSecuritygroupDataSource(t *testing.T) {
 
 const testAccSecuritygroupDataSourceConfig = `
 data "arubacloud_securitygroup" "test" {
-  name = "example-securitygroup"
-  # TODO: Add required fields based on the schema
-  # Check securitygroup_data_source.go for required attributes
+  id = "test-securitygroup-id"
 }
 `

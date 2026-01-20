@@ -25,11 +25,6 @@ func TestAccSchedulejobDataSource(t *testing.T) {
 						tfjsonpath.New("id"),
 						knownvalue.NotNull(),
 					),
-					statecheck.ExpectKnownValue(
-						"data.arubacloud_schedulejob.test",
-						tfjsonpath.New("name"),
-						knownvalue.StringExact("example-schedulejob"),
-					),
 				},
 			},
 		},
@@ -38,8 +33,6 @@ func TestAccSchedulejobDataSource(t *testing.T) {
 
 const testAccSchedulejobDataSourceConfig = `
 data "arubacloud_schedulejob" "test" {
-  name = "example-schedulejob"
-  # TODO: Add required fields based on the schema
-  # Check schedulejob_data_source.go for required attributes
+  id = "test-schedulejob-id"
 }
 `

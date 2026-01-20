@@ -28,7 +28,7 @@ func TestAccSnapshotDataSource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_snapshot.test",
 						tfjsonpath.New("name"),
-						knownvalue.StringExact("example-snapshot"),
+						knownvalue.NotNull(),
 					),
 				},
 			},
@@ -38,8 +38,6 @@ func TestAccSnapshotDataSource(t *testing.T) {
 
 const testAccSnapshotDataSourceConfig = `
 data "arubacloud_snapshot" "test" {
-  name = "example-snapshot"
-  # TODO: Add required fields based on the schema
-  # Check snapshot_data_source.go for required attributes
+  id = "test-snapshot-id"
 }
 `

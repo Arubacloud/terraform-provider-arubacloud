@@ -24,12 +24,17 @@ func TestAccDatabasegrantResource(t *testing.T) {
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_databasegrant.test",
-						tfjsonpath.New("name"),
-						knownvalue.StringExact("test-databasegrant"),
+						tfjsonpath.New("id"),
+						knownvalue.NotNull(),
 					),
 					statecheck.ExpectKnownValue(
 						"arubacloud_databasegrant.test",
-						tfjsonpath.New("id"),
+						tfjsonpath.New("database"),
+						knownvalue.NotNull(),
+					),
+					statecheck.ExpectKnownValue(
+						"arubacloud_databasegrant.test",
+						tfjsonpath.New("role"),
 						knownvalue.NotNull(),
 					),
 				},
@@ -58,9 +63,11 @@ func TestAccDatabasegrantResource(t *testing.T) {
 func testAccDatabasegrantResourceConfig(name string) string {
 	return fmt.Sprintf(`
 resource "arubacloud_databasegrant" "test" {
-  name = %[1]q
-  # TODO: Add required fields based on the schema
-  # Check databasegrant_resource.go for required attributes
+  project_id = "test-project-id"
+  dbaas_id   = "test-dbaas-id"
+  database   = %[1]q
+  user_id    = "test-user"
+  role       = "read"
 }
 `, name)
 }

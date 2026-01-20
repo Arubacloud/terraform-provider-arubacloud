@@ -32,6 +32,16 @@ func TestAccSubnetResource(t *testing.T) {
 						tfjsonpath.New("id"),
 						knownvalue.NotNull(),
 					),
+					statecheck.ExpectKnownValue(
+						"arubacloud_subnet.test",
+						tfjsonpath.New("vpc_id"),
+						knownvalue.NotNull(),
+					),
+					statecheck.ExpectKnownValue(
+						"arubacloud_subnet.test",
+						tfjsonpath.New("type"),
+						knownvalue.NotNull(),
+					),
 				},
 			},
 			// ImportState testing
@@ -58,9 +68,15 @@ func TestAccSubnetResource(t *testing.T) {
 func testAccSubnetResourceConfig(name string) string {
 	return fmt.Sprintf(`
 resource "arubacloud_subnet" "test" {
-  name = %[1]q
-  # TODO: Add required fields based on the schema
-  # Check subnet_resource.go for required attributes
+  name       = %[1]q
+  location   = "it-1"
+  project_id = "test-project-id"
+  vpc_id     = "test-vpc-id"
+  type       = "Basic"
+  
+  network = {
+    address = "10.0.0.0/24"
+  }
 }
 `, name)
 }
