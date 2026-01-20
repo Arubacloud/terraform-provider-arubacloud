@@ -9,11 +9,11 @@ import (
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
@@ -169,12 +169,7 @@ func (r *ScheduleJobResource) Create(ctx context.Context, req resource.CreateReq
 	}
 
 	// Extract properties
-	var propertiesObj map[string]attr.Value
-	diags := data.Properties.As(ctx, &propertiesObj, basetypes.ObjectAsOptions{})
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
+	propertiesObj := data.Properties.Attributes()
 
 	jobTypeAttr, ok := propertiesObj["schedule_job_type"].(types.String)
 	if !ok {
@@ -214,6 +209,68 @@ func (r *ScheduleJobResource) Create(ctx context.Context, req resource.CreateReq
 		}
 	}
 
+	// Extract steps
+	var steps []sdktypes.JobStep
+	if stepsAttr, ok := propertiesObj["steps"]; ok {
+		if stepsList, ok := stepsAttr.(types.List); ok && !stepsList.IsNull() {
+			var stepsElements []types.Object
+			diags := stepsList.ElementsAs(ctx, &stepsElements, false)
+			resp.Diagnostics.Append(diags...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+
+			for _, stepObj := range stepsElements {
+				stepAttrs := stepObj.Attributes()
+
+				var name *string
+				if nameAttr, ok := stepAttrs["name"]; ok {
+					if nameStr, ok := nameAttr.(types.String); ok && !nameStr.IsNull() {
+						nameVal := nameStr.ValueString()
+						name = &nameVal
+					}
+				}
+
+				var resourceURI string
+				if resURIAttr, ok := stepAttrs["resource_uri"]; ok {
+					if resURIStr, ok := resURIAttr.(types.String); ok {
+						resourceURI = resURIStr.ValueString()
+					}
+				}
+
+				var actionURI string
+				if actURIAttr, ok := stepAttrs["action_uri"]; ok {
+					if actURIStr, ok := actURIAttr.(types.String); ok {
+						actionURI = actURIStr.ValueString()
+					}
+				}
+
+				var httpVerb string
+				if verbAttr, ok := stepAttrs["http_verb"]; ok {
+					if verbStr, ok := verbAttr.(types.String); ok {
+						httpVerb = verbStr.ValueString()
+					}
+				}
+
+				var body *string
+				if bodyAttr, ok := stepAttrs["body"]; ok {
+					if bodyStr, ok := bodyAttr.(types.String); ok && !bodyStr.IsNull() {
+						bodyVal := bodyStr.ValueString()
+						body = &bodyVal
+					}
+				}
+
+				steps = append(steps, sdktypes.JobStep{
+					Name:        name,
+					ResourceURI: resourceURI,
+					ActionURI:   actionURI,
+					HttpVerb:    httpVerb,
+					Body:        body,
+				})
+			}
+		}
+	}
+
 	// Build the create request
 	createRequest := sdktypes.JobRequest{
 		Metadata: sdktypes.RegionalResourceMetadataRequest{
@@ -231,6 +288,7 @@ func (r *ScheduleJobResource) Create(ctx context.Context, req resource.CreateReq
 			ScheduleAt:   scheduleAt,
 			Cron:         cron,
 			ExecuteUntil: executeUntil,
+			Steps:        steps,
 		},
 	}
 
@@ -389,6 +447,63 @@ func (r *ScheduleJobResource) Read(ctx context.Context, req resource.ReadRequest
 			data.Tags = types.ListNull(types.StringType)
 		}
 
+		// Define step object type
+		stepObjectType := types.ObjectType{
+			AttrTypes: map[string]attr.Type{
+				"name":         types.StringType,
+				"resource_uri": types.StringType,
+				"action_uri":   types.StringType,
+				"http_verb":    types.StringType,
+				"body":         types.StringType,
+			},
+		}
+
+		// Convert steps from API response
+		var stepsListValue types.List
+		if job.Properties.Steps != nil && len(job.Properties.Steps) > 0 {
+			stepObjects := make([]attr.Value, len(job.Properties.Steps))
+			for i, step := range job.Properties.Steps {
+				stepAttrs := map[string]attr.Value{
+					"name":         types.StringNull(),
+					"resource_uri": types.StringNull(),
+					"action_uri":   types.StringNull(),
+					"http_verb":    types.StringNull(),
+					"body":         types.StringNull(),
+				}
+
+				if step.Name != nil {
+					stepAttrs["name"] = types.StringValue(*step.Name)
+				}
+				if step.ResourceURI != nil {
+					stepAttrs["resource_uri"] = types.StringValue(*step.ResourceURI)
+				}
+				if step.ActionURI != nil {
+					stepAttrs["action_uri"] = types.StringValue(*step.ActionURI)
+				}
+				if step.HttpVerb != nil {
+					stepAttrs["http_verb"] = types.StringValue(*step.HttpVerb)
+				}
+				if step.Body != nil {
+					stepAttrs["body"] = types.StringValue(*step.Body)
+				}
+
+				stepObj, diags := types.ObjectValue(stepObjectType.AttrTypes, stepAttrs)
+				resp.Diagnostics.Append(diags...)
+				if resp.Diagnostics.HasError() {
+					return
+				}
+				stepObjects[i] = stepObj
+			}
+			var diags diag.Diagnostics
+			stepsListValue, diags = types.ListValue(stepObjectType, stepObjects)
+			resp.Diagnostics.Append(diags...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+		} else {
+			stepsListValue = types.ListNull(stepObjectType)
+		}
+
 		// Reconstruct properties object
 		propertiesAttrs := map[string]attr.Value{
 			"enabled":           types.BoolValue(job.Properties.Enabled),
@@ -396,7 +511,7 @@ func (r *ScheduleJobResource) Read(ctx context.Context, req resource.ReadRequest
 			"schedule_at":       types.StringNull(),
 			"execute_until":     types.StringNull(),
 			"cron":              types.StringNull(),
-			"steps":             types.ListNull(types.ObjectType{}),
+			"steps":             stepsListValue,
 		}
 
 		if job.Properties.ScheduleAt != nil {
@@ -416,7 +531,7 @@ func (r *ScheduleJobResource) Read(ctx context.Context, req resource.ReadRequest
 				"schedule_at":       types.StringType,
 				"execute_until":     types.StringType,
 				"cron":              types.StringType,
-				"steps":             types.ListType{ElemType: types.ObjectType{}},
+				"steps":             types.ListType{ElemType: stepObjectType},
 			},
 			propertiesAttrs,
 		)
@@ -494,17 +609,95 @@ func (r *ScheduleJobResource) Update(ctx context.Context, req resource.UpdateReq
 	}
 
 	// Extract properties
-	var propertiesObj map[string]attr.Value
-	diags := data.Properties.As(ctx, &propertiesObj, basetypes.ObjectAsOptions{})
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
+	propertiesObj := data.Properties.Attributes()
 
 	enabled := current.Properties.Enabled
 	if enabledAttr, ok := propertiesObj["enabled"]; ok {
 		if enabledBool, ok := enabledAttr.(types.Bool); ok && !enabledBool.IsNull() {
 			enabled = enabledBool.ValueBool()
+		}
+	}
+
+	// Extract steps from properties
+	var steps []sdktypes.JobStep
+	if stepsAttr, ok := propertiesObj["steps"]; ok {
+		if stepsList, ok := stepsAttr.(types.List); ok && !stepsList.IsNull() {
+			var stepsElements []types.Object
+			diags := stepsList.ElementsAs(ctx, &stepsElements, false)
+			resp.Diagnostics.Append(diags...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+
+			for _, stepObj := range stepsElements {
+				stepAttrs := stepObj.Attributes()
+
+				var name *string
+				if nameAttr, ok := stepAttrs["name"]; ok {
+					if nameStr, ok := nameAttr.(types.String); ok && !nameStr.IsNull() {
+						nameVal := nameStr.ValueString()
+						name = &nameVal
+					}
+				}
+
+				var resourceURI string
+				if resURIAttr, ok := stepAttrs["resource_uri"]; ok {
+					if resURIStr, ok := resURIAttr.(types.String); ok {
+						resourceURI = resURIStr.ValueString()
+					}
+				}
+
+				var actionURI string
+				if actURIAttr, ok := stepAttrs["action_uri"]; ok {
+					if actURIStr, ok := actURIAttr.(types.String); ok {
+						actionURI = actURIStr.ValueString()
+					}
+				}
+
+				var httpVerb string
+				if verbAttr, ok := stepAttrs["http_verb"]; ok {
+					if verbStr, ok := verbAttr.(types.String); ok {
+						httpVerb = verbStr.ValueString()
+					}
+				}
+
+				var body *string
+				if bodyAttr, ok := stepAttrs["body"]; ok {
+					if bodyStr, ok := bodyAttr.(types.String); ok && !bodyStr.IsNull() {
+						bodyVal := bodyStr.ValueString()
+						body = &bodyVal
+					}
+				}
+
+				steps = append(steps, sdktypes.JobStep{
+					Name:        name,
+					ResourceURI: resourceURI,
+					ActionURI:   actionURI,
+					HttpVerb:    httpVerb,
+					Body:        body,
+				})
+			}
+		}
+	} else {
+		// If steps not provided in update, use current steps
+		if current.Properties.Steps != nil {
+			steps = make([]sdktypes.JobStep, len(current.Properties.Steps))
+			for i, currentStep := range current.Properties.Steps {
+				step := sdktypes.JobStep{
+					Name: currentStep.Name,
+					Body: currentStep.Body,
+				}
+				if currentStep.ResourceURI != nil {
+					step.ResourceURI = *currentStep.ResourceURI
+				}
+				if currentStep.ActionURI != nil {
+					step.ActionURI = *currentStep.ActionURI
+				}
+				if currentStep.HttpVerb != nil {
+					step.HttpVerb = *currentStep.HttpVerb
+				}
+				steps[i] = step
+			}
 		}
 	}
 
@@ -525,6 +718,7 @@ func (r *ScheduleJobResource) Update(ctx context.Context, req resource.UpdateReq
 			ScheduleAt:   current.Properties.ScheduleAt,
 			ExecuteUntil: current.Properties.ExecuteUntil,
 			Cron:         current.Properties.Cron,
+			Steps:        steps,
 		},
 	}
 
