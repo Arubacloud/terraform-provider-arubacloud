@@ -101,5 +101,9 @@ jobs:
           TF_ACC: "1"
           ARUBACLOUD_API_KEY: ${{ secrets.ARUBACLOUD_API_KEY }}
           ARUBACLOUD_API_SECRET: ${{ secrets.ARUBACLOUD_API_SECRET }}
-        run: go test -v -timeout=120m ./internal/provider/...
+        run: |
+          # Run unit tests and datasource acceptance tests only
+          # Skip resource creation tests that require infrastructure
+          go test -v -timeout=120m ./internal/provider/... \
+            -run '^Test(?:DataSource|Resource(?:Schema|Metadata|ImportState)|Provider|Block.*|Acc\w+DataSource)$'
 
