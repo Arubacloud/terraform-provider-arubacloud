@@ -94,36 +94,24 @@ func (r *KMIPResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
-	// Get KMS to get its URI
-	kmsResp, err := r.client.Client.FromSecurity().KMSKeys().Get(ctx, projectID, kmsID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error getting KMS",
-			fmt.Sprintf("Unable to get KMS: %s", err),
-		)
-		return
-	}
-
-	if kmsResp == nil || kmsResp.Data == nil || kmsResp.Data.Metadata.URI == nil {
-		resp.Diagnostics.AddError(
-			"KMS Not Found",
-			"KMS not found or missing URI",
-		)
-		return
-	}
-
-	kmsURI := *kmsResp.Data.Metadata.URI
+	// KMIP is a child resource of KMS, similar to Subnet being a child of VPC
+	// Terraform handles the dependency automatically through kms_id reference
+	// No need to validate KMS state - if KMS was just created, it's already active
 
 	// Build the create request
 	createRequest := sdktypes.KmipRequest{
 		Name: data.Name.ValueString(),
-		KMS: sdktypes.ReferenceResource{
-			URI: kmsURI,
-		},
 	}
 
-	// Create the KMIP using the SDK
-	response, err := r.client.Client.FromSecurity().KMIP().Create(ctx, projectID, kmsID, createRequest, nil)
+	// Debug log the request
+	tflog.Debug(ctx, "Creating KMIP with request", map[string]interface{}{
+		"kmip_name":  createRequest.Name,
+		"project_id": projectID,
+		"kms_id":     kmsID,
+	})
+
+	// Create the KMIP using the SDK - nested under KMS
+	response, err := r.client.Client.FromSecurity().KMS().Kmips().Create(ctx, projectID, kmsID, createRequest, nil)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating KMIP",
@@ -133,13 +121,12 @@ func (r *KMIPResource) Create(ctx context.Context, req resource.CreateRequest, r
 	}
 
 	if response != nil && response.IsError() && response.Error != nil {
-		errorMsg := "Failed to create KMIP"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
+		logContext := map[string]interface{}{
+			"project_id": projectID,
+			"kms_id":     kmsID,
+			"kmip_name":  data.Name.ValueString(),
 		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create KMIP", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}
@@ -148,8 +135,8 @@ func (r *KMIPResource) Create(ctx context.Context, req resource.CreateRequest, r
 		// KMIP uses name as ID or has a separate ID field
 		if response.Data.ID != nil {
 			data.Id = types.StringValue(*response.Data.ID)
-		} else if response.Data.Name != "" {
-			data.Id = types.StringValue(response.Data.Name)
+		} else if response.Data.Name != nil && *response.Data.Name != "" {
+			data.Id = types.StringValue(*response.Data.Name)
 		} else {
 			resp.Diagnostics.AddError(
 				"Invalid API Response",
@@ -169,7 +156,7 @@ func (r *KMIPResource) Create(ctx context.Context, req resource.CreateRequest, r
 	// This ensures Terraform doesn't proceed until KMIP is ready
 	kmipID := data.Id.ValueString()
 	checker := func(ctx context.Context) (string, error) {
-		getResp, err := r.client.Client.FromSecurity().KMIP().Get(ctx, projectID, kmsID, kmipID, nil)
+		getResp, err := r.client.Client.FromSecurity().KMS().Kmips().Get(ctx, projectID, kmsID, kmipID, nil)
 		if err != nil {
 			return "", err
 		}
@@ -190,7 +177,7 @@ func (r *KMIPResource) Create(ctx context.Context, req resource.CreateRequest, r
 	}
 
 	tflog.Trace(ctx, "created a KMIP resource", map[string]interface{}{
-		"kmip_id": data.Id.ValueString(),
+		"kmip_id":   data.Id.ValueString(),
 		"kmip_name": data.Name.ValueString(),
 	})
 
@@ -217,7 +204,7 @@ func (r *KMIPResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	}
 
 	// Get KMIP details using the SDK
-	response, err := r.client.Client.FromSecurity().KMIP().Get(ctx, projectID, kmsID, kmipID, nil)
+	response, err := r.client.Client.FromSecurity().KMS().Kmips().Get(ctx, projectID, kmsID, kmipID, nil)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading KMIP",
@@ -246,11 +233,11 @@ func (r *KMIPResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		kmip := response.Data
 		if kmip.ID != nil {
 			data.Id = types.StringValue(*kmip.ID)
-		} else if kmip.Name != "" {
-			data.Id = types.StringValue(kmip.Name)
+		} else if kmip.Name != nil && *kmip.Name != "" {
+			data.Id = types.StringValue(*kmip.Name)
 		}
-		if kmip.Name != "" {
-			data.Name = types.StringValue(kmip.Name)
+		if kmip.Name != nil && *kmip.Name != "" {
+			data.Name = types.StringValue(*kmip.Name)
 		}
 	} else {
 		resp.State.RemoveResource(ctx)
@@ -286,8 +273,8 @@ func (r *KMIPResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
-	// Get KMS to get its URI
-	kmsResp, err := r.client.Client.FromSecurity().KMSKeys().Get(ctx, projectID, kmsID, nil)
+	// Get KMS to validate it exists
+	kmsResp, err := r.client.Client.FromSecurity().KMS().Get(ctx, projectID, kmsID, nil)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error getting KMS",
@@ -304,18 +291,14 @@ func (r *KMIPResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
-	kmsURI := *kmsResp.Data.Metadata.URI
-
 	// Build update request
 	updateRequest := sdktypes.KmipRequest{
 		Name: data.Name.ValueString(),
-		KMS: sdktypes.ReferenceResource{
-			URI: kmsURI,
-		},
 	}
 
-	// Update the KMIP using the SDK
-	response, err := r.client.Client.FromSecurity().KMIP().Update(ctx, projectID, kmsID, kmipID, updateRequest, nil)
+	// KMIP doesn't support direct updates - delete and recreate
+	// First delete the existing KMIP
+	delResp, err := r.client.Client.FromSecurity().KMS().Kmips().Delete(ctx, projectID, kmsID, kmipID, nil)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating KMIP",
@@ -324,23 +307,45 @@ func (r *KMIPResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		errorMsg := "Failed to update KMIP"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
+	if delResp != nil && delResp.IsError() && delResp.Error != nil {
+		errorMsg := "Failed to delete KMIP during update"
+		if delResp.Error.Title != nil {
+			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *delResp.Error.Title)
 		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
+		if delResp.Error.Detail != nil {
+			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *delResp.Error.Detail)
 		}
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}
 
-	if response != nil && response.Data != nil {
-		if response.Data.ID != nil {
-			data.Id = types.StringValue(*response.Data.ID)
-		} else if response.Data.Name != "" {
-			data.Id = types.StringValue(response.Data.Name)
+	// Recreate the KMIP with updated values
+	createResp, err := r.client.Client.FromSecurity().KMS().Kmips().Create(ctx, projectID, kmsID, updateRequest, nil)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error recreating KMIP",
+			fmt.Sprintf("Unable to recreate KMIP: %s", err),
+		)
+		return
+	}
+
+	if createResp != nil && createResp.IsError() && createResp.Error != nil {
+		errorMsg := "Failed to recreate KMIP"
+		if createResp.Error.Title != nil {
+			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *createResp.Error.Title)
+		}
+		if createResp.Error.Detail != nil {
+			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *createResp.Error.Detail)
+		}
+		resp.Diagnostics.AddError("API Error", errorMsg)
+		return
+	}
+
+	if createResp != nil && createResp.Data != nil {
+		if createResp.Data.ID != nil {
+			data.Id = types.StringValue(*createResp.Data.ID)
+		} else if createResp.Data.Name != nil && *createResp.Data.Name != "" {
+			data.Id = types.StringValue(*createResp.Data.Name)
 		}
 	}
 
@@ -358,39 +363,42 @@ func (r *KMIPResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 	kmsID := data.KMSID.ValueString()
 	kmipID := data.Id.ValueString()
 
-	if projectID == "" || kmsID == "" || kmipID == "" {
+	// If ID is unknown or empty, the resource doesn't exist (e.g., during plan or if never created)
+	// Return early without error - this is expected behavior
+	if data.Id.IsUnknown() || data.Id.IsNull() || kmipID == "" {
+		tflog.Debug(ctx, "KMIP ID is unknown or empty, skipping delete", map[string]interface{}{
+			"kmip_id": kmipID,
+		})
+		return
+	}
+
+	// Project ID and KMS ID should always be set, but check to be safe
+	if projectID == "" || kmsID == "" {
 		resp.Diagnostics.AddError(
 			"Missing Required Fields",
-			"Project ID, KMS ID, and KMIP ID are required to delete the KMIP",
+			"Project ID and KMS ID are required to delete the KMIP",
 		)
 		return
 	}
 
-	// Delete the KMIP using the SDK
-	response, err := r.client.Client.FromSecurity().KMIP().Delete(ctx, projectID, kmsID, kmipID, nil)
+	// Delete the KMIP using the SDK with retry mechanism
+	// Retry on any error except 404 (Resource Not Found)
+	err := DeleteResourceWithRetry(
+		ctx,
+		func() (interface{}, error) {
+			return r.client.Client.FromSecurity().KMS().Kmips().Delete(ctx, projectID, kmsID, kmipID, nil)
+		},
+		ExtractSDKError,
+		"KMIP",
+		kmipID,
+		r.client.ResourceTimeout,
+	)
+
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting KMIP",
 			fmt.Sprintf("Unable to delete KMIP: %s", err),
 		)
-		return
-	}
-
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
-			tflog.Trace(ctx, "KMIP already deleted", map[string]interface{}{
-				"kmip_id": kmipID,
-			})
-			return
-		}
-		errorMsg := "Failed to delete KMIP"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
-		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
-		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}
 

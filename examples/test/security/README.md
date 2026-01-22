@@ -1,12 +1,15 @@
 # ArubaCloud Terraform Provider - Security Example
 
-This example demonstrates encryption and key management services deployment with KMS.
+This example demonstrates encryption and key management services deployment with KMS and encryption keys.
 
 ## What This Example Does
 
 This Terraform configuration:
 1. Creates a project as the foundation
 2. Sets up Key Management Service (KMS) for encryption
+3. Creates encryption keys within the KMS
+
+**Note:** KMIP (Key Management Interoperability Protocol) endpoint creation is currently commented out due to API validation requirements.
 
 ## Features
 
@@ -16,6 +19,18 @@ This Terraform configuration:
 - Managed key service for encryption operations
 - Configured with hourly billing
 - Provides centralized key management
+- Location-based deployment (ITBG-Bergamo default)
+- Tag support for resource organization (minimum 4 characters per tag)
+
+#### Encryption Keys
+- AES and RSA encryption algorithms supported
+- Keys are managed within KMS
+- Automatic key lifecycle management
+
+#### KMIP (Currently Unavailable)
+- KMIP endpoint creation returns "invalid status" validation error
+- May require specific KMS configuration or feature enablement
+- Resource definition is commented out in the example
 
 ## Prerequisites
 
@@ -79,16 +94,19 @@ billing_period = "Hour"
 
 ## Resource Dependencies
 
-The example follows this simple dependency chain:
+The example follows this dependency chain:
 ```
 Project
   └── KMS
+       └── Key (encryption key)
+       └── KMIP (commented out - validation issues)
 ```
 
 ## Outputs
 
 The configuration provides outputs for:
 - KMS instance ID and URI
+- Key ID and URI (when created)
 
 These outputs can be used as inputs for other Terraform modules or for reference.
 
@@ -98,6 +116,12 @@ These outputs can be used as inputs for other Terraform modules or for reference
 ```bash
 terraform output kms_id
 terraform output kms_uri
+```
+
+### Verify Key Creation
+```bash
+terraform output key_id
+terraform output key_uri
 ```
 
 ## Cleanup
@@ -111,8 +135,17 @@ When prompted, type `yes` to confirm deletion.
 
 ## Common Issues
 
-### Issue: KMS creation fails
-**Solution**: Ensure you have proper permissions and billing setup for encryption services in your ArubaCloud account.
+### Issue: KMS creation fails with "length must be at least 4 char"
+**Solution**: Ensure all tags have at least 4 characters. Example: use "encryption" instead of "kms".
+
+### Issue: KMIP creation fails with "invalid status"
+**Solution**: KMIP endpoint creation currently has API validation issues. The feature may require specific KMS configuration or account-level enablement. The resource is commented out in this example.
+
+### Issue: Key creation returns "no ID returned from API"
+**Solution**: The provider will attempt to use the key name as ID if KeyID is not returned. Check the debug logs for more information.
+
+### Issue: KMS not accessible immediately after creation
+**Solution**: The provider waits for KMS to be in "Active" state before proceeding. If issues persist, check KMS state in the ArubaCloud console.
 
 ## Additional Resources
 
@@ -122,6 +155,10 @@ When prompted, type `yes` to confirm deletion.
 
 ## Notes
 
+- **SDK Version**: This example requires SDK v0.1.20 or later with KMS response parsing fixes
 - KMS resources require proper billing setup in your ArubaCloud account
 - Keys and encryption services are managed centrally through KMS
 - KMS provides secure key management for encrypting your ArubaCloud resources
+- The provider automatically waits for KMS to be active before creating child resources (Keys, KMIP)
+- **Algorithm names**: Use "Aes" or "Rsa" (case-sensitive) for key algorithms
+- **Immutable fields**: KMS `id` and `uri` are set once at creation and never change until resource deletion

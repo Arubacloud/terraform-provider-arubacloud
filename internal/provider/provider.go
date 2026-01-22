@@ -190,7 +190,8 @@ func (p *ArubaCloudProvider) Resources(ctx context.Context) []func() resource.Re
 		NewDBaaSUserResource,
 		NewScheduleJobResource,
 		NewKMSResource,
-		// NewKMIPResource, // TODO: KMIP not available in SDK yet
+		NewKMIPResource,
+		NewKeyResource,
 	}
 
 }
@@ -221,8 +222,9 @@ func (p *ArubaCloudProvider) DataSources(ctx context.Context) []func() datasourc
 		NewDatabaseGrantDataSource,
 		NewDBaaSDataSource,
 		NewDBaaSUserDataSource,
-		// NewKMIPDataSource, // TODO: KMIP not available in SDK yet
+		NewKMIPDataSource,
 		NewKMSDataSource,
+		NewKeyDataSource,
 		NewRestoreDataSource,
 		NewScheduleJobDataSource,
 		NewVPNRouteDataSource,

@@ -12,6 +12,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -48,10 +50,16 @@ func (r *KMSResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 			"id": schema.StringAttribute{
 				MarkdownDescription: "KMS identifier",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"uri": schema.StringAttribute{
 				MarkdownDescription: "KMS URI",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "KMS name",
@@ -63,7 +71,11 @@ func (r *KMSResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 			},
 			"location": schema.StringAttribute{
 				MarkdownDescription: "Location for the KMS",
-				Required:            true,
+				Optional:            true,
+				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
@@ -72,7 +84,11 @@ func (r *KMSResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 			},
 			"billing_period": schema.StringAttribute{
 				MarkdownDescription: "Billing period for the KMS",
-				Required:            true,
+				Optional:            true,
+				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}
@@ -120,6 +136,17 @@ func (r *KMSResource) Create(ctx context.Context, req resource.CreateRequest, re
 	}
 
 	// Build the create request
+	location := "ITBG-Bergamo" // Default location
+	if !data.Location.IsNull() && !data.Location.IsUnknown() {
+		location = data.Location.ValueString()
+	}
+
+	// Use default or user-provided billing period
+	billingPeriod := "Hour"
+	if !data.BillingPeriod.IsNull() && !data.BillingPeriod.IsUnknown() {
+		billingPeriod = data.BillingPeriod.ValueString()
+	}
+
 	createRequest := sdktypes.KmsRequest{
 		Metadata: sdktypes.RegionalResourceMetadataRequest{
 			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
@@ -127,18 +154,16 @@ func (r *KMSResource) Create(ctx context.Context, req resource.CreateRequest, re
 				Tags: tags,
 			},
 			Location: sdktypes.LocationRequest{
-				Value: data.Location.ValueString(),
+				Value: location,
 			},
 		},
 		Properties: sdktypes.KmsPropertiesRequest{
-			BillingPeriod: sdktypes.BillingPeriodResource{
-				BillingPeriod: data.BillingPeriod.ValueString(),
-			},
+			BillingPeriod: billingPeriod,
 		},
 	}
 
 	// Create the KMS using the SDK
-	response, err := r.client.Client.FromSecurity().KMSKeys().Create(ctx, projectID, createRequest, nil)
+	response, err := r.client.Client.FromSecurity().KMS().Create(ctx, projectID, createRequest, nil)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating KMS",
@@ -148,33 +173,44 @@ func (r *KMSResource) Create(ctx context.Context, req resource.CreateRequest, re
 	}
 
 	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{}
+		logContext := map[string]interface{}{
+			"project_id": projectID,
+			"kms_name":   data.Name.ValueString(),
+		}
 		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create KMS", logContext)
 		resp.Diagnostics.AddError("API Error", errorMsg)
 		return
 	}
 
-	if response != nil && response.Data != nil && response.Data.Metadata.ID != nil {
-		data.Id = types.StringValue(*response.Data.Metadata.ID)
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+	if response != nil && response.Data != nil {
+		if response.Data.Metadata.ID != nil {
+			data.Id = types.StringValue(*response.Data.Metadata.ID)
 		} else {
-			data.Uri = types.StringNull()
+			resp.Diagnostics.AddError(
+				"Invalid API Response",
+				"KMS created but no ID returned from API",
+			)
+			return
 		}
 		if response.Data.Metadata.URI != nil {
 			data.Uri = types.StringValue(*response.Data.Metadata.URI)
 		} else {
 			data.Uri = types.StringNull()
 		}
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
+		// Set other fields from create response
+		if response.Data.Metadata.LocationResponse != nil {
+			data.Location = types.StringValue(response.Data.Metadata.LocationResponse.Value)
 		}
+		if response.Data.Properties.BillingPeriod != "" {
+			data.BillingPeriod = types.StringValue(response.Data.Properties.BillingPeriod)
+		} else if data.BillingPeriod.IsNull() || data.BillingPeriod.IsUnknown() {
+			data.BillingPeriod = types.StringValue("Hour")
+		}
+		// Tags are preserved from plan - no need to set from response in Create
 	} else {
 		resp.Diagnostics.AddError(
 			"Invalid API Response",
-			"KMS created but no ID returned from API",
+			"KMS created but no data returned from API",
 		)
 		return
 	}
@@ -182,8 +218,15 @@ func (r *KMSResource) Create(ctx context.Context, req resource.CreateRequest, re
 	// Wait for KMS to be active before returning
 	// This ensures Terraform doesn't proceed until KMS is ready
 	kmsID := data.Id.ValueString()
+	if kmsID == "" {
+		resp.Diagnostics.AddError(
+			"Missing KMS ID",
+			"KMS ID is required but was not set",
+		)
+		return
+	}
 	checker := func(ctx context.Context) (string, error) {
-		getResp, err := r.client.Client.FromSecurity().KMSKeys().Get(ctx, projectID, kmsID, nil)
+		getResp, err := r.client.Client.FromSecurity().KMS().Get(ctx, projectID, kmsID, nil)
 		if err != nil {
 			return "", err
 		}
@@ -229,7 +272,7 @@ func (r *KMSResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	}
 
 	// Get KMS details using the SDK
-	response, err := r.client.Client.FromSecurity().KMSKeys().Get(ctx, projectID, kmsID, nil)
+	response, err := r.client.Client.FromSecurity().KMS().Get(ctx, projectID, kmsID, nil)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading KMS",
@@ -256,21 +299,11 @@ func (r *KMSResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 		kms := response.Data
 		if kms.Metadata.ID != nil {
 			data.Id = types.StringValue(*kms.Metadata.ID)
-			if response.Data.Metadata.URI != nil {
-				data.Uri = types.StringValue(*response.Data.Metadata.URI)
-			} else {
-				data.Uri = types.StringNull()
-			}
-			if response.Data.Metadata.URI != nil {
-				data.Uri = types.StringValue(*response.Data.Metadata.URI)
-			} else {
-				data.Uri = types.StringNull()
-			}
-			if response.Data.Metadata.URI != nil {
-				data.Uri = types.StringValue(*response.Data.Metadata.URI)
-			} else {
-				data.Uri = types.StringNull()
-			}
+		}
+		if kms.Metadata.URI != nil {
+			data.Uri = types.StringValue(*kms.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
 		}
 		if kms.Metadata.Name != nil {
 			data.Name = types.StringValue(*kms.Metadata.Name)
@@ -278,7 +311,7 @@ func (r *KMSResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 		if kms.Metadata.LocationResponse != nil {
 			data.Location = types.StringValue(kms.Metadata.LocationResponse.Value)
 		}
-		if kms.Metadata.Tags != nil {
+		if len(kms.Metadata.Tags) > 0 {
 			tagValues := make([]attr.Value, len(kms.Metadata.Tags))
 			for i, tag := range kms.Metadata.Tags {
 				tagValues[i] = types.StringValue(tag)
@@ -289,10 +322,14 @@ func (r *KMSResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 				data.Tags = tagsList
 			}
 		} else {
-			data.Tags = types.ListNull(types.StringType)
+			emptyList, diags := types.ListValue(types.StringType, []attr.Value{})
+			resp.Diagnostics.Append(diags...)
+			if !resp.Diagnostics.HasError() {
+				data.Tags = emptyList
+			}
 		}
-		if kms.Properties.BillingPeriod.BillingPeriod != "" {
-			data.BillingPeriod = types.StringValue(kms.Properties.BillingPeriod.BillingPeriod)
+		if kms.Properties.BillingPeriod != "" {
+			data.BillingPeriod = types.StringValue(kms.Properties.BillingPeriod)
 		}
 	} else {
 		resp.State.RemoveResource(ctx)
@@ -329,7 +366,7 @@ func (r *KMSResource) Update(ctx context.Context, req resource.UpdateRequest, re
 	}
 
 	// Get current KMS to preserve fields
-	getResp, err := r.client.Client.FromSecurity().KMSKeys().Get(ctx, projectID, kmsID, nil)
+	getResp, err := r.client.Client.FromSecurity().KMS().Get(ctx, projectID, kmsID, nil)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error getting KMS",
@@ -375,14 +412,12 @@ func (r *KMSResource) Update(ctx context.Context, req resource.UpdateRequest, re
 			},
 		},
 		Properties: sdktypes.KmsPropertiesRequest{
-			BillingPeriod: sdktypes.BillingPeriodResource{
-				BillingPeriod: data.BillingPeriod.ValueString(),
-			},
+			BillingPeriod: data.BillingPeriod.ValueString(),
 		},
 	}
 
 	// Update the KMS using the SDK
-	response, err := r.client.Client.FromSecurity().KMSKeys().Update(ctx, projectID, kmsID, updateRequest, nil)
+	response, err := r.client.Client.FromSecurity().KMS().Update(ctx, projectID, kmsID, updateRequest, nil)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating KMS",
@@ -398,18 +433,7 @@ func (r *KMSResource) Update(ctx context.Context, req resource.UpdateRequest, re
 		return
 	}
 
-	if response != nil && response.Data != nil && response.Data.Metadata.ID != nil {
-		data.Id = types.StringValue(*response.Data.Metadata.ID)
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
+	if response != nil && response.Data != nil {
 		if response.Data.Metadata.URI != nil {
 			data.Uri = types.StringValue(*response.Data.Metadata.URI)
 		} else {
@@ -441,10 +465,20 @@ func (r *KMSResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 	projectID := data.ProjectID.ValueString()
 	kmsID := data.Id.ValueString()
 
-	if projectID == "" || kmsID == "" {
+	// If ID is unknown or empty, the resource doesn't exist (e.g., during plan or if never created)
+	// Return early without error - this is expected behavior
+	if data.Id.IsUnknown() || data.Id.IsNull() || kmsID == "" {
+		tflog.Debug(ctx, "KMS ID is unknown or empty, skipping delete", map[string]interface{}{
+			"kms_id": kmsID,
+		})
+		return
+	}
+
+	// Project ID should always be set, but check to be safe
+	if projectID == "" {
 		resp.Diagnostics.AddError(
 			"Missing Required Fields",
-			"Project ID and KMS ID are required to delete the KMS",
+			"Project ID is required to delete the KMS",
 		)
 		return
 	}
@@ -454,7 +488,7 @@ func (r *KMSResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 	err := DeleteResourceWithRetry(
 		ctx,
 		func() (interface{}, error) {
-			return r.client.Client.FromSecurity().KMSKeys().Delete(ctx, projectID, kmsID, nil)
+			return r.client.Client.FromSecurity().KMS().Delete(ctx, projectID, kmsID, nil)
 		},
 		ExtractSDKError,
 		"KMS",
