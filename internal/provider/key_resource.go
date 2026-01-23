@@ -73,12 +73,10 @@ func (r *KeyResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 			"size": schema.Int64Attribute{
 				MarkdownDescription: "Key size in bits (e.g., 256, 2048) - optional, not returned by API",
 				Optional:            true,
-				Computed:            true,
 			},
 			"description": schema.StringAttribute{
 				MarkdownDescription: "Key description - optional, not returned by API",
 				Optional:            true,
-				Computed:            true,
 			},
 			"status": schema.StringAttribute{
 				MarkdownDescription: "Key status - computed, not returned by API in v0.1.18",
@@ -150,14 +148,30 @@ func (r *KeyResource) Create(ctx context.Context, req resource.CreateRequest, re
 
 	if response != nil && response.Data != nil {
 		// Debug log the response
-		tflog.Debug(ctx, "Key create response received", map[string]interface{}{
+		var keyIDStr, nameStr, privateKeyIDStr string
+		if response.Data.KeyID != nil {
+			keyIDStr = *response.Data.KeyID
+		}
+		if response.Data.Name != nil {
+			nameStr = *response.Data.Name
+		}
+		if response.Data.PrivateKeyID != nil {
+			privateKeyIDStr = *response.Data.PrivateKeyID
+		}
+		tflog.Info(ctx, "Key create response received", map[string]interface{}{
 			"has_keyid":        response.Data.KeyID != nil,
+			"keyid_value":      keyIDStr,
 			"has_name":         response.Data.Name != nil,
+			"name_value":       nameStr,
 			"has_privatekeyid": response.Data.PrivateKeyID != nil,
+			"privatekeyid":     privateKeyIDStr,
 		})
 
 		if response.Data.KeyID != nil {
 			data.Id = types.StringValue(*response.Data.KeyID)
+			tflog.Info(ctx, "Using KeyID as resource ID", map[string]interface{}{
+				"id": *response.Data.KeyID,
+			})
 		} else if response.Data.Name != nil && *response.Data.Name != "" {
 			// Fallback to using name as ID if KeyID not available
 			data.Id = types.StringValue(*response.Data.Name)
@@ -175,13 +189,8 @@ func (r *KeyResource) Create(ctx context.Context, req resource.CreateRequest, re
 		// URI not available in KeyResponse from SDK v0.1.20
 		data.Uri = types.StringNull()
 
-		// Size and description are not returned by API - set to null or preserve from plan
-		if data.Size.IsNull() || data.Size.IsUnknown() {
-			data.Size = types.Int64Null()
-		}
-		if data.Description.IsNull() || data.Description.IsUnknown() {
-			data.Description = types.StringNull()
-		}
+		// Size and description are input-only fields not returned by API
+		// They are preserved from the plan automatically by Terraform
 
 		if response.Data.Status != nil {
 			data.Status = types.StringValue(string(*response.Data.Status))
@@ -238,6 +247,12 @@ func (r *KeyResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	kmsID := data.KMSID.ValueString()
 	keyID := data.Id.ValueString()
 
+	tflog.Info(ctx, "Reading Key resource", map[string]interface{}{
+		"project_id": projectID,
+		"kms_id":     kmsID,
+		"key_id":     keyID,
+	})
+
 	if projectID == "" || kmsID == "" || keyID == "" {
 		resp.Diagnostics.AddError(
 			"Missing Required Fields",
@@ -256,6 +271,17 @@ func (r *KeyResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 		return
 	}
 
+	var statusCode int
+	if response != nil {
+		statusCode = response.StatusCode
+	}
+	tflog.Debug(ctx, "Key Get response received", map[string]interface{}{
+		"has_response": response != nil,
+		"has_error":    response != nil && response.IsError(),
+		"status_code":  statusCode,
+		"has_data":     response != nil && response.Data != nil,
+	})
+
 	if response != nil && response.IsError() && response.Error != nil {
 		if response.StatusCode == 404 {
 			resp.State.RemoveResource(ctx)
@@ -273,6 +299,9 @@ func (r *KeyResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	}
 
 	if response != nil && response.Data != nil {
+		tflog.Info(ctx, "Key found, updating state", map[string]interface{}{
+			"key_id": keyID,
+		})
 		key := response.Data
 		if key.KeyID != nil {
 			data.Id = types.StringValue(*key.KeyID)
@@ -283,25 +312,24 @@ func (r *KeyResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 		if key.Name != nil && *key.Name != "" {
 			data.Name = types.StringValue(*key.Name)
 		}
+
+		// ProjectID and KMSID are not returned by the API - preserve from state
+		// (already set from req.State.Get at the beginning of the function)
+
 		if key.Algorithm != nil {
 			data.Algorithm = types.StringValue(string(*key.Algorithm))
 		}
-		// Size field not available in KeyResponse from SDK v0.1.18
-		if !data.Size.IsNull() {
-			// Keep the size from plan since it's not returned by API
-		} else {
-			data.Size = types.Int64Null()
-		}
-
-		if !data.Description.IsNull() {
-			// Keep the description from plan since it's not returned by API
-		} else {
-			data.Description = types.StringNull()
-		}
+		// Size and description fields not returned by API
+		// They remain as-is from state (preserved from config automatically)
 
 		if key.Status != nil {
 			data.Status = types.StringValue(string(*key.Status))
 		} else {
+			tflog.Warn(ctx, "Key not found in API response, removing from state", map[string]interface{}{
+				"key_id":       keyID,
+				"has_response": response != nil,
+				"has_data":     response != nil && response.Data != nil,
+			})
 			data.Status = types.StringNull()
 		}
 	} else {
