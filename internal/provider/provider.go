@@ -1,6 +1,3 @@
-// Copyright (c) HashiCorp, Inc.
-// SPDX-License-Identifier: MPL-2.0
-
 package provider
 
 import (
@@ -39,6 +36,8 @@ type ArubaCloudProviderModel struct {
 	ApiKey          types.String `tfsdk:"api_key"`
 	ApiSecret       types.String `tfsdk:"api_secret"`
 	ResourceTimeout types.String `tfsdk:"resource_timeout"`
+	BaseURL         types.String `tfsdk:"base_url"`
+	TokenIssuerURL  types.String `tfsdk:"token_issuer_url"`
 }
 
 func (p *ArubaCloudProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
@@ -60,6 +59,14 @@ func (p *ArubaCloudProvider) Schema(ctx context.Context, req provider.SchemaRequ
 			},
 			"resource_timeout": schema.StringAttribute{
 				MarkdownDescription: "Timeout for waiting for resources to become active after creation (e.g., \"5m\", \"10m\", \"15m\"). This timeout applies to all resources that need to wait for active state. Default: \"10m\"",
+				Optional:            true,
+			},
+			"base_url": schema.StringAttribute{
+				MarkdownDescription: "(Optional) Override the ArubaCloud API base URL (advanced use only).",
+				Optional:            true,
+			},
+			"token_issuer_url": schema.StringAttribute{
+				MarkdownDescription: "(Optional) Override the ArubaCloud token issuer URL (advanced use only).",
 				Optional:            true,
 			},
 		},
@@ -113,6 +120,14 @@ func (p *ArubaCloudProvider) Configure(ctx context.Context, req provider.Configu
 	// Create SDK client with credentials using DefaultOptions
 	options := aruba.DefaultOptions(apiKey, apiSecret)
 	options = options.WithDefaultLogger()
+
+	// Optionally override base URL and token issuer
+	if !config.BaseURL.IsNull() && config.BaseURL.ValueString() != "" {
+		options = options.WithBaseURL(config.BaseURL.ValueString())
+	}
+	if !config.TokenIssuerURL.IsNull() && config.TokenIssuerURL.ValueString() != "" {
+		options = options.WithTokenIssuerURL(config.TokenIssuerURL.ValueString())
+	}
 
 	sdkClient, err := aruba.NewClient(options)
 	if err != nil {

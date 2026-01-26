@@ -1,10 +1,11 @@
 package provider
 
 import (
+	"context"
 	"testing"
 )
 
-// TestProviderSchema validates that the provider can be instantiated successfully
+// TestProviderSchema validates that the provider can be instantiated successfully.
 func TestProviderSchema(t *testing.T) {
 	t.Parallel()
 
@@ -23,15 +24,19 @@ func TestProviderSchema(t *testing.T) {
 	}
 }
 
-// TestAllResourceSchemas validates that all resource schemas can be retrieved
+// TestAllResourceSchemas validates that all resource schemas can be retrieved.
+
 func TestAllResourceSchemas(t *testing.T) {
 	t.Parallel()
 
 	p := New("test")()
-	provider := p.(*ArubaCloudProvider)
+	provider, ok := p.(*ArubaCloudProvider)
+	if !ok {
+		t.Fatal("provider is not of type *ArubaCloudProvider")
+	}
 
 	// Get all resources
-	resources := provider.Resources(nil)
+	resources := provider.Resources(context.TODO())
 
 	if len(resources) == 0 {
 		t.Fatal("no resources registered")
@@ -52,15 +57,19 @@ func TestAllResourceSchemas(t *testing.T) {
 	}
 }
 
-// TestAllDataSourceSchemas validates that all data source schemas can be retrieved
+// TestAllDataSourceSchemas validates that all data source schemas can be retrieved.
+
 func TestAllDataSourceSchemas(t *testing.T) {
 	t.Parallel()
 
 	p := New("test")()
-	provider := p.(*ArubaCloudProvider)
+	provider, ok := p.(*ArubaCloudProvider)
+	if !ok {
+		t.Fatal("provider is not of type *ArubaCloudProvider")
+	}
 
 	// Get all data sources
-	dataSources := provider.DataSources(nil)
+	dataSources := provider.DataSources(context.TODO())
 
 	if len(dataSources) == 0 {
 		t.Fatal("no data sources registered")
@@ -81,12 +90,15 @@ func TestAllDataSourceSchemas(t *testing.T) {
 	}
 }
 
-// TestProviderMetadata validates provider metadata
+// TestProviderMetadata validates provider metadata.
 func TestProviderMetadata(t *testing.T) {
 	t.Parallel()
 
 	p := New("0.0.1")()
-	provider := p.(*ArubaCloudProvider)
+	provider, ok := p.(*ArubaCloudProvider)
+	if !ok {
+		t.Fatal("provider is not of type *ArubaCloudProvider")
+	}
 
 	if provider.version != "0.0.1" {
 		t.Errorf("expected version 0.0.1, got %s", provider.version)

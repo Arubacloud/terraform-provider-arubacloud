@@ -1,8 +1,8 @@
 terraform {
   required_providers {
     arubacloud = {
-      source  = "hashicorp.com/arubacloud/arubacloud"
-      version = "~> 1.0"
+      source  = "arubacloud/arubacloud" # Uses public registry by default
+      version = "~> 0.0.1"              # Use v0.0.1 or override with local build via .terraformrc
     }
   }
 }
