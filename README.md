@@ -52,16 +52,6 @@ provider "arubacloud" {
 }
 ```
 
-### Manual Installation
-
-1. Download the latest release from [GitHub Releases](https://github.com/arubacloud/terraform-provider-arubacloud/releases)
-2. Extract and place in your Terraform plugins directory:
-   - Linux: `~/.terraform.d/plugins/registry.terraform.io/arubacloud/arubacloud/0.0.1/linux_amd64/`
-   - macOS: `~/.terraform.d/plugins/registry.terraform.io/arubacloud/arubacloud/0.0.1/darwin_amd64/`
-   - Windows: `%APPDATA%\terraform.d\plugins\registry.terraform.io\arubacloud\arubacloud\0.0.1\windows_amd64\`
-
-## Quick Start
-
 ## Quick Start
 
 ### 1. Configure the provider
@@ -95,43 +85,10 @@ export ARUBACLOUD_API_SECRET="your-api-secret"
 terraform plan
 ```
 
-### 2. Create your first resource
+### 2. How to start?
 
-Example: Create a project and a Cloud Server
+Have a look to [examples](examples/test/)
 
-```hcl
-# Create a project
-resource "arubacloud_project" "example" {
-  name        = "my-terraform-project"
-  description = "Project managed by Terraform"
-}
-
-# Create a VPC
-resource "arubacloud_vpc" "example" {
-  name       = "my-vpc"
-  project_id = arubacloud_project.example.id
-  cidr       = "10.0.0.0/16"
-}
-
-# Create a subnet
-resource "arubacloud_subnet" "example" {
-  name       = "my-subnet"
-  vpc_id     = arubacloud_vpc.example.id
-  cidr       = "10.0.1.0/24"
-}
-
-# Create a Cloud Server
-resource "arubacloud_cloudserver" "example" {
-  name                = "my-server"
-  project_id          = arubacloud_project.example.id
-  flavor              = "small"
-  image               = "ubuntu-22.04"
-  vpc_uri             = arubacloud_vpc.example.uri
-  subnet_uri          = arubacloud_subnet.example.uri
-  admin_password      = "SecureP@ssw0rd!"
-  enable_monitoring   = true
-}
-```
 
 ### 3. Apply the configuration
 
@@ -140,9 +97,6 @@ terraform init
 terraform plan
 terraform apply
 ```
-
-For more examples, see the [examples/](examples/) directory.
-
 
 ## Build the provider
 
