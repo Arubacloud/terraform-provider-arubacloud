@@ -190,8 +190,8 @@ func (p *ArubaCloudProvider) Resources(ctx context.Context) []func() resource.Re
 		NewDBaaSUserResource,
 		NewScheduleJobResource,
 		NewKMSResource,
-		NewKMIPResource,
-		NewKeyResource,
+		// NewKMIPResource, // Temporarily disabled due to issues
+		// NewKeyResource,  // Temporarily disabled due to issues
 	}
 
 }
@@ -222,9 +222,9 @@ func (p *ArubaCloudProvider) DataSources(ctx context.Context) []func() datasourc
 		NewDatabaseGrantDataSource,
 		NewDBaaSDataSource,
 		NewDBaaSUserDataSource,
-		NewKMIPDataSource,
+		// NewKMIPDataSource, // Temporarily disabled due to issues
 		NewKMSDataSource,
-		NewKeyDataSource,
+		// NewKeyDataSource,  // Temporarily disabled due to issues
 		NewRestoreDataSource,
 		NewScheduleJobDataSource,
 		NewVPNRouteDataSource,
