@@ -1,0 +1,52 @@
+---
+page_title: "arubacloud_subnet Resource - ArubaCloud"
+subcategory: "Network"
+description: |-
+  Manages an ArubaCloud Subnet resource.
+---
+
+# arubacloud_subnet
+
+Manages an ArubaCloud Subnet resource.
+
+## Important Notes
+
+### Basic Subnet Type
+- When `type` is set to `"Basic"`, the `network` block is not required.
+- The subnet will use default networking settings.
+
+### Advanced Subnet Type
+- When `type` is set to `"Advanced"`, the following fields are **required**:
+  - `network` block
+  - `network.address`: Network CIDR notation (e.g., "10.0.1.0/24")
+  - `network.dhcp` block
+  - `network.dhcp.enabled`: Boolean to enable/disable DHCP
+  - `network.dhcp.range` block with:
+    - `start`: Starting IP address for DHCP range
+    - `count`: Number of available IP addresses
+
+### Optional Fields (Advanced Type)
+- `network.dhcp.routes`: List of DHCP routes with:
+  - `address`: Destination network address in CIDR notation (e.g., "0.0.0.0/0")
+  - `gateway`: Gateway IP address for the route
+- `network.dhcp.dns`: List of DNS server IP addresses
+
+## Example Usage
+
+### Advanced Subnet
+
+{{ tffile "examples/resources/arubacloud_subnet/resource-advanced.tf" }}
+
+### Basic Subnet
+
+{{ tffile "examples/resources/arubacloud_subnet/resource-basic-type.tf" }}
+
+{{ .SchemaMarkdown }}
+
+## Import
+
+Aruba Cloud Subnet can be imported using the `subnet_id`.
+
+```shell
+terraform import arubacloud_subnet.example <subnet_id>
+```

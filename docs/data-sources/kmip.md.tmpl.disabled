@@ -1,0 +1,17 @@
+---
+page_title: "arubacloud_kmip"
+subcategory: "Security"
+description: |-
+  Retrieves an ArubaCloud Kmip Instance.
+---
+
+# arubacloud_kmip
+
+Reads an existing ArubaCloud KMIP instance.
+
+{{ tffile "examples/data-sources/arubacloud_kmip/data-source-basic.tf" }}
+
+
+## Schema
+
+{{ .SchemaMarkdown }}

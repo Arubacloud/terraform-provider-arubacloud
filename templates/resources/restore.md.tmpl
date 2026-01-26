@@ -1,0 +1,26 @@
+---
+page_title: "arubacloud_restore"
+subcategory: "Storage"
+description: |-
+  Manages an ArubaCloud Storage Restore.
+---
+---
+---
+
+# arubacloud_restore
+
+Manages an ArubaCloud Storage Restore.
+
+## Example Usage
+
+{{ tffile "examples/resources/arubacloud_restore/resource-basic.tf" }}
+
+{{ .SchemaMarkdown }}
+
+## Import
+
+Aruba Cloud Restore can be imported using the `restore_id`.
+
+```shell
+terraform import arubacloud_restore.example <restore_id>
+```

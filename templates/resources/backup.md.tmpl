@@ -1,0 +1,22 @@
+---
+page_title: "arubacloud_backup"
+subcategory: "Storage"
+description: |-
+  Manages an ArubaCloud Storage Backup.
+---
+
+# arubacloud_backup
+
+Manages an ArubaCloud Storage Backup.
+
+{{ tffile "examples/resources/arubacloud_backup/resource-basic.tf" }}
+
+{{ .SchemaMarkdown }}
+
+## Import
+
+Aruba Cloud Backup can be imported using the `backup_id`.
+
+```shell
+terraform import arubacloud_backup.example <backup_id>
+```

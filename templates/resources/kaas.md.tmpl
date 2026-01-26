@@ -1,0 +1,25 @@
+---
+page_title: "arubacloud_kaas"
+subcategory: "Container"
+description: |-
+  Manages an ArubaCloud KaaS.
+---
+
+---
+page_title: "arubacloud_kaas"
+subcategory: "Compute"
+description: |-
+  Manages an ArubaCloud Kubernetes as a Service (KaaS) resource.
+---
+
+{{ tffile "examples/resources/arubacloud_kaas/resource-basic.tf" }}
+
+{{ .SchemaMarkdown }}
+
+## Import
+
+Aruba Cloud KaaS can be imported using the `kaas_id`.
+
+```shell
+terraform import arubacloud_kaas.example <kaas_id>
+```

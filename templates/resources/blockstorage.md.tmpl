@@ -1,0 +1,22 @@
+---
+page_title: "arubacloud_blockstorage"
+subcategory: "Storage"
+description: |-
+  Manages an ArubaCloud Block Storage.
+---
+
+# arubacloud_blockstorage
+
+Manages an ArubaCloud Block Storage.
+
+{{ tffile "examples/resources/arubacloud_blockstorage/resource-basic.tf" }}
+
+{{ .SchemaMarkdown }}
+
+## Import
+
+Aruba Cloud BlockStorage can be imported using the `blockstorage_id`.
+
+```shell
+terraform import arubacloud_blockstorage.example <blockstorage_id>
+```

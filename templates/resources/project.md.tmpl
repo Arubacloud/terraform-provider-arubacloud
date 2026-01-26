@@ -1,0 +1,24 @@
+---
+page_title: "arubacloud_project"
+subcategory: "Management"
+description: |-
+  Manages an ArubaCloud Project.
+---
+
+# arubacloud_project
+
+Manages an ArubaCloud Project.
+
+## Example Usage
+
+{{ tffile "examples/resources/arubacloud_project/resource-basic.tf" }}
+
+{{ .SchemaMarkdown }}
+
+## Import
+
+Aruba Cloud Project can be imported using the `project_id`.
+
+```shell
+terraform import arubacloud_project.example <project_id>
+```

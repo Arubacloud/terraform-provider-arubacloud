@@ -1,0 +1,23 @@
+---
+page_title: "arubacloud_keypair"
+subcategory: "Compute"
+description: |-
+  Manages an ArubaCloud KeyPair.
+---
+---
+
+# arubacloud_keypair
+
+Manages an ArubaCloud KeyPair.
+
+{{ tffile "examples/resources/arubacloud_keypair/resource-basic.tf" }}
+
+{{ .SchemaMarkdown }}
+
+## Import
+
+Aruba Cloud KeyPair can be imported using the `keypair_id`.
+
+```shell
+terraform import arubacloud_keypair.example <keypair_id>
+```

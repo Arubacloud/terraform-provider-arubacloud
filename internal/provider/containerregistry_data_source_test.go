@@ -1,0 +1,40 @@
+package provider
+
+import (
+	"testing"
+
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
+	"github.com/hashicorp/terraform-plugin-testing/statecheck"
+	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
+)
+
+func TestAccContainerregistryDataSource(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccContainerregistryDataSourceConfig,
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_containerregistry.test",
+						tfjsonpath.New("id"),
+						knownvalue.NotNull(),
+					),
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_containerregistry.test",
+						tfjsonpath.New("name"),
+						knownvalue.NotNull(),
+					),
+				},
+			},
+		},
+	})
+}
+
+const testAccContainerregistryDataSourceConfig = `
+data "arubacloud_containerregistry" "test" {
+  id = "test-containerregistry-id"
+}
+`
