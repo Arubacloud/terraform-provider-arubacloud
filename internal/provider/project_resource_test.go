@@ -11,6 +11,8 @@ import (
 )
 
 func TestAccProjectResource(t *testing.T) {
+	t.Skip("Skipping until project update API validation bug is fixed")
+
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
