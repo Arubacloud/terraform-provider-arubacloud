@@ -8,18 +8,10 @@ provider {
 
 # Configure how resources and data sources are documented
 resource {
-  # Common header added to all resource docs
-  # Header used only when no template exists. Do not set subcategory here so that
-  # templates can set subcategory by category (Compute, Network, etc.); the Registry
-  # then shows category-first with Resources/Data Sources under each category.
-  header = <<EOF
----
-page_title: "%s Resource - Terraform Provider"
-description: |-
-  %s Terraform resource.
----
-
-EOF
+  # Leave header empty so the template's frontmatter (with subcategory) is the only
+  # one; the Registry uses the first YAML frontmatter block for nav, so we must not
+  # prepend a block without subcategory.
+  header = ""
 
   # Template for resource examples written at bottom of generated docs
   # You can remove this block entirely if you don’t want examples included
@@ -32,16 +24,8 @@ EOF
 }
 
 data_source {
-  # Common header added to all data-source docs
-  # Do not set subcategory here; templates set subcategory by category for category-first nav.
-  header = <<EOF
----
-page_title: "%s Data Source - Terraform Provider"
-description: |-
-  %s Terraform data source.
----
-
-EOF
+  # Leave header empty so the template's frontmatter (with subcategory) is the only one.
+  header = ""
 
   example = <<EOF
 # Example: %s
