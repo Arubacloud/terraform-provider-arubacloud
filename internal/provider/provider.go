@@ -18,6 +18,13 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
+// defaultTokenIssuerURL is the production ArubaCloud token issuer endpoint.
+// It is explicitly set here to work around a bug in github.com/Arubacloud/sdk-go
+// v0.1.21 where the internal defaultTokenIssuerURL constant is malformed
+// ("https:///mylogin.aruba.it/..."), which causes client creation to fail with
+// "token issuer URL is missing a host".
+const defaultTokenIssuerURL = "https://mylogin.aruba.it/auth/realms/cmp-new-apikey/protocol/openid-connect/token"
+
 // Ensure ArubaCloudProvider satisfies various provider interfaces.
 var _ provider.Provider = &ArubaCloudProvider{}
 var _ provider.ProviderWithFunctions = &ArubaCloudProvider{}
@@ -78,6 +85,7 @@ func (p *ArubaCloudProvider) Configure(ctx context.Context, req provider.Configu
 	// Default values to environment variables, but override with Terraform configuration value if set.
 	apiKey := os.Getenv("ARUBACLOUD_API_KEY")
 	apiSecret := os.Getenv("ARUBACLOUD_API_SECRET")
+	tokenIssuerURL := os.Getenv("ARUBACLOUD_TOKEN_ISSUER_URL")
 
 	// Retrieve provider data from configuration
 	var config ArubaCloudProviderModel
@@ -93,6 +101,10 @@ func (p *ArubaCloudProvider) Configure(ctx context.Context, req provider.Configu
 
 	if !config.ApiSecret.IsNull() {
 		apiSecret = config.ApiSecret.ValueString()
+	}
+
+	if !config.TokenIssuerURL.IsNull() && config.TokenIssuerURL.ValueString() != "" {
+		tokenIssuerURL = config.TokenIssuerURL.ValueString()
 	}
 
 	if apiKey == "" {
@@ -125,9 +137,14 @@ func (p *ArubaCloudProvider) Configure(ctx context.Context, req provider.Configu
 	if !config.BaseURL.IsNull() && config.BaseURL.ValueString() != "" {
 		options = options.WithBaseURL(config.BaseURL.ValueString())
 	}
-	if !config.TokenIssuerURL.IsNull() && config.TokenIssuerURL.ValueString() != "" {
-		options = options.WithTokenIssuerURL(config.TokenIssuerURL.ValueString())
+
+	// Work around malformed defaultTokenIssuerURL in sdk-go v0.1.21 by always
+	// ensuring a valid issuer URL is set. Prefer explicit configuration or
+	// environment variable, otherwise fall back to the known-good default.
+	if tokenIssuerURL == "" {
+		tokenIssuerURL = defaultTokenIssuerURL
 	}
+	options = options.WithTokenIssuerURL(tokenIssuerURL)
 
 	sdkClient, err := aruba.NewClient(options)
 	if err != nil {
