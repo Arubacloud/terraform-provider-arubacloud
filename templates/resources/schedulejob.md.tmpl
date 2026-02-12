@@ -1,0 +1,25 @@
+---
+page_title: "arubacloud_schedulejob"
+subcategory: "Job"
+description: |-
+  Manages an ArubaCloud Schedule Job.
+---
+
+---
+page_title: "arubacloud_schedulejob"
+subcategory: "Management"
+description: |-
+  Manages an ArubaCloud Schedule Job resource.
+---
+
+{{ tffile "examples/resources/arubacloud_schedulejob/resource-basic.tf" }}
+
+{{ .SchemaMarkdown }}
+
+## Import
+
+Aruba Cloud Schedule Job can be imported using the `schedulejob_id`.
+
+```shell
+terraform import arubacloud_schedulejob.example <schedulejob_id>
+```

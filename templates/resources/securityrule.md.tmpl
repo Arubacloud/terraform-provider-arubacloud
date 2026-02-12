@@ -1,0 +1,25 @@
+---
+page_title: "arubacloud_securityrule"
+subcategory: "Network"
+description: |-
+  Manages an ArubaCloud Security Rule.
+---
+
+---
+page_title: "arubacloud_securityrule"
+subcategory: "Security"
+description: |-
+  Manages an ArubaCloud Security Rule resource.
+---
+
+{{ tffile "examples/resources/arubacloud_securityrule/resource-basic.tf" }}
+
+{{ .SchemaMarkdown }}
+
+## Import
+
+Aruba Cloud Security Rule can be imported using the `securityrule_id`.
+
+```shell
+terraform import arubacloud_securityrule.example <securityrule_id>
+```

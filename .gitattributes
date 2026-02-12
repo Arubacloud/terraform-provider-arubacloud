@@ -1,0 +1,2 @@
+# Ensure docs use LF so make generate output matches on all platforms
+docs/**/*.md text eol=lf

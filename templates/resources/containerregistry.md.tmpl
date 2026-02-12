@@ -1,0 +1,23 @@
+---
+page_title: "arubacloud_containerregistry"
+subcategory: "Container"
+description: |-
+  Manages an ArubaCloud Container Registry resource.
+---
+---
+
+# arubacloud_containerregistry
+
+Manages an ArubaCloud Container Registry.
+
+{{ tffile "examples/resources/arubacloud_containerregistry/resource-basic.tf" }}
+
+{{ .SchemaMarkdown }}
+
+## Import
+
+Aruba Cloud Container Registry can be imported using the `containerregistry_id`.
+
+```shell
+terraform import arubacloud_containerregistry.example <containerregistry_id>
+```
