@@ -215,8 +215,8 @@ output "containerregistry_datasource" {
 }
 
 output "kaas_datasource" {
-  description = "Kubernetes as a Service datasource - all fields (flattened)"
-  value       = var.test_kaas_id != "" ? {
+  description = "Kubernetes as a Service datasource - all fields (flattened). kubeconfig is sensitive and redacted."
+  value       = var.test_kaas_id != "" && var.test_project_id != "" ? {
     id                    = try(data.arubacloud_kaas.test[0].id, "")
     uri                   = try(data.arubacloud_kaas.test[0].uri, "")
     name                  = try(data.arubacloud_kaas.test[0].name, "")
@@ -225,6 +225,7 @@ output "kaas_datasource" {
     project_id            = try(data.arubacloud_kaas.test[0].project_id, "")
     billing_period        = try(data.arubacloud_kaas.test[0].billing_period, "")
     management_ip         = try(data.arubacloud_kaas.test[0].management_ip, "")
+    kubeconfig            = try(data.arubacloud_kaas.test[0].kubeconfig, "") # sensitive, redacted in output
     # Network fields (flattened)
     vpc_uri_ref           = try(data.arubacloud_kaas.test[0].vpc_uri_ref, "")
     subnet_uri_ref        = try(data.arubacloud_kaas.test[0].subnet_uri_ref, "")

@@ -2,14 +2,7 @@
 page_title: "arubacloud_kaas"
 subcategory: "Container"
 description: |-
-  Manages an ArubaCloud KaaS.
----
-
----
-page_title: "arubacloud_kaas"
-subcategory: "Compute"
-description: |-
-  Manages an ArubaCloud Kubernetes as a Service (KaaS) resource.
+  Manages an ArubaCloud Kubernetes as a Service (KaaS) cluster. Once the cluster is ready, the provider downloads and exposes the kubeconfig (decoded from the API) so you can use it with kubectl or write it to a file.
 ---
 
 {{ tffile "examples/resources/arubacloud_kaas/resource-basic.tf" }}

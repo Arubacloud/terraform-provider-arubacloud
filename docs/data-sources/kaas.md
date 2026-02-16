@@ -2,16 +2,17 @@
 page_title: "arubacloud_kaas"
 subcategory: "Container"
 description: |-
-  Retrieves an ArubaCloud KaaS.
+  Retrieves an existing ArubaCloud KaaS cluster by ID and project. When the cluster is active, the kubeconfig is downloaded (decoded) and exposed for use with kubectl.
 ---
 
 # arubacloud_kaas
 
-Reads an existing ArubaCloud KaaS cluster.
+Reads an existing ArubaCloud KaaS cluster. Both `id` (KaaS cluster ID) and `project_id` are required. The `kubeconfig` attribute is populated when the cluster has a management IP (active state).
 
 ```terraform
 data "arubacloud_kaas" "basic" {
-  id = "your-kaas-id"
+  id         = "your-kaas-id"
+  project_id = "your-project-id"
 }
 
 output "kaas_name" {
@@ -53,8 +54,13 @@ output "kaas_kubernetes_version" {
 output "kaas_node_pools" {
   value = data.arubacloud_kaas.basic.node_pools
 }
-```
 
+# Kubeconfig is available when the cluster is active (sensitive).
+output "kaas_kubeconfig" {
+  value     = data.arubacloud_kaas.basic.kubeconfig
+  sensitive = true
+}
+```
 
 ## Schema
 
@@ -68,6 +74,7 @@ The following arguments are supported:
 #### Required
 
 - `id` (String) KaaS identifier
+- `project_id` (String) ID of the project this KaaS resource belongs to
 
 ### Attributes Reference
 
@@ -77,6 +84,7 @@ In addition to all arguments above, the following attributes are exported:
 
 - `billing_period` (String) Billing period (Hour, Month, Year)
 - `ha` (Boolean) High availability
+- `kubeconfig` (String, Sensitive) Kubeconfig YAML for kubectl access (downloaded when KaaS is ready). Sensitive.
 - `kubernetes_version` (String) Kubernetes version
 - `location` (String) KaaS location
 - `management_ip` (String) Management IP address
@@ -85,7 +93,6 @@ In addition to all arguments above, the following attributes are exported:
 - `node_cidr_name` (String) Node CIDR name
 - `node_pools` (Attributes List) Node pools configuration (see [below for nested schema](#nestedatt--node_pools))
 - `pod_cidr` (String) Pod CIDR in CIDR notation
-- `project_id` (String) ID of the project this KaaS resource belongs to
 - `security_group_name` (String) Security group name
 - `subnet_uri_ref` (String) Subnet URI reference
 - `tags` (List of String) List of tags for the KaaS resource

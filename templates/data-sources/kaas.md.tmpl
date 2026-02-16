@@ -2,15 +2,14 @@
 page_title: "arubacloud_kaas"
 subcategory: "Container"
 description: |-
-  Retrieves an ArubaCloud KaaS.
+  Retrieves an existing ArubaCloud KaaS cluster by ID and project. When the cluster is active, the kubeconfig is downloaded (decoded) and exposed for use with kubectl.
 ---
 
 # arubacloud_kaas
 
-Reads an existing ArubaCloud KaaS cluster.
+Reads an existing ArubaCloud KaaS cluster. Both `id` (KaaS cluster ID) and `project_id` are required. The `kubeconfig` attribute is populated when the cluster has a management IP (active state).
 
 {{ tffile "examples/data-sources/arubacloud_kaas/data-source-basic.tf" }}
-
 
 ## Schema
 

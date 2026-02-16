@@ -1,12 +1,12 @@
-output "container_registry_id" {
-  value       = arubacloud_containerregistry.test.id
-  description = "Container Registry ID"
-}
+#output "container_registry_id" {
+#  value       = arubacloud_containerregistry.test.id
+#  description = "Container Registry ID"
+#}
 
-output "container_registry_uri" {
-  value       = arubacloud_containerregistry.test.uri
-  description = "Container Registry URI"
-}
+#output "container_registry_uri" {
+#  value       = arubacloud_containerregistry.test.uri
+#  description = "Container Registry URI"
+#}
 
 output "kaas_id" {
   value       = arubacloud_kaas.test.id
@@ -21,6 +21,12 @@ output "kaas_uri" {
 output "kaas_management_ip" {
   value       = arubacloud_kaas.test.management_ip
   description = "KaaS cluster management IP address"
+}
+
+output "kaas_kubeconfig" {
+  value       = arubacloud_kaas.test.kubeconfig
+  description = "Kubeconfig YAML for kubectl (sensitive)"
+  sensitive   = true
 }
 
 output "container_registry_elastic_ip" {

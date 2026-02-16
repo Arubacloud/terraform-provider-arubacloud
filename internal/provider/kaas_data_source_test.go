@@ -35,6 +35,7 @@ func TestAccKaasDataSource(t *testing.T) {
 
 const testAccKaasDataSourceConfig = `
 data "arubacloud_kaas" "test" {
-  id = "test-kaas-id"
+  id         = "test-kaas-id"
+  project_id = "test-project-id"
 }
 `

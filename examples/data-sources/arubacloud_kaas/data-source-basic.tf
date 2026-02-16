@@ -1,5 +1,6 @@
 data "arubacloud_kaas" "basic" {
-  id = "your-kaas-id"
+  id         = "your-kaas-id"
+  project_id = "your-project-id"
 }
 
 output "kaas_name" {
@@ -40,4 +41,10 @@ output "kaas_kubernetes_version" {
 }
 output "kaas_node_pools" {
   value = data.arubacloud_kaas.basic.node_pools
+}
+
+# Kubeconfig is available when the cluster is active (sensitive).
+output "kaas_kubeconfig" {
+  value     = data.arubacloud_kaas.basic.kubeconfig
+  sensitive = true
 }
