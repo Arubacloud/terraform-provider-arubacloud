@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
@@ -37,6 +38,7 @@ type KaaSResourceModel struct {
 	ProjectID     types.String `tfsdk:"project_id"`
 	BillingPeriod types.String `tfsdk:"billing_period"`
 	ManagementIP  types.String `tfsdk:"management_ip"`
+	Kubeconfig    types.String `tfsdk:"kubeconfig"`
 	Network       types.Object `tfsdk:"network"`
 	Settings      types.Object `tfsdk:"settings"`
 }
@@ -116,6 +118,11 @@ func (r *KaaSResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 			"management_ip": schema.StringAttribute{
 				MarkdownDescription: "Management IP address (available when KaaS is active)",
 				Computed:            true,
+			},
+			"kubeconfig": schema.StringAttribute{
+				MarkdownDescription: "Kubeconfig YAML for kubectl access (downloaded when KaaS is ready). Sensitive.",
+				Computed:            true,
+				Sensitive:           true,
 			},
 			"network": schema.SingleNestedAttribute{
 				MarkdownDescription: "Network configuration for the KaaS cluster",
@@ -504,6 +511,7 @@ func (r *KaaSResource) Create(ctx context.Context, req resource.CreateRequest, r
 			"KaaS Not Active",
 			fmt.Sprintf("KaaS cluster was created but did not become active within the timeout period: %s", err),
 		)
+		data.Kubeconfig = types.StringNull()
 		// Save state with the resource ID so destroy/cleanup can run even when wait times out
 		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 		return
@@ -517,6 +525,19 @@ func (r *KaaSResource) Create(ctx context.Context, req resource.CreateRequest, r
 		} else {
 			data.ManagementIP = types.StringNull()
 		}
+	}
+
+	// Download kubeconfig now that KaaS is ready (API returns base64-encoded content)
+	kubeconfigResp, err := r.client.Client.FromContainer().KaaS().DownloadKubeconfig(ctx, projectID, kaasID, nil)
+	if err == nil && kubeconfigResp != nil && !kubeconfigResp.IsError() && kubeconfigResp.Data != nil && kubeconfigResp.Data.Content != "" {
+		if decoded, decErr := base64.StdEncoding.DecodeString(kubeconfigResp.Data.Content); decErr == nil {
+			data.Kubeconfig = types.StringValue(string(decoded))
+		} else {
+			tflog.Warn(ctx, "Failed to decode kubeconfig base64, leaving unset", map[string]interface{}{"error": decErr.Error()})
+			data.Kubeconfig = types.StringNull()
+		}
+	} else {
+		data.Kubeconfig = types.StringNull()
 	}
 
 	tflog.Trace(ctx, "created a KaaS resource", map[string]interface{}{
@@ -813,6 +834,29 @@ func (r *KaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 				data.Tags = emptyList
 			}
 		}
+
+		// Refresh kubeconfig when cluster is available (e.g. has management IP or is active). API returns base64-encoded content.
+		if kaas.Properties.ManagementIP != nil && *kaas.Properties.ManagementIP != "" {
+			kubeconfigResp, kerr := r.client.Client.FromContainer().KaaS().DownloadKubeconfig(ctx, projectID, kaasID, nil)
+			if kerr == nil && kubeconfigResp != nil && !kubeconfigResp.IsError() && kubeconfigResp.Data != nil && kubeconfigResp.Data.Content != "" {
+				if decoded, decErr := base64.StdEncoding.DecodeString(kubeconfigResp.Data.Content); decErr == nil {
+					data.Kubeconfig = types.StringValue(string(decoded))
+				} else {
+					tflog.Warn(ctx, "Failed to decode kubeconfig base64", map[string]interface{}{"error": decErr.Error()})
+					data.Kubeconfig = originalState.Kubeconfig
+				}
+			} else if !originalState.Kubeconfig.IsNull() && !originalState.Kubeconfig.IsUnknown() {
+				data.Kubeconfig = originalState.Kubeconfig
+			} else {
+				data.Kubeconfig = types.StringNull()
+			}
+		} else {
+			if !originalState.Kubeconfig.IsNull() && !originalState.Kubeconfig.IsUnknown() {
+				data.Kubeconfig = originalState.Kubeconfig
+			} else {
+				data.Kubeconfig = types.StringNull()
+			}
+		}
 	} else {
 		resp.State.RemoveResource(ctx)
 		return
@@ -1051,6 +1095,19 @@ func (r *KaaSResource) Update(ctx context.Context, req resource.UpdateRequest, r
 			data.ManagementIP = types.StringValue(*kaas.Properties.ManagementIP)
 		} else {
 			data.ManagementIP = types.StringNull()
+		}
+
+		// Refresh kubeconfig when cluster is active (API returns base64-encoded content)
+		kubeconfigResp, kerr := r.client.Client.FromContainer().KaaS().DownloadKubeconfig(ctx, projectID, kaasID, nil)
+		if kerr == nil && kubeconfigResp != nil && !kubeconfigResp.IsError() && kubeconfigResp.Data != nil && kubeconfigResp.Data.Content != "" {
+			if decoded, decErr := base64.StdEncoding.DecodeString(kubeconfigResp.Data.Content); decErr == nil {
+				data.Kubeconfig = types.StringValue(string(decoded))
+			} else {
+				tflog.Warn(ctx, "Failed to decode kubeconfig base64", map[string]interface{}{"error": decErr.Error()})
+				data.Kubeconfig = state.Kubeconfig
+			}
+		} else {
+			data.Kubeconfig = state.Kubeconfig
 		}
 
 		// Build Network object from re-read, preserving fields not returned by API from the plan

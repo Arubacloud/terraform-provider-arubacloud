@@ -2,33 +2,33 @@
 # Note: Adjust location and zone to match your ArubaCloud region
 
 # Container Registry - Private container registry for Docker images
-resource "arubacloud_containerregistry" "test" {
-  name       = "test-container-registry"
-  location   = "ITBG-Bergamo" # Change to your region
-  project_id = arubacloud_project.test.id
-  tags       = ["container", "registry", "test"]
+#resource "arubacloud_containerregistry" "test" {
+#  name       = "test-container-registry"
+#  location   = "ITBG-Bergamo" # Change to your region
+#  project_id = arubacloud_project.test.id
+#  tags       = ["container", "registry", "test"]
 
   # Network configuration
-  network = {
-    public_ip_uri_ref      = arubacloud_elasticip.container_registry.uri
-    vpc_uri_ref            = arubacloud_vpc.test.uri
-    subnet_uri_ref         = arubacloud_subnet.test.uri
-    security_group_uri_ref = arubacloud_securitygroup.container_registry.uri
-  }
+#  network = {
+#    public_ip_uri_ref      = arubacloud_elasticip.container_registry.uri
+#    vpc_uri_ref            = arubacloud_vpc.test.uri
+#    subnet_uri_ref         = arubacloud_subnet.test.uri
+#    security_group_uri_ref = arubacloud_securitygroup.container_registry.uri
+#  }
 
   # Storage configuration
-  storage = {
-    block_storage_uri_ref = arubacloud_blockstorage.container_registry.uri
-  }
+#  storage = {
+#    block_storage_uri_ref = arubacloud_blockstorage.container_registry.uri
+#  }
 
   # Optional settings
-  billing_period = "Hour"
+#  billing_period = "Hour"
 
-  settings = {
-    admin_user              = "adminuser"
-    concurrent_users_flavor = "Small" # Options: Small, Medium, HighPerf
-  }
-}
+#  settings = {
+#     admin_user              = "adminuser"
+#    concurrent_users_flavor = "Small" # Options: Small, Medium, HighPerf
+#  }
+#}
 
 # KaaS (Kubernetes as a Service) - Managed Kubernetes cluster
 resource "arubacloud_kaas" "test" {

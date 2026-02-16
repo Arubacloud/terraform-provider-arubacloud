@@ -89,8 +89,9 @@ data "arubacloud_containerregistry" "test" {
 }
 
 data "arubacloud_kaas" "test" {
-  count = var.test_kaas_id != "" ? 1 : 0
-  id    = var.test_kaas_id
+  count      = var.test_kaas_id != "" && var.test_project_id != "" ? 1 : 0
+  id         = var.test_kaas_id
+  project_id = var.test_project_id
 }
 
 # Database Resources

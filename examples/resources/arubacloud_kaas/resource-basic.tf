@@ -48,3 +48,9 @@ resource "arubacloud_kaas" "basic" {
     ha = true
   }
 }
+
+# Kubeconfig is available once the cluster is ready (sensitive).
+output "kaas_kubeconfig" {
+  value     = arubacloud_kaas.basic.kubeconfig
+  sensitive = true
+}
