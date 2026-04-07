@@ -18,13 +18,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-// defaultTokenIssuerURL is the production ArubaCloud token issuer endpoint.
-// It is explicitly set here to work around a bug in github.com/Arubacloud/sdk-go
-// v0.1.21 where the internal defaultTokenIssuerURL constant is malformed
-// ("https:///mylogin.aruba.it/..."), which causes client creation to fail with
-// "token issuer URL is missing a host".
-const defaultTokenIssuerURL = "https://mylogin.aruba.it/auth/realms/cmp-new-apikey/protocol/openid-connect/token"
-
 // Ensure ArubaCloudProvider satisfies various provider interfaces.
 var _ provider.Provider = &ArubaCloudProvider{}
 var _ provider.ProviderWithFunctions = &ArubaCloudProvider{}
@@ -138,13 +131,9 @@ func (p *ArubaCloudProvider) Configure(ctx context.Context, req provider.Configu
 		options = options.WithBaseURL(config.BaseURL.ValueString())
 	}
 
-	// Work around malformed defaultTokenIssuerURL in sdk-go v0.1.21 by always
-	// ensuring a valid issuer URL is set. Prefer explicit configuration or
-	// environment variable, otherwise fall back to the known-good default.
-	if tokenIssuerURL == "" {
-		tokenIssuerURL = defaultTokenIssuerURL
+	if tokenIssuerURL != "" {
+		options = options.WithTokenIssuerURL(tokenIssuerURL)
 	}
-	options = options.WithTokenIssuerURL(tokenIssuerURL)
 
 	sdkClient, err := aruba.NewClient(options)
 	if err != nil {

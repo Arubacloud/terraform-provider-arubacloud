@@ -302,7 +302,7 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 
 	// Add elastic IP if provided
 	if !networkModel.ElasticIpUriRef.IsNull() && !networkModel.ElasticIpUriRef.IsUnknown() {
-		createRequest.Properties.ElastcIP = sdktypes.ReferenceResource{
+		createRequest.Properties.ElasticIP = sdktypes.ReferenceResource{
 			URI: networkModel.ElasticIpUriRef.ValueString(),
 		}
 	}
