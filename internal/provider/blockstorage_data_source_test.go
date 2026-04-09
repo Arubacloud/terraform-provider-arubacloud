@@ -1,6 +1,8 @@
 package provider
 
 import (
+	"fmt"
+	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -10,12 +12,18 @@ import (
 )
 
 func TestAccBlockStorageDataSource(t *testing.T) {
+	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
+	blockStorageID := os.Getenv("ARUBACLOUD_BLOCKSTORAGE_ID")
+	if projectID == "" || blockStorageID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_BLOCKSTORAGE_ID must be set for acceptance tests")
+	}
+
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccBlockStorageDataSourceConfig,
+				Config: testAccBlockStorageDataSourceConfig(projectID, blockStorageID),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_blockstorage.test",
@@ -25,9 +33,18 @@ func TestAccBlockStorageDataSource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_blockstorage.test",
 						tfjsonpath.New("name"),
-						knownvalue.StringExact("example-blockstorage"),
+						knownvalue.NotNull(),
 					),
-					// Test flattened fields (not nested in properties)
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_blockstorage.test",
+						tfjsonpath.New("project_id"),
+						knownvalue.StringExact(projectID),
+					),
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_blockstorage.test",
+						tfjsonpath.New("location"),
+						knownvalue.NotNull(),
+					),
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_blockstorage.test",
 						tfjsonpath.New("size_gb"),
@@ -35,17 +52,12 @@ func TestAccBlockStorageDataSource(t *testing.T) {
 					),
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_blockstorage.test",
-						tfjsonpath.New("billing_period"),
-						knownvalue.NotNull(),
-					),
-					statecheck.ExpectKnownValue(
-						"data.arubacloud_blockstorage.test",
-						tfjsonpath.New("zone"),
-						knownvalue.NotNull(),
-					),
-					statecheck.ExpectKnownValue(
-						"data.arubacloud_blockstorage.test",
 						tfjsonpath.New("type"),
+						knownvalue.NotNull(),
+					),
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_blockstorage.test",
+						tfjsonpath.New("tags"),
 						knownvalue.NotNull(),
 					),
 				},
@@ -54,8 +66,11 @@ func TestAccBlockStorageDataSource(t *testing.T) {
 	})
 }
 
-const testAccBlockStorageDataSourceConfig = `
+func testAccBlockStorageDataSourceConfig(projectID, blockStorageID string) string {
+	return fmt.Sprintf(`
 data "arubacloud_blockstorage" "test" {
-  id = "test-blockstorage-id"
+  id         = %[1]q
+  project_id = %[2]q
 }
-`
+`, blockStorageID, projectID)
+}

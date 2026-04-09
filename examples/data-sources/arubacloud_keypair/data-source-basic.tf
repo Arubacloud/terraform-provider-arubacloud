@@ -1,5 +1,6 @@
 data "arubacloud_keypair" "basic" {
-  id = "your-keypair-id"
+  id         = "your-keypair-id"
+  project_id = "your-project-id"
 }
 
 output "keypair_name" {

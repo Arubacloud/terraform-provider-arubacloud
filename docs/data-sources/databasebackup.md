@@ -10,11 +10,13 @@ description: |-
 Reads an existing ArubaCloud database backup.
 
 ```terraform
-data "arubacloud_database_backup" "example" {
-  name       = "example-database-backup"
-  project_id = "example-project"
-  location   = "eu-1"
-  type       = "Full"
+data "arubacloud_databasebackup" "example" {
+  id         = "your-backup-id"
+  project_id = "your-project-id"
+}
+
+output "databasebackup_name" {
+  value = data.arubacloud_databasebackup.example.name
 }
 ```
 
@@ -31,6 +33,7 @@ The following arguments are supported:
 #### Required
 
 - `id` (String) Database Backup identifier
+- `project_id` (String) ID of the project this Database Backup belongs to
 
 ### Attributes Reference
 

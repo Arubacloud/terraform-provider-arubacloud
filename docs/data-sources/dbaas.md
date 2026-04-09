@@ -11,7 +11,8 @@ Reads an existing ArubaCloud DBaaS instance.
 
 ```terraform
 data "arubacloud_dbaas" "basic" {
-  id = "dbaas-id"
+  id         = "dbaas-id"
+  project_id = "your-project-id"
 }
 
 output "dbaas_name" {
@@ -62,6 +63,7 @@ The following arguments are supported:
 #### Required
 
 - `id` (String) DBaaS identifier
+- `project_id` (String) ID of the project this DBaaS belongs to
 
 ### Attributes Reference
 
@@ -78,7 +80,6 @@ In addition to all arguments above, the following attributes are exported:
 - `flavor` (String) DBaaS flavor name (e.g., DBO2A4)
 - `location` (String) DBaaS location
 - `name` (String) DBaaS name
-- `project_id` (String) ID of the project this DBaaS belongs to
 - `security_group_uri_ref` (String) Security Group URI reference
 - `storage_size_gb` (Number) Storage size in GB
 - `subnet_uri_ref` (String) Subnet URI reference

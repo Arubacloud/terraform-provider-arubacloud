@@ -52,7 +52,7 @@ func (d *KeypairDataSource) Schema(ctx context.Context, req datasource.SchemaReq
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project this keypair belongs to",
-				Computed:            true,
+				Required:            true,
 			},
 			"value": schema.StringAttribute{
 				MarkdownDescription: "Keypair value (public key)",
@@ -89,17 +89,77 @@ func (d *KeypairDataSource) Read(ctx context.Context, req datasource.ReadRequest
 		return
 	}
 
-	// Populate all fields with example data
-	data.Name = types.StringValue("example-keypair")
-	data.Location = types.StringValue("ITBG-Bergamo")
-	data.ProjectID = types.StringValue("68398923fb2cb026400d4d31")
-	data.Value = types.StringValue("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC3o7qyMh8...")
-	data.Tags = types.ListValueMust(types.StringType, []attr.Value{
-		types.StringValue("ssh"),
-		types.StringValue("production"),
-		types.StringValue("keypair-main"),
-	})
+	projectID := data.ProjectID.ValueString()
+	keypairID := data.Id.ValueString()
+	if projectID == "" || keypairID == "" {
+		resp.Diagnostics.AddError(
+			"Missing Required Fields",
+			"Project ID and Keypair ID (id) are required to read the keypair",
+		)
+		return
+	}
 
-	tflog.Trace(ctx, "read a Keypair data source")
+	response, err := d.client.Client.FromCompute().KeyPairs().Get(ctx, projectID, keypairID, nil)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error reading keypair",
+			fmt.Sprintf("Unable to read keypair: %s", err),
+		)
+		return
+	}
+	if response != nil && response.IsError() && response.Error != nil {
+		if response.StatusCode == 404 {
+			resp.Diagnostics.AddError(
+				"Keypair not found",
+				fmt.Sprintf("No keypair found with ID %q in project %q", keypairID, projectID),
+			)
+			return
+		}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read keypair", map[string]interface{}{
+			"project_id": projectID,
+			"keypair_id": keypairID,
+		})
+		resp.Diagnostics.AddError("API Error", errorMsg)
+		return
+	}
+	if response == nil || response.Data == nil {
+		resp.Diagnostics.AddError(
+			"No data returned",
+			"Keypair Get returned no data",
+		)
+		return
+	}
+
+	keypair := response.Data
+
+	if keypair.Metadata.ID != nil {
+		data.Id = types.StringValue(*keypair.Metadata.ID)
+	}
+	if keypair.Metadata.Name != nil {
+		data.Name = types.StringValue(*keypair.Metadata.Name)
+	}
+	if keypair.Metadata.LocationResponse != nil {
+		data.Location = types.StringValue(keypair.Metadata.LocationResponse.Value)
+	} else {
+		data.Location = types.StringNull()
+	}
+	data.ProjectID = types.StringValue(projectID)
+	if keypair.Properties.Value != "" {
+		data.Value = types.StringValue(keypair.Properties.Value)
+	} else {
+		data.Value = types.StringNull()
+	}
+
+	if len(keypair.Metadata.Tags) > 0 {
+		tagValues := make([]attr.Value, len(keypair.Metadata.Tags))
+		for i, tag := range keypair.Metadata.Tags {
+			tagValues[i] = types.StringValue(tag)
+		}
+		data.Tags = types.ListValueMust(types.StringType, tagValues)
+	} else {
+		data.Tags = types.ListValueMust(types.StringType, []attr.Value{})
+	}
+
+	tflog.Trace(ctx, "read a Keypair data source", map[string]interface{}{"keypair_id": keypairID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

@@ -11,7 +11,9 @@ Reads an existing ArubaCloud restore.
 
 ```terraform
 data "arubacloud_restore" "basic" {
-  id = "restore-id"
+  id         = "restore-id"
+  project_id = "your-project-id"
+  backup_id  = "your-backup-id"
 }
 ```
 
@@ -28,6 +30,8 @@ The following arguments are supported:
 #### Required
 
 - `id` (String) Restore identifier
+- `project_id` (String) ID of the project this restore belongs to
+- `backup_id` (String) ID of the backup this restore belongs to
 
 ### Attributes Reference
 
@@ -37,7 +41,6 @@ In addition to all arguments above, the following attributes are exported:
 
 - `location` (String) Restore location
 - `name` (String) Restore name
-- `project_id` (String) ID of the project this restore belongs to
 - `tags` (List of String) List of tags for the restore resource
 - `volume_id` (String) Volume ID to restore
 

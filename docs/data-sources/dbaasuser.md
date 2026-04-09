@@ -10,11 +10,14 @@ description: |-
 Reads an existing ArubaCloud DBaaS user.
 
 ```terraform
-data "arubacloud_dbaas_user" "example" {
-  name       = "example-dbaas-user"
-  project_id = "example-project"
-  database   = "example-db"
-  role       = "admin"
+data "arubacloud_dbaasuser" "example" {
+  username   = "your-db-username"
+  project_id = "your-project-id"
+  dbaas_id   = "your-dbaas-id"
+}
+
+output "dbaasuser_id" {
+  value = data.arubacloud_dbaasuser.example.id
 }
 ```
 
@@ -31,6 +34,8 @@ The following arguments are supported:
 #### Required
 
 - `username` (String) Username for the DBaaS user (lookup key)
+- `project_id` (String) ID of the project this DBaaS user belongs to
+- `dbaas_id` (String) DBaaS ID this user belongs to
 
 ### Attributes Reference
 
@@ -38,8 +43,7 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `dbaas_id` (String) DBaaS ID this user belongs to
-- `id` (String) DBaaS User identifier
-- `password` (String, Sensitive) Password for the DBaaS user
+- `id` (String) DBaaS User identifier (same as username)
+- `password` (String, Sensitive) Password for the DBaaS user (not returned by API)
 
 

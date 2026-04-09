@@ -1,5 +1,6 @@
 data "arubacloud_cloudserver" "example" {
-  id = "your-cloudserver-id"
+  id         = "your-cloudserver-id"
+  project_id = "your-project-id"
 }
 
 output "cloudserver_name" {

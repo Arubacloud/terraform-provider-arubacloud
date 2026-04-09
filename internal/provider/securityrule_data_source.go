@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -65,15 +66,15 @@ func (d *SecurityRuleDataSource) Schema(ctx context.Context, req datasource.Sche
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project this Security Rule belongs to",
-				Computed:            true,
+				Required:            true,
 			},
 			"vpc_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the VPC this Security Rule belongs to",
-				Computed:            true,
+				Required:            true,
 			},
 			"security_group_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the Security Group this rule belongs to",
-				Computed:            true,
+				Required:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
@@ -112,7 +113,7 @@ func (d *SecurityRuleDataSource) Configure(ctx context.Context, req datasource.C
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Data Source Configure Type",
-			fmt.Sprintf("Expected *http.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+			fmt.Sprintf("Expected *ArubaCloudClient, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
 		return
 	}
@@ -125,25 +126,77 @@ func (d *SecurityRuleDataSource) Read(ctx context.Context, req datasource.ReadRe
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	// Populate all fields with example data
-	data.Uri = types.StringValue("/v2/securityrules/sr-68398923fb2cb026400d4d31")
-	data.Name = types.StringValue("example-securityrule")
-	data.Location = types.StringValue("ITBG-Bergamo")
-	data.ProjectId = types.StringValue("68398923fb2cb026400d4d31")
-	data.VpcId = types.StringValue("vpc-68398923fb2cb026400d4d32")
-	data.SecurityGroupId = types.StringValue("sg-68398923fb2cb026400d4d33")
-	data.Tags = types.ListValueMust(types.StringType, []attr.Value{
-		types.StringValue("security"),
-		types.StringValue("firewall"),
-	})
-	// Properties fields
-	data.Direction = types.StringValue("Ingress")
-	data.Protocol = types.StringValue("TCP")
-	data.Port = types.StringValue("80")
-	// Target fields
-	data.TargetKind = types.StringValue("IP")
-	data.TargetValue = types.StringValue("192.168.1.0/24")
 
-	tflog.Trace(ctx, "read a Security Rule data source")
+	projectID := data.ProjectId.ValueString()
+	vpcID := data.VpcId.ValueString()
+	securityGroupID := data.SecurityGroupId.ValueString()
+	ruleID := data.Id.ValueString()
+	if projectID == "" || vpcID == "" || securityGroupID == "" || ruleID == "" {
+		resp.Diagnostics.AddError("Missing Required Fields", "Project ID, VPC ID, Security Group ID, and Rule ID are required to read the security rule")
+		return
+	}
+
+	response, err := d.client.Client.FromNetwork().SecurityGroupRules().Get(ctx, projectID, vpcID, securityGroupID, ruleID, nil)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading security rule", fmt.Sprintf("Unable to read security rule: %s", err))
+		return
+	}
+	if response != nil && response.IsError() && response.Error != nil {
+		if response.StatusCode == 404 {
+			resp.Diagnostics.AddError("Security Rule not found", fmt.Sprintf("No security rule found with ID %q in security group %q", ruleID, securityGroupID))
+			return
+		}
+		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read security rule", map[string]interface{}{"project_id": projectID, "vpc_id": vpcID, "security_group_id": securityGroupID, "rule_id": ruleID}))
+		return
+	}
+	if response == nil || response.Data == nil {
+		resp.Diagnostics.AddError("No data returned", "Security Rule Get returned no data")
+		return
+	}
+
+	rule := response.Data
+	if rule.Metadata.ID != nil {
+		data.Id = types.StringValue(*rule.Metadata.ID)
+	}
+	if rule.Metadata.URI != nil {
+		data.Uri = types.StringValue(*rule.Metadata.URI)
+	} else {
+		data.Uri = types.StringNull()
+	}
+	if rule.Metadata.Name != nil {
+		data.Name = types.StringValue(*rule.Metadata.Name)
+	}
+	if rule.Metadata.LocationResponse != nil {
+		data.Location = types.StringValue(rule.Metadata.LocationResponse.Value)
+	} else {
+		data.Location = types.StringNull()
+	}
+	data.ProjectId = types.StringValue(projectID)
+	data.VpcId = types.StringValue(vpcID)
+	data.SecurityGroupId = types.StringValue(securityGroupID)
+
+	data.Direction = types.StringValue(string(rule.Properties.Direction))
+	data.Protocol = types.StringValue(strings.ToUpper(rule.Properties.Protocol))
+	data.Port = types.StringValue(rule.Properties.Port)
+
+	if rule.Properties.Target != nil {
+		data.TargetKind = types.StringValue(string(rule.Properties.Target.Kind))
+		data.TargetValue = types.StringValue(rule.Properties.Target.Value)
+	} else {
+		data.TargetKind = types.StringNull()
+		data.TargetValue = types.StringNull()
+	}
+
+	if len(rule.Metadata.Tags) > 0 {
+		tagValues := make([]attr.Value, len(rule.Metadata.Tags))
+		for i, tag := range rule.Metadata.Tags {
+			tagValues[i] = types.StringValue(tag)
+		}
+		data.Tags = types.ListValueMust(types.StringType, tagValues)
+	} else {
+		data.Tags = types.ListValueMust(types.StringType, []attr.Value{})
+	}
+
+	tflog.Trace(ctx, "read a Security Rule data source", map[string]interface{}{"rule_id": ruleID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

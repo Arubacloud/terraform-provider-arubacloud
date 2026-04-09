@@ -33,6 +33,7 @@ The following arguments are supported:
 #### Required
 
 - `id` (String) Keypair identifier
+- `project_id` (String) ID of the project this keypair belongs to
 
 ### Attributes Reference
 
@@ -42,7 +43,6 @@ In addition to all arguments above, the following attributes are exported:
 
 - `location` (String) Keypair location
 - `name` (String) Keypair name
-- `project_id` (String) ID of the project this keypair belongs to
 - `tags` (List of String) List of tags for the keypair
 - `value` (String) Keypair value (public key)
 

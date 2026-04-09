@@ -10,17 +10,36 @@ description: |-
 Reads an existing ArubaCloud Schedule Job.
 
 ```terraform
-data "arubacloud_schedule_job" "example" {
-  name       = "example-schedule-job"
-  project_id = "example-project"
-  cron       = "0 0 * * *"
+data "arubacloud_schedulejob" "example" {
+  id         = "your-schedulejob-id"
+  project_id = "your-project-id"
+}
+
+output "schedulejob_name" {
+  value = data.arubacloud_schedulejob.example.name
+}
+output "schedulejob_cron" {
+  value = data.arubacloud_schedulejob.example.cron
 }
 ```
 
-## Argument Reference
+## Schema
 
-<!-- tfplugindocs injects arguments -->
+### Arguments
 
-## Attribute Reference
+The following arguments are supported:
 
-<!-- tfplugindocs injects attributes -->
+#### Required
+
+- `id` (String) Schedule Job identifier
+- `project_id` (String) ID of the project this Schedule Job belongs to
+
+### Attributes Reference
+
+In addition to all arguments above, the following attributes are exported:
+
+#### Read-Only
+
+- `cron` (String) Cron expression for the schedule
+- `description` (String) Schedule Job description
+- `name` (String) Schedule Job name

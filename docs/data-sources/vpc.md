@@ -11,7 +11,8 @@ Reads an existing ArubaCloud VPC.
 
 ```terraform
 data "arubacloud_vpc" "basic" {
-  id = "vpc-id"
+  id         = "vpc-id"
+  project_id = "your-project-id"
 }
 
 output "vpc_name" {
@@ -20,18 +21,28 @@ output "vpc_name" {
 output "vpc_location" {
   value = data.arubacloud_vpc.basic.location
 }
-output "vpc_project_id" {
-  value = data.arubacloud_vpc.basic.project_id
-}
 output "vpc_tags" {
   value = data.arubacloud_vpc.basic.tags
 }
 ```
 
-## Argument Reference
+## Schema
 
-<!-- tfplugindocs injects arguments -->
+### Arguments
 
-## Attribute Reference
+The following arguments are supported:
 
-<!-- tfplugindocs injects attributes -->
+#### Required
+
+- `id` (String) VPC identifier
+- `project_id` (String) ID of the project this VPC belongs to
+
+### Attributes Reference
+
+In addition to all arguments above, the following attributes are exported:
+
+#### Read-Only
+
+- `location` (String) VPC location
+- `name` (String) VPC name
+- `tags` (List of String) List of tags for the VPC

@@ -64,7 +64,7 @@ func (d *BlockStorageDataSource) Schema(ctx context.Context, req datasource.Sche
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project this Block Storage belongs to",
-				Computed:            true,
+				Required:            true,
 			},
 			"location": schema.StringAttribute{
 				MarkdownDescription: "Location of the block storage",
@@ -115,7 +115,7 @@ func (d *BlockStorageDataSource) Configure(ctx context.Context, req datasource.C
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Data Source Configure Type",
-			fmt.Sprintf("Expected *http.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+			fmt.Sprintf("Expected *ArubaCloudClient, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
 		return
 	}
@@ -129,23 +129,75 @@ func (d *BlockStorageDataSource) Read(ctx context.Context, req datasource.ReadRe
 		return
 	}
 
-	// Populate all fields with example data
-	data.Name = types.StringValue("example-blockstorage")
-	data.ProjectId = types.StringValue("68398923fb2cb026400d4d31")
-	data.Location = types.StringValue("ITBG-Bergamo")
-	data.SizeGB = types.Int64Value(50)
-	data.BillingPeriod = types.StringValue("Hour")
-	data.Zone = types.StringValue("ITBG-1")
-	data.Type = types.StringValue("Standard")
-	data.Tags = types.ListValueMust(types.StringType, []attr.Value{
-		types.StringValue("storage"),
-		types.StringValue("data"),
-		types.StringValue("test"),
-	})
-	data.SnapshotId = types.StringNull()
-	data.Bootable = types.BoolValue(false)
-	data.Image = types.StringNull()
+	projectID := data.ProjectId.ValueString()
+	volumeID := data.Id.ValueString()
+	if projectID == "" || volumeID == "" {
+		resp.Diagnostics.AddError("Missing Required Fields", "Project ID and Block Storage ID are required to read the block storage")
+		return
+	}
 
-	tflog.Trace(ctx, "read a Block Storage data source")
+	response, err := d.client.Client.FromStorage().Volumes().Get(ctx, projectID, volumeID, nil)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading block storage", fmt.Sprintf("Unable to read block storage: %s", err))
+		return
+	}
+	if response != nil && response.IsError() && response.Error != nil {
+		if response.StatusCode == 404 {
+			resp.Diagnostics.AddError("Block Storage not found", fmt.Sprintf("No block storage found with ID %q in project %q", volumeID, projectID))
+			return
+		}
+		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read block storage", map[string]interface{}{"project_id": projectID, "volume_id": volumeID}))
+		return
+	}
+	if response == nil || response.Data == nil {
+		resp.Diagnostics.AddError("No data returned", "Block Storage Get returned no data")
+		return
+	}
+
+	volume := response.Data
+	if volume.Metadata.ID != nil {
+		data.Id = types.StringValue(*volume.Metadata.ID)
+	}
+	if volume.Metadata.Name != nil {
+		data.Name = types.StringValue(*volume.Metadata.Name)
+	}
+	if volume.Metadata.LocationResponse != nil {
+		data.Location = types.StringValue(volume.Metadata.LocationResponse.Value)
+	} else {
+		data.Location = types.StringNull()
+	}
+	data.ProjectId = types.StringValue(projectID)
+	data.SizeGB = types.Int64Value(int64(volume.Properties.SizeGB))
+	data.Type = types.StringValue(string(volume.Properties.Type))
+	if volume.Properties.Zone != "" {
+		data.Zone = types.StringValue(volume.Properties.Zone)
+	} else {
+		data.Zone = types.StringNull()
+	}
+	if volume.Properties.Bootable != nil {
+		data.Bootable = types.BoolValue(*volume.Properties.Bootable)
+	} else {
+		data.Bootable = types.BoolNull()
+	}
+	if volume.Properties.Image != nil {
+		data.Image = types.StringValue(*volume.Properties.Image)
+	} else {
+		data.Image = types.StringNull()
+	}
+	// billing_period and snapshot_id are not returned by the API
+	data.BillingPeriod = types.StringNull()
+	data.SnapshotId = types.StringNull()
+
+	if len(volume.Metadata.Tags) > 0 {
+		tagValues := make([]attr.Value, len(volume.Metadata.Tags))
+		for i, tag := range volume.Metadata.Tags {
+			tagValues[i] = types.StringValue(tag)
+		}
+		data.Tags = types.ListValueMust(types.StringType, tagValues)
+	} else {
+		data.Tags = types.ListValueMust(types.StringType, []attr.Value{})
+	}
+
+	tflog.Trace(ctx, "read a Block Storage data source", map[string]interface{}{"volume_id": volumeID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

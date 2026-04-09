@@ -11,7 +11,8 @@ Retrieves an existing ArubaCloud Block Storage.
 
 ```terraform
 data "arubacloud_blockstorage" "example" {
-  id = "your-blockstorage-id"
+  id         = "your-blockstorage-id"
+  project_id = "your-project-id"
 }
 
 output "blockstorage_name" {
@@ -61,6 +62,7 @@ The following arguments are supported:
 #### Required
 
 - `id` (String) Block Storage identifier
+- `project_id` (String) ID of the project this Block Storage belongs to
 
 ### Attributes Reference
 
@@ -73,7 +75,6 @@ In addition to all arguments above, the following attributes are exported:
 - `image` (String) Image for the block storage
 - `location` (String) Location of the block storage
 - `name` (String) Block Storage name
-- `project_id` (String) ID of the project this Block Storage belongs to
 - `size_gb` (Number) Size of the block storage in GB
 - `snapshot_id` (String) Snapshot ID for the block storage
 - `tags` (List of String) List of tags for the block storage

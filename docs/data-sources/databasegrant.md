@@ -16,6 +16,10 @@ data "arubacloud_databasegrant" "example" {
   database   = "mydb"
   user_id    = "myuser"
 }
+
+output "databasegrant_role" {
+  value = data.arubacloud_databasegrant.example.role
+}
 ```
 
 ## Schema
@@ -29,7 +33,10 @@ The following arguments are supported:
 
 #### Required
 
-- `id` (String) Database Grant identifier
+- `project_id` (String) ID of the project this database grant belongs to
+- `dbaas_id` (String) DBaaS ID this grant belongs to
+- `database` (String) Database name or ID
+- `user_id` (String) User ID to grant access
 
 ### Attributes Reference
 
@@ -37,8 +44,7 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `database` (String) Database name or ID
+- `id` (String) Database Grant identifier (composite: project_id/dbaas_id/database/user_id)
 - `role` (String) Role to grant (e.g., read, write, admin)
-- `user_id` (String) User ID to grant access
 
 

@@ -5,20 +5,41 @@ description: |-
   Reads an existing ArubaCloud VPN tunnel.
 ---
 
-# arubacloud_vpn_tunnel
+# arubacloud_vpntunnel
 
 Reads an existing ArubaCloud VPN tunnel.
 
 ```terraform
-data "arubacloud_vpn_tunnel" "basic" {
-  id = "vpn-tunnel-id"
+data "arubacloud_vpntunnel" "basic" {
+  id         = "vpn-tunnel-id"
+  project_id = "your-project-id"
+}
+
+output "vpntunnel_name" {
+  value = data.arubacloud_vpntunnel.basic.name
+}
+output "vpntunnel_status" {
+  value = data.arubacloud_vpntunnel.basic.status
 }
 ```
 
-## Argument Reference
+## Schema
 
-<!-- tfplugindocs injects arguments -->
+### Arguments
 
-## Attribute Reference
+The following arguments are supported:
 
-<!-- tfplugindocs injects attributes -->
+#### Required
+
+- `id` (String) VPN Tunnel identifier
+- `project_id` (String) ID of the project this VPN Tunnel belongs to
+
+### Attributes Reference
+
+In addition to all arguments above, the following attributes are exported:
+
+#### Read-Only
+
+- `name` (String) VPN Tunnel name
+- `remote_peer` (String) Remote peer IP address
+- `status` (String) VPN Tunnel status

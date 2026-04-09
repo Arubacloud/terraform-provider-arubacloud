@@ -10,35 +10,41 @@ description: |-
 Reads an existing ArubaCloud Security Group.
 
 ```terraform
-data "arubacloud_security_group" "example" {
-  name       = "example-security-group"
-  project_id = "example-project"
+data "arubacloud_securitygroup" "example" {
+  id         = "your-securitygroup-id"
+  project_id = "your-project-id"
+  vpc_id     = "your-vpc-id"
 }
 
-output "securitygroup_id" {
-  value = data.arubacloud_security_group.example.id
-}
 output "securitygroup_name" {
-  value = data.arubacloud_security_group.example.name
+  value = data.arubacloud_securitygroup.example.name
 }
 output "securitygroup_location" {
-  value = data.arubacloud_security_group.example.location
-}
-output "securitygroup_project_id" {
-  value = data.arubacloud_security_group.example.project_id
-}
-output "securitygroup_vpc_id" {
-  value = data.arubacloud_security_group.example.vpc_id
+  value = data.arubacloud_securitygroup.example.location
 }
 output "securitygroup_tags" {
-  value = data.arubacloud_security_group.example.tags
+  value = data.arubacloud_securitygroup.example.tags
 }
 ```
 
-## Argument Reference
+## Schema
 
-<!-- tfplugindocs injects arguments -->
+### Arguments
 
-## Attribute Reference
+The following arguments are supported:
 
-<!-- tfplugindocs injects attributes -->
+#### Required
+
+- `id` (String) Security Group identifier
+- `project_id` (String) ID of the project this Security Group belongs to
+- `vpc_id` (String) ID of the VPC this Security Group belongs to
+
+### Attributes Reference
+
+In addition to all arguments above, the following attributes are exported:
+
+#### Read-Only
+
+- `location` (String) Security Group location
+- `name` (String) Security Group name
+- `tags` (List of String) List of tags for the Security Group

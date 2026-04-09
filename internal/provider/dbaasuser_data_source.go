@@ -11,10 +11,11 @@ import (
 )
 
 type DBaaSUserDataSourceModel struct {
-	Id       types.String `tfsdk:"id"`
-	DBaaSID  types.String `tfsdk:"dbaas_id"`
-	Username types.String `tfsdk:"username"`
-	Password types.String `tfsdk:"password"`
+	Id        types.String `tfsdk:"id"`
+	ProjectID types.String `tfsdk:"project_id"`
+	DBaaSID   types.String `tfsdk:"dbaas_id"`
+	Username  types.String `tfsdk:"username"`
+	Password  types.String `tfsdk:"password"`
 }
 
 type DBaaSUserDataSource struct {
@@ -40,15 +41,19 @@ func (d *DBaaSUserDataSource) Schema(ctx context.Context, req datasource.SchemaR
 				Required:            true,
 			},
 			"id": schema.StringAttribute{
-				MarkdownDescription: "DBaaS User identifier",
+				MarkdownDescription: "DBaaS User identifier (same as username)",
 				Computed:            true,
+			},
+			"project_id": schema.StringAttribute{
+				MarkdownDescription: "ID of the project this DBaaS user belongs to",
+				Required:            true,
 			},
 			"dbaas_id": schema.StringAttribute{
 				MarkdownDescription: "DBaaS ID this user belongs to",
-				Computed:            true,
+				Required:            true,
 			},
 			"password": schema.StringAttribute{
-				MarkdownDescription: "Password for the DBaaS user",
+				MarkdownDescription: "Password for the DBaaS user (not returned by API)",
 				Computed:            true,
 				Sensitive:           true,
 			},
@@ -64,7 +69,7 @@ func (d *DBaaSUserDataSource) Configure(ctx context.Context, req datasource.Conf
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected DataSource Configure Type",
-			fmt.Sprintf("Expected *http.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+			fmt.Sprintf("Expected *ArubaCloudClient, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
 		return
 	}
@@ -77,9 +82,41 @@ func (d *DBaaSUserDataSource) Read(ctx context.Context, req datasource.ReadReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	// Simulate API response
-	data.Id = types.StringValue("dbaasuser-id")
-	data.Password = types.StringValue("simulated-password")
-	tflog.Trace(ctx, "read a DBaaS User data source")
+
+	projectID := data.ProjectID.ValueString()
+	dbaasID := data.DBaaSID.ValueString()
+	username := data.Username.ValueString()
+	if projectID == "" || dbaasID == "" || username == "" {
+		resp.Diagnostics.AddError("Missing Required Fields", "Project ID, DBaaS ID, and Username are required to read the DBaaS user")
+		return
+	}
+
+	response, err := d.client.Client.FromDatabase().Users().Get(ctx, projectID, dbaasID, username, nil)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading DBaaS user", fmt.Sprintf("Unable to read DBaaS user: %s", err))
+		return
+	}
+	if response != nil && response.IsError() && response.Error != nil {
+		if response.StatusCode == 404 {
+			resp.Diagnostics.AddError("DBaaS User not found", fmt.Sprintf("No DBaaS user found with username %q in DBaaS %q", username, dbaasID))
+			return
+		}
+		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read DBaaS user", map[string]interface{}{"project_id": projectID, "dbaas_id": dbaasID, "username": username}))
+		return
+	}
+	if response == nil || response.Data == nil {
+		resp.Diagnostics.AddError("No data returned", "DBaaS User Get returned no data")
+		return
+	}
+
+	user := response.Data
+	data.Id = types.StringValue(user.Username)
+	data.Username = types.StringValue(user.Username)
+	data.ProjectID = types.StringValue(projectID)
+	data.DBaaSID = types.StringValue(dbaasID)
+	// Password is not returned by the API
+	data.Password = types.StringNull()
+
+	tflog.Trace(ctx, "read a DBaaS User data source", map[string]interface{}{"username": username})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

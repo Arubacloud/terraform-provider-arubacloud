@@ -5,20 +5,40 @@ description: |-
   Reads an existing ArubaCloud VPC peering route.
 ---
 
-# arubacloud_vpc_peering_route
+# arubacloud_vpcpeeringroute
 
 Reads an existing ArubaCloud VPC peering route.
 
 ```terraform
-data "arubacloud_vpc_peering_route" "basic" {
-  id = "vpc-peering-route-id"
+data "arubacloud_vpcpeeringroute" "basic" {
+  id             = "route-name"
+  project_id     = "your-project-id"
+  vpc_id         = "your-vpc-id"
+  vpc_peering_id = "your-vpc-peering-id"
+}
+
+output "vpcpeeringroute_name" {
+  value = data.arubacloud_vpcpeeringroute.basic.name
 }
 ```
 
-## Argument Reference
+## Schema
 
-<!-- tfplugindocs injects arguments -->
+### Arguments
 
-## Attribute Reference
+The following arguments are supported:
 
-<!-- tfplugindocs injects attributes -->
+#### Required
+
+- `id` (String) VPC Peering Route identifier (same as name)
+- `project_id` (String) ID of the project this VPC Peering Route belongs to
+- `vpc_id` (String) ID of the VPC this peering route belongs to
+- `vpc_peering_id` (String) ID of the VPC Peering this route belongs to
+
+### Attributes Reference
+
+In addition to all arguments above, the following attributes are exported:
+
+#### Read-Only
+
+- `name` (String) VPC Peering Route name

@@ -1,5 +1,6 @@
 data "arubacloud_blockstorage" "example" {
-  id = "your-blockstorage-id"
+  id         = "your-blockstorage-id"
+  project_id = "your-project-id"
 }
 
 output "blockstorage_name" {

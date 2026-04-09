@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -26,6 +27,7 @@ type DatabaseBackupDataSourceModel struct {
 	Location      types.String `tfsdk:"location"`
 	Tags          types.List   `tfsdk:"tags"`
 	Zone          types.String `tfsdk:"zone"`
+	ProjectID     types.String `tfsdk:"project_id"`
 	DBaaSID       types.String `tfsdk:"dbaas_id"`
 	Database      types.String `tfsdk:"database"`
 	BillingPeriod types.String `tfsdk:"billing_period"`
@@ -60,6 +62,10 @@ func (d *DatabaseBackupDataSource) Schema(ctx context.Context, req datasource.Sc
 				MarkdownDescription: "Zone for the Database Backup",
 				Computed:            true,
 			},
+			"project_id": schema.StringAttribute{
+				MarkdownDescription: "ID of the project this database backup belongs to",
+				Required:            true,
+			},
 			"dbaas_id": schema.StringAttribute{
 				MarkdownDescription: "DBaaS ID this backup belongs to",
 				Computed:            true,
@@ -84,7 +90,7 @@ func (d *DatabaseBackupDataSource) Configure(ctx context.Context, req datasource
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Data Source Configure Type",
-			fmt.Sprintf("Expected *http.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+			fmt.Sprintf("Expected *ArubaCloudClient, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
 		return
 	}
@@ -97,7 +103,70 @@ func (d *DatabaseBackupDataSource) Read(ctx context.Context, req datasource.Read
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	data.Name = types.StringValue("example-databasebackup")
-	tflog.Trace(ctx, "read a Database Backup data source")
+
+	projectID := data.ProjectID.ValueString()
+	backupID := data.Id.ValueString()
+	if projectID == "" || backupID == "" {
+		resp.Diagnostics.AddError("Missing Required Fields", "Project ID and Database Backup ID are required to read the database backup")
+		return
+	}
+
+	response, err := d.client.Client.FromDatabase().Backups().Get(ctx, projectID, backupID, nil)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading database backup", fmt.Sprintf("Unable to read database backup: %s", err))
+		return
+	}
+	if response != nil && response.IsError() && response.Error != nil {
+		if response.StatusCode == 404 {
+			resp.Diagnostics.AddError("Database Backup not found", fmt.Sprintf("No database backup found with ID %q in project %q", backupID, projectID))
+			return
+		}
+		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read database backup", map[string]interface{}{"project_id": projectID, "backup_id": backupID}))
+		return
+	}
+	if response == nil || response.Data == nil {
+		resp.Diagnostics.AddError("No data returned", "Database Backup Get returned no data")
+		return
+	}
+
+	backup := response.Data
+	if backup.Metadata.ID != nil {
+		data.Id = types.StringValue(*backup.Metadata.ID)
+	}
+	if backup.Metadata.Name != nil {
+		data.Name = types.StringValue(*backup.Metadata.Name)
+	}
+	if backup.Metadata.LocationResponse != nil {
+		data.Location = types.StringValue(backup.Metadata.LocationResponse.Value)
+	} else {
+		data.Location = types.StringNull()
+	}
+	data.ProjectID = types.StringValue(projectID)
+
+	if backup.Properties.Zone != "" {
+		data.Zone = types.StringValue(backup.Properties.Zone)
+	} else {
+		data.Zone = types.StringNull()
+	}
+	if backup.Properties.BillingPlan.BillingPeriod != "" {
+		data.BillingPeriod = types.StringValue(backup.Properties.BillingPlan.BillingPeriod)
+	} else {
+		data.BillingPeriod = types.StringNull()
+	}
+	// DBaaSID and Database are not directly available in the response
+	data.DBaaSID = types.StringNull()
+	data.Database = types.StringNull()
+
+	if backup.Metadata.Tags != nil && len(backup.Metadata.Tags) > 0 {
+		tagValues := make([]attr.Value, len(backup.Metadata.Tags))
+		for i, tag := range backup.Metadata.Tags {
+			tagValues[i] = types.StringValue(tag)
+		}
+		data.Tags = types.ListValueMust(types.StringType, tagValues)
+	} else {
+		data.Tags = types.ListValueMust(types.StringType, []attr.Value{})
+	}
+
+	tflog.Trace(ctx, "read a Database Backup data source", map[string]interface{}{"backup_id": backupID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

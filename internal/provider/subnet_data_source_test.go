@@ -1,6 +1,8 @@
 package provider
 
 import (
+	"fmt"
+	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -10,12 +12,19 @@ import (
 )
 
 func TestAccSubnetDataSource(t *testing.T) {
+	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
+	vpcID := os.Getenv("ARUBACLOUD_VPC_ID")
+	subnetID := os.Getenv("ARUBACLOUD_SUBNET_ID")
+	if projectID == "" || vpcID == "" || subnetID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID, ARUBACLOUD_VPC_ID and ARUBACLOUD_SUBNET_ID must be set for acceptance tests")
+	}
+
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccSubnetDataSourceConfig,
+				Config: testAccSubnetDataSourceConfig(projectID, vpcID, subnetID),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_subnet.test",
@@ -27,20 +36,24 @@ func TestAccSubnetDataSource(t *testing.T) {
 						tfjsonpath.New("name"),
 						knownvalue.NotNull(),
 					),
-					// Test flattened fields (not nested in properties)
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_subnet.test",
-						tfjsonpath.New("vpc_id"),
-						knownvalue.NotNull(),
+						tfjsonpath.New("project_id"),
+						knownvalue.StringExact(projectID),
 					),
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_subnet.test",
-						tfjsonpath.New("location"),
-						knownvalue.NotNull(),
+						tfjsonpath.New("vpc_id"),
+						knownvalue.StringExact(vpcID),
 					),
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_subnet.test",
 						tfjsonpath.New("type"),
+						knownvalue.NotNull(),
+					),
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_subnet.test",
+						tfjsonpath.New("tags"),
 						knownvalue.NotNull(),
 					),
 				},
@@ -49,8 +62,12 @@ func TestAccSubnetDataSource(t *testing.T) {
 	})
 }
 
-const testAccSubnetDataSourceConfig = `
+func testAccSubnetDataSourceConfig(projectID, vpcID, subnetID string) string {
+	return fmt.Sprintf(`
 data "arubacloud_subnet" "test" {
-  id = "test-subnet-id"
+  id         = %[1]q
+  project_id = %[2]q
+  vpc_id     = %[3]q
 }
-`
+`, subnetID, projectID, vpcID)
+}

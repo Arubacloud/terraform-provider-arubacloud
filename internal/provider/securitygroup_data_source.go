@@ -57,11 +57,11 @@ func (d *SecurityGroupDataSource) Schema(ctx context.Context, req datasource.Sch
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project this Security Group belongs to",
-				Computed:            true,
+				Required:            true,
 			},
 			"vpc_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the VPC this Security Group belongs to",
-				Computed:            true,
+				Required:            true,
 			},
 		},
 	}
@@ -75,7 +75,7 @@ func (d *SecurityGroupDataSource) Configure(ctx context.Context, req datasource.
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Data Source Configure Type",
-			fmt.Sprintf("Expected *http.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+			fmt.Sprintf("Expected *ArubaCloudClient, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
 		return
 	}
@@ -89,17 +89,57 @@ func (d *SecurityGroupDataSource) Read(ctx context.Context, req datasource.ReadR
 		return
 	}
 
-	// Populate all fields with example data
-	data.Name = types.StringValue("example-securitygroup")
-	data.Location = types.StringValue("ITBG-Bergamo")
-	data.ProjectId = types.StringValue("68398923fb2cb026400d4d31")
-	data.VpcId = types.StringValue("vpc-68398923fb2cb026400d4d32")
-	data.Tags = types.ListValueMust(types.StringType, []attr.Value{
-		types.StringValue("security"),
-		types.StringValue("firewall"),
-		types.StringValue("production"),
-	})
+	projectID := data.ProjectId.ValueString()
+	vpcID := data.VpcId.ValueString()
+	sgID := data.Id.ValueString()
+	if projectID == "" || vpcID == "" || sgID == "" {
+		resp.Diagnostics.AddError("Missing Required Fields", "Project ID, VPC ID, and Security Group ID are required to read the security group")
+		return
+	}
 
-	tflog.Trace(ctx, "read a Security Group data source")
+	response, err := d.client.Client.FromNetwork().SecurityGroups().Get(ctx, projectID, vpcID, sgID, nil)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading security group", fmt.Sprintf("Unable to read security group: %s", err))
+		return
+	}
+	if response != nil && response.IsError() && response.Error != nil {
+		if response.StatusCode == 404 {
+			resp.Diagnostics.AddError("Security Group not found", fmt.Sprintf("No security group found with ID %q in VPC %q", sgID, vpcID))
+			return
+		}
+		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read security group", map[string]interface{}{"project_id": projectID, "vpc_id": vpcID, "security_group_id": sgID}))
+		return
+	}
+	if response == nil || response.Data == nil {
+		resp.Diagnostics.AddError("No data returned", "Security Group Get returned no data")
+		return
+	}
+
+	sg := response.Data
+	if sg.Metadata.ID != nil {
+		data.Id = types.StringValue(*sg.Metadata.ID)
+	}
+	if sg.Metadata.Name != nil {
+		data.Name = types.StringValue(*sg.Metadata.Name)
+	}
+	if sg.Metadata.LocationResponse != nil {
+		data.Location = types.StringValue(sg.Metadata.LocationResponse.Value)
+	} else {
+		data.Location = types.StringNull()
+	}
+	data.ProjectId = types.StringValue(projectID)
+	data.VpcId = types.StringValue(vpcID)
+
+	if len(sg.Metadata.Tags) > 0 {
+		tagValues := make([]attr.Value, len(sg.Metadata.Tags))
+		for i, tag := range sg.Metadata.Tags {
+			tagValues[i] = types.StringValue(tag)
+		}
+		data.Tags = types.ListValueMust(types.StringType, tagValues)
+	} else {
+		data.Tags = types.ListValueMust(types.StringType, []attr.Value{})
+	}
+
+	tflog.Trace(ctx, "read a Security Group data source", map[string]interface{}{"security_group_id": sgID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
