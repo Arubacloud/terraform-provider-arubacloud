@@ -11,7 +11,8 @@ Reads an existing ArubaCloud VPC.
 
 ```terraform
 data "arubacloud_vpc" "basic" {
-  id = "vpc-id"
+  id         = "vpc-id"
+  project_id = "your-project-id"
 }
 
 output "vpc_name" {

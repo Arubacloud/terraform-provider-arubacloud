@@ -11,7 +11,8 @@ Retrieves an ArubaCloud CloudServer.
 
 ```terraform
 data "arubacloud_cloudserver" "example" {
-  id = "your-cloudserver-id"
+  id         = "your-cloudserver-id"
+  project_id = "your-project-id"
 }
 
 output "cloudserver_name" {
@@ -67,6 +68,7 @@ The following arguments are supported:
 #### Required
 
 - `id` (String) CloudServer identifier
+- `project_id` (String) Project ID
 
 ### Attributes Reference
 
@@ -80,7 +82,6 @@ In addition to all arguments above, the following attributes are exported:
 - `key_pair_uri_ref` (String) Key Pair URI reference
 - `location` (String) CloudServer location
 - `name` (String) CloudServer name
-- `project_id` (String) Project ID
 - `securitygroup_uri_refs` (List of String) List of security group URI references
 - `subnet_uri_refs` (List of String) List of subnet URI references
 - `tags` (List of String) List of tags for the Cloud Server

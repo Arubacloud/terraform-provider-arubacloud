@@ -68,7 +68,7 @@ func (d *CloudServerDataSource) Schema(ctx context.Context, req datasource.Schem
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "Project ID",
-				Computed:            true,
+				Required:            true,
 			},
 			"zone": schema.StringAttribute{
 				MarkdownDescription: "Zone",
@@ -139,34 +139,72 @@ func (d *CloudServerDataSource) Read(ctx context.Context, req datasource.ReadReq
 		return
 	}
 
-	// Populate all fields with example data
-	data.Uri = types.StringValue("/v2/cloudservers/68398923fb2cb026400d4d31")
-	data.Name = types.StringValue("example-cloudserver")
-	data.Location = types.StringValue("ITBG-Bergamo")
-	data.ProjectID = types.StringValue("68398923fb2cb026400d4d31")
-	data.Zone = types.StringValue("ITBG-1")
-	data.Tags = types.ListValueMust(types.StringType, []attr.Value{
-		types.StringValue("compute"),
-		types.StringValue("production"),
-	})
-	// Network fields
-	data.VpcUriRef = types.StringValue("/v2/vpcs/vpc-68398923fb2cb026400d4d32")
-	data.ElasticIpUriRef = types.StringValue("/v2/elasticips/eip-68398923fb2cb026400d4d33")
-	data.SubnetUriRefs = types.ListValueMust(types.StringType, []attr.Value{
-		types.StringValue("/v2/subnets/subnet-68398923fb2cb026400d4d35"),
-		types.StringValue("/v2/subnets/subnet-68398923fb2cb026400d4d36"),
-	})
-	data.SecurityGroupUriRefs = types.ListValueMust(types.StringType, []attr.Value{
-		types.StringValue("/v2/securitygroups/sg-68398923fb2cb026400d4d37"),
-		types.StringValue("/v2/securitygroups/sg-68398923fb2cb026400d4d38"),
-	})
-	// Settings fields
-	data.FlavorName = types.StringValue("CSO4A8")
-	data.KeyPairUriRef = types.StringValue("/v2/keypairs/keypair-example")
-	data.UserData = types.StringValue("#cloud-config\npackages:\n  - nginx")
-	// Storage fields
-	data.BootVolumeUriRef = types.StringValue("/v2/blockstorages/vol-68398923fb2cb026400d4d34")
+	projectID := data.ProjectID.ValueString()
+	serverID := data.Id.ValueString()
+	if projectID == "" || serverID == "" {
+		resp.Diagnostics.AddError("Missing Required Fields", "Project ID and CloudServer ID are required to read the cloud server")
+		return
+	}
 
-	tflog.Trace(ctx, "read a CloudServer data source")
+	response, err := d.client.Client.FromCompute().CloudServers().Get(ctx, projectID, serverID, nil)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading cloud server", fmt.Sprintf("Unable to read cloud server: %s", err))
+		return
+	}
+	if response != nil && response.IsError() && response.Error != nil {
+		if response.StatusCode == 404 {
+			resp.Diagnostics.AddError("CloudServer not found", fmt.Sprintf("No cloud server found with ID %q in project %q", serverID, projectID))
+			return
+		}
+		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read cloud server", map[string]interface{}{"project_id": projectID, "server_id": serverID}))
+		return
+	}
+	if response == nil || response.Data == nil {
+		resp.Diagnostics.AddError("No data returned", "CloudServer Get returned no data")
+		return
+	}
+
+	server := response.Data
+	if server.Metadata.ID != nil {
+		data.Id = types.StringValue(*server.Metadata.ID)
+	}
+	if server.Metadata.URI != nil {
+		data.Uri = types.StringValue(*server.Metadata.URI)
+	} else {
+		data.Uri = types.StringNull()
+	}
+	if server.Metadata.Name != nil {
+		data.Name = types.StringValue(*server.Metadata.Name)
+	}
+	if server.Metadata.LocationResponse != nil {
+		data.Location = types.StringValue(server.Metadata.LocationResponse.Value)
+	} else {
+		data.Location = types.StringNull()
+	}
+	data.ProjectID = types.StringValue(projectID)
+	// Zone is not returned by the API
+	data.Zone = types.StringNull()
+	// Flavor name is returned by the API
+	data.FlavorName = types.StringValue(server.Properties.Flavor.Name)
+	// Network/settings/storage URI refs are not returned by the API
+	data.VpcUriRef = types.StringNull()
+	data.ElasticIpUriRef = types.StringNull()
+	data.SubnetUriRefs = types.ListValueMust(types.StringType, []attr.Value{})
+	data.SecurityGroupUriRefs = types.ListValueMust(types.StringType, []attr.Value{})
+	data.KeyPairUriRef = types.StringNull()
+	data.UserData = types.StringNull()
+	data.BootVolumeUriRef = types.StringNull()
+
+	if len(server.Metadata.Tags) > 0 {
+		tagValues := make([]attr.Value, len(server.Metadata.Tags))
+		for i, tag := range server.Metadata.Tags {
+			tagValues[i] = types.StringValue(tag)
+		}
+		data.Tags = types.ListValueMust(types.StringType, tagValues)
+	} else {
+		data.Tags = types.ListValueMust(types.StringType, []attr.Value{})
+	}
+
+	tflog.Trace(ctx, "read a CloudServer data source", map[string]interface{}{"server_id": serverID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

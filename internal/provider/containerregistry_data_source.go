@@ -72,7 +72,7 @@ func (d *ContainerRegistryDataSource) Schema(ctx context.Context, req datasource
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project this Container Registry belongs to",
-				Computed:            true,
+				Required:            true,
 			},
 			"billing_period": schema.StringAttribute{
 				MarkdownDescription: "Billing period (Hour, Month, Year)",
@@ -118,7 +118,7 @@ func (d *ContainerRegistryDataSource) Configure(ctx context.Context, req datasou
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Data Source Configure Type",
-			fmt.Sprintf("Expected *http.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+			fmt.Sprintf("Expected *ArubaCloudClient, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
 		return
 	}
@@ -131,26 +131,83 @@ func (d *ContainerRegistryDataSource) Read(ctx context.Context, req datasource.R
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	// Populate all fields with example data
-	data.Uri = types.StringValue("/v2/containerregistries/cr-68398923fb2cb026400d4d31")
-	data.Name = types.StringValue("example-containerregistry")
-	data.Location = types.StringValue("ITBG-Bergamo")
-	data.Tags = types.ListValueMust(types.StringType, []attr.Value{
-		types.StringValue("registry"),
-		types.StringValue("docker"),
-	})
-	data.ProjectID = types.StringValue("68398923fb2cb026400d4d31")
-	data.BillingPeriod = types.StringValue("Hour")
-	// Network fields
-	data.PublicIpUriRef = types.StringValue("/v2/elasticips/eip-68398923fb2cb026400d4d32")
-	data.VpcUriRef = types.StringValue("/v2/vpcs/vpc-68398923fb2cb026400d4d33")
-	data.SubnetUriRef = types.StringValue("/v2/subnets/subnet-68398923fb2cb026400d4d34")
-	data.SecurityGroupUriRef = types.StringValue("/v2/securitygroups/sg-68398923fb2cb026400d4d35")
-	// Storage fields
-	data.BlockStorageUriRef = types.StringValue("/v2/blockstorages/bs-68398923fb2cb026400d4d36")
-	// Settings fields
-	data.AdminUser = types.StringValue("admin")
-	data.ConcurrentUsersFlavor = types.StringValue("Medium")
-	tflog.Trace(ctx, "read a Container Registry data source")
+
+	projectID := data.ProjectID.ValueString()
+	registryID := data.Id.ValueString()
+	if projectID == "" || registryID == "" {
+		resp.Diagnostics.AddError("Missing Required Fields", "Project ID and Container Registry ID are required to read the container registry")
+		return
+	}
+
+	response, err := d.client.Client.FromContainer().ContainerRegistry().Get(ctx, projectID, registryID, nil)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading container registry", fmt.Sprintf("Unable to read container registry: %s", err))
+		return
+	}
+	if response != nil && response.IsError() && response.Error != nil {
+		if response.StatusCode == 404 {
+			resp.Diagnostics.AddError("Container Registry not found", fmt.Sprintf("No container registry found with ID %q in project %q", registryID, projectID))
+			return
+		}
+		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read container registry", map[string]interface{}{"project_id": projectID, "registry_id": registryID}))
+		return
+	}
+	if response == nil || response.Data == nil {
+		resp.Diagnostics.AddError("No data returned", "Container Registry Get returned no data")
+		return
+	}
+
+	registry := response.Data
+	if registry.Metadata.ID != nil {
+		data.Id = types.StringValue(*registry.Metadata.ID)
+	}
+	if registry.Metadata.URI != nil {
+		data.Uri = types.StringValue(*registry.Metadata.URI)
+	} else {
+		data.Uri = types.StringNull()
+	}
+	if registry.Metadata.Name != nil {
+		data.Name = types.StringValue(*registry.Metadata.Name)
+	}
+	if registry.Metadata.LocationResponse != nil {
+		data.Location = types.StringValue(registry.Metadata.LocationResponse.Value)
+	} else {
+		data.Location = types.StringNull()
+	}
+	data.ProjectID = types.StringValue(projectID)
+
+	if registry.Properties.BillingPlan.BillingPeriod != "" {
+		data.BillingPeriod = types.StringValue(registry.Properties.BillingPlan.BillingPeriod)
+	} else {
+		data.BillingPeriod = types.StringNull()
+	}
+	data.PublicIpUriRef = types.StringValue(registry.Properties.PublicIp.URI)
+	data.VpcUriRef = types.StringValue(registry.Properties.VPC.URI)
+	data.SubnetUriRef = types.StringValue(registry.Properties.Subnet.URI)
+	data.SecurityGroupUriRef = types.StringValue(registry.Properties.SecurityGroup.URI)
+	data.BlockStorageUriRef = types.StringValue(registry.Properties.BlockStorage.URI)
+
+	if registry.Properties.AdminUser.Username != "" {
+		data.AdminUser = types.StringValue(registry.Properties.AdminUser.Username)
+	} else {
+		data.AdminUser = types.StringNull()
+	}
+	if registry.Properties.ConcurrentUsers != nil && *registry.Properties.ConcurrentUsers != "" {
+		data.ConcurrentUsersFlavor = types.StringValue(*registry.Properties.ConcurrentUsers)
+	} else {
+		data.ConcurrentUsersFlavor = types.StringNull()
+	}
+
+	if len(registry.Metadata.Tags) > 0 {
+		tagValues := make([]attr.Value, len(registry.Metadata.Tags))
+		for i, tag := range registry.Metadata.Tags {
+			tagValues[i] = types.StringValue(tag)
+		}
+		data.Tags = types.ListValueMust(types.StringType, tagValues)
+	} else {
+		data.Tags = types.ListValueMust(types.StringType, []attr.Value{})
+	}
+
+	tflog.Trace(ctx, "read a Container Registry data source", map[string]interface{}{"registry_id": registryID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

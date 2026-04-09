@@ -11,7 +11,8 @@ Retrieves an ArubaCloud Storage Backup.
 
 ```terraform
 data "arubacloud_backup" "basic" {
-  id = "backup-id"
+  id         = "backup-id"
+  project_id = "your-project-id"
 }
 ```
 
@@ -25,6 +26,7 @@ The following arguments are supported:
 #### Required
 
 - `id` (String) Backup identifier
+- `project_id` (String) ID of the project this backup belongs to
 
 ### Attributes Reference
 
@@ -35,7 +37,6 @@ In addition to all arguments above, the following attributes are exported:
 - `billing_period` (String) Billing period
 - `location` (String) Backup location
 - `name` (String) Backup name
-- `project_id` (String) ID of the project this backup belongs to
 - `retention_days` (Number) Retention days for the backup
 - `tags` (List of String) List of tags for the backup resource
 - `type` (String) Type of backup (Full, Incremental)

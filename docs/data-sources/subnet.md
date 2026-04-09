@@ -11,7 +11,9 @@ Reads an existing ArubaCloud subnet.
 
 ```terraform
 data "arubacloud_subnet" "basic" {
-  id = "subnet-id"
+  id         = "subnet-id"
+  project_id = "your-project-id"
+  vpc_id     = "your-vpc-id"
 }
 
 output "subnet_name" {

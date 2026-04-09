@@ -29,7 +29,10 @@ The following arguments are supported:
 
 #### Required
 
-- `id` (String) Database Grant identifier
+- `database` (String) Database name or ID
+- `dbaas_id` (String) DBaaS ID this grant belongs to
+- `project_id` (String) ID of the project this database grant belongs to
+- `user_id` (String) User ID to grant access
 
 ### Attributes Reference
 
@@ -37,8 +40,7 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `database` (String) Database name or ID
+- `id` (String) Database Grant identifier (composite key: project_id/dbaas_id/database/user_id)
 - `role` (String) Role to grant (e.g., read, write, admin)
-- `user_id` (String) User ID to grant access
 
 

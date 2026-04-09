@@ -36,16 +36,16 @@ func (d *DatabaseDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 		MarkdownDescription: "Database data source",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Database identifier",
+				MarkdownDescription: "Database identifier (same as name)",
 				Required:            true,
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project this database belongs to",
-				Computed:            true,
+				Required:            true,
 			},
 			"dbaas_id": schema.StringAttribute{
 				MarkdownDescription: "DBaaS ID this database belongs to",
-				Computed:            true,
+				Required:            true,
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Database name",
@@ -63,7 +63,7 @@ func (d *DatabaseDataSource) Configure(ctx context.Context, req datasource.Confi
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Data Source Configure Type",
-			fmt.Sprintf("Expected *http.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+			fmt.Sprintf("Expected *ArubaCloudClient, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
 		return
 	}
@@ -77,11 +77,38 @@ func (d *DatabaseDataSource) Read(ctx context.Context, req datasource.ReadReques
 		return
 	}
 
-	// Populate all fields with example data
-	data.Name = types.StringValue("example-database")
-	data.ProjectID = types.StringValue("68398923fb2cb026400d4d31")
-	data.DBaaSID = types.StringValue("68ff8d8fc1445aeb83f79438")
+	projectID := data.ProjectID.ValueString()
+	dbaasID := data.DBaaSID.ValueString()
+	databaseName := data.Id.ValueString()
+	if projectID == "" || dbaasID == "" || databaseName == "" {
+		resp.Diagnostics.AddError("Missing Required Fields", "Project ID, DBaaS ID, and Database ID are required to read the database")
+		return
+	}
 
-	tflog.Trace(ctx, "read a Database data source")
+	response, err := d.client.Client.FromDatabase().Databases().Get(ctx, projectID, dbaasID, databaseName, nil)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading database", fmt.Sprintf("Unable to read database: %s", err))
+		return
+	}
+	if response != nil && response.IsError() && response.Error != nil {
+		if response.StatusCode == 404 {
+			resp.Diagnostics.AddError("Database not found", fmt.Sprintf("No database found with ID %q in DBaaS %q", databaseName, dbaasID))
+			return
+		}
+		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read database", map[string]interface{}{"project_id": projectID, "dbaas_id": dbaasID, "database_name": databaseName}))
+		return
+	}
+	if response == nil || response.Data == nil {
+		resp.Diagnostics.AddError("No data returned", "Database Get returned no data")
+		return
+	}
+
+	db := response.Data
+	data.Id = types.StringValue(db.Name)
+	data.Name = types.StringValue(db.Name)
+	data.ProjectID = types.StringValue(projectID)
+	data.DBaaSID = types.StringValue(dbaasID)
+
+	tflog.Trace(ctx, "read a Database data source", map[string]interface{}{"database_name": databaseName})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

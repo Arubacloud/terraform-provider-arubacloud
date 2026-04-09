@@ -79,7 +79,7 @@ func (d *DBaaSDataSource) Schema(ctx context.Context, req datasource.SchemaReque
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project this DBaaS belongs to",
-				Computed:            true,
+				Required:            true,
 			},
 			"engine_id": schema.StringAttribute{
 				MarkdownDescription: "Database engine ID (e.g., mysql-8.0, mssql-2022-web)",
@@ -137,7 +137,7 @@ func (d *DBaaSDataSource) Configure(ctx context.Context, req datasource.Configur
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Data Source Configure Type",
-			fmt.Sprintf("Expected *http.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+			fmt.Sprintf("Expected *ArubaCloudClient, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
 		return
 	}
@@ -150,29 +150,95 @@ func (d *DBaaSDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	// Populate all fields with example data
-	data.Uri = types.StringValue("/v2/dbaas/dbaas-68398923fb2cb026400d4d31")
-	data.Name = types.StringValue("example-dbaas")
-	data.Location = types.StringValue("ITBG-Bergamo")
-	data.Zone = types.StringValue("ITBG-1")
-	data.Tags = types.ListValueMust(types.StringType, []attr.Value{
-		types.StringValue("database"),
-		types.StringValue("production"),
-	})
-	data.ProjectID = types.StringValue("68398923fb2cb026400d4d31")
-	data.EngineID = types.StringValue("mysql-8.0")
-	data.Flavor = types.StringValue("DBO2A4")
-	data.BillingPeriod = types.StringValue("Hour")
-	// Storage fields
-	data.StorageSizeGB = types.Int64Value(100)
-	data.AutoscalingEnabled = types.BoolValue(true)
-	data.AutoscalingAvailableSpace = types.Int64Value(10)
-	data.AutoscalingStepSize = types.Int64Value(20)
-	// Network fields
-	data.VpcUriRef = types.StringValue("/v2/vpcs/vpc-68398923fb2cb026400d4d32")
-	data.SubnetUriRef = types.StringValue("/v2/subnets/subnet-68398923fb2cb026400d4d33")
-	data.SecurityGroupUriRef = types.StringValue("/v2/securitygroups/sg-68398923fb2cb026400d4d34")
-	data.ElasticIpUriRef = types.StringValue("/v2/elasticips/eip-68398923fb2cb026400d4d35")
-	tflog.Trace(ctx, "read a DBaaS data source")
+
+	projectID := data.ProjectID.ValueString()
+	dbaasID := data.Id.ValueString()
+	if projectID == "" || dbaasID == "" {
+		resp.Diagnostics.AddError("Missing Required Fields", "Project ID and DBaaS ID are required to read the DBaaS instance")
+		return
+	}
+
+	response, err := d.client.Client.FromDatabase().DBaaS().Get(ctx, projectID, dbaasID, nil)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading DBaaS instance", fmt.Sprintf("Unable to read DBaaS instance: %s", err))
+		return
+	}
+	if response != nil && response.IsError() && response.Error != nil {
+		if response.StatusCode == 404 {
+			resp.Diagnostics.AddError("DBaaS not found", fmt.Sprintf("No DBaaS instance found with ID %q in project %q", dbaasID, projectID))
+			return
+		}
+		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read DBaaS instance", map[string]interface{}{"project_id": projectID, "dbaas_id": dbaasID}))
+		return
+	}
+	if response == nil || response.Data == nil {
+		resp.Diagnostics.AddError("No data returned", "DBaaS Get returned no data")
+		return
+	}
+
+	dbaas := response.Data
+	if dbaas.Metadata.ID != nil {
+		data.Id = types.StringValue(*dbaas.Metadata.ID)
+	}
+	if dbaas.Metadata.URI != nil {
+		data.Uri = types.StringValue(*dbaas.Metadata.URI)
+	} else {
+		data.Uri = types.StringNull()
+	}
+	if dbaas.Metadata.Name != nil {
+		data.Name = types.StringValue(*dbaas.Metadata.Name)
+	}
+	if dbaas.Metadata.LocationResponse != nil {
+		data.Location = types.StringValue(dbaas.Metadata.LocationResponse.Value)
+	} else {
+		data.Location = types.StringNull()
+	}
+	data.ProjectID = types.StringValue(projectID)
+	// Zone is not returned by the API
+	data.Zone = types.StringNull()
+
+	if dbaas.Properties.Engine != nil && dbaas.Properties.Engine.ID != nil {
+		data.EngineID = types.StringValue(*dbaas.Properties.Engine.ID)
+	} else {
+		data.EngineID = types.StringNull()
+	}
+	if dbaas.Properties.Flavor != nil && dbaas.Properties.Flavor.Name != nil {
+		data.Flavor = types.StringValue(*dbaas.Properties.Flavor.Name)
+	} else {
+		data.Flavor = types.StringNull()
+	}
+	if dbaas.Properties.BillingPlan != nil && dbaas.Properties.BillingPlan.BillingPeriod != nil {
+		data.BillingPeriod = types.StringValue(*dbaas.Properties.BillingPlan.BillingPeriod)
+	} else {
+		data.BillingPeriod = types.StringNull()
+	}
+
+	if dbaas.Properties.Storage != nil && dbaas.Properties.Storage.SizeGB != nil {
+		data.StorageSizeGB = types.Int64Value(int64(*dbaas.Properties.Storage.SizeGB))
+	} else {
+		data.StorageSizeGB = types.Int64Null()
+	}
+	// Autoscaling fields are not reliably returned by the API
+	data.AutoscalingEnabled = types.BoolNull()
+	data.AutoscalingAvailableSpace = types.Int64Null()
+	data.AutoscalingStepSize = types.Int64Null()
+
+	// Network URIs are not returned by the API
+	data.VpcUriRef = types.StringNull()
+	data.SubnetUriRef = types.StringNull()
+	data.SecurityGroupUriRef = types.StringNull()
+	data.ElasticIpUriRef = types.StringNull()
+
+	if len(dbaas.Metadata.Tags) > 0 {
+		tagValues := make([]attr.Value, len(dbaas.Metadata.Tags))
+		for i, tag := range dbaas.Metadata.Tags {
+			tagValues[i] = types.StringValue(tag)
+		}
+		data.Tags = types.ListValueMust(types.StringType, tagValues)
+	} else {
+		data.Tags = types.ListValueMust(types.StringType, []attr.Value{})
+	}
+
+	tflog.Trace(ctx, "read a DBaaS data source", map[string]interface{}{"dbaas_id": dbaasID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

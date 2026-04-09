@@ -11,7 +11,8 @@ Retrieves an ArubaCloud Container Registry.
 
 ```terraform
 data "arubacloud_containerregistry" "example" {
-  id = "your-containerregistry-id"
+  id         = "your-containerregistry-id"
+  project_id = "your-project-id"
 }
 
 output "containerregistry_name" {
@@ -61,6 +62,7 @@ The following arguments are supported:
 #### Required
 
 - `id` (String) Container Registry identifier
+- `project_id` (String) ID of the project this Container Registry belongs to
 
 ### Attributes Reference
 
@@ -74,7 +76,6 @@ In addition to all arguments above, the following attributes are exported:
 - `concurrent_users_flavor` (String) Concurrent users flavor size (Small, Medium, HighPerf)
 - `location` (String) Container Registry location
 - `name` (String) Container Registry name
-- `project_id` (String) ID of the project this Container Registry belongs to
 - `public_ip_uri_ref` (String) Public IP URI reference
 - `security_group_uri_ref` (String) Security Group URI reference
 - `subnet_uri_ref` (String) Subnet URI reference

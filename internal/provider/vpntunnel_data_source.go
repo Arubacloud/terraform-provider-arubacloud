@@ -23,6 +23,7 @@ type VPNTunnelDataSource struct {
 type VPNTunnelDataSourceModel struct {
 	Id         types.String `tfsdk:"id"`
 	Name       types.String `tfsdk:"name"`
+	ProjectId  types.String `tfsdk:"project_id"`
 	RemotePeer types.String `tfsdk:"remote_peer"`
 	Status     types.String `tfsdk:"status"`
 }
@@ -42,6 +43,10 @@ func (d *VPNTunnelDataSource) Schema(ctx context.Context, req datasource.SchemaR
 			"name": schema.StringAttribute{
 				MarkdownDescription: "VPN Tunnel name",
 				Computed:            true,
+			},
+			"project_id": schema.StringAttribute{
+				MarkdownDescription: "ID of the project this VPN Tunnel belongs to",
+				Required:            true,
 			},
 			"remote_peer": schema.StringAttribute{
 				MarkdownDescription: "Remote peer address for the VPN tunnel",
@@ -63,7 +68,7 @@ func (d *VPNTunnelDataSource) Configure(ctx context.Context, req datasource.Conf
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Data Source Configure Type",
-			fmt.Sprintf("Expected *http.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+			fmt.Sprintf("Expected *ArubaCloudClient, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
 		return
 	}
@@ -76,9 +81,44 @@ func (d *VPNTunnelDataSource) Read(ctx context.Context, req datasource.ReadReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	data.Name = types.StringValue("example-vpntunnel")
-	data.RemotePeer = types.StringValue("203.0.113.1")
-	data.Status = types.StringValue("active")
-	tflog.Trace(ctx, "read a VPN Tunnel data source")
+
+	projectID := data.ProjectId.ValueString()
+	tunnelID := data.Id.ValueString()
+	if projectID == "" || tunnelID == "" {
+		resp.Diagnostics.AddError("Missing Required Fields", "Project ID and VPN Tunnel ID are required to read the VPN tunnel")
+		return
+	}
+
+	response, err := d.client.Client.FromNetwork().VPNTunnels().Get(ctx, projectID, tunnelID, nil)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading VPN tunnel", fmt.Sprintf("Unable to read VPN tunnel: %s", err))
+		return
+	}
+	if response != nil && response.IsError() && response.Error != nil {
+		if response.StatusCode == 404 {
+			resp.Diagnostics.AddError("VPN Tunnel not found", fmt.Sprintf("No VPN tunnel found with ID %q in project %q", tunnelID, projectID))
+			return
+		}
+		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read VPN tunnel", map[string]interface{}{"project_id": projectID, "tunnel_id": tunnelID}))
+		return
+	}
+	if response == nil || response.Data == nil {
+		resp.Diagnostics.AddError("No data returned", "VPN Tunnel Get returned no data")
+		return
+	}
+
+	tunnel := response.Data
+	if tunnel.Metadata.ID != nil {
+		data.Id = types.StringValue(*tunnel.Metadata.ID)
+	}
+	if tunnel.Metadata.Name != nil {
+		data.Name = types.StringValue(*tunnel.Metadata.Name)
+	}
+	data.ProjectId = types.StringValue(projectID)
+	// remote_peer and status are not directly available in the metadata response
+	data.RemotePeer = types.StringNull()
+	data.Status = types.StringNull()
+
+	tflog.Trace(ctx, "read a VPN Tunnel data source", map[string]interface{}{"tunnel_id": tunnelID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

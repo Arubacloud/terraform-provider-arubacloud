@@ -1,5 +1,6 @@
 data "arubacloud_dbaas" "basic" {
-  id = "dbaas-id"
+  id         = "dbaas-id"
+  project_id = "your-project-id"
 }
 
 output "dbaas_name" {

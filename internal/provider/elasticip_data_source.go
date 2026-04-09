@@ -53,7 +53,7 @@ func (d *ElasticIPDataSource) Schema(ctx context.Context, req datasource.SchemaR
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project this Elastic IP belongs to",
-				Computed:            true,
+				Required:            true,
 			},
 			"address": schema.StringAttribute{
 				MarkdownDescription: "Elastic IP address",
@@ -80,7 +80,7 @@ func (d *ElasticIPDataSource) Configure(ctx context.Context, req datasource.Conf
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Data Source Configure Type",
-			fmt.Sprintf("Expected *http.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+			fmt.Sprintf("Expected *ArubaCloudClient, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
 		return
 	}
@@ -94,17 +94,82 @@ func (d *ElasticIPDataSource) Read(ctx context.Context, req datasource.ReadReque
 		return
 	}
 
-	// Populate all fields with example data
-	data.Name = types.StringValue("example-elasticip")
-	data.Location = types.StringValue("ITBG-Bergamo")
-	data.ProjectId = types.StringValue("68398923fb2cb026400d4d31")
-	data.Address = types.StringValue("203.0.113.10")
-	data.BillingPeriod = types.StringValue("Hour")
-	data.Tags = types.ListValueMust(types.StringType, []attr.Value{
-		types.StringValue("public-ip"),
-		types.StringValue("production"),
-	})
+	projectID := data.ProjectId.ValueString()
+	eipID := data.Id.ValueString()
+	if projectID == "" || eipID == "" {
+		resp.Diagnostics.AddError(
+			"Missing Required Fields",
+			"Project ID and Elastic IP ID (id) are required to read the Elastic IP",
+		)
+		return
+	}
 
-	tflog.Trace(ctx, "read an Elastic IP data source")
+	response, err := d.client.Client.FromNetwork().ElasticIPs().Get(ctx, projectID, eipID, nil)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error reading Elastic IP",
+			fmt.Sprintf("Unable to read Elastic IP: %s", err),
+		)
+		return
+	}
+	if response != nil && response.IsError() && response.Error != nil {
+		if response.StatusCode == 404 {
+			resp.Diagnostics.AddError(
+				"Elastic IP not found",
+				fmt.Sprintf("No Elastic IP found with ID %q in project %q", eipID, projectID),
+			)
+			return
+		}
+		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read Elastic IP", map[string]interface{}{
+			"project_id": projectID,
+			"eip_id":     eipID,
+		})
+		resp.Diagnostics.AddError("API Error", errorMsg)
+		return
+	}
+	if response == nil || response.Data == nil {
+		resp.Diagnostics.AddError(
+			"No data returned",
+			"Elastic IP Get returned no data",
+		)
+		return
+	}
+
+	eip := response.Data
+
+	if eip.Metadata.ID != nil {
+		data.Id = types.StringValue(*eip.Metadata.ID)
+	}
+	if eip.Metadata.Name != nil {
+		data.Name = types.StringValue(*eip.Metadata.Name)
+	}
+	if eip.Metadata.LocationResponse != nil {
+		data.Location = types.StringValue(eip.Metadata.LocationResponse.Value)
+	} else {
+		data.Location = types.StringNull()
+	}
+	data.ProjectId = types.StringValue(projectID)
+	if eip.Properties.Address != nil {
+		data.Address = types.StringValue(*eip.Properties.Address)
+	} else {
+		data.Address = types.StringNull()
+	}
+	if eip.Properties.BillingPlan.BillingPeriod != "" {
+		data.BillingPeriod = types.StringValue(eip.Properties.BillingPlan.BillingPeriod)
+	} else {
+		data.BillingPeriod = types.StringNull()
+	}
+
+	if len(eip.Metadata.Tags) > 0 {
+		tagValues := make([]attr.Value, len(eip.Metadata.Tags))
+		for i, tag := range eip.Metadata.Tags {
+			tagValues[i] = types.StringValue(tag)
+		}
+		data.Tags = types.ListValueMust(types.StringType, tagValues)
+	} else {
+		data.Tags = types.ListValueMust(types.StringType, []attr.Value{})
+	}
+
+	tflog.Trace(ctx, "read an Elastic IP data source", map[string]interface{}{"eip_id": eipID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

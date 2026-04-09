@@ -21,8 +21,11 @@ type VPCPeeringRouteDataSource struct {
 }
 
 type VPCPeeringRouteDataSourceModel struct {
-	Id   types.String `tfsdk:"id"`
-	Name types.String `tfsdk:"name"`
+	Id           types.String `tfsdk:"id"`
+	Name         types.String `tfsdk:"name"`
+	ProjectId    types.String `tfsdk:"project_id"`
+	VpcId        types.String `tfsdk:"vpc_id"`
+	VpcPeeringId types.String `tfsdk:"vpc_peering_id"`
 }
 
 func (d *VPCPeeringRouteDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -34,12 +37,24 @@ func (d *VPCPeeringRouteDataSource) Schema(ctx context.Context, req datasource.S
 		MarkdownDescription: "VPC Peering Route data source",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "VPC Peering Route identifier",
+				MarkdownDescription: "VPC Peering Route identifier (same as name)",
 				Required:            true,
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "VPC Peering Route name",
 				Computed:            true,
+			},
+			"project_id": schema.StringAttribute{
+				MarkdownDescription: "ID of the project this VPC Peering Route belongs to",
+				Required:            true,
+			},
+			"vpc_id": schema.StringAttribute{
+				MarkdownDescription: "ID of the VPC this peering route belongs to",
+				Required:            true,
+			},
+			"vpc_peering_id": schema.StringAttribute{
+				MarkdownDescription: "ID of the VPC Peering this route belongs to",
+				Required:            true,
 			},
 		},
 	}
@@ -53,7 +68,7 @@ func (d *VPCPeeringRouteDataSource) Configure(ctx context.Context, req datasourc
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Data Source Configure Type",
-			fmt.Sprintf("Expected *http.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+			fmt.Sprintf("Expected *ArubaCloudClient, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
 		return
 	}
@@ -66,7 +81,42 @@ func (d *VPCPeeringRouteDataSource) Read(ctx context.Context, req datasource.Rea
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	data.Name = types.StringValue("example-vpcpeeringroute")
-	tflog.Trace(ctx, "read a VPC Peering Route data source")
+
+	projectID := data.ProjectId.ValueString()
+	vpcID := data.VpcId.ValueString()
+	peeringID := data.VpcPeeringId.ValueString()
+	routeID := data.Id.ValueString()
+	if projectID == "" || vpcID == "" || peeringID == "" || routeID == "" {
+		resp.Diagnostics.AddError("Missing Required Fields", "Project ID, VPC ID, VPC Peering ID, and Route ID are required to read the VPC peering route")
+		return
+	}
+
+	response, err := d.client.Client.FromNetwork().VPCPeeringRoutes().Get(ctx, projectID, vpcID, peeringID, routeID, nil)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading VPC peering route", fmt.Sprintf("Unable to read VPC peering route: %s", err))
+		return
+	}
+	if response != nil && response.IsError() && response.Error != nil {
+		if response.StatusCode == 404 {
+			resp.Diagnostics.AddError("VPC Peering Route not found", fmt.Sprintf("No VPC peering route found with ID %q in peering %q", routeID, peeringID))
+			return
+		}
+		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read VPC peering route", map[string]interface{}{"project_id": projectID, "vpc_id": vpcID, "peering_id": peeringID, "route_id": routeID}))
+		return
+	}
+	if response == nil || response.Data == nil {
+		resp.Diagnostics.AddError("No data returned", "VPC Peering Route Get returned no data")
+		return
+	}
+
+	route := response.Data
+	// VPC Peering Route uses name as ID
+	data.Id = types.StringValue(route.Metadata.Name)
+	data.Name = types.StringValue(route.Metadata.Name)
+	data.ProjectId = types.StringValue(projectID)
+	data.VpcId = types.StringValue(vpcID)
+	data.VpcPeeringId = types.StringValue(peeringID)
+
+	tflog.Trace(ctx, "read a VPC Peering Route data source", map[string]interface{}{"route_id": routeID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

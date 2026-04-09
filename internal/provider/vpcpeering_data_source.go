@@ -21,8 +21,10 @@ type VPCPeeringDataSource struct {
 }
 
 type VPCPeeringDataSourceModel struct {
-	Id   types.String `tfsdk:"id"`
-	Name types.String `tfsdk:"name"`
+	Id        types.String `tfsdk:"id"`
+	Name      types.String `tfsdk:"name"`
+	ProjectId types.String `tfsdk:"project_id"`
+	VpcId     types.String `tfsdk:"vpc_id"`
 }
 
 func (d *VPCPeeringDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -41,6 +43,14 @@ func (d *VPCPeeringDataSource) Schema(ctx context.Context, req datasource.Schema
 				MarkdownDescription: "VPC Peering name",
 				Computed:            true,
 			},
+			"project_id": schema.StringAttribute{
+				MarkdownDescription: "ID of the project this VPC Peering belongs to",
+				Required:            true,
+			},
+			"vpc_id": schema.StringAttribute{
+				MarkdownDescription: "ID of the VPC this peering belongs to",
+				Required:            true,
+			},
 		},
 	}
 }
@@ -53,7 +63,7 @@ func (d *VPCPeeringDataSource) Configure(ctx context.Context, req datasource.Con
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Data Source Configure Type",
-			fmt.Sprintf("Expected *http.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+			fmt.Sprintf("Expected *ArubaCloudClient, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
 		return
 	}
@@ -66,7 +76,43 @@ func (d *VPCPeeringDataSource) Read(ctx context.Context, req datasource.ReadRequ
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	data.Name = types.StringValue("example-vpcpeering")
-	tflog.Trace(ctx, "read a VPC Peering data source")
+
+	projectID := data.ProjectId.ValueString()
+	vpcID := data.VpcId.ValueString()
+	peeringID := data.Id.ValueString()
+	if projectID == "" || vpcID == "" || peeringID == "" {
+		resp.Diagnostics.AddError("Missing Required Fields", "Project ID, VPC ID, and VPC Peering ID are required to read the VPC peering")
+		return
+	}
+
+	response, err := d.client.Client.FromNetwork().VPCPeerings().Get(ctx, projectID, vpcID, peeringID, nil)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading VPC peering", fmt.Sprintf("Unable to read VPC peering: %s", err))
+		return
+	}
+	if response != nil && response.IsError() && response.Error != nil {
+		if response.StatusCode == 404 {
+			resp.Diagnostics.AddError("VPC Peering not found", fmt.Sprintf("No VPC peering found with ID %q in VPC %q", peeringID, vpcID))
+			return
+		}
+		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read VPC peering", map[string]interface{}{"project_id": projectID, "vpc_id": vpcID, "peering_id": peeringID}))
+		return
+	}
+	if response == nil || response.Data == nil {
+		resp.Diagnostics.AddError("No data returned", "VPC Peering Get returned no data")
+		return
+	}
+
+	peering := response.Data
+	if peering.Metadata.ID != nil {
+		data.Id = types.StringValue(*peering.Metadata.ID)
+	}
+	if peering.Metadata.Name != nil {
+		data.Name = types.StringValue(*peering.Metadata.Name)
+	}
+	data.ProjectId = types.StringValue(projectID)
+	data.VpcId = types.StringValue(vpcID)
+
+	tflog.Trace(ctx, "read a VPC Peering data source", map[string]interface{}{"peering_id": peeringID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

@@ -1,6 +1,8 @@
 package provider
 
 import (
+	"fmt"
+	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -10,12 +12,18 @@ import (
 )
 
 func TestAccVpcDataSource(t *testing.T) {
+	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
+	vpcID := os.Getenv("ARUBACLOUD_VPC_ID")
+	if projectID == "" || vpcID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_VPC_ID must be set for acceptance tests")
+	}
+
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccVpcDataSourceConfig,
+				Config: testAccVpcDataSourceConfig(projectID, vpcID),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_vpc.test",
@@ -27,7 +35,11 @@ func TestAccVpcDataSource(t *testing.T) {
 						tfjsonpath.New("name"),
 						knownvalue.NotNull(),
 					),
-					// Test flattened fields
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_vpc.test",
+						tfjsonpath.New("project_id"),
+						knownvalue.StringExact(projectID),
+					),
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_vpc.test",
 						tfjsonpath.New("location"),
@@ -35,7 +47,7 @@ func TestAccVpcDataSource(t *testing.T) {
 					),
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_vpc.test",
-						tfjsonpath.New("project_id"),
+						tfjsonpath.New("tags"),
 						knownvalue.NotNull(),
 					),
 				},
@@ -44,8 +56,11 @@ func TestAccVpcDataSource(t *testing.T) {
 	})
 }
 
-const testAccVpcDataSourceConfig = `
+func testAccVpcDataSourceConfig(projectID, vpcID string) string {
+	return fmt.Sprintf(`
 data "arubacloud_vpc" "test" {
-  id = "test-vpc-id"
+  id         = %[1]q
+  project_id = %[2]q
 }
-`
+`, vpcID, projectID)
+}

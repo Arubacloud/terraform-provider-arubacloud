@@ -11,7 +11,9 @@ Reads an existing ArubaCloud database.
 
 ```terraform
 data "arubacloud_database" "basic" {
-  id = "your-database-id"
+  id         = "your-database-name"
+  project_id = "your-project-id"
+  dbaas_id   = "your-dbaas-id"
 }
 
 output "database_project_id" {
@@ -37,7 +39,9 @@ The following arguments are supported:
 
 #### Required
 
-- `id` (String) Database identifier
+- `dbaas_id` (String) DBaaS ID this database belongs to
+- `id` (String) Database identifier (same as name)
+- `project_id` (String) ID of the project this database belongs to
 
 ### Attributes Reference
 
@@ -45,8 +49,6 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `dbaas_id` (String) DBaaS ID this database belongs to
 - `name` (String) Database name
-- `project_id` (String) ID of the project this database belongs to
 
 

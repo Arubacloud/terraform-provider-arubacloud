@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
@@ -47,7 +48,7 @@ func (d *SnapshotDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project this Snapshot belongs to",
-				Computed:            true,
+				Required:            true,
 			},
 			"location": schema.StringAttribute{
 				MarkdownDescription: "Snapshot location",
@@ -73,7 +74,7 @@ func (d *SnapshotDataSource) Configure(ctx context.Context, req datasource.Confi
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Data Source Configure Type",
-			fmt.Sprintf("Expected *http.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+			fmt.Sprintf("Expected *ArubaCloudClient, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
 		return
 	}
@@ -86,11 +87,55 @@ func (d *SnapshotDataSource) Read(ctx context.Context, req datasource.ReadReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	data.Name = types.StringValue("example-snapshot")
-	data.ProjectId = types.StringValue("example-project-id")
-	data.Location = types.StringValue("it-dc1")
-	data.BillingPeriod = types.StringValue("Hour")
-	data.VolumeId = types.StringValue("example-volume-id")
-	tflog.Trace(ctx, "read a Snapshot data source")
+
+	projectID := data.ProjectId.ValueString()
+	snapshotID := data.Id.ValueString()
+	if projectID == "" || snapshotID == "" {
+		resp.Diagnostics.AddError("Missing Required Fields", "Project ID and Snapshot ID are required to read the snapshot")
+		return
+	}
+
+	response, err := d.client.Client.FromStorage().Snapshots().Get(ctx, projectID, snapshotID, nil)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading snapshot", fmt.Sprintf("Unable to read snapshot: %s", err))
+		return
+	}
+	if response != nil && response.IsError() && response.Error != nil {
+		if response.StatusCode == 404 {
+			resp.Diagnostics.AddError("Snapshot not found", fmt.Sprintf("No snapshot found with ID %q in project %q", snapshotID, projectID))
+			return
+		}
+		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read snapshot", map[string]interface{}{"project_id": projectID, "snapshot_id": snapshotID}))
+		return
+	}
+	if response == nil || response.Data == nil {
+		resp.Diagnostics.AddError("No data returned", "Snapshot Get returned no data")
+		return
+	}
+
+	snapshot := response.Data
+	if snapshot.Metadata.ID != nil {
+		data.Id = types.StringValue(*snapshot.Metadata.ID)
+	}
+	if snapshot.Metadata.Name != nil {
+		data.Name = types.StringValue(*snapshot.Metadata.Name)
+	}
+	if snapshot.Metadata.LocationResponse != nil {
+		data.Location = types.StringValue(snapshot.Metadata.LocationResponse.Value)
+	} else {
+		data.Location = types.StringNull()
+	}
+	data.ProjectId = types.StringValue(projectID)
+	// billing_period is not returned by the API
+	data.BillingPeriod = types.StringNull()
+	// Extract volume ID from volume URI
+	if snapshot.Properties.Volume.URI != nil && *snapshot.Properties.Volume.URI != "" {
+		parts := strings.Split(*snapshot.Properties.Volume.URI, "/")
+		data.VolumeId = types.StringValue(parts[len(parts)-1])
+	} else {
+		data.VolumeId = types.StringNull()
+	}
+
+	tflog.Trace(ctx, "read a Snapshot data source", map[string]interface{}{"snapshot_id": snapshotID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

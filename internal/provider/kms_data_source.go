@@ -12,6 +12,7 @@ import (
 
 type KMSDataSourceModel struct {
 	Id          types.String `tfsdk:"id"`
+	ProjectID   types.String `tfsdk:"project_id"`
 	Name        types.String `tfsdk:"name"`
 	Description types.String `tfsdk:"description"`
 	Endpoint    types.String `tfsdk:"endpoint"`
@@ -39,6 +40,10 @@ func (d *KMSDataSource) Schema(ctx context.Context, req datasource.SchemaRequest
 				MarkdownDescription: "KMS identifier",
 				Required:            true,
 			},
+			"project_id": schema.StringAttribute{
+				MarkdownDescription: "ID of the project this KMS belongs to",
+				Required:            true,
+			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Name of the KMS resource",
 				Computed:            true,
@@ -63,7 +68,7 @@ func (d *KMSDataSource) Configure(ctx context.Context, req datasource.ConfigureR
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected DataSource Configure Type",
-			fmt.Sprintf("Expected *http.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+			fmt.Sprintf("Expected *ArubaCloudClient, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
 		return
 	}
@@ -76,10 +81,44 @@ func (d *KMSDataSource) Read(ctx context.Context, req datasource.ReadRequest, re
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	// Simulate API response
-	data.Id = types.StringValue("kms-id")
-	data.Description = types.StringValue("Simulated KMS description")
-	data.Endpoint = types.StringValue("https://kms.example.com")
-	tflog.Trace(ctx, "read a KMS data source")
+
+	projectID := data.ProjectID.ValueString()
+	kmsID := data.Id.ValueString()
+	if projectID == "" || kmsID == "" {
+		resp.Diagnostics.AddError("Missing Required Fields", "Project ID and KMS ID are required to read the KMS")
+		return
+	}
+
+	response, err := d.client.Client.FromSecurity().KMS().Get(ctx, projectID, kmsID, nil)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading KMS", fmt.Sprintf("Unable to read KMS: %s", err))
+		return
+	}
+	if response != nil && response.IsError() && response.Error != nil {
+		if response.StatusCode == 404 {
+			resp.Diagnostics.AddError("KMS not found", fmt.Sprintf("No KMS found with ID %q in project %q", kmsID, projectID))
+			return
+		}
+		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read KMS", map[string]interface{}{"project_id": projectID, "kms_id": kmsID}))
+		return
+	}
+	if response == nil || response.Data == nil {
+		resp.Diagnostics.AddError("No data returned", "KMS Get returned no data")
+		return
+	}
+
+	kms := response.Data
+	if kms.Metadata.ID != nil {
+		data.Id = types.StringValue(*kms.Metadata.ID)
+	}
+	if kms.Metadata.Name != nil {
+		data.Name = types.StringValue(*kms.Metadata.Name)
+	}
+	data.ProjectID = types.StringValue(projectID)
+	// description and endpoint are not returned by the API
+	data.Description = types.StringNull()
+	data.Endpoint = types.StringNull()
+
+	tflog.Trace(ctx, "read a KMS data source", map[string]interface{}{"kms_id": kmsID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

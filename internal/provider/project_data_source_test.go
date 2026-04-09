@@ -1,6 +1,8 @@
 package provider
 
 import (
+	"fmt"
+	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -10,26 +12,26 @@ import (
 )
 
 func TestAccProjectDataSource(t *testing.T) {
+	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
+	if projectID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
+	}
+
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccProjectDataSourceConfig,
+				Config: testAccProjectDataSourceConfig(projectID),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_project.test",
 						tfjsonpath.New("id"),
-						knownvalue.NotNull(),
+						knownvalue.StringExact(projectID),
 					),
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_project.test",
 						tfjsonpath.New("name"),
-						knownvalue.StringExact("example-project"),
-					),
-					statecheck.ExpectKnownValue(
-						"data.arubacloud_project.test",
-						tfjsonpath.New("description"),
 						knownvalue.NotNull(),
 					),
 					statecheck.ExpectKnownValue(
@@ -43,8 +45,10 @@ func TestAccProjectDataSource(t *testing.T) {
 	})
 }
 
-const testAccProjectDataSourceConfig = `
+func testAccProjectDataSourceConfig(projectID string) string {
+	return fmt.Sprintf(`
 data "arubacloud_project" "test" {
-  id = "test-project-id"
+  id = %[1]q
 }
-`
+`, projectID)
+}

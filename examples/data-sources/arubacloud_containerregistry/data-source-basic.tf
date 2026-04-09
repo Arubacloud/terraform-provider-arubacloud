@@ -1,5 +1,6 @@
 data "arubacloud_containerregistry" "example" {
-  id = "your-containerregistry-id"
+  id         = "your-containerregistry-id"
+  project_id = "your-project-id"
 }
 
 output "containerregistry_name" {

@@ -76,11 +76,11 @@ func (d *SubnetDataSource) Schema(ctx context.Context, req datasource.SchemaRequ
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project this subnet belongs to",
-				Computed:            true,
+				Required:            true,
 			},
 			"vpc_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the VPC this subnet belongs to",
-				Computed:            true,
+				Required:            true,
 			},
 			"type": schema.StringAttribute{
 				MarkdownDescription: "Subnet type (Basic or Advanced)",
@@ -135,7 +135,7 @@ func (d *SubnetDataSource) Configure(ctx context.Context, req datasource.Configu
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Data Source Configure Type",
-			fmt.Sprintf("Expected *http.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+			fmt.Sprintf("Expected *ArubaCloudClient, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
 		return
 	}
@@ -149,44 +149,127 @@ func (d *SubnetDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 		return
 	}
 
-	// Populate all fields with example data
-	data.Uri = types.StringValue("/v2/subnets/subnet-68398923fb2cb026400d4d32")
-	data.Name = types.StringValue("example-subnet")
-	data.Location = types.StringValue("ITBG-Bergamo")
-	data.ProjectId = types.StringValue("68398923fb2cb026400d4d31")
-	data.VpcId = types.StringValue("vpc-68398923fb2cb026400d4d32")
-	data.Type = types.StringValue("Advanced")
-	data.Address = types.StringValue("10.0.1.0/24")
-	data.DhcpEnabled = types.BoolValue(true)
-	data.DhcpRangeStart = types.StringValue("10.0.1.10")
-	data.DhcpRangeCount = types.Int64Value(200)
-
-	// Create routes list
-	routeType := types.ObjectType{
-		AttrTypes: map[string]attr.Type{
-			"address": types.StringType,
-			"gateway": types.StringType,
-		},
+	projectID := data.ProjectId.ValueString()
+	vpcID := data.VpcId.ValueString()
+	subnetID := data.Id.ValueString()
+	if projectID == "" || vpcID == "" || subnetID == "" {
+		resp.Diagnostics.AddError("Missing Required Fields", "Project ID, VPC ID, and Subnet ID are required to read the subnet")
+		return
 	}
-	route1, _ := types.ObjectValue(routeType.AttrTypes, map[string]attr.Value{
-		"address": types.StringValue("0.0.0.0/0"),
-		"gateway": types.StringValue("10.0.1.1"),
-	})
-	route2, _ := types.ObjectValue(routeType.AttrTypes, map[string]attr.Value{
-		"address": types.StringValue("192.168.0.0/16"),
-		"gateway": types.StringValue("10.0.1.254"),
-	})
-	data.DhcpRoutes = types.ListValueMust(routeType, []attr.Value{route1, route2})
 
-	data.Dns = types.ListValueMust(types.StringType, []attr.Value{
-		types.StringValue("8.8.8.8"),
-		types.StringValue("8.8.4.4"),
-	})
-	data.Tags = types.ListValueMust(types.StringType, []attr.Value{
-		types.StringValue("network"),
-		types.StringValue("private"),
-	})
+	response, err := d.client.Client.FromNetwork().Subnets().Get(ctx, projectID, vpcID, subnetID, nil)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading subnet", fmt.Sprintf("Unable to read subnet: %s", err))
+		return
+	}
+	if response != nil && response.IsError() && response.Error != nil {
+		if response.StatusCode == 404 {
+			resp.Diagnostics.AddError("Subnet not found", fmt.Sprintf("No subnet found with ID %q in VPC %q", subnetID, vpcID))
+			return
+		}
+		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read subnet", map[string]interface{}{"project_id": projectID, "vpc_id": vpcID, "subnet_id": subnetID}))
+		return
+	}
+	if response == nil || response.Data == nil {
+		resp.Diagnostics.AddError("No data returned", "Subnet Get returned no data")
+		return
+	}
 
-	tflog.Trace(ctx, "read a Subnet data source")
+	subnet := response.Data
+	if subnet.Metadata.ID != nil {
+		data.Id = types.StringValue(*subnet.Metadata.ID)
+	}
+	if subnet.Metadata.URI != nil {
+		data.Uri = types.StringValue(*subnet.Metadata.URI)
+	} else {
+		data.Uri = types.StringNull()
+	}
+	if subnet.Metadata.Name != nil {
+		data.Name = types.StringValue(*subnet.Metadata.Name)
+	}
+	if subnet.Metadata.LocationResponse != nil {
+		data.Location = types.StringValue(subnet.Metadata.LocationResponse.Value)
+	} else {
+		data.Location = types.StringNull()
+	}
+	data.ProjectId = types.StringValue(projectID)
+	data.VpcId = types.StringValue(vpcID)
+	data.Type = types.StringValue(string(subnet.Properties.Type))
+
+	if subnet.Properties.Network != nil && subnet.Properties.Network.Address != "" {
+		data.Address = types.StringValue(subnet.Properties.Network.Address)
+	} else {
+		data.Address = types.StringNull()
+	}
+
+	if subnet.Properties.DHCP != nil {
+		data.DhcpEnabled = types.BoolValue(subnet.Properties.DHCP.Enabled)
+
+		if subnet.Properties.DHCP.Range != nil {
+			data.DhcpRangeStart = types.StringValue(subnet.Properties.DHCP.Range.Start)
+			data.DhcpRangeCount = types.Int64Value(int64(subnet.Properties.DHCP.Range.Count))
+		} else {
+			data.DhcpRangeStart = types.StringNull()
+			data.DhcpRangeCount = types.Int64Null()
+		}
+
+		routeObjType := types.ObjectType{
+			AttrTypes: map[string]attr.Type{
+				"address": types.StringType,
+				"gateway": types.StringType,
+			},
+		}
+		if len(subnet.Properties.DHCP.Routes) > 0 {
+			routeObjs := make([]attr.Value, len(subnet.Properties.DHCP.Routes))
+			for i, route := range subnet.Properties.DHCP.Routes {
+				routeObj, diags := types.ObjectValue(routeObjType.AttrTypes, map[string]attr.Value{
+					"address": types.StringValue(route.Address),
+					"gateway": types.StringValue(route.Gateway),
+				})
+				resp.Diagnostics.Append(diags...)
+				if resp.Diagnostics.HasError() {
+					return
+				}
+				routeObjs[i] = routeObj
+			}
+			data.DhcpRoutes = types.ListValueMust(routeObjType, routeObjs)
+		} else {
+			data.DhcpRoutes = types.ListValueMust(routeObjType, []attr.Value{})
+		}
+
+		if len(subnet.Properties.DHCP.DNS) > 0 {
+			dnsValues := make([]attr.Value, len(subnet.Properties.DHCP.DNS))
+			for i, dns := range subnet.Properties.DHCP.DNS {
+				dnsValues[i] = types.StringValue(dns)
+			}
+			data.Dns = types.ListValueMust(types.StringType, dnsValues)
+		} else {
+			data.Dns = types.ListValueMust(types.StringType, []attr.Value{})
+		}
+	} else {
+		data.DhcpEnabled = types.BoolNull()
+		data.DhcpRangeStart = types.StringNull()
+		data.DhcpRangeCount = types.Int64Null()
+		routeObjType := types.ObjectType{
+			AttrTypes: map[string]attr.Type{
+				"address": types.StringType,
+				"gateway": types.StringType,
+			},
+		}
+		data.DhcpRoutes = types.ListValueMust(routeObjType, []attr.Value{})
+		data.Dns = types.ListValueMust(types.StringType, []attr.Value{})
+	}
+
+	if len(subnet.Metadata.Tags) > 0 {
+		tagValues := make([]attr.Value, len(subnet.Metadata.Tags))
+		for i, tag := range subnet.Metadata.Tags {
+			tagValues[i] = types.StringValue(tag)
+		}
+		data.Tags = types.ListValueMust(types.StringType, tagValues)
+	} else {
+		data.Tags = types.ListValueMust(types.StringType, []attr.Value{})
+	}
+
+	tflog.Trace(ctx, "read a Subnet data source", map[string]interface{}{"subnet_id": subnetID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
