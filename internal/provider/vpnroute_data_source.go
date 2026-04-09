@@ -21,12 +21,12 @@ type VPNRouteDataSource struct {
 }
 
 type VPNRouteDataSourceModel struct {
-	Id           types.String `tfsdk:"id"`
-	Name         types.String `tfsdk:"name"`
-	ProjectId    types.String `tfsdk:"project_id"`
-	VpnTunnelId  types.String `tfsdk:"vpn_tunnel_id"`
-	Destination  types.String `tfsdk:"destination"`
-	Gateway      types.String `tfsdk:"gateway"`
+	Id          types.String `tfsdk:"id"`
+	Name        types.String `tfsdk:"name"`
+	ProjectId   types.String `tfsdk:"project_id"`
+	VpnTunnelId types.String `tfsdk:"vpn_tunnel_id"`
+	Destination types.String `tfsdk:"destination"`
+	Gateway     types.String `tfsdk:"gateway"`
 }
 
 func (d *VPNRouteDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {

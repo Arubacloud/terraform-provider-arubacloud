@@ -16,6 +16,12 @@ data "arubacloud_database" "basic" {
   dbaas_id   = "your-dbaas-id"
 }
 
+output "database_project_id" {
+  value = data.arubacloud_database.basic.project_id
+}
+output "database_dbaas_id" {
+  value = data.arubacloud_database.basic.dbaas_id
+}
 output "database_name" {
   value = data.arubacloud_database.basic.name
 }
@@ -33,9 +39,9 @@ The following arguments are supported:
 
 #### Required
 
-- `id` (String) Database name (used as identifier)
-- `project_id` (String) ID of the project this database belongs to
 - `dbaas_id` (String) DBaaS ID this database belongs to
+- `id` (String) Database identifier (same as name)
+- `project_id` (String) ID of the project this database belongs to
 
 ### Attributes Reference
 

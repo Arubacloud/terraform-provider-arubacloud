@@ -18,28 +18,18 @@ data "arubacloud_schedulejob" "example" {
 output "schedulejob_name" {
   value = data.arubacloud_schedulejob.example.name
 }
+output "schedulejob_description" {
+  value = data.arubacloud_schedulejob.example.description
+}
 output "schedulejob_cron" {
   value = data.arubacloud_schedulejob.example.cron
 }
 ```
 
-## Schema
+## Argument Reference
 
-### Arguments
+<!-- tfplugindocs injects arguments -->
 
-The following arguments are supported:
+## Attribute Reference
 
-#### Required
-
-- `id` (String) Schedule Job identifier
-- `project_id` (String) ID of the project this Schedule Job belongs to
-
-### Attributes Reference
-
-In addition to all arguments above, the following attributes are exported:
-
-#### Read-Only
-
-- `cron` (String) Cron expression for the schedule
-- `description` (String) Schedule Job description
-- `name` (String) Schedule Job name
+<!-- tfplugindocs injects attributes -->

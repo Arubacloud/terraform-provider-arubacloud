@@ -157,7 +157,7 @@ func (d *DatabaseBackupDataSource) Read(ctx context.Context, req datasource.Read
 	data.DBaaSID = types.StringNull()
 	data.Database = types.StringNull()
 
-	if backup.Metadata.Tags != nil && len(backup.Metadata.Tags) > 0 {
+	if len(backup.Metadata.Tags) > 0 {
 		tagValues := make([]attr.Value, len(backup.Metadata.Tags))
 		for i, tag := range backup.Metadata.Tags {
 			tagValues[i] = types.StringValue(tag)

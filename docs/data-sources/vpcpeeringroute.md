@@ -5,7 +5,7 @@ description: |-
   Reads an existing ArubaCloud VPC peering route.
 ---
 
-# arubacloud_vpcpeeringroute
+# arubacloud_vpc_peering_route
 
 Reads an existing ArubaCloud VPC peering route.
 
@@ -22,23 +22,10 @@ output "vpcpeeringroute_name" {
 }
 ```
 
-## Schema
+## Argument Reference
 
-### Arguments
+<!-- tfplugindocs injects arguments -->
 
-The following arguments are supported:
+## Attribute Reference
 
-#### Required
-
-- `id` (String) VPC Peering Route identifier (same as name)
-- `project_id` (String) ID of the project this VPC Peering Route belongs to
-- `vpc_id` (String) ID of the VPC this peering route belongs to
-- `vpc_peering_id` (String) ID of the VPC Peering this route belongs to
-
-### Attributes Reference
-
-In addition to all arguments above, the following attributes are exported:
-
-#### Read-Only
-
-- `name` (String) VPC Peering Route name
+<!-- tfplugindocs injects attributes -->

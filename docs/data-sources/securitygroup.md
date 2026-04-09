@@ -27,24 +27,10 @@ output "securitygroup_tags" {
 }
 ```
 
-## Schema
+## Argument Reference
 
-### Arguments
+<!-- tfplugindocs injects arguments -->
 
-The following arguments are supported:
+## Attribute Reference
 
-#### Required
-
-- `id` (String) Security Group identifier
-- `project_id` (String) ID of the project this Security Group belongs to
-- `vpc_id` (String) ID of the VPC this Security Group belongs to
-
-### Attributes Reference
-
-In addition to all arguments above, the following attributes are exported:
-
-#### Read-Only
-
-- `location` (String) Security Group location
-- `name` (String) Security Group name
-- `tags` (List of String) List of tags for the Security Group
+<!-- tfplugindocs injects attributes -->

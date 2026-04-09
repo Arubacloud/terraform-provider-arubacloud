@@ -21,28 +21,18 @@ output "vpc_name" {
 output "vpc_location" {
   value = data.arubacloud_vpc.basic.location
 }
+output "vpc_project_id" {
+  value = data.arubacloud_vpc.basic.project_id
+}
 output "vpc_tags" {
   value = data.arubacloud_vpc.basic.tags
 }
 ```
 
-## Schema
+## Argument Reference
 
-### Arguments
+<!-- tfplugindocs injects arguments -->
 
-The following arguments are supported:
+## Attribute Reference
 
-#### Required
-
-- `id` (String) VPC identifier
-- `project_id` (String) ID of the project this VPC belongs to
-
-### Attributes Reference
-
-In addition to all arguments above, the following attributes are exported:
-
-#### Read-Only
-
-- `location` (String) VPC location
-- `name` (String) VPC name
-- `tags` (List of String) List of tags for the VPC
+<!-- tfplugindocs injects attributes -->

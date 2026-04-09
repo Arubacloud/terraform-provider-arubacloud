@@ -15,6 +15,19 @@ data "arubacloud_restore" "basic" {
   project_id = "your-project-id"
   backup_id  = "your-backup-id"
 }
+
+output "restore_name" {
+  value = data.arubacloud_restore.basic.name
+}
+output "restore_location" {
+  value = data.arubacloud_restore.basic.location
+}
+output "restore_volume_id" {
+  value = data.arubacloud_restore.basic.volume_id
+}
+output "restore_tags" {
+  value = data.arubacloud_restore.basic.tags
+}
 ```
 
 
@@ -29,9 +42,9 @@ The following arguments are supported:
 
 #### Required
 
+- `backup_id` (String) ID of the backup this restore belongs to
 - `id` (String) Restore identifier
 - `project_id` (String) ID of the project this restore belongs to
-- `backup_id` (String) ID of the backup this restore belongs to
 
 ### Attributes Reference
 

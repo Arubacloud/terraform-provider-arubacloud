@@ -26,24 +26,10 @@ output "snapshot_volume_id" {
 }
 ```
 
-## Schema
+## Argument Reference
 
-### Arguments
+<!-- tfplugindocs injects arguments -->
 
-The following arguments are supported:
+## Attribute Reference
 
-#### Required
-
-- `id` (String) Snapshot identifier
-- `project_id` (String) ID of the project this Snapshot belongs to
-
-### Attributes Reference
-
-In addition to all arguments above, the following attributes are exported:
-
-#### Read-Only
-
-- `billing_period` (String) Billing period (only 'Hour' allowed)
-- `location` (String) Snapshot location
-- `name` (String) Snapshot name
-- `volume_id` (String) ID of the volume this snapshot is for
+<!-- tfplugindocs injects attributes -->

@@ -18,6 +18,15 @@ data "arubacloud_databasebackup" "example" {
 output "databasebackup_name" {
   value = data.arubacloud_databasebackup.example.name
 }
+output "databasebackup_location" {
+  value = data.arubacloud_databasebackup.example.location
+}
+output "databasebackup_billing_period" {
+  value = data.arubacloud_databasebackup.example.billing_period
+}
+output "databasebackup_tags" {
+  value = data.arubacloud_databasebackup.example.tags
+}
 ```
 
 
@@ -33,7 +42,7 @@ The following arguments are supported:
 #### Required
 
 - `id` (String) Database Backup identifier
-- `project_id` (String) ID of the project this Database Backup belongs to
+- `project_id` (String) ID of the project this database backup belongs to
 
 ### Attributes Reference
 

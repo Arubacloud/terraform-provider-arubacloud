@@ -33,9 +33,9 @@ The following arguments are supported:
 
 #### Required
 
-- `username` (String) Username for the DBaaS user (lookup key)
-- `project_id` (String) ID of the project this DBaaS user belongs to
 - `dbaas_id` (String) DBaaS ID this user belongs to
+- `project_id` (String) ID of the project this DBaaS user belongs to
+- `username` (String) Username for the DBaaS user (lookup key)
 
 ### Attributes Reference
 

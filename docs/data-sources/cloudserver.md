@@ -68,7 +68,7 @@ The following arguments are supported:
 #### Required
 
 - `id` (String) CloudServer identifier
-- `project_id` (String) ID of the project this CloudServer belongs to
+- `project_id` (String) Project ID
 
 ### Attributes Reference
 

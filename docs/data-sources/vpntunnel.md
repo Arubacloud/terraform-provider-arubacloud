@@ -5,7 +5,7 @@ description: |-
   Reads an existing ArubaCloud VPN tunnel.
 ---
 
-# arubacloud_vpntunnel
+# arubacloud_vpn_tunnel
 
 Reads an existing ArubaCloud VPN tunnel.
 
@@ -18,28 +18,12 @@ data "arubacloud_vpntunnel" "basic" {
 output "vpntunnel_name" {
   value = data.arubacloud_vpntunnel.basic.name
 }
-output "vpntunnel_status" {
-  value = data.arubacloud_vpntunnel.basic.status
-}
 ```
 
-## Schema
+## Argument Reference
 
-### Arguments
+<!-- tfplugindocs injects arguments -->
 
-The following arguments are supported:
+## Attribute Reference
 
-#### Required
-
-- `id` (String) VPN Tunnel identifier
-- `project_id` (String) ID of the project this VPN Tunnel belongs to
-
-### Attributes Reference
-
-In addition to all arguments above, the following attributes are exported:
-
-#### Read-Only
-
-- `name` (String) VPN Tunnel name
-- `remote_peer` (String) Remote peer IP address
-- `status` (String) VPN Tunnel status
+<!-- tfplugindocs injects attributes -->
