@@ -60,11 +60,17 @@ func (r *SnapshotResource) Schema(ctx context.Context, req resource.SchemaReques
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project this Snapshot belongs to",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"location": schema.StringAttribute{
 				MarkdownDescription: "Snapshot location",
 				Required:            true,
 				// Validators removed for v1.16.1 compatibility
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"billing_period": schema.StringAttribute{
 				MarkdownDescription: "Billing period (only 'Hour' allowed)",
@@ -75,7 +81,7 @@ func (r *SnapshotResource) Schema(ctx context.Context, req resource.SchemaReques
 				MarkdownDescription: "URI of the volume this snapshot is for. Should be the volume URI (e.g., `/projects/{project_id}/providers/Aruba.Storage/volumes/{volume_id}`). You can reference the `uri` attribute from an `arubacloud_blockstorage` resource.",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"tags": schema.ListAttribute{

@@ -90,6 +90,9 @@ func (r *SubnetResource) Schema(ctx context.Context, req resource.SchemaRequest,
 				MarkdownDescription: "Subnet location",
 				Required:            true,
 				// Validators removed for v1.16.1 compatibility
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
@@ -99,18 +102,24 @@ func (r *SubnetResource) Schema(ctx context.Context, req resource.SchemaRequest,
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project this subnet belongs to",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"vpc_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the VPC this subnet belongs to",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"type": schema.StringAttribute{
 				MarkdownDescription: "Subnet type (Basic or Advanced)",
 				Required:            true,
 				// Validators removed for v1.16.1 compatibility
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"network": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{

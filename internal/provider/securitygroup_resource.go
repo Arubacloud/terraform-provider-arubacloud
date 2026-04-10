@@ -66,6 +66,9 @@ func (r *SecurityGroupResource) Schema(ctx context.Context, req resource.SchemaR
 				MarkdownDescription: "Security Group location",
 				Required:            true,
 				// Validators removed for v1.16.1 compatibility
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
@@ -75,12 +78,15 @@ func (r *SecurityGroupResource) Schema(ctx context.Context, req resource.SchemaR
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project this Security Group belongs to",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"vpc_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the VPC this Security Group belongs to",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 		},

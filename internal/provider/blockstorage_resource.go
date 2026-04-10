@@ -67,10 +67,16 @@ func (r *BlockStorageResource) Schema(ctx context.Context, req resource.SchemaRe
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project this Block Storage belongs to",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"location": schema.StringAttribute{
 				MarkdownDescription: "Block Storage location/region",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"size_gb": schema.Int64Attribute{
 				MarkdownDescription: "Size of the block storage in GB",

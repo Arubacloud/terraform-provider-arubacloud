@@ -170,23 +170,29 @@ func (r *SecurityRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 				MarkdownDescription: "Security Rule location",
 				Required:            true,
 				// Validators removed for v1.16.1 compatibility
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project this Security Rule belongs to",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"vpc_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the VPC this Security Rule belongs to",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"security_group_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the Security Group this rule belongs to",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"tags": schema.ListAttribute{

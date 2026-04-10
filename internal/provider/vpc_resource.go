@@ -61,10 +61,16 @@ func (r *VPCResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 				MarkdownDescription: "VPC location",
 				Required:            true,
 				// Validators removed for v1.16.1 compatibility
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "Project ID",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,

@@ -53,6 +53,9 @@ func (r *ElasticIPResource) Schema(ctx context.Context, req resource.SchemaReque
 				MarkdownDescription: "Elastic IP location",
 				Required:            true,
 				// Validators removed for v1.16.1 compatibility
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
@@ -71,6 +74,9 @@ func (r *ElasticIPResource) Schema(ctx context.Context, req resource.SchemaReque
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project this Elastic IP belongs to",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"address": schema.StringAttribute{
 				MarkdownDescription: "Elastic IP address (computed from ElasticIpPropertiesResponse)",
