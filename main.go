@@ -7,7 +7,7 @@ import (
 	"flag"
 	"log"
 
-	"terraform-provider-arubacloud/internal/provider"
+	"github.com/Arubacloud/terraform-provider-arubacloud/internal/provider"
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 )

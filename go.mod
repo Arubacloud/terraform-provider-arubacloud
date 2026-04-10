@@ -1,4 +1,4 @@
-module terraform-provider-arubacloud
+module github.com/Arubacloud/terraform-provider-arubacloud
 
 go 1.24.0
 
