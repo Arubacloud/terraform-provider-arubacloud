@@ -409,7 +409,7 @@ func (r *ContainerRegistryResource) Read(ctx context.Context, req resource.ReadR
 	if apiErr := CheckResponse("read", "Containerregistry", response); apiErr != nil {
 		if IsNotFound(apiErr) {
 			resp.State.RemoveResource(ctx)
-		return
+			return
 		}
 		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return

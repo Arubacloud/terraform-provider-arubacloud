@@ -274,7 +274,7 @@ func (r *DatabaseBackupResource) Read(ctx context.Context, req resource.ReadRequ
 	if apiErr := CheckResponse("read", "Databasebackup", response); apiErr != nil {
 		if IsNotFound(apiErr) {
 			resp.State.RemoveResource(ctx)
-		return
+			return
 		}
 		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return

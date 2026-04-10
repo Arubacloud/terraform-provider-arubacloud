@@ -270,7 +270,7 @@ func (r *VPCResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	if apiErr := CheckResponse("read", "Vpc", response); apiErr != nil {
 		if IsNotFound(apiErr) {
 			resp.State.RemoveResource(ctx)
-		return
+			return
 		}
 		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
@@ -505,7 +505,6 @@ func (r *VPCResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 		"vpc_id": vpcID,
 	})
 }
-
 
 func (r *VPCResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)

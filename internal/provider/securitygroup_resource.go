@@ -279,7 +279,7 @@ func (r *SecurityGroupResource) Read(ctx context.Context, req resource.ReadReque
 	if apiErr := CheckResponse("read", "Securitygroup", response); apiErr != nil {
 		if IsNotFound(apiErr) {
 			resp.State.RemoveResource(ctx)
-		return
+			return
 		}
 		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
