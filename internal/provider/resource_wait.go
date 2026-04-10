@@ -21,6 +21,7 @@ func WaitForResourceActive(ctx context.Context, checker ResourceStateChecker, re
 
 	tflog.Info(ctx, fmt.Sprintf("Waiting for %s %s to become active", resourceType, resourceID))
 
+	consecutiveErrors := 0
 	for {
 		select {
 		case <-ctx.Done():
@@ -32,9 +33,14 @@ func WaitForResourceActive(ctx context.Context, checker ResourceStateChecker, re
 
 			state, err := checker(ctx)
 			if err != nil {
-				tflog.Warn(ctx, fmt.Sprintf("Error checking %s %s status: %v", resourceType, resourceID, err))
+				consecutiveErrors++
+				tflog.Warn(ctx, fmt.Sprintf("Error checking %s %s status (attempt %d): %v", resourceType, resourceID, consecutiveErrors, err))
+				if consecutiveErrors >= 3 {
+					return fmt.Errorf("giving up waiting for %s %s after %d consecutive check errors: %w", resourceType, resourceID, consecutiveErrors, err)
+				}
 				continue
 			}
+			consecutiveErrors = 0
 
 			// Check if resource is in a ready state
 			if isReadyState(state) {
