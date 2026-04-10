@@ -61,9 +61,8 @@ Tackle all 29 tech debt items across 5 phases. TD-003 (ImportState) is intention
 - All resource Schema() methods for immutable fields: `location`, `project_id`, `zone`, `type`, `volume_id`
 - Add `PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()}`
 
-### TD-016: Error Wrapping with %w
-- All Go files in `internal/provider/`
-- Replace `fmt.Errorf("...: %v", err)` / `fmt.Errorf("...: %s", err)` → `fmt.Errorf("...: %w", err)` where forwarding upstream errors
+### ~~TD-016: Error Wrapping with %w~~ ✅
+- Already using `%w` throughout after the ProviderError refactor — no changes needed.
 
 ### TD-017: Extract Tag Helpers
 - New file: `internal/provider/helpers.go`
@@ -76,9 +75,8 @@ Tackle all 29 tech debt items across 5 phases. TD-003 (ImportState) is intention
 ### ~~TD-028: Fix Wrong MarkdownDescription on ElasticIP~~ ✅
 - `elasticip_resource.go`: `"Project resource"` → `"Elastic IP resource"`
 
-### TD-020: Fix parseTimeout Silent Failure
-- File: `provider.go` — `parseTimeout`
-- Change signature to accept `diag.Diagnostics`; add `diags.AddWarning(...)` when parse fails, then return default
+### ~~TD-020: Fix parseTimeout Silent Failure~~ ✅
+- `provider.go`: `parseTimeout` now accepts `diag.Diagnostics`; adds `AddWarning` with the bad value and error on parse failure instead of silently returning the default.
 
 ---
 
