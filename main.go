@@ -28,7 +28,7 @@ func main() {
 	flag.Parse()
 
 	opts := providerserver.ServeOpts{
-		Address: "registry.terraform.io/hashicorp/arubacloud",
+		Address: "registry.terraform.io/arubacloud/arubacloud",
 		Debug:   debug,
 	}
 
