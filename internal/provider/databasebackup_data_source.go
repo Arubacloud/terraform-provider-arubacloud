@@ -113,15 +113,11 @@ func (d *DatabaseBackupDataSource) Read(ctx context.Context, req datasource.Read
 
 	response, err := d.client.Client.FromDatabase().Backups().Get(ctx, projectID, backupID, nil)
 	if err != nil {
-		resp.Diagnostics.AddError("Error reading database backup", fmt.Sprintf("Unable to read database backup: %s", err))
+		resp.Diagnostics.AddError("Error reading database backup", NewTransportError("read", "Databasebackup", err).Error())
 		return
 	}
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
-			resp.Diagnostics.AddError("Database Backup not found", fmt.Sprintf("No database backup found with ID %q in project %q", backupID, projectID))
-			return
-		}
-		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read database backup", map[string]interface{}{"project_id": projectID, "backup_id": backupID}))
+	if apiErr := CheckResponse("read", "Databasebackup", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 	if response == nil || response.Data == nil {

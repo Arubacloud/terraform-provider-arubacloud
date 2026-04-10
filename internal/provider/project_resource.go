@@ -121,15 +121,13 @@ func (r *ProjectResource) Create(ctx context.Context, req resource.CreateRequest
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating project",
-			fmt.Sprintf("Unable to create project: %s", err),
+			NewTransportError("create", "Project", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create project", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("create", "Project", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -224,7 +222,7 @@ func (r *ProjectResource) Read(ctx context.Context, req resource.ReadRequest, re
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading project",
-			fmt.Sprintf("Unable to read project: %s", err),
+			NewTransportError("read", "Project", err).Error(),
 		)
 		return
 	}
@@ -235,11 +233,8 @@ func (r *ProjectResource) Read(ctx context.Context, req resource.ReadRequest, re
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read project", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+		apiErr := newResponseError("read", "Project", response.StatusCode, response.Error)
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -346,7 +341,7 @@ func (r *ProjectResource) Update(ctx context.Context, req resource.UpdateRequest
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error fetching current project",
-			fmt.Sprintf("Unable to get current project: %s", err),
+			NewTransportError("read", "Project", err).Error(),
 		)
 		return
 	}
@@ -395,17 +390,13 @@ func (r *ProjectResource) Update(ctx context.Context, req resource.UpdateRequest
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating project",
-			fmt.Sprintf("Unable to update project: %s", err),
+			NewTransportError("update", "Project", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to update project", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("update", "Project", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -481,10 +472,13 @@ func (r *ProjectResource) Delete(ctx context.Context, req resource.DeleteRequest
 	// Retry on any error except 404 (Resource Not Found)
 	err := DeleteResourceWithRetry(
 		ctx,
-		func() (interface{}, error) {
-			return r.client.Client.FromProject().Delete(ctx, projectID, nil)
+		func() error {
+			resp, err := r.client.Client.FromProject().Delete(ctx, projectID, nil)
+			if err != nil {
+				return NewTransportError("delete", "Project", err)
+			}
+			return CheckResponse("delete", "Project", resp)
 		},
-		ExtractSDKError,
 		"Project",
 		projectID,
 		r.client.ResourceTimeout,
@@ -493,7 +487,7 @@ func (r *ProjectResource) Delete(ctx context.Context, req resource.DeleteRequest
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting project",
-			fmt.Sprintf("Unable to delete project: %s", err),
+			NewTransportError("delete", "Project", err).Error(),
 		)
 		return
 	}

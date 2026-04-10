@@ -91,15 +91,11 @@ func (d *ScheduleJobDataSource) Read(ctx context.Context, req datasource.ReadReq
 
 	response, err := d.client.Client.FromSchedule().Jobs().Get(ctx, projectID, jobID, nil)
 	if err != nil {
-		resp.Diagnostics.AddError("Error reading schedule job", fmt.Sprintf("Unable to read schedule job: %s", err))
+		resp.Diagnostics.AddError("Error reading schedule job", NewTransportError("read", "Schedulejob", err).Error())
 		return
 	}
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
-			resp.Diagnostics.AddError("Schedule Job not found", fmt.Sprintf("No schedule job found with ID %q in project %q", jobID, projectID))
-			return
-		}
-		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read schedule job", map[string]interface{}{"project_id": projectID, "job_id": jobID}))
+	if apiErr := CheckResponse("read", "Schedulejob", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 	if response == nil || response.Data == nil {

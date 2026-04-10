@@ -129,7 +129,7 @@ func (r *DatabaseBackupResource) Create(ctx context.Context, req resource.Create
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error getting DBaaS instance",
-			fmt.Sprintf("Unable to get DBaaS instance: %s", err),
+			NewTransportError("read", "Databasebackup", err).Error(),
 		)
 		return
 	}
@@ -185,18 +185,13 @@ func (r *DatabaseBackupResource) Create(ctx context.Context, req resource.Create
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating database backup",
-			fmt.Sprintf("Unable to create database backup: %s", err),
+			NewTransportError("create", "Databasebackup", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-			"dbaas_id":   dbaasID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create database backup", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("create", "Databasebackup", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -271,22 +266,17 @@ func (r *DatabaseBackupResource) Read(ctx context.Context, req resource.ReadRequ
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading database backup",
-			fmt.Sprintf("Unable to read database backup: %s", err),
+			NewTransportError("read", "Databasebackup", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
+	if apiErr := CheckResponse("read", "Databasebackup", response); apiErr != nil {
+		if IsNotFound(apiErr) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-			"backup_id":  backupID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read database backup", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -381,10 +371,13 @@ func (r *DatabaseBackupResource) Delete(ctx context.Context, req resource.Delete
 	// Retry on any error except 404 (Resource Not Found)
 	err := DeleteResourceWithRetry(
 		ctx,
-		func() (interface{}, error) {
-			return r.client.Client.FromDatabase().Backups().Delete(ctx, projectID, backupID, nil)
+		func() error {
+			resp, err := r.client.Client.FromDatabase().Backups().Delete(ctx, projectID, backupID, nil)
+			if err != nil {
+				return NewTransportError("delete", "DatabaseBackup", err)
+			}
+			return CheckResponse("delete", "DatabaseBackup", resp)
 		},
-		ExtractSDKError,
 		"DatabaseBackup",
 		backupID,
 		r.client.ResourceTimeout,
@@ -393,7 +386,7 @@ func (r *DatabaseBackupResource) Delete(ctx context.Context, req resource.Delete
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting database backup",
-			fmt.Sprintf("Unable to delete database backup: %s", err),
+			NewTransportError("delete", "Databasebackup", err).Error(),
 		)
 		return
 	}

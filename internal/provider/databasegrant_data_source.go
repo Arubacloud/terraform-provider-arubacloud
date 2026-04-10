@@ -98,15 +98,11 @@ func (d *DatabaseGrantDataSource) Read(ctx context.Context, req datasource.ReadR
 
 	response, err := d.client.Client.FromDatabase().Grants().Get(ctx, projectID, dbaasID, database, userID, nil)
 	if err != nil {
-		resp.Diagnostics.AddError("Error reading database grant", fmt.Sprintf("Unable to read database grant: %s", err))
+		resp.Diagnostics.AddError("Error reading database grant", NewTransportError("read", "Databasegrant", err).Error())
 		return
 	}
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
-			resp.Diagnostics.AddError("Database Grant not found", fmt.Sprintf("No database grant found for user %q on database %q", userID, database))
-			return
-		}
-		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read database grant", map[string]interface{}{"project_id": projectID, "dbaas_id": dbaasID, "database": database, "user_id": userID}))
+	if apiErr := CheckResponse("read", "Databasegrant", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 	if response == nil || response.Data == nil {

@@ -67,10 +67,16 @@ func (r *BlockStorageResource) Schema(ctx context.Context, req resource.SchemaRe
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project this Block Storage belongs to",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"location": schema.StringAttribute{
 				MarkdownDescription: "Block Storage location/region",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"size_gb": schema.Int64Attribute{
 				MarkdownDescription: "Size of the block storage in GB",
@@ -113,7 +119,7 @@ func (r *BlockStorageResource) Configure(ctx context.Context, req resource.Confi
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected *http.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+			fmt.Sprintf("Expected *ArubaCloudClient, got: %T. Please report this issue to the provider developers. Please report this issue to the provider developers.", req.ProviderData),
 		)
 		return
 	}
@@ -196,17 +202,13 @@ func (r *BlockStorageResource) Create(ctx context.Context, req resource.CreateRe
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating block storage",
-			fmt.Sprintf("Unable to create block storage: %s", err),
+			NewTransportError("create", "Blockstorage", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create block storage", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("create", "Blockstorage", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -366,22 +368,17 @@ func (r *BlockStorageResource) Read(ctx context.Context, req resource.ReadReques
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading block storage",
-			fmt.Sprintf("Unable to read block storage: %s", err),
+			NewTransportError("read", "Blockstorage", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
+	if apiErr := CheckResponse("read", "Blockstorage", response); apiErr != nil {
+		if IsNotFound(apiErr) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-			"volume_id":  volumeID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read block storage", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -493,7 +490,7 @@ func (r *BlockStorageResource) Update(ctx context.Context, req resource.UpdateRe
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error fetching current block storage",
-			fmt.Sprintf("Unable to get current block storage: %s", err),
+			NewTransportError("read", "Blockstorage", err).Error(),
 		)
 		return
 	}
@@ -587,18 +584,13 @@ func (r *BlockStorageResource) Update(ctx context.Context, req resource.UpdateRe
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating block storage",
-			fmt.Sprintf("Unable to update block storage: %s", err),
+			NewTransportError("update", "Blockstorage", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-			"volume_id":  volumeID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to update block storage", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("update", "Blockstorage", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -707,10 +699,13 @@ func (r *BlockStorageResource) Delete(ctx context.Context, req resource.DeleteRe
 	// Retry on any error except 404 (Resource Not Found)
 	err := DeleteResourceWithRetry(
 		ctx,
-		func() (interface{}, error) {
-			return r.client.Client.FromStorage().Volumes().Delete(ctx, projectID, volumeID, nil)
+		func() error {
+			resp, err := r.client.Client.FromStorage().Volumes().Delete(ctx, projectID, volumeID, nil)
+			if err != nil {
+				return NewTransportError("delete", "BlockStorage", err)
+			}
+			return CheckResponse("delete", "BlockStorage", resp)
 		},
-		ExtractSDKError,
 		"BlockStorage",
 		volumeID,
 		r.client.ResourceTimeout,
@@ -719,7 +714,7 @@ func (r *BlockStorageResource) Delete(ctx context.Context, req resource.DeleteRe
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting block storage",
-			fmt.Sprintf("Unable to delete block storage: %s", err),
+			NewTransportError("delete", "Blockstorage", err).Error(),
 		)
 		return
 	}

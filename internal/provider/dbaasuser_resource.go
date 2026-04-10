@@ -3,7 +3,6 @@ package provider
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
@@ -122,26 +121,13 @@ func (r *DBaaSUserResource) Create(ctx context.Context, req resource.CreateReque
 		})
 		resp.Diagnostics.AddError(
 			"Error creating DBaaS user",
-			fmt.Sprintf("Unable to create DBaaS user: %s", err),
+			NewTransportError("create", "Dbaasuser", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		// Log full request JSON only on errors for debugging
-		if requestJSON, jsonErr := json.MarshalIndent(createRequest, "", "  "); jsonErr == nil {
-			tflog.Debug(ctx, "Full DBaaS user create request JSON (error case)", map[string]interface{}{
-				"request_json": string(requestJSON),
-			})
-		}
-
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-			"dbaas_id":   dbaasID,
-			"username":   data.Username.ValueString(),
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create DBaaS user", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("create", "Dbaasuser", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -216,23 +202,17 @@ func (r *DBaaSUserResource) Read(ctx context.Context, req resource.ReadRequest, 
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading DBaaS user",
-			fmt.Sprintf("Unable to read DBaaS user: %s", err),
+			NewTransportError("read", "Dbaasuser", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
+	if apiErr := CheckResponse("read", "Dbaasuser", response); apiErr != nil {
+		if IsNotFound(apiErr) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-			"dbaas_id":   dbaasID,
-			"username":   username,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read DBaaS user", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -291,19 +271,13 @@ func (r *DBaaSUserResource) Update(ctx context.Context, req resource.UpdateReque
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating DBaaS user",
-			fmt.Sprintf("Unable to update DBaaS user: %s", err),
+			NewTransportError("update", "Dbaasuser", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-			"dbaas_id":   dbaasID,
-			"username":   username,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to update DBaaS user", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("update", "Dbaasuser", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -351,10 +325,13 @@ func (r *DBaaSUserResource) Delete(ctx context.Context, req resource.DeleteReque
 	// Retry on any error except 404 (Resource Not Found)
 	err := DeleteResourceWithRetry(
 		ctx,
-		func() (interface{}, error) {
-			return r.client.Client.FromDatabase().Users().Delete(ctx, projectID, dbaasID, username, nil)
+		func() error {
+			resp, err := r.client.Client.FromDatabase().Users().Delete(ctx, projectID, dbaasID, username, nil)
+			if err != nil {
+				return NewTransportError("delete", "DBaaSUser", err)
+			}
+			return CheckResponse("delete", "DBaaSUser", resp)
 		},
-		ExtractSDKError,
 		"DBaaSUser",
 		username,
 		r.client.ResourceTimeout,
@@ -363,7 +340,7 @@ func (r *DBaaSUserResource) Delete(ctx context.Context, req resource.DeleteReque
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting DBaaS user",
-			fmt.Sprintf("Unable to delete DBaaS user: %s", err),
+			NewTransportError("delete", "Dbaasuser", err).Error(),
 		)
 		return
 	}

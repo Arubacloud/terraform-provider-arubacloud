@@ -153,15 +153,13 @@ func (r *VpcPeeringResource) Create(ctx context.Context, req resource.CreateRequ
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating VPC peering",
-			fmt.Sprintf("Unable to create VPC peering: %s", err),
+			NewTransportError("create", "Vpcpeering", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create VPC peering", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("create", "Vpcpeering", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -239,22 +237,17 @@ func (r *VpcPeeringResource) Read(ctx context.Context, req resource.ReadRequest,
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading VPC peering",
-			fmt.Sprintf("Unable to read VPC peering: %s", err),
+			NewTransportError("read", "Vpcpeering", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
+	if apiErr := CheckResponse("read", "Vpcpeering", response); apiErr != nil {
+		if IsNotFound(apiErr) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-			"peering_id": peeringID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read VPC peering", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -337,7 +330,7 @@ func (r *VpcPeeringResource) Update(ctx context.Context, req resource.UpdateRequ
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error fetching current VPC peering",
-			fmt.Sprintf("Unable to get current VPC peering: %s", err),
+			NewTransportError("read", "Vpcpeering", err).Error(),
 		)
 		return
 	}
@@ -408,15 +401,13 @@ func (r *VpcPeeringResource) Update(ctx context.Context, req resource.UpdateRequ
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating VPC peering",
-			fmt.Sprintf("Unable to update VPC peering: %s", err),
+			NewTransportError("update", "Vpcpeering", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to update VPC peering", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("update", "Vpcpeering", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -458,10 +449,13 @@ func (r *VpcPeeringResource) Delete(ctx context.Context, req resource.DeleteRequ
 	// Retry on any error except 404 (Resource Not Found)
 	err := DeleteResourceWithRetry(
 		ctx,
-		func() (interface{}, error) {
-			return r.client.Client.FromNetwork().VPCPeerings().Delete(ctx, projectID, vpcID, peeringID, nil)
+		func() error {
+			resp, err := r.client.Client.FromNetwork().VPCPeerings().Delete(ctx, projectID, vpcID, peeringID, nil)
+			if err != nil {
+				return NewTransportError("delete", "VPCPeering", err)
+			}
+			return CheckResponse("delete", "VPCPeering", resp)
 		},
-		ExtractSDKError,
 		"VPCPeering",
 		peeringID,
 		r.client.ResourceTimeout,
@@ -470,7 +464,7 @@ func (r *VpcPeeringResource) Delete(ctx context.Context, req resource.DeleteRequ
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting VPC peering",
-			fmt.Sprintf("Unable to delete VPC peering: %s", err),
+			NewTransportError("delete", "Vpcpeering", err).Error(),
 		)
 		return
 	}

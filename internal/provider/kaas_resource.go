@@ -382,15 +382,13 @@ func (r *KaaSResource) Create(ctx context.Context, req resource.CreateRequest, r
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating KaaS cluster",
-			fmt.Sprintf("Unable to create KaaS cluster: %s", err),
+			NewTransportError("create", "Kaas", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create KaaS cluster", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("create", "Kaas", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -575,22 +573,17 @@ func (r *KaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading KaaS cluster",
-			fmt.Sprintf("Unable to read KaaS cluster: %s", err),
+			NewTransportError("read", "Kaas", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
+	if apiErr := CheckResponse("read", "Kaas", response); apiErr != nil {
+		if IsNotFound(apiErr) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-			"kaas_id":    kaasID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read KaaS cluster", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -896,7 +889,7 @@ func (r *KaaSResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error fetching current KaaS cluster",
-			fmt.Sprintf("Unable to get current KaaS cluster: %s", err),
+			NewTransportError("read", "Kaas", err).Error(),
 		)
 		return
 	}
@@ -1026,15 +1019,13 @@ func (r *KaaSResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating KaaS cluster",
-			fmt.Sprintf("Unable to update KaaS cluster: %s", err),
+			NewTransportError("update", "Kaas", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to update KaaS cluster", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("update", "Kaas", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -1350,10 +1341,13 @@ func (r *KaaSResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 	// Retry on any error except 404 (Resource Not Found)
 	err := DeleteResourceWithRetry(
 		ctx,
-		func() (interface{}, error) {
-			return r.client.Client.FromContainer().KaaS().Delete(ctx, projectID, kaasID, nil)
+		func() error {
+			resp, err := r.client.Client.FromContainer().KaaS().Delete(ctx, projectID, kaasID, nil)
+			if err != nil {
+				return NewTransportError("delete", "KaaS", err)
+			}
+			return CheckResponse("delete", "KaaS", resp)
 		},
-		ExtractSDKError,
 		"KaaS",
 		kaasID,
 		r.client.ResourceTimeout,
@@ -1362,7 +1356,7 @@ func (r *KaaSResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting KaaS cluster",
-			fmt.Sprintf("Unable to delete KaaS cluster: %s", err),
+			NewTransportError("delete", "Kaas", err).Error(),
 		)
 		return
 	}

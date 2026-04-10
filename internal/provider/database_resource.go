@@ -106,18 +106,13 @@ func (r *DatabaseResource) Create(ctx context.Context, req resource.CreateReques
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating database",
-			fmt.Sprintf("Unable to create database: %s", err),
+			NewTransportError("create", "Database", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-			"dbaas_id":   dbaasID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create database", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("create", "Database", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -192,23 +187,17 @@ func (r *DatabaseResource) Read(ctx context.Context, req resource.ReadRequest, r
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading database",
-			fmt.Sprintf("Unable to read database: %s", err),
+			NewTransportError("read", "Database", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
+	if apiErr := CheckResponse("read", "Database", response); apiErr != nil {
+		if IsNotFound(apiErr) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		logContext := map[string]interface{}{
-			"project_id":    projectID,
-			"dbaas_id":      dbaasID,
-			"database_name": databaseName,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read database", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -263,19 +252,13 @@ func (r *DatabaseResource) Update(ctx context.Context, req resource.UpdateReques
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating database",
-			fmt.Sprintf("Unable to update database: %s", err),
+			NewTransportError("update", "Database", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{
-			"project_id":    projectID,
-			"dbaas_id":      dbaasID,
-			"database_name": oldDatabaseName,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to update database", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("update", "Database", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -322,10 +305,13 @@ func (r *DatabaseResource) Delete(ctx context.Context, req resource.DeleteReques
 	// Retry on any error except 404 (Resource Not Found)
 	err := DeleteResourceWithRetry(
 		ctx,
-		func() (interface{}, error) {
-			return r.client.Client.FromDatabase().Databases().Delete(ctx, projectID, dbaasID, databaseName, nil)
+		func() error {
+			resp, err := r.client.Client.FromDatabase().Databases().Delete(ctx, projectID, dbaasID, databaseName, nil)
+			if err != nil {
+				return NewTransportError("delete", "Database", err)
+			}
+			return CheckResponse("delete", "Database", resp)
 		},
-		ExtractSDKError,
 		"Database",
 		databaseName,
 		r.client.ResourceTimeout,
@@ -334,7 +320,7 @@ func (r *DatabaseResource) Delete(ctx context.Context, req resource.DeleteReques
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting database",
-			fmt.Sprintf("Unable to delete database: %s", err),
+			NewTransportError("delete", "Database", err).Error(),
 		)
 		return
 	}

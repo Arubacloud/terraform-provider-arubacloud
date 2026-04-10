@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -145,18 +146,13 @@ func (r *KeypairResource) Create(ctx context.Context, req resource.CreateRequest
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating keypair",
-			fmt.Sprintf("Unable to create keypair: %s", err),
+			NewTransportError("create", "Keypair", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{
-			"keypair_name": data.Name.ValueString(),
-			"project_id":   projectID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create keypair", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("create", "Keypair", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -278,7 +274,7 @@ func (r *KeypairResource) Read(ctx context.Context, req resource.ReadRequest, re
 		})
 		resp.Diagnostics.AddError(
 			"Error reading keypair",
-			fmt.Sprintf("Unable to read keypair: %s", err),
+			NewTransportError("read", "Keypair", err).Error(),
 		)
 		return
 	}
@@ -292,12 +288,8 @@ func (r *KeypairResource) Read(ctx context.Context, req resource.ReadRequest, re
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-			"keypair_id": keypairID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read keypair", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+		apiErr := newResponseError("read", "Keypair", response.StatusCode, response.Error)
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -342,7 +334,7 @@ func (r *KeypairResource) Read(ctx context.Context, req resource.ReadRequest, re
 			}
 		} else {
 			// Set tags to null when empty to match state (prevents false changes)
-			data.Tags = types.ListNull(types.StringType)
+			data.Tags = types.ListValueMust(types.StringType, []attr.Value{})
 		}
 
 		// Restore ProjectID and Value from state (they're not returned by the API)
@@ -414,7 +406,7 @@ func (r *KeypairResource) Update(ctx context.Context, req resource.UpdateRequest
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading keypair",
-			fmt.Sprintf("Unable to read keypair: %s", err),
+			NewTransportError("read", "Keypair", err).Error(),
 		)
 		return
 	}
@@ -479,10 +471,13 @@ func (r *KeypairResource) Delete(ctx context.Context, req resource.DeleteRequest
 	// Retry on any error except 404 (Resource Not Found)
 	err := DeleteResourceWithRetry(
 		ctx,
-		func() (interface{}, error) {
-			return r.client.Client.FromCompute().KeyPairs().Delete(ctx, projectID, keypairID, nil)
+		func() error {
+			resp, err := r.client.Client.FromCompute().KeyPairs().Delete(ctx, projectID, keypairID, nil)
+			if err != nil {
+				return NewTransportError("delete", "Keypair", err)
+			}
+			return CheckResponse("delete", "Keypair", resp)
 		},
-		ExtractSDKError,
 		"Keypair",
 		keypairID,
 		r.client.ResourceTimeout,
@@ -491,7 +486,7 @@ func (r *KeypairResource) Delete(ctx context.Context, req resource.DeleteRequest
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting keypair",
-			fmt.Sprintf("Unable to delete keypair: %s", err),
+			NewTransportError("delete", "Keypair", err).Error(),
 		)
 		return
 	}

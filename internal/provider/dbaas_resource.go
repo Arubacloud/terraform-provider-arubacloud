@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
@@ -388,36 +387,13 @@ func (r *DBaaSResource) Create(ctx context.Context, req resource.CreateRequest, 
 		})
 		resp.Diagnostics.AddError(
 			"Error creating DBaaS instance",
-			fmt.Sprintf("Unable to create DBaaS instance: %s", err),
+			NewTransportError("create", "Dbaas", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		// Log detailed error information for debugging
-		errorDetails := map[string]interface{}{
-			"project_id": projectID,
-			"engine_id":  engineID,
-			"flavor":     flavor,
-			"vpc_uri":    vpcUriRef,
-			"subnet_uri": subnetUriRef,
-			"sg_uri":     securityGroupUriRef,
-		}
-
-		// Log full request and error response JSON only on errors for debugging
-		if requestJSON, jsonErr := json.MarshalIndent(createRequest, "", "  "); jsonErr == nil {
-			tflog.Debug(ctx, "Full DBaaS create request JSON (error case)", map[string]interface{}{
-				"request_json": string(requestJSON),
-			})
-		}
-		if errorJSON, jsonErr := json.MarshalIndent(response.Error, "", "  "); jsonErr == nil {
-			tflog.Debug(ctx, "Full API error response JSON", map[string]interface{}{
-				"error_json": string(errorJSON),
-			})
-		}
-
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create DBaaS instance", errorDetails)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("create", "Dbaas", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -526,22 +502,17 @@ func (r *DBaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading DBaaS instance",
-			fmt.Sprintf("Unable to read DBaaS instance: %s", err),
+			NewTransportError("read", "Dbaas", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
+	if apiErr := CheckResponse("read", "Dbaas", response); apiErr != nil {
+		if IsNotFound(apiErr) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-			"dbaas_id":   dbaasID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read DBaaS instance", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -747,7 +718,7 @@ func (r *DBaaSResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error fetching current DBaaS instance",
-			fmt.Sprintf("Unable to get current DBaaS instance: %s", err),
+			NewTransportError("read", "Dbaas", err).Error(),
 		)
 		return
 	}
@@ -982,31 +953,13 @@ func (r *DBaaSResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating DBaaS instance",
-			fmt.Sprintf("Unable to update DBaaS instance: %s", err),
+			NewTransportError("update", "Dbaas", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-			"dbaas_id":   dbaasID,
-		}
-
-		// Log full request and error response JSON only on errors for debugging
-		if requestJSON, jsonErr := json.MarshalIndent(updateRequest, "", "  "); jsonErr == nil {
-			tflog.Debug(ctx, "Full DBaaS update request JSON (error case)", map[string]interface{}{
-				"request_json": string(requestJSON),
-			})
-		}
-		if errorJSON, jsonErr := json.MarshalIndent(response.Error, "", "  "); jsonErr == nil {
-			tflog.Debug(ctx, "Full API error response JSON", map[string]interface{}{
-				"error_json": string(errorJSON),
-			})
-		}
-
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to update DBaaS instance", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("update", "Dbaas", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -1055,10 +1008,13 @@ func (r *DBaaSResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 	// Retry on any error except 404 (Resource Not Found)
 	err := DeleteResourceWithRetry(
 		ctx,
-		func() (interface{}, error) {
-			return r.client.Client.FromDatabase().DBaaS().Delete(ctx, projectID, dbaasID, nil)
+		func() error {
+			resp, err := r.client.Client.FromDatabase().DBaaS().Delete(ctx, projectID, dbaasID, nil)
+			if err != nil {
+				return NewTransportError("delete", "DBaaS", err)
+			}
+			return CheckResponse("delete", "DBaaS", resp)
 		},
-		ExtractSDKError,
 		"DBaaS",
 		dbaasID,
 		r.client.ResourceTimeout,
@@ -1067,7 +1023,7 @@ func (r *DBaaSResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting DBaaS instance",
-			fmt.Sprintf("Unable to delete DBaaS instance: %s", err),
+			NewTransportError("delete", "Dbaas", err).Error(),
 		)
 		return
 	}

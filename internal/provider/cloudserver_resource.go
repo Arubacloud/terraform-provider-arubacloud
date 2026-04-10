@@ -319,17 +319,13 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating cloud server",
-			fmt.Sprintf("Unable to create cloud server: %s", err),
+			NewTransportError("create", "Cloudserver", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create cloud server", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("create", "Cloudserver", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -458,7 +454,7 @@ func (r *CloudServerResource) Read(ctx context.Context, req resource.ReadRequest
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading cloud server",
-			fmt.Sprintf("Unable to read cloud server: %s", err),
+			NewTransportError("read", "Cloudserver", err).Error(),
 		)
 		return
 	}
@@ -469,12 +465,8 @@ func (r *CloudServerResource) Read(ctx context.Context, req resource.ReadRequest
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-			"server_id":  serverID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read cloud server", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+		apiErr := newResponseError("read", "Cloudserver", response.StatusCode, response.Error)
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -663,7 +655,7 @@ func (r *CloudServerResource) Update(ctx context.Context, req resource.UpdateReq
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error fetching current cloud server",
-			fmt.Sprintf("Unable to get current cloud server: %s", err),
+			NewTransportError("read", "Cloudserver", err).Error(),
 		)
 		return
 	}
@@ -719,18 +711,13 @@ func (r *CloudServerResource) Update(ctx context.Context, req resource.UpdateReq
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating cloud server",
-			fmt.Sprintf("Unable to update cloud server: %s", err),
+			NewTransportError("update", "Cloudserver", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-			"server_id":  serverID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to update cloud server", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("update", "Cloudserver", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -848,10 +835,13 @@ func (r *CloudServerResource) Delete(ctx context.Context, req resource.DeleteReq
 	// Retry on any error except 404 (Resource Not Found)
 	err := DeleteResourceWithRetry(
 		ctx,
-		func() (interface{}, error) {
-			return r.client.Client.FromCompute().CloudServers().Delete(ctx, projectID, serverID, nil)
+		func() error {
+			resp, err := r.client.Client.FromCompute().CloudServers().Delete(ctx, projectID, serverID, nil)
+			if err != nil {
+				return NewTransportError("delete", "CloudServer", err)
+			}
+			return CheckResponse("delete", "CloudServer", resp)
 		},
-		ExtractSDKError,
 		"CloudServer",
 		serverID,
 		r.client.ResourceTimeout,
@@ -860,7 +850,7 @@ func (r *CloudServerResource) Delete(ctx context.Context, req resource.DeleteReq
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting cloud server",
-			fmt.Sprintf("Unable to delete cloud server: %s", err),
+			NewTransportError("delete", "Cloudserver", err).Error(),
 		)
 		return
 	}

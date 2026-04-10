@@ -103,23 +103,12 @@ func (d *KeypairDataSource) Read(ctx context.Context, req datasource.ReadRequest
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading keypair",
-			fmt.Sprintf("Unable to read keypair: %s", err),
+			NewTransportError("read", "Keypair", err).Error(),
 		)
 		return
 	}
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
-			resp.Diagnostics.AddError(
-				"Keypair not found",
-				fmt.Sprintf("No keypair found with ID %q in project %q", keypairID, projectID),
-			)
-			return
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read keypair", map[string]interface{}{
-			"project_id": projectID,
-			"keypair_id": keypairID,
-		})
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("read", "Keypair", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 	if response == nil || response.Data == nil {

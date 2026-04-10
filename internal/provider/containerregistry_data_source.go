@@ -141,15 +141,11 @@ func (d *ContainerRegistryDataSource) Read(ctx context.Context, req datasource.R
 
 	response, err := d.client.Client.FromContainer().ContainerRegistry().Get(ctx, projectID, registryID, nil)
 	if err != nil {
-		resp.Diagnostics.AddError("Error reading container registry", fmt.Sprintf("Unable to read container registry: %s", err))
+		resp.Diagnostics.AddError("Error reading container registry", NewTransportError("read", "Containerregistry", err).Error())
 		return
 	}
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
-			resp.Diagnostics.AddError("Container Registry not found", fmt.Sprintf("No container registry found with ID %q in project %q", registryID, projectID))
-			return
-		}
-		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read container registry", map[string]interface{}{"project_id": projectID, "registry_id": registryID}))
+	if apiErr := CheckResponse("read", "Containerregistry", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 	if response == nil || response.Data == nil {

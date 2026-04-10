@@ -138,15 +138,11 @@ func (d *SecurityRuleDataSource) Read(ctx context.Context, req datasource.ReadRe
 
 	response, err := d.client.Client.FromNetwork().SecurityGroupRules().Get(ctx, projectID, vpcID, securityGroupID, ruleID, nil)
 	if err != nil {
-		resp.Diagnostics.AddError("Error reading security rule", fmt.Sprintf("Unable to read security rule: %s", err))
+		resp.Diagnostics.AddError("Error reading security rule", NewTransportError("read", "Securityrule", err).Error())
 		return
 	}
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
-			resp.Diagnostics.AddError("Security Rule not found", fmt.Sprintf("No security rule found with ID %q in security group %q", ruleID, securityGroupID))
-			return
-		}
-		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read security rule", map[string]interface{}{"project_id": projectID, "vpc_id": vpcID, "security_group_id": securityGroupID, "rule_id": ruleID}))
+	if apiErr := CheckResponse("read", "Securityrule", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 	if response == nil || response.Data == nil {

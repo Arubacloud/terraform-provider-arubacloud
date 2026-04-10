@@ -3,7 +3,6 @@ package provider
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -62,10 +61,16 @@ func (r *VPCResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 				MarkdownDescription: "VPC location",
 				Required:            true,
 				// Validators removed for v1.16.1 compatibility
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "Project ID",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
@@ -143,15 +148,13 @@ func (r *VPCResource) Create(ctx context.Context, req resource.CreateRequest, re
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating VPC",
-			fmt.Sprintf("Unable to create VPC: %s", err),
+			NewTransportError("create", "Vpc", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create VPC", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("create", "Vpc", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -265,22 +268,17 @@ func (r *VPCResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading VPC",
-			fmt.Sprintf("Unable to read VPC: %s", err),
+			NewTransportError("read", "Vpc", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
+	if apiErr := CheckResponse("read", "Vpc", response); apiErr != nil {
+		if IsNotFound(apiErr) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		logContext := map[string]interface{}{
-			"vpc_id":     vpcID,
-			"project_id": projectID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read VPC", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -359,7 +357,7 @@ func (r *VPCResource) Update(ctx context.Context, req resource.UpdateRequest, re
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error fetching current VPC",
-			fmt.Sprintf("Unable to get current VPC: %s", err),
+			NewTransportError("read", "Vpc", err).Error(),
 		)
 		return
 	}
@@ -426,18 +424,13 @@ func (r *VPCResource) Update(ctx context.Context, req resource.UpdateRequest, re
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating VPC",
-			fmt.Sprintf("Unable to update VPC: %s", err),
+			NewTransportError("update", "Vpc", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{
-			"vpc_id":     vpcID,
-			"project_id": projectID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to update VPC", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("update", "Vpc", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -492,45 +485,15 @@ func (r *VPCResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 		return
 	}
 
-	// Delete the VPC using the SDK with retry mechanism
-	// Retry on any error except 404 (Resource Not Found)
-	// The response from VPCs().Delete() has StatusCode and Error fields directly accessible
-	deleteFunc := func() (interface{}, error) {
-		return r.client.Client.FromNetwork().VPCs().Delete(ctx, projectID, vpcID, nil)
-	}
-
-	// Extract error info - the response type has StatusCode and Error as fields
-	// The response from VPCs().Delete() is the same type as in Read/Update methods
-	// which access response.StatusCode and response.Error.Title directly
-	extractErrorFunc := func(response interface{}) (int, *string, *string, bool) {
-		// Check if response has IsError() method
-		type errorResponse interface {
-			IsError() bool
-		}
-		resp, ok := response.(errorResponse)
-		if !ok {
-			return 0, nil, nil, false
-		}
-		if !resp.IsError() {
-			return 0, nil, nil, false
-		}
-
-		// The response from deleteFunc is the actual SDK response type
-		// which has StatusCode and Error as direct struct fields
-		// We can access them by type asserting to the actual response type
-		// Since deleteFunc returns the concrete type, we can access fields directly
-		// The response type matches what we see in Read/Update: response.StatusCode, response.Error.Title
-		// We'll access them using the response directly where we know the type
-		// For VPC, the response is the same type as used elsewhere in this file
-		// We can access response.StatusCode and response.Error.Title directly
-		// by using the response type from the SDK
-		return extractVPCDelError(response)
-	}
-
 	err := DeleteResourceWithRetry(
 		ctx,
-		deleteFunc,
-		extractErrorFunc,
+		func() error {
+			resp, err := r.client.Client.FromNetwork().VPCs().Delete(ctx, projectID, vpcID, nil)
+			if err != nil {
+				return NewTransportError("delete", "VPC", err)
+			}
+			return CheckResponse("delete", "VPC", resp)
+		},
 		"VPC",
 		vpcID,
 		r.client.ResourceTimeout,
@@ -539,7 +502,7 @@ func (r *VPCResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting VPC",
-			fmt.Sprintf("Unable to delete VPC: %s", err),
+			NewTransportError("delete", "Vpc", err).Error(),
 		)
 		return
 	}
@@ -547,55 +510,6 @@ func (r *VPCResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 	tflog.Trace(ctx, "deleted a VPC resource", map[string]interface{}{
 		"vpc_id": vpcID,
 	})
-}
-
-// extractVPCDelError extracts error from VPC delete response using reflection.
-// The response from VPCs().Delete() has StatusCode and Error as direct struct fields.
-// We use reflection to access these fields since we have interface{}.
-func extractVPCDelError(response interface{}) (int, *string, *string, bool) {
-	// Use reflection to access StatusCode and Error fields
-	v := reflect.ValueOf(response)
-	if v.Kind() == reflect.Ptr {
-		v = v.Elem()
-	}
-
-	// Access StatusCode field
-	statusCodeField := v.FieldByName("StatusCode")
-	if !statusCodeField.IsValid() || !statusCodeField.CanInterface() {
-		return 0, nil, nil, true // Return that it's an error, but can't extract details
-	}
-	statusCode := int(statusCodeField.Int())
-
-	// Access Error field
-	errorField := v.FieldByName("Error")
-	if !errorField.IsValid() {
-		return statusCode, nil, nil, true
-	}
-
-	// Access Error.Title and Error.Detail
-	var errorTitle, errorDetail *string
-	if errorField.Kind() == reflect.Struct || (errorField.Kind() == reflect.Ptr && errorField.Elem().Kind() == reflect.Struct) {
-		errorVal := errorField
-		if errorVal.Kind() == reflect.Ptr {
-			errorVal = errorVal.Elem()
-		}
-
-		titleField := errorVal.FieldByName("Title")
-		if titleField.IsValid() && titleField.CanInterface() && !titleField.IsNil() {
-			if titlePtr, ok := titleField.Interface().(*string); ok {
-				errorTitle = titlePtr
-			}
-		}
-
-		detailField := errorVal.FieldByName("Detail")
-		if detailField.IsValid() && detailField.CanInterface() && !detailField.IsNil() {
-			if detailPtr, ok := detailField.Interface().(*string); ok {
-				errorDetail = detailPtr
-			}
-		}
-	}
-
-	return statusCode, errorTitle, errorDetail, true
 }
 
 func (r *VPCResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

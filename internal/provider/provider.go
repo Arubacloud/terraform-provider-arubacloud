@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Arubacloud/sdk-go/pkg/aruba"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -139,13 +140,13 @@ func (p *ArubaCloudProvider) Configure(ctx context.Context, req provider.Configu
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Failed to create ArubaCloud SDK client",
-			fmt.Sprintf("Unable to create ArubaCloud SDK client: %s", err),
+			NewTransportError("create", "Provider.go", err).Error(),
 		)
 		return
 	}
 
 	// Parse timeout configuration with default (10 minutes - enough for most resources including CloudServer)
-	resourceTimeout := parseTimeout(config.ResourceTimeout, 10*time.Minute)
+	resourceTimeout := parseTimeout(config.ResourceTimeout, 10*time.Minute, resp.Diagnostics)
 
 	// Create a new ArubaCloud client using the SDK client
 	client := &ArubaCloudClient{
@@ -160,15 +161,19 @@ func (p *ArubaCloudProvider) Configure(ctx context.Context, req provider.Configu
 }
 
 // parseTimeout parses a timeout string (e.g., "5m", "10m") and returns the duration.
-// If the string is empty or invalid, returns the default duration.
-func parseTimeout(timeoutStr types.String, defaultDuration time.Duration) time.Duration {
+// If the string is empty, returns the default duration.
+// If the string is invalid, adds a warning diagnostic and returns the default duration.
+func parseTimeout(timeoutStr types.String, defaultDuration time.Duration, diags diag.Diagnostics) time.Duration {
 	if timeoutStr.IsNull() || timeoutStr.IsUnknown() || timeoutStr.ValueString() == "" {
 		return defaultDuration
 	}
 
 	duration, err := time.ParseDuration(timeoutStr.ValueString())
 	if err != nil {
-		// If parsing fails, return default
+		diags.AddWarning(
+			"Invalid timeout value",
+			fmt.Sprintf("Could not parse %q as a duration (e.g. \"5m\", \"10m\"). Using default of %s. Error: %s", timeoutStr.ValueString(), defaultDuration, err),
+		)
 		return defaultDuration
 	}
 

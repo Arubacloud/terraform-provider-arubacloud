@@ -66,6 +66,9 @@ func (r *SecurityGroupResource) Schema(ctx context.Context, req resource.SchemaR
 				MarkdownDescription: "Security Group location",
 				Required:            true,
 				// Validators removed for v1.16.1 compatibility
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
@@ -75,12 +78,15 @@ func (r *SecurityGroupResource) Schema(ctx context.Context, req resource.SchemaR
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project this Security Group belongs to",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"vpc_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the VPC this Security Group belongs to",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 		},
@@ -95,7 +101,7 @@ func (r *SecurityGroupResource) Configure(ctx context.Context, req resource.Conf
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected *http.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+			fmt.Sprintf("Expected *ArubaCloudClient, got: %T. Please report this issue to the provider developers. Please report this issue to the provider developers.", req.ProviderData),
 		)
 		return
 	}
@@ -142,15 +148,13 @@ func (r *SecurityGroupResource) Create(ctx context.Context, req resource.CreateR
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating security group",
-			fmt.Sprintf("Unable to create security group: %s", err),
+			NewTransportError("create", "Securitygroup", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create security group", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("create", "Securitygroup", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -273,22 +277,17 @@ func (r *SecurityGroupResource) Read(ctx context.Context, req resource.ReadReque
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading security group",
-			fmt.Sprintf("Unable to read security group: %s", err),
+			NewTransportError("read", "Securitygroup", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
+	if apiErr := CheckResponse("read", "Securitygroup", response); apiErr != nil {
+		if IsNotFound(apiErr) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		logContext := map[string]interface{}{
-			"project_id":        projectID,
-			"security_group_id": sgID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read security group", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -368,7 +367,7 @@ func (r *SecurityGroupResource) Update(ctx context.Context, req resource.UpdateR
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error fetching current security group",
-			fmt.Sprintf("Unable to get current security group: %s", err),
+			NewTransportError("read", "Securitygroup", err).Error(),
 		)
 		return
 	}
@@ -408,15 +407,13 @@ func (r *SecurityGroupResource) Update(ctx context.Context, req resource.UpdateR
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating security group",
-			fmt.Sprintf("Unable to update security group: %s", err),
+			NewTransportError("update", "Securitygroup", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to update security group", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("update", "Securitygroup", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -477,10 +474,13 @@ func (r *SecurityGroupResource) Delete(ctx context.Context, req resource.DeleteR
 	// Retry on any error except 404 (Resource Not Found)
 	err := DeleteResourceWithRetry(
 		ctx,
-		func() (interface{}, error) {
-			return r.client.Client.FromNetwork().SecurityGroups().Delete(ctx, projectID, vpcID, sgID, nil)
+		func() error {
+			resp, err := r.client.Client.FromNetwork().SecurityGroups().Delete(ctx, projectID, vpcID, sgID, nil)
+			if err != nil {
+				return NewTransportError("delete", "SecurityGroup", err)
+			}
+			return CheckResponse("delete", "SecurityGroup", resp)
 		},
-		ExtractSDKError,
 		"SecurityGroup",
 		sgID,
 		r.client.ResourceTimeout,
@@ -489,7 +489,7 @@ func (r *SecurityGroupResource) Delete(ctx context.Context, req resource.DeleteR
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting security group",
-			fmt.Sprintf("Unable to delete security group: %s", err),
+			NewTransportError("delete", "Securitygroup", err).Error(),
 		)
 		return
 	}

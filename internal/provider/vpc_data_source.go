@@ -93,15 +93,11 @@ func (d *VPCDataSource) Read(ctx context.Context, req datasource.ReadRequest, re
 
 	response, err := d.client.Client.FromNetwork().VPCs().Get(ctx, projectID, vpcID, nil)
 	if err != nil {
-		resp.Diagnostics.AddError("Error reading VPC", fmt.Sprintf("Unable to read VPC: %s", err))
+		resp.Diagnostics.AddError("Error reading VPC", NewTransportError("read", "Vpc", err).Error())
 		return
 	}
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
-			resp.Diagnostics.AddError("VPC not found", fmt.Sprintf("No VPC found with ID %q in project %q", vpcID, projectID))
-			return
-		}
-		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read VPC", map[string]interface{}{"project_id": projectID, "vpc_id": vpcID}))
+	if apiErr := CheckResponse("read", "Vpc", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 	if response == nil || response.Data == nil {

@@ -139,7 +139,7 @@ func (r *BackupResource) Create(ctx context.Context, req resource.CreateRequest,
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error getting volume details",
-			fmt.Sprintf("Unable to get volume details: %s", err),
+			NewTransportError("read", "Backup", err).Error(),
 		)
 		return
 	}
@@ -198,17 +198,13 @@ func (r *BackupResource) Create(ctx context.Context, req resource.CreateRequest,
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating backup",
-			fmt.Sprintf("Unable to create backup: %s", err),
+			NewTransportError("create", "Backup", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create backup", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("create", "Backup", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -285,22 +281,17 @@ func (r *BackupResource) Read(ctx context.Context, req resource.ReadRequest, res
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading backup",
-			fmt.Sprintf("Unable to read backup: %s", err),
+			NewTransportError("read", "Backup", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
+	if apiErr := CheckResponse("read", "Backup", response); apiErr != nil {
+		if IsNotFound(apiErr) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-			"backup_id":  backupID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read backup", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -394,7 +385,7 @@ func (r *BackupResource) Update(ctx context.Context, req resource.UpdateRequest,
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error fetching current backup",
-			fmt.Sprintf("Unable to get current backup: %s", err),
+			NewTransportError("read", "Backup", err).Error(),
 		)
 		return
 	}
@@ -460,18 +451,13 @@ func (r *BackupResource) Update(ctx context.Context, req resource.UpdateRequest,
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating backup",
-			fmt.Sprintf("Unable to update backup: %s", err),
+			NewTransportError("update", "Backup", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-			"backup_id":  backupID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to update backup", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("update", "Backup", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -532,10 +518,13 @@ func (r *BackupResource) Delete(ctx context.Context, req resource.DeleteRequest,
 	// Retry on any error except 404 (Resource Not Found)
 	err := DeleteResourceWithRetry(
 		ctx,
-		func() (interface{}, error) {
-			return r.client.Client.FromStorage().Backups().Delete(ctx, projectID, backupID, nil)
+		func() error {
+			resp, err := r.client.Client.FromStorage().Backups().Delete(ctx, projectID, backupID, nil)
+			if err != nil {
+				return NewTransportError("delete", "Backup", err)
+			}
+			return CheckResponse("delete", "Backup", resp)
 		},
-		ExtractSDKError,
 		"Backup",
 		backupID,
 		r.client.ResourceTimeout,
@@ -544,7 +533,7 @@ func (r *BackupResource) Delete(ctx context.Context, req resource.DeleteRequest,
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting backup",
-			fmt.Sprintf("Unable to delete backup: %s", err),
+			NewTransportError("delete", "Backup", err).Error(),
 		)
 		return
 	}

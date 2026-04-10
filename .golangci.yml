@@ -1,4 +1,4 @@
-# Copyright (c) HashiCorp, Inc.
+# Copyright (c) Aruba S.p.A.
 
 version: "2"
 linters:
@@ -19,6 +19,7 @@ linters:
     - unparam
     - unused
     - usetesting
+    - govet
   exclusions:
     generated: lax
     presets:

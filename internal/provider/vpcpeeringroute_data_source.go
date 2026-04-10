@@ -93,15 +93,11 @@ func (d *VPCPeeringRouteDataSource) Read(ctx context.Context, req datasource.Rea
 
 	response, err := d.client.Client.FromNetwork().VPCPeeringRoutes().Get(ctx, projectID, vpcID, peeringID, routeID, nil)
 	if err != nil {
-		resp.Diagnostics.AddError("Error reading VPC peering route", fmt.Sprintf("Unable to read VPC peering route: %s", err))
+		resp.Diagnostics.AddError("Error reading VPC peering route", NewTransportError("read", "Vpcpeeringroute", err).Error())
 		return
 	}
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
-			resp.Diagnostics.AddError("VPC Peering Route not found", fmt.Sprintf("No VPC peering route found with ID %q in peering %q", routeID, peeringID))
-			return
-		}
-		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read VPC peering route", map[string]interface{}{"project_id": projectID, "vpc_id": vpcID, "peering_id": peeringID, "route_id": routeID}))
+	if apiErr := CheckResponse("read", "Vpcpeeringroute", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 	if response == nil || response.Data == nil {

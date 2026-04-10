@@ -164,18 +164,13 @@ func (r *KMSResource) Create(ctx context.Context, req resource.CreateRequest, re
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating KMS",
-			fmt.Sprintf("Unable to create KMS: %s", err),
+			NewTransportError("create", "Kms", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-			"kms_name":   data.Name.ValueString(),
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create KMS", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("create", "Kms", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -275,22 +270,17 @@ func (r *KMSResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading KMS",
-			fmt.Sprintf("Unable to read KMS: %s", err),
+			NewTransportError("read", "Kms", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
+	if apiErr := CheckResponse("read", "Kms", response); apiErr != nil {
+		if IsNotFound(apiErr) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-			"kms_id":     kmsID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read KMS", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -369,7 +359,7 @@ func (r *KMSResource) Update(ctx context.Context, req resource.UpdateRequest, re
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error getting KMS",
-			fmt.Sprintf("Unable to get KMS: %s", err),
+			NewTransportError("read", "Kms", err).Error(),
 		)
 		return
 	}
@@ -420,15 +410,13 @@ func (r *KMSResource) Update(ctx context.Context, req resource.UpdateRequest, re
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating KMS",
-			fmt.Sprintf("Unable to update KMS: %s", err),
+			NewTransportError("update", "Kms", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to update KMS", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("update", "Kms", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -486,10 +474,13 @@ func (r *KMSResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 	// Retry on any error except 404 (Resource Not Found)
 	err := DeleteResourceWithRetry(
 		ctx,
-		func() (interface{}, error) {
-			return r.client.Client.FromSecurity().KMS().Delete(ctx, projectID, kmsID, nil)
+		func() error {
+			resp, err := r.client.Client.FromSecurity().KMS().Delete(ctx, projectID, kmsID, nil)
+			if err != nil {
+				return NewTransportError("delete", "KMS", err)
+			}
+			return CheckResponse("delete", "KMS", resp)
 		},
-		ExtractSDKError,
 		"KMS",
 		kmsID,
 		r.client.ResourceTimeout,
@@ -498,7 +489,7 @@ func (r *KMSResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting KMS",
-			fmt.Sprintf("Unable to delete KMS: %s", err),
+			NewTransportError("delete", "Kms", err).Error(),
 		)
 		return
 	}
