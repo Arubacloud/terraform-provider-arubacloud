@@ -87,15 +87,11 @@ func (d *DatabaseDataSource) Read(ctx context.Context, req datasource.ReadReques
 
 	response, err := d.client.Client.FromDatabase().Databases().Get(ctx, projectID, dbaasID, databaseName, nil)
 	if err != nil {
-		resp.Diagnostics.AddError("Error reading database", fmt.Sprintf("Unable to read database: %s", err))
+		resp.Diagnostics.AddError("Error reading database", NewTransportError("read", "Database", err).Error())
 		return
 	}
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
-			resp.Diagnostics.AddError("Database not found", fmt.Sprintf("No database found with ID %q in DBaaS %q", databaseName, dbaasID))
-			return
-		}
-		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read database", map[string]interface{}{"project_id": projectID, "dbaas_id": dbaasID, "database_name": databaseName}))
+	if apiErr := CheckResponse("read", "Database", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 	if response == nil || response.Data == nil {

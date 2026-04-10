@@ -108,23 +108,12 @@ func (d *ElasticIPDataSource) Read(ctx context.Context, req datasource.ReadReque
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading Elastic IP",
-			fmt.Sprintf("Unable to read Elastic IP: %s", err),
+			NewTransportError("read", "Elasticip", err).Error(),
 		)
 		return
 	}
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
-			resp.Diagnostics.AddError(
-				"Elastic IP not found",
-				fmt.Sprintf("No Elastic IP found with ID %q in project %q", eipID, projectID),
-			)
-			return
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read Elastic IP", map[string]interface{}{
-			"project_id": projectID,
-			"eip_id":     eipID,
-		})
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("read", "Elasticip", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 	if response == nil || response.Data == nil {

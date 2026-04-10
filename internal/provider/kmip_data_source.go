@@ -114,7 +114,7 @@ func (d *KMIPDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading KMIP",
-			fmt.Sprintf("Unable to read KMIP service: %s", err),
+			NewTransportError("read", "Kmip", err).Error(),
 		)
 		return
 	}

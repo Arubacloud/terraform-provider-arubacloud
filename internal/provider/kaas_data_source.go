@@ -209,23 +209,12 @@ func (d *KaaSDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading KaaS cluster",
-			fmt.Sprintf("Unable to read KaaS cluster: %s", err),
+			NewTransportError("read", "Kaas", err).Error(),
 		)
 		return
 	}
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
-			resp.Diagnostics.AddError(
-				"KaaS cluster not found",
-				fmt.Sprintf("No KaaS cluster found with ID %q in project %q", kaasID, projectID),
-			)
-			return
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read KaaS cluster", map[string]interface{}{
-			"project_id": projectID,
-			"kaas_id":    kaasID,
-		})
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("read", "Kaas", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 	if response == nil || response.Data == nil {

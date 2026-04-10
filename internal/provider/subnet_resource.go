@@ -399,15 +399,13 @@ func (r *SubnetResource) Create(ctx context.Context, req resource.CreateRequest,
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating subnet",
-			fmt.Sprintf("Unable to create subnet: %s", err),
+			NewTransportError("create", "Subnet", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create subnet", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("create", "Subnet", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -527,22 +525,17 @@ func (r *SubnetResource) Read(ctx context.Context, req resource.ReadRequest, res
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading subnet",
-			fmt.Sprintf("Unable to read subnet: %s", err),
+			NewTransportError("read", "Subnet", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
+	if apiErr := CheckResponse("read", "Subnet", response); apiErr != nil {
+		if IsNotFound(apiErr) {
 			resp.State.RemoveResource(ctx)
-			return
+		return
 		}
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-			"subnet_id":  subnetID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read subnet", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -794,7 +787,7 @@ func (r *SubnetResource) Update(ctx context.Context, req resource.UpdateRequest,
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error fetching current subnet",
-			fmt.Sprintf("Unable to get current subnet: %s", err),
+			NewTransportError("read", "Subnet", err).Error(),
 		)
 		return
 	}
@@ -955,15 +948,13 @@ func (r *SubnetResource) Update(ctx context.Context, req resource.UpdateRequest,
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating subnet",
-			fmt.Sprintf("Unable to update subnet: %s", err),
+			NewTransportError("update", "Subnet", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to update subnet", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("update", "Subnet", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -1024,10 +1015,13 @@ func (r *SubnetResource) Delete(ctx context.Context, req resource.DeleteRequest,
 	// Retry on any error except 404 (Resource Not Found)
 	err := DeleteResourceWithRetry(
 		ctx,
-		func() (interface{}, error) {
-			return r.client.Client.FromNetwork().Subnets().Delete(ctx, projectID, vpcID, subnetID, nil)
+		func() error {
+			resp, err := r.client.Client.FromNetwork().Subnets().Delete(ctx, projectID, vpcID, subnetID, nil)
+			if err != nil {
+				return NewTransportError("delete", "Subnet", err)
+			}
+			return CheckResponse("delete", "Subnet", resp)
 		},
-		ExtractSDKError,
 		"Subnet",
 		subnetID,
 		r.client.ResourceTimeout,
@@ -1036,7 +1030,7 @@ func (r *SubnetResource) Delete(ctx context.Context, req resource.DeleteRequest,
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting subnet",
-			fmt.Sprintf("Unable to delete subnet: %s", err),
+			NewTransportError("delete", "Subnet", err).Error(),
 		)
 		return
 	}

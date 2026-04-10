@@ -294,15 +294,13 @@ func (r *ScheduleJobResource) Create(ctx context.Context, req resource.CreateReq
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating schedule job",
-			fmt.Sprintf("Unable to create schedule job: %s", err),
+			NewTransportError("create", "Schedulejob", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create schedule job", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("create", "Schedulejob", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -387,22 +385,17 @@ func (r *ScheduleJobResource) Read(ctx context.Context, req resource.ReadRequest
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading schedule job",
-			fmt.Sprintf("Unable to read schedule job: %s", err),
+			NewTransportError("read", "Schedulejob", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
+	if apiErr := CheckResponse("read", "Schedulejob", response); apiErr != nil {
+		if IsNotFound(apiErr) {
 			resp.State.RemoveResource(ctx)
-			return
+		return
 		}
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-			"job_id":     jobID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read schedule job", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -577,7 +570,7 @@ func (r *ScheduleJobResource) Update(ctx context.Context, req resource.UpdateReq
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error getting schedule job",
-			fmt.Sprintf("Unable to get schedule job: %s", err),
+			NewTransportError("read", "Schedulejob", err).Error(),
 		)
 		return
 	}
@@ -726,15 +719,13 @@ func (r *ScheduleJobResource) Update(ctx context.Context, req resource.UpdateReq
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating schedule job",
-			fmt.Sprintf("Unable to update schedule job: %s", err),
+			NewTransportError("update", "Schedulejob", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to update schedule job", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("update", "Schedulejob", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -793,10 +784,13 @@ func (r *ScheduleJobResource) Delete(ctx context.Context, req resource.DeleteReq
 	// Retry on any error except 404 (Resource Not Found)
 	err := DeleteResourceWithRetry(
 		ctx,
-		func() (interface{}, error) {
-			return r.client.Client.FromSchedule().Jobs().Delete(ctx, projectID, jobID, nil)
+		func() error {
+			resp, err := r.client.Client.FromSchedule().Jobs().Delete(ctx, projectID, jobID, nil)
+			if err != nil {
+				return NewTransportError("delete", "ScheduleJob", err)
+			}
+			return CheckResponse("delete", "ScheduleJob", resp)
 		},
-		ExtractSDKError,
 		"ScheduleJob",
 		jobID,
 		r.client.ResourceTimeout,
@@ -805,7 +799,7 @@ func (r *ScheduleJobResource) Delete(ctx context.Context, req resource.DeleteReq
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting schedule job",
-			fmt.Sprintf("Unable to delete schedule job: %s", err),
+			NewTransportError("delete", "Schedulejob", err).Error(),
 		)
 		return
 	}

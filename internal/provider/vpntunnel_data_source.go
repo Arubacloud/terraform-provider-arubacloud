@@ -91,15 +91,11 @@ func (d *VPNTunnelDataSource) Read(ctx context.Context, req datasource.ReadReque
 
 	response, err := d.client.Client.FromNetwork().VPNTunnels().Get(ctx, projectID, tunnelID, nil)
 	if err != nil {
-		resp.Diagnostics.AddError("Error reading VPN tunnel", fmt.Sprintf("Unable to read VPN tunnel: %s", err))
+		resp.Diagnostics.AddError("Error reading VPN tunnel", NewTransportError("read", "Vpntunnel", err).Error())
 		return
 	}
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
-			resp.Diagnostics.AddError("VPN Tunnel not found", fmt.Sprintf("No VPN tunnel found with ID %q in project %q", tunnelID, projectID))
-			return
-		}
-		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read VPN tunnel", map[string]interface{}{"project_id": projectID, "tunnel_id": tunnelID}))
+	if apiErr := CheckResponse("read", "Vpntunnel", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 	if response == nil || response.Data == nil {

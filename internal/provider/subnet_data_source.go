@@ -159,15 +159,11 @@ func (d *SubnetDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 
 	response, err := d.client.Client.FromNetwork().Subnets().Get(ctx, projectID, vpcID, subnetID, nil)
 	if err != nil {
-		resp.Diagnostics.AddError("Error reading subnet", fmt.Sprintf("Unable to read subnet: %s", err))
+		resp.Diagnostics.AddError("Error reading subnet", NewTransportError("read", "Subnet", err).Error())
 		return
 	}
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
-			resp.Diagnostics.AddError("Subnet not found", fmt.Sprintf("No subnet found with ID %q in VPC %q", subnetID, vpcID))
-			return
-		}
-		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read subnet", map[string]interface{}{"project_id": projectID, "vpc_id": vpcID, "subnet_id": subnetID}))
+	if apiErr := CheckResponse("read", "Subnet", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 	if response == nil || response.Data == nil {

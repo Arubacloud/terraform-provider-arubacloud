@@ -300,17 +300,13 @@ func (r *ContainerRegistryResource) Create(ctx context.Context, req resource.Cre
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating container registry",
-			fmt.Sprintf("Unable to create container registry: %s", err),
+			NewTransportError("create", "Containerregistry", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create container registry", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("create", "Containerregistry", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -405,22 +401,17 @@ func (r *ContainerRegistryResource) Read(ctx context.Context, req resource.ReadR
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading container registry",
-			fmt.Sprintf("Unable to read container registry: %s", err),
+			NewTransportError("read", "Containerregistry", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
+	if apiErr := CheckResponse("read", "Containerregistry", response); apiErr != nil {
+		if IsNotFound(apiErr) {
 			resp.State.RemoveResource(ctx)
-			return
+		return
 		}
-		logContext := map[string]interface{}{
-			"project_id":  projectID,
-			"registry_id": registryID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read container registry", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -591,7 +582,7 @@ func (r *ContainerRegistryResource) Update(ctx context.Context, req resource.Upd
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error fetching current container registry",
-			fmt.Sprintf("Unable to get current container registry: %s", err),
+			NewTransportError("read", "Containerregistry", err).Error(),
 		)
 		return
 	}
@@ -732,18 +723,13 @@ func (r *ContainerRegistryResource) Update(ctx context.Context, req resource.Upd
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating container registry",
-			fmt.Sprintf("Unable to update container registry: %s", err),
+			NewTransportError("update", "Containerregistry", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{
-			"project_id":  projectID,
-			"registry_id": registryID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to update container registry", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("update", "Containerregistry", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -939,10 +925,13 @@ func (r *ContainerRegistryResource) Delete(ctx context.Context, req resource.Del
 	// Retry on any error except 404 (Resource Not Found)
 	err := DeleteResourceWithRetry(
 		ctx,
-		func() (interface{}, error) {
-			return registryClient.Delete(ctx, projectID, registryID, nil)
+		func() error {
+			resp, err := registryClient.Delete(ctx, projectID, registryID, nil)
+			if err != nil {
+				return NewTransportError("delete", "ContainerRegistry", err)
+			}
+			return CheckResponse("delete", "ContainerRegistry", resp)
 		},
-		ExtractSDKError,
 		"ContainerRegistry",
 		registryID,
 		r.client.ResourceTimeout,
@@ -951,7 +940,7 @@ func (r *ContainerRegistryResource) Delete(ctx context.Context, req resource.Del
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting container registry",
-			fmt.Sprintf("Unable to delete container registry: %s", err),
+			NewTransportError("delete", "Containerregistry", err).Error(),
 		)
 		return
 	}

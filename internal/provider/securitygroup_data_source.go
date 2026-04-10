@@ -99,15 +99,11 @@ func (d *SecurityGroupDataSource) Read(ctx context.Context, req datasource.ReadR
 
 	response, err := d.client.Client.FromNetwork().SecurityGroups().Get(ctx, projectID, vpcID, sgID, nil)
 	if err != nil {
-		resp.Diagnostics.AddError("Error reading security group", fmt.Sprintf("Unable to read security group: %s", err))
+		resp.Diagnostics.AddError("Error reading security group", NewTransportError("read", "Securitygroup", err).Error())
 		return
 	}
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
-			resp.Diagnostics.AddError("Security Group not found", fmt.Sprintf("No security group found with ID %q in VPC %q", sgID, vpcID))
-			return
-		}
-		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read security group", map[string]interface{}{"project_id": projectID, "vpc_id": vpcID, "security_group_id": sgID}))
+	if apiErr := CheckResponse("read", "Securitygroup", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 	if response == nil || response.Data == nil {

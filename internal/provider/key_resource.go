@@ -127,19 +127,13 @@ func (r *KeyResource) Create(ctx context.Context, req resource.CreateRequest, re
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating Key",
-			fmt.Sprintf("Unable to create Key: %s", err),
+			NewTransportError("create", "Key", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-			"kms_id":     kmsID,
-			"key_name":   data.Name.ValueString(),
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create Key", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("create", "Key", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -265,7 +259,7 @@ func (r *KeyResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading Key",
-			fmt.Sprintf("Unable to read Key: %s", err),
+			NewTransportError("read", "Key", err).Error(),
 		)
 		return
 	}
@@ -369,7 +363,7 @@ func (r *KeyResource) Update(ctx context.Context, req resource.UpdateRequest, re
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading Key",
-			fmt.Sprintf("Unable to read Key after update attempt: %s", err),
+			NewTransportError("read", "Key", err).Error(),
 		)
 		return
 	}
@@ -435,10 +429,13 @@ func (r *KeyResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 	// Retry on any error except 404 (Resource Not Found)
 	err := DeleteResourceWithRetry(
 		ctx,
-		func() (interface{}, error) {
-			return r.client.Client.FromSecurity().KMS().Keys().Delete(ctx, projectID, kmsID, keyID, nil)
+		func() error {
+			resp, err := r.client.Client.FromSecurity().KMS().Keys().Delete(ctx, projectID, kmsID, keyID, nil)
+			if err != nil {
+				return NewTransportError("delete", "Key", err)
+			}
+			return CheckResponse("delete", "Key", resp)
 		},
-		ExtractSDKError,
 		"Key",
 		keyID,
 		r.client.ResourceTimeout,
@@ -447,7 +444,7 @@ func (r *KeyResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting Key",
-			fmt.Sprintf("Unable to delete Key: %s", err),
+			NewTransportError("delete", "Key", err).Error(),
 		)
 		return
 	}

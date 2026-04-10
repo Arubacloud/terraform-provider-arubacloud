@@ -549,7 +549,7 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 		})
 		resp.Diagnostics.AddError(
 			"Error creating security rule",
-			fmt.Sprintf("Unable to create security rule: %s", err),
+			NewTransportError("create", "Securityrule", err).Error(),
 		)
 		return
 	}
@@ -671,7 +671,7 @@ func (r *SecurityRuleResource) Read(ctx context.Context, req resource.ReadReques
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading security rule",
-			fmt.Sprintf("Unable to read security rule: %s", err),
+			NewTransportError("read", "Securityrule", err).Error(),
 		)
 		return
 	}
@@ -812,7 +812,7 @@ func (r *SecurityRuleResource) Update(ctx context.Context, req resource.UpdateRe
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error fetching current security rule",
-			fmt.Sprintf("Unable to get current security rule: %s", err),
+			NewTransportError("read", "Securityrule", err).Error(),
 		)
 		return
 	}
@@ -1012,7 +1012,7 @@ func (r *SecurityRuleResource) Update(ctx context.Context, req resource.UpdateRe
 		tflog.Error(ctx, fmt.Sprintf("Error calling Update API: %v", err))
 		resp.Diagnostics.AddError(
 			"Error updating security rule",
-			fmt.Sprintf("Unable to update security rule: %s", err),
+			NewTransportError("update", "Securityrule", err).Error(),
 		)
 		return
 	}
@@ -1122,10 +1122,13 @@ func (r *SecurityRuleResource) Delete(ctx context.Context, req resource.DeleteRe
 	// Retry on any error except 404 (Resource Not Found)
 	err := DeleteResourceWithRetry(
 		ctx,
-		func() (interface{}, error) {
-			return r.client.Client.FromNetwork().SecurityGroupRules().Delete(ctx, projectID, vpcID, securityGroupID, ruleID, nil)
+		func() error {
+			resp, err := r.client.Client.FromNetwork().SecurityGroupRules().Delete(ctx, projectID, vpcID, securityGroupID, ruleID, nil)
+			if err != nil {
+				return NewTransportError("delete", "SecurityRule", err)
+			}
+			return CheckResponse("delete", "SecurityRule", resp)
 		},
-		ExtractSDKError,
 		"SecurityRule",
 		ruleID,
 		r.client.ResourceTimeout,
@@ -1134,7 +1137,7 @@ func (r *SecurityRuleResource) Delete(ctx context.Context, req resource.DeleteRe
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting security rule",
-			fmt.Sprintf("Unable to delete security rule: %s", err),
+			NewTransportError("delete", "Securityrule", err).Error(),
 		)
 		return
 	}

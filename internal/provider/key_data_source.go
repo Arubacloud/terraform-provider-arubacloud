@@ -119,7 +119,7 @@ func (d *KeyDataSource) Read(ctx context.Context, req datasource.ReadRequest, re
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading Key",
-			fmt.Sprintf("Unable to read Key: %s", err),
+			NewTransportError("read", "Key", err).Error(),
 		)
 		return
 	}

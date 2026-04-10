@@ -557,15 +557,13 @@ func (r *VPNTunnelResource) Create(ctx context.Context, req resource.CreateReque
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating VPN tunnel",
-			fmt.Sprintf("Unable to create VPN tunnel: %s", err),
+			NewTransportError("create", "Vpntunnel", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create VPN tunnel", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("create", "Vpntunnel", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -642,22 +640,17 @@ func (r *VPNTunnelResource) Read(ctx context.Context, req resource.ReadRequest, 
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading VPN tunnel",
-			fmt.Sprintf("Unable to read VPN tunnel: %s", err),
+			NewTransportError("read", "Vpntunnel", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
+	if apiErr := CheckResponse("read", "Vpntunnel", response); apiErr != nil {
+		if IsNotFound(apiErr) {
 			resp.State.RemoveResource(ctx)
-			return
+		return
 		}
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-			"tunnel_id":  tunnelID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read VPN tunnel", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -739,7 +732,7 @@ func (r *VPNTunnelResource) Update(ctx context.Context, req resource.UpdateReque
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error fetching current VPN tunnel",
-			fmt.Sprintf("Unable to get current VPN tunnel: %s", err),
+			NewTransportError("read", "Vpntunnel", err).Error(),
 		)
 		return
 	}
@@ -814,15 +807,13 @@ func (r *VPNTunnelResource) Update(ctx context.Context, req resource.UpdateReque
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating VPN tunnel",
-			fmt.Sprintf("Unable to update VPN tunnel: %s", err),
+			NewTransportError("update", "Vpntunnel", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to update VPN tunnel", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("update", "Vpntunnel", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -862,10 +853,13 @@ func (r *VPNTunnelResource) Delete(ctx context.Context, req resource.DeleteReque
 	// Retry on any error except 404 (Resource Not Found)
 	err := DeleteResourceWithRetry(
 		ctx,
-		func() (interface{}, error) {
-			return r.client.Client.FromNetwork().VPNTunnels().Delete(ctx, projectID, tunnelID, nil)
+		func() error {
+			resp, err := r.client.Client.FromNetwork().VPNTunnels().Delete(ctx, projectID, tunnelID, nil)
+			if err != nil {
+				return NewTransportError("delete", "VPNTunnel", err)
+			}
+			return CheckResponse("delete", "VPNTunnel", resp)
 		},
-		ExtractSDKError,
 		"VPNTunnel",
 		tunnelID,
 		r.client.ResourceTimeout,
@@ -874,7 +868,7 @@ func (r *VPNTunnelResource) Delete(ctx context.Context, req resource.DeleteReque
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting VPN tunnel",
-			fmt.Sprintf("Unable to delete VPN tunnel: %s", err),
+			NewTransportError("delete", "Vpntunnel", err).Error(),
 		)
 		return
 	}

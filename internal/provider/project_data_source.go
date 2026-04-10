@@ -87,15 +87,11 @@ func (d *ProjectDataSource) Read(ctx context.Context, req datasource.ReadRequest
 
 	response, err := d.client.Client.FromProject().Get(ctx, projectID, nil)
 	if err != nil {
-		resp.Diagnostics.AddError("Error reading project", fmt.Sprintf("Unable to read project: %s", err))
+		resp.Diagnostics.AddError("Error reading project", NewTransportError("read", "Project", err).Error())
 		return
 	}
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
-			resp.Diagnostics.AddError("Project not found", fmt.Sprintf("No project found with ID %q", projectID))
-			return
-		}
-		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read project", map[string]interface{}{"project_id": projectID}))
+	if apiErr := CheckResponse("read", "Project", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 	if response == nil || response.Data == nil {

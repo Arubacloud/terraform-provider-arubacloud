@@ -161,15 +161,13 @@ func (r *SnapshotResource) Create(ctx context.Context, req resource.CreateReques
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating snapshot",
-			fmt.Sprintf("Unable to create snapshot: %s", err),
+			NewTransportError("create", "Snapshot", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create snapshot", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("create", "Snapshot", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -325,22 +323,17 @@ func (r *SnapshotResource) Read(ctx context.Context, req resource.ReadRequest, r
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading snapshot",
-			fmt.Sprintf("Unable to read snapshot: %s", err),
+			NewTransportError("read", "Snapshot", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
+	if apiErr := CheckResponse("read", "Snapshot", response); apiErr != nil {
+		if IsNotFound(apiErr) {
 			resp.State.RemoveResource(ctx)
-			return
+		return
 		}
-		logContext := map[string]interface{}{
-			"project_id":  projectID,
-			"snapshot_id": snapshotID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read snapshot", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -458,7 +451,7 @@ func (r *SnapshotResource) Update(ctx context.Context, req resource.UpdateReques
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error fetching current snapshot",
-			fmt.Sprintf("Unable to get current snapshot: %s", err),
+			NewTransportError("read", "Snapshot", err).Error(),
 		)
 		return
 	}
@@ -522,15 +515,13 @@ func (r *SnapshotResource) Update(ctx context.Context, req resource.UpdateReques
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating snapshot",
-			fmt.Sprintf("Unable to update snapshot: %s", err),
+			NewTransportError("update", "Snapshot", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to update snapshot", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("update", "Snapshot", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -598,10 +589,13 @@ func (r *SnapshotResource) Delete(ctx context.Context, req resource.DeleteReques
 	// Retry on any error except 404 (Resource Not Found)
 	err := DeleteResourceWithRetry(
 		ctx,
-		func() (interface{}, error) {
-			return r.client.Client.FromStorage().Snapshots().Delete(ctx, projectID, snapshotID, nil)
+		func() error {
+			resp, err := r.client.Client.FromStorage().Snapshots().Delete(ctx, projectID, snapshotID, nil)
+			if err != nil {
+				return NewTransportError("delete", "Snapshot", err)
+			}
+			return CheckResponse("delete", "Snapshot", resp)
 		},
-		ExtractSDKError,
 		"Snapshot",
 		snapshotID,
 		r.client.ResourceTimeout,
@@ -610,7 +604,7 @@ func (r *SnapshotResource) Delete(ctx context.Context, req resource.DeleteReques
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting snapshot",
-			fmt.Sprintf("Unable to delete snapshot: %s", err),
+			NewTransportError("delete", "Snapshot", err).Error(),
 		)
 		return
 	}

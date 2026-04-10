@@ -91,15 +91,11 @@ func (d *KMSDataSource) Read(ctx context.Context, req datasource.ReadRequest, re
 
 	response, err := d.client.Client.FromSecurity().KMS().Get(ctx, projectID, kmsID, nil)
 	if err != nil {
-		resp.Diagnostics.AddError("Error reading KMS", fmt.Sprintf("Unable to read KMS: %s", err))
+		resp.Diagnostics.AddError("Error reading KMS", NewTransportError("read", "Kms", err).Error())
 		return
 	}
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
-			resp.Diagnostics.AddError("KMS not found", fmt.Sprintf("No KMS found with ID %q in project %q", kmsID, projectID))
-			return
-		}
-		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read KMS", map[string]interface{}{"project_id": projectID, "kms_id": kmsID}))
+	if apiErr := CheckResponse("read", "Kms", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 	if response == nil || response.Data == nil {

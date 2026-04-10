@@ -103,15 +103,11 @@ func (d *RestoreDataSource) Read(ctx context.Context, req datasource.ReadRequest
 
 	response, err := d.client.Client.FromStorage().Restores().Get(ctx, projectID, backupID, restoreID, nil)
 	if err != nil {
-		resp.Diagnostics.AddError("Error reading restore", fmt.Sprintf("Unable to read restore: %s", err))
+		resp.Diagnostics.AddError("Error reading restore", NewTransportError("read", "Restore", err).Error())
 		return
 	}
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
-			resp.Diagnostics.AddError("Restore not found", fmt.Sprintf("No restore found with ID %q in backup %q", restoreID, backupID))
-			return
-		}
-		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read restore", map[string]interface{}{"project_id": projectID, "backup_id": backupID, "restore_id": restoreID}))
+	if apiErr := CheckResponse("read", "Restore", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 	if response == nil || response.Data == nil {

@@ -93,15 +93,11 @@ func (d *DBaaSUserDataSource) Read(ctx context.Context, req datasource.ReadReque
 
 	response, err := d.client.Client.FromDatabase().Users().Get(ctx, projectID, dbaasID, username, nil)
 	if err != nil {
-		resp.Diagnostics.AddError("Error reading DBaaS user", fmt.Sprintf("Unable to read DBaaS user: %s", err))
+		resp.Diagnostics.AddError("Error reading DBaaS user", NewTransportError("read", "Dbaasuser", err).Error())
 		return
 	}
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
-			resp.Diagnostics.AddError("DBaaS User not found", fmt.Sprintf("No DBaaS user found with username %q in DBaaS %q", username, dbaasID))
-			return
-		}
-		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read DBaaS user", map[string]interface{}{"project_id": projectID, "dbaas_id": dbaasID, "username": username}))
+	if apiErr := CheckResponse("read", "Dbaasuser", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 	if response == nil || response.Data == nil {

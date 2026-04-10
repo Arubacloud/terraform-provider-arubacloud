@@ -112,19 +112,13 @@ func (r *KMIPResource) Create(ctx context.Context, req resource.CreateRequest, r
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating KMIP",
-			fmt.Sprintf("Unable to create KMIP: %s", err),
+			NewTransportError("create", "Kmip", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-			"kms_id":     kmsID,
-			"kmip_name":  data.Name.ValueString(),
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create KMIP", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("create", "Kmip", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -207,7 +201,7 @@ func (r *KMIPResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading KMIP",
-			fmt.Sprintf("Unable to read KMIP: %s", err),
+			NewTransportError("read", "Kmip", err).Error(),
 		)
 		return
 	}
@@ -277,7 +271,7 @@ func (r *KMIPResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error getting KMS",
-			fmt.Sprintf("Unable to get KMS: %s", err),
+			NewTransportError("read", "Kmip", err).Error(),
 		)
 		return
 	}
@@ -301,7 +295,7 @@ func (r *KMIPResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating KMIP",
-			fmt.Sprintf("Unable to update KMIP: %s", err),
+			NewTransportError("update", "Kmip", err).Error(),
 		)
 		return
 	}
@@ -384,10 +378,13 @@ func (r *KMIPResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 	// Retry on any error except 404 (Resource Not Found)
 	err := DeleteResourceWithRetry(
 		ctx,
-		func() (interface{}, error) {
-			return r.client.Client.FromSecurity().KMS().Kmips().Delete(ctx, projectID, kmsID, kmipID, nil)
+		func() error {
+			resp, err := r.client.Client.FromSecurity().KMS().Kmips().Delete(ctx, projectID, kmsID, kmipID, nil)
+			if err != nil {
+				return NewTransportError("delete", "KMIP", err)
+			}
+			return CheckResponse("delete", "KMIP", resp)
 		},
-		ExtractSDKError,
 		"KMIP",
 		kmipID,
 		r.client.ResourceTimeout,
@@ -396,7 +393,7 @@ func (r *KMIPResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting KMIP",
-			fmt.Sprintf("Unable to delete KMIP: %s", err),
+			NewTransportError("delete", "Kmip", err).Error(),
 		)
 		return
 	}

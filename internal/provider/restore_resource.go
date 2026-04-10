@@ -129,7 +129,7 @@ func (r *RestoreResource) Create(ctx context.Context, req resource.CreateRequest
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error getting backup details",
-			fmt.Sprintf("Unable to get backup details: %s", err),
+			NewTransportError("read", "Restore", err).Error(),
 		)
 		return
 	}
@@ -149,7 +149,7 @@ func (r *RestoreResource) Create(ctx context.Context, req resource.CreateRequest
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error getting volume details",
-			fmt.Sprintf("Unable to get volume details: %s", err),
+			NewTransportError("read", "Restore", err).Error(),
 		)
 		return
 	}
@@ -196,15 +196,13 @@ func (r *RestoreResource) Create(ctx context.Context, req resource.CreateRequest
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating restore",
-			fmt.Sprintf("Unable to create restore: %s", err),
+			NewTransportError("create", "Restore", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create restore", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("create", "Restore", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -282,22 +280,17 @@ func (r *RestoreResource) Read(ctx context.Context, req resource.ReadRequest, re
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading restore",
-			fmt.Sprintf("Unable to read restore: %s", err),
+			NewTransportError("read", "Restore", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
+	if apiErr := CheckResponse("read", "Restore", response); apiErr != nil {
+		if IsNotFound(apiErr) {
 			resp.State.RemoveResource(ctx)
-			return
+		return
 		}
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-			"restore_id": restoreID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read restore", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -380,7 +373,7 @@ func (r *RestoreResource) Update(ctx context.Context, req resource.UpdateRequest
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error fetching current restore",
-			fmt.Sprintf("Unable to get current restore: %s", err),
+			NewTransportError("read", "Restore", err).Error(),
 		)
 		return
 	}
@@ -443,15 +436,13 @@ func (r *RestoreResource) Update(ctx context.Context, req resource.UpdateRequest
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating restore",
-			fmt.Sprintf("Unable to update restore: %s", err),
+			NewTransportError("update", "Restore", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to update restore", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("update", "Restore", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -511,10 +502,13 @@ func (r *RestoreResource) Delete(ctx context.Context, req resource.DeleteRequest
 	// Retry on any error except 404 (Resource Not Found)
 	err := DeleteResourceWithRetry(
 		ctx,
-		func() (interface{}, error) {
-			return r.client.Client.FromStorage().Restores().Delete(ctx, projectID, backupID, restoreID, nil)
+		func() error {
+			resp, err := r.client.Client.FromStorage().Restores().Delete(ctx, projectID, backupID, restoreID, nil)
+			if err != nil {
+				return NewTransportError("delete", "Restore", err)
+			}
+			return CheckResponse("delete", "Restore", resp)
 		},
-		ExtractSDKError,
 		"Restore",
 		restoreID,
 		r.client.ResourceTimeout,
@@ -523,7 +517,7 @@ func (r *RestoreResource) Delete(ctx context.Context, req resource.DeleteRequest
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting restore",
-			fmt.Sprintf("Unable to delete restore: %s", err),
+			NewTransportError("delete", "Restore", err).Error(),
 		)
 		return
 	}

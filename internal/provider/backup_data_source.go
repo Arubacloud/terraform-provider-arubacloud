@@ -119,23 +119,12 @@ func (d *BackupDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading backup",
-			fmt.Sprintf("Unable to read backup: %s", err),
+			NewTransportError("read", "Backup", err).Error(),
 		)
 		return
 	}
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
-			resp.Diagnostics.AddError(
-				"Backup not found",
-				fmt.Sprintf("No backup found with ID %q in project %q", backupID, projectID),
-			)
-			return
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read backup", map[string]interface{}{
-			"project_id": projectID,
-			"backup_id":  backupID,
-		})
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("read", "Backup", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 	if response == nil || response.Data == nil {

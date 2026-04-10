@@ -97,15 +97,11 @@ func (d *SnapshotDataSource) Read(ctx context.Context, req datasource.ReadReques
 
 	response, err := d.client.Client.FromStorage().Snapshots().Get(ctx, projectID, snapshotID, nil)
 	if err != nil {
-		resp.Diagnostics.AddError("Error reading snapshot", fmt.Sprintf("Unable to read snapshot: %s", err))
+		resp.Diagnostics.AddError("Error reading snapshot", NewTransportError("read", "Snapshot", err).Error())
 		return
 	}
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
-			resp.Diagnostics.AddError("Snapshot not found", fmt.Sprintf("No snapshot found with ID %q in project %q", snapshotID, projectID))
-			return
-		}
-		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read snapshot", map[string]interface{}{"project_id": projectID, "snapshot_id": snapshotID}))
+	if apiErr := CheckResponse("read", "Snapshot", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 	if response == nil || response.Data == nil {

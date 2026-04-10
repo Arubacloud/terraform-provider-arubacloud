@@ -127,20 +127,13 @@ func (r *DatabaseGrantResource) Create(ctx context.Context, req resource.CreateR
 		})
 		resp.Diagnostics.AddError(
 			"Error creating database grant",
-			fmt.Sprintf("Unable to create database grant: %s", err),
+			NewTransportError("create", "Databasegrant", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-			"dbaas_id":   dbaasID,
-			"database":   databaseName,
-			"user_id":    userID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create database grant", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("create", "Databasegrant", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -195,7 +188,7 @@ func (r *DatabaseGrantResource) Read(ctx context.Context, req resource.ReadReque
 		})
 		resp.Diagnostics.AddError(
 			"Error reading database grant",
-			fmt.Sprintf("Unable to read database grant: %s", err),
+			NewTransportError("read", "Databasegrant", err).Error(),
 		)
 		return
 	}
@@ -213,14 +206,8 @@ func (r *DatabaseGrantResource) Read(ctx context.Context, req resource.ReadReque
 			return
 		}
 
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-			"dbaas_id":   dbaasID,
-			"database":   databaseName,
-			"user_id":    userID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read database grant", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+		apiErr := newResponseError("read", "Databasegrant", response.StatusCode, response.Error)
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -284,20 +271,13 @@ func (r *DatabaseGrantResource) Update(ctx context.Context, req resource.UpdateR
 		})
 		resp.Diagnostics.AddError(
 			"Error updating database grant",
-			fmt.Sprintf("Unable to update database grant: %s", err),
+			NewTransportError("update", "Databasegrant", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-			"dbaas_id":   dbaasID,
-			"database":   databaseName,
-			"user_id":    userID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to update database grant", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("update", "Databasegrant", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -344,10 +324,13 @@ func (r *DatabaseGrantResource) Delete(ctx context.Context, req resource.DeleteR
 	grantID := data.Id.ValueString()
 	err := DeleteResourceWithRetry(
 		ctx,
-		func() (interface{}, error) {
-			return r.client.Client.FromDatabase().Grants().Delete(ctx, projectID, dbaasID, databaseName, userID, nil)
+		func() error {
+			resp, err := r.client.Client.FromDatabase().Grants().Delete(ctx, projectID, dbaasID, databaseName, userID, nil)
+			if err != nil {
+				return NewTransportError("delete", "DatabaseGrant", err)
+			}
+			return CheckResponse("delete", "DatabaseGrant", resp)
 		},
-		ExtractSDKError,
 		"DatabaseGrant",
 		grantID,
 		r.client.ResourceTimeout,
@@ -356,7 +339,7 @@ func (r *DatabaseGrantResource) Delete(ctx context.Context, req resource.DeleteR
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting database grant",
-			fmt.Sprintf("Unable to delete database grant: %s", err),
+			NewTransportError("delete", "Databasegrant", err).Error(),
 		)
 		return
 	}

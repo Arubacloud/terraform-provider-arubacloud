@@ -167,17 +167,13 @@ func (r *ElasticIPResource) Create(ctx context.Context, req resource.CreateReque
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating Elastic IP",
-			fmt.Sprintf("Unable to create Elastic IP: %s", err),
+			NewTransportError("create", "Elasticip", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to create Elastic IP", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("create", "Elasticip", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -334,22 +330,17 @@ func (r *ElasticIPResource) Read(ctx context.Context, req resource.ReadRequest, 
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading Elastic IP",
-			fmt.Sprintf("Unable to read Elastic IP: %s", err),
+			NewTransportError("read", "Elasticip", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
+	if apiErr := CheckResponse("read", "Elasticip", response); apiErr != nil {
+		if IsNotFound(apiErr) {
 			resp.State.RemoveResource(ctx)
-			return
+		return
 		}
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-			"eip_id":     eipID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to read Elastic IP", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -443,7 +434,7 @@ func (r *ElasticIPResource) Update(ctx context.Context, req resource.UpdateReque
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error fetching current Elastic IP",
-			fmt.Sprintf("Unable to get current Elastic IP: %s", err),
+			NewTransportError("read", "Elasticip", err).Error(),
 		)
 		return
 	}
@@ -513,18 +504,13 @@ func (r *ElasticIPResource) Update(ctx context.Context, req resource.UpdateReque
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating Elastic IP",
-			fmt.Sprintf("Unable to update Elastic IP: %s", err),
+			NewTransportError("update", "Elasticip", err).Error(),
 		)
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		logContext := map[string]interface{}{
-			"project_id": projectID,
-			"eip_id":     eipID,
-		}
-		errorMsg := FormatAPIError(ctx, response.Error, "Failed to update Elastic IP", logContext)
-		resp.Diagnostics.AddError("API Error", errorMsg)
+	if apiErr := CheckResponse("update", "Elasticip", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 
@@ -652,10 +638,13 @@ func (r *ElasticIPResource) Delete(ctx context.Context, req resource.DeleteReque
 	// Retry on any error except 404 (Resource Not Found)
 	err := DeleteResourceWithRetry(
 		ctx,
-		func() (interface{}, error) {
-			return r.client.Client.FromNetwork().ElasticIPs().Delete(ctx, projectID, eipID, nil)
+		func() error {
+			resp, err := r.client.Client.FromNetwork().ElasticIPs().Delete(ctx, projectID, eipID, nil)
+			if err != nil {
+				return NewTransportError("delete", "ElasticIP", err)
+			}
+			return CheckResponse("delete", "ElasticIP", resp)
 		},
-		ExtractSDKError,
 		"ElasticIP",
 		eipID,
 		r.client.ResourceTimeout,
@@ -664,7 +653,7 @@ func (r *ElasticIPResource) Delete(ctx context.Context, req resource.DeleteReque
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting Elastic IP",
-			fmt.Sprintf("Unable to delete Elastic IP: %s", err),
+			NewTransportError("delete", "Elasticip", err).Error(),
 		)
 		return
 	}

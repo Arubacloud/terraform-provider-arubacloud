@@ -148,15 +148,11 @@ func (d *CloudServerDataSource) Read(ctx context.Context, req datasource.ReadReq
 
 	response, err := d.client.Client.FromCompute().CloudServers().Get(ctx, projectID, serverID, nil)
 	if err != nil {
-		resp.Diagnostics.AddError("Error reading cloud server", fmt.Sprintf("Unable to read cloud server: %s", err))
+		resp.Diagnostics.AddError("Error reading cloud server", NewTransportError("read", "Cloudserver", err).Error())
 		return
 	}
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
-			resp.Diagnostics.AddError("CloudServer not found", fmt.Sprintf("No cloud server found with ID %q in project %q", serverID, projectID))
-			return
-		}
-		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read cloud server", map[string]interface{}{"project_id": projectID, "server_id": serverID}))
+	if apiErr := CheckResponse("read", "Cloudserver", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 	if response == nil || response.Data == nil {

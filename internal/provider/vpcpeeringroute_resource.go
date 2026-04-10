@@ -154,7 +154,7 @@ func (r *VpcPeeringRouteResource) Create(ctx context.Context, req resource.Creat
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating VPC peering route",
-			fmt.Sprintf("Unable to create VPC peering route: %s", err),
+			NewTransportError("create", "Vpcpeeringroute", err).Error(),
 		)
 		return
 	}
@@ -242,7 +242,7 @@ func (r *VpcPeeringRouteResource) Read(ctx context.Context, req resource.ReadReq
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading VPC peering route",
-			fmt.Sprintf("Unable to read VPC peering route: %s", err),
+			NewTransportError("read", "Vpcpeeringroute", err).Error(),
 		)
 		return
 	}
@@ -335,7 +335,7 @@ func (r *VpcPeeringRouteResource) Update(ctx context.Context, req resource.Updat
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error fetching current VPC peering route",
-			fmt.Sprintf("Unable to get current VPC peering route: %s", err),
+			NewTransportError("read", "Vpcpeeringroute", err).Error(),
 		)
 		return
 	}
@@ -391,7 +391,7 @@ func (r *VpcPeeringRouteResource) Update(ctx context.Context, req resource.Updat
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating VPC peering route",
-			fmt.Sprintf("Unable to update VPC peering route: %s", err),
+			NewTransportError("update", "Vpcpeeringroute", err).Error(),
 		)
 		return
 	}
@@ -444,10 +444,13 @@ func (r *VpcPeeringRouteResource) Delete(ctx context.Context, req resource.Delet
 	// Retry on any error except 404 (Resource Not Found)
 	err := DeleteResourceWithRetry(
 		ctx,
-		func() (interface{}, error) {
-			return r.client.Client.FromNetwork().VPCPeeringRoutes().Delete(ctx, projectID, vpcID, peeringID, routeID, nil)
+		func() error {
+			resp, err := r.client.Client.FromNetwork().VPCPeeringRoutes().Delete(ctx, projectID, vpcID, peeringID, routeID, nil)
+			if err != nil {
+				return NewTransportError("delete", "VPCPeeringRoute", err)
+			}
+			return CheckResponse("delete", "VPCPeeringRoute", resp)
 		},
-		ExtractSDKError,
 		"VPCPeeringRoute",
 		routeID,
 		r.client.ResourceTimeout,
@@ -456,7 +459,7 @@ func (r *VpcPeeringRouteResource) Delete(ctx context.Context, req resource.Delet
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting VPC peering route",
-			fmt.Sprintf("Unable to delete VPC peering route: %s", err),
+			NewTransportError("delete", "Vpcpeeringroute", err).Error(),
 		)
 		return
 	}

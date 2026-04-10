@@ -97,15 +97,11 @@ func (d *VPNRouteDataSource) Read(ctx context.Context, req datasource.ReadReques
 
 	response, err := d.client.Client.FromNetwork().VPNRoutes().Get(ctx, projectID, vpnTunnelID, routeID, nil)
 	if err != nil {
-		resp.Diagnostics.AddError("Error reading VPN route", fmt.Sprintf("Unable to read VPN route: %s", err))
+		resp.Diagnostics.AddError("Error reading VPN route", NewTransportError("read", "Vpnroute", err).Error())
 		return
 	}
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
-			resp.Diagnostics.AddError("VPN Route not found", fmt.Sprintf("No VPN route found with ID %q in tunnel %q", routeID, vpnTunnelID))
-			return
-		}
-		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read VPN route", map[string]interface{}{"project_id": projectID, "vpn_tunnel_id": vpnTunnelID, "route_id": routeID}))
+	if apiErr := CheckResponse("read", "Vpnroute", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 	if response == nil || response.Data == nil {

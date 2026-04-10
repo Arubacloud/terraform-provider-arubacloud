@@ -160,15 +160,11 @@ func (d *DBaaSDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 
 	response, err := d.client.Client.FromDatabase().DBaaS().Get(ctx, projectID, dbaasID, nil)
 	if err != nil {
-		resp.Diagnostics.AddError("Error reading DBaaS instance", fmt.Sprintf("Unable to read DBaaS instance: %s", err))
+		resp.Diagnostics.AddError("Error reading DBaaS instance", NewTransportError("read", "Dbaas", err).Error())
 		return
 	}
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
-			resp.Diagnostics.AddError("DBaaS not found", fmt.Sprintf("No DBaaS instance found with ID %q in project %q", dbaasID, projectID))
-			return
-		}
-		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read DBaaS instance", map[string]interface{}{"project_id": projectID, "dbaas_id": dbaasID}))
+	if apiErr := CheckResponse("read", "Dbaas", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 	if response == nil || response.Data == nil {

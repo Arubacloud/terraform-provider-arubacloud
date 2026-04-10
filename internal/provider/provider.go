@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"time"
 
@@ -139,7 +138,7 @@ func (p *ArubaCloudProvider) Configure(ctx context.Context, req provider.Configu
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Failed to create ArubaCloud SDK client",
-			fmt.Sprintf("Unable to create ArubaCloud SDK client: %s", err),
+			NewTransportError("create", "Provider.go", err).Error(),
 		)
 		return
 	}

@@ -138,15 +138,11 @@ func (d *BlockStorageDataSource) Read(ctx context.Context, req datasource.ReadRe
 
 	response, err := d.client.Client.FromStorage().Volumes().Get(ctx, projectID, volumeID, nil)
 	if err != nil {
-		resp.Diagnostics.AddError("Error reading block storage", fmt.Sprintf("Unable to read block storage: %s", err))
+		resp.Diagnostics.AddError("Error reading block storage", NewTransportError("read", "Blockstorage", err).Error())
 		return
 	}
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
-			resp.Diagnostics.AddError("Block Storage not found", fmt.Sprintf("No block storage found with ID %q in project %q", volumeID, projectID))
-			return
-		}
-		resp.Diagnostics.AddError("API Error", FormatAPIError(ctx, response.Error, "Failed to read block storage", map[string]interface{}{"project_id": projectID, "volume_id": volumeID}))
+	if apiErr := CheckResponse("read", "Blockstorage", response); apiErr != nil {
+		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
 	if response == nil || response.Data == nil {
