@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -333,7 +334,7 @@ func (r *KeypairResource) Read(ctx context.Context, req resource.ReadRequest, re
 			}
 		} else {
 			// Set tags to null when empty to match state (prevents false changes)
-			data.Tags = types.ListNull(types.StringType)
+			data.Tags = types.ListValueMust(types.StringType, []attr.Value{})
 		}
 
 		// Restore ProjectID and Value from state (they're not returned by the API)

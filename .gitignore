@@ -38,5 +38,12 @@ website/vendor
 # Keep windows files with windows line endings
 *.winfile eol=crlf
 
+coverage.out
+coverage.html
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.backup
+**/terraform.tfvars
+
 # Claude Code
 .claude/

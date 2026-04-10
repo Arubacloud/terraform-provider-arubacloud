@@ -49,9 +49,8 @@ Tackle all 29 tech debt items across 5 phases. TD-003 (ImportState) is intention
 
 ## Phase 3 — Medium Code Quality
 
-### TD-013: Fix Wrong Error Message in Configure() (29 files)
-- All `*_resource.go` + `*_data_source.go` files
-- Replace `"Expected *http.Client, got: %T."` → `"Expected *ArubaCloudClient, got: %T."`
+### ~~TD-013: Fix Wrong Error Message in Configure()~~ ✅
+- 8 files: replaced `"Expected *http.Client, got: %T."` → `"Expected *ArubaCloudClient, got: %T. Please report this issue to the provider developers."`
 
 ### TD-014: Restore Schema Validators (6 files)
 - `elasticip_resource.go`: `stringvalidator.OneOf` on `location`, `billing_period`
@@ -71,17 +70,15 @@ Tackle all 29 tech debt items across 5 phases. TD-003 (ImportState) is intention
 - Add `TagsToList(ctx, []string) (types.List, diag.Diagnostics)` and `ListToTags(ctx, types.List) ([]string, diag.Diagnostics)`
 - Replace inline tag conversion code in all resource/datasource files (~28 occurrences)
 
+### ~~TD-021: Fix Inconsistent Empty Tags in keypair_resource.go~~ ✅
+- `keypair_resource.go`: `types.ListNull(types.StringType)` → `types.ListValueMust(types.StringType, []attr.Value{})` (added `attr` import)
+
+### ~~TD-028: Fix Wrong MarkdownDescription on ElasticIP~~ ✅
+- `elasticip_resource.go`: `"Project resource"` → `"Elastic IP resource"`
+
 ### TD-020: Fix parseTimeout Silent Failure
 - File: `provider.go` — `parseTimeout`
 - Change signature to accept `diag.Diagnostics`; add `diags.AddWarning(...)` when parse fails, then return default
-
-### TD-021: Fix Inconsistent Empty Tags in keypair_resource.go
-- File: `keypair_resource.go` L343
-- Change `types.ListNull(types.StringType)` → `types.ListValue(types.StringType, []attr.Value{})` (or use TD-017 helper)
-
-### TD-028: Fix Wrong MarkdownDescription on ElasticIP
-- File: `elasticip_resource.go` L46
-- Change `"Project resource"` → `"Elastic IP resource"`
 
 ---
 
@@ -110,19 +107,17 @@ Tackle all 29 tech debt items across 5 phases. TD-003 (ImportState) is intention
 - `go.mod` line 1: `module terraform-provider-arubacloud` → `module github.com/Arubacloud/terraform-provider-arubacloud`
 - `main.go`: update import path accordingly
 
-### TD-023: Fix Copyright Headers
-- `main.go` L1: `// Copyright (c) HashiCorp, Inc.` → `// Copyright (c) Aruba S.p.A.`
-- `.golangci.yml` L1: same
+### ~~TD-023: Fix Copyright Headers~~ ✅
+- `main.go` + `.golangci.yml`: `// Copyright (c) HashiCorp, Inc.` → `// Copyright (c) Aruba S.p.A.`
 
-### TD-024 + TD-025: Fix .gitignore
-- Add `coverage.html`, `coverage.out`
-- Add subdirectory globs: `**/.terraform/`, `**/*.tfstate`, `**/*.tfstate.backup`, `**/terraform.tfvars`
+### ~~TD-024 + TD-025: Fix .gitignore~~ ✅
+- Added `coverage.out`, `coverage.html`, `**/.terraform/`, `**/*.tfstate`, `**/*.tfstate.backup`, `**/terraform.tfvars`
 
 ### TD-026: Pin GitHub Actions in release.yml
 - Pin all 4 actions to SHA hashes matching the versions already used
 
-### TD-027: Add govet to .golangci.yml
-- Add `govet` to `linters.enable` list
+### ~~TD-027: Add govet to .golangci.yml~~ ✅
+- Added `govet` to `linters.enable` list
 
 ### TD-029: Resolve Commented-Out KMIP/Key
 - Assess whether implementation is complete; if not, delete implementation files and remove commented lines from `provider.go`
