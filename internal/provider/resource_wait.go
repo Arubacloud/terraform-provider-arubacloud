@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -70,76 +69,6 @@ func isReadyState(state string) bool {
 	// If not in a transitional state, consider it ready
 	// Common ready states: "Active", "NotUsed", "InUse", "Used", "Stopped", "Running", etc.
 	return true
-}
-
-// IsDependencyError checks if an API error should be retried.
-// According to user requirements: retry on any error except 404 (Resource Not Found).
-// We also check for dependency-related keywords in the error message for better logging.
-func IsDependencyError(statusCode int, errorTitle, errorDetail *string) bool {
-	// 404 means resource not found - don't retry, consider it already deleted
-	if statusCode == 404 {
-		return false
-	}
-
-	// For any other error (400, 409, 500, etc.), retry as it might be a dependency issue
-	// The API might return 400 for dependency errors, but we'll retry on any error
-	// to handle cases where dependencies are being deleted by Terraform
-
-	// Build error message from title and detail for logging
-	errorMsg := ""
-	if errorTitle != nil {
-		errorMsg = *errorTitle
-	}
-	if errorDetail != nil {
-		if errorMsg != "" {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *errorDetail)
-		} else {
-			errorMsg = *errorDetail
-		}
-	}
-
-	// If error message contains dependency keywords, it's definitely a dependency error
-	if errorMsg != "" && containsDependencyKeywords(errorMsg) {
-		return true
-	}
-
-	// For any non-404 error, retry (might be dependency or transient issue)
-	// This handles cases where the API returns errors while dependencies are being cleaned up
-	return true
-}
-
-// containsDependencyKeywords checks if a string contains keywords that indicate dependency issues.
-func containsDependencyKeywords(s string) bool {
-	keywords := []string{
-		"dependency",
-		"dependent",
-		"depend",
-		"cannot delete",
-		"can't delete",
-		"still in use",
-		"in use",
-		"has resources",
-		"contains resources",
-		"has subnets",
-		"has security groups",
-		"has securitygroup",
-		"must be deleted first",
-		"delete first",
-		"remove first",
-		"still exists",
-		"associated",
-		"attached",
-		"linked",
-	}
-
-	lower := strings.ToLower(s)
-	for _, keyword := range keywords {
-		if strings.Contains(lower, keyword) {
-			return true
-		}
-	}
-
-	return false
 }
 
 // DeleteResourceWithRetry is a generic function that attempts to delete a resource with retry logic.
@@ -336,25 +265,3 @@ func ExtractSDKError(response interface{}) (statusCode int, errorTitle *string, 
 	return statusCode, title, detail, true
 }
 
-// RetryDeleteOperation is a helper that handles retry logic for delete operations.
-// It should be called from Delete methods when an API error occurs (except 404).
-// This function handles the retry loop with exponential backoff.
-//
-// Parameters:
-//   - ctx: Context for cancellation
-//   - deleteFunc: Function that performs the delete operation
-//   - extractError: Function that extracts error info from response
-//   - resourceType: Resource type name for logging
-//   - resourceID: Resource ID for logging
-//   - timeout: Maximum time to wait
-//
-// Returns error if timeout is reached, nil on success.
-func RetryDeleteOperation(
-	ctx context.Context,
-	deleteFunc func() (interface{}, error),
-	extractError func(interface{}) (statusCode int, errorTitle *string, errorDetail *string, isError bool),
-	resourceType, resourceID string,
-	timeout time.Duration,
-) error {
-	return DeleteResourceWithRetry(ctx, deleteFunc, extractError, resourceType, resourceID, timeout)
-}
