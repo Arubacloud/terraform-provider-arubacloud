@@ -465,7 +465,7 @@ func (r *CloudServerResource) Read(ctx context.Context, req resource.ReadRequest
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		apiErr := newResponseError("read", "Cloudserver", response.StatusCode, response.Error)
+		apiErr := newResponseError("read", "Cloudserver", response.StatusCode, response.Error, response.RawBody)
 		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}

@@ -1,8 +1,10 @@
 package provider
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
@@ -89,6 +91,49 @@ func sanitizeAPIString(s string) string {
 	return strings.TrimSpace(s)
 }
 
+// formatRawValidationErrors parses the raw HTTP response body and extracts the "errors" field
+// as a human-readable string. Used as a fallback when the typed ValidationError extraction
+// produces no output (e.g. the API uses different JSON key names than the SDK expects).
+// Returns "" when nothing useful can be extracted.
+func formatRawValidationErrors(rawBody []byte) string {
+	if len(rawBody) == 0 {
+		return ""
+	}
+	var top map[string]json.RawMessage
+	if err := json.Unmarshal(rawBody, &top); err != nil {
+		return ""
+	}
+	errorsRaw, ok := top["errors"]
+	if !ok {
+		return ""
+	}
+	// Try to parse as an array of objects for a clean human-readable format.
+	var entries []map[string]interface{}
+	if err := json.Unmarshal(errorsRaw, &entries); err == nil && len(entries) > 0 {
+		parts := make([]string, 0, len(entries))
+		for _, entry := range entries {
+			keys := make([]string, 0, len(entry))
+			for k := range entry {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			pairs := make([]string, 0, len(keys))
+			for _, k := range keys {
+				pairs = append(pairs, fmt.Sprintf("%s: %v", k, entry[k]))
+			}
+			parts = append(parts, strings.Join(pairs, ", "))
+		}
+		return sanitizeAPIString(strings.Join(parts, "; "))
+	}
+	// Fallback: include raw JSON, truncated to avoid flooding the log.
+	raw := sanitizeAPIString(string(errorsRaw))
+	const maxLen = 500
+	if len(raw) > maxLen {
+		raw = raw[:maxLen] + "..."
+	}
+	return raw
+}
+
 // NewTransportError creates a ProviderError for a Go-level transport or network failure.
 // Always classified as Technical.
 func NewTransportError(operation, resource string, err error) *ProviderError {
@@ -103,7 +148,7 @@ func NewTransportError(operation, resource string, err error) *ProviderError {
 // newResponseError creates a ProviderError from a non-success HTTP response.
 // For HTTP 4xx: Semantic when ErrorResponse.Errors is non-empty (field-level validation
 // failures), Transient otherwise. For everything else: Technical.
-func newResponseError(operation, resource string, statusCode int, errResp *sdktypes.ErrorResponse) *ProviderError {
+func newResponseError(operation, resource string, statusCode int, errResp *sdktypes.ErrorResponse, rawBody []byte) *ProviderError {
 	category := ProviderErrorCategoryTechnical
 	if statusCode >= 400 && statusCode < 500 {
 		if errResp != nil && len(errResp.Errors) > 0 {
@@ -143,6 +188,16 @@ func newResponseError(operation, resource string, statusCode int, errResp *sdkty
 				} else {
 					detail = "Validation: " + validationDetail
 				}
+			} else {
+				// Typed Field/Message extraction produced nothing; fall back to raw body.
+				rawDetail := formatRawValidationErrors(rawBody)
+				if rawDetail != "" {
+					if detail != "" {
+						detail = detail + " | Validation: " + rawDetail
+					} else {
+						detail = "Validation: " + rawDetail
+					}
+				}
 			}
 		}
 	}
@@ -172,7 +227,7 @@ func CheckResponse[T any](operation, resource string, resp *sdktypes.Response[T]
 	if resp.IsSuccess() {
 		return nil
 	}
-	return newResponseError(operation, resource, resp.StatusCode, resp.Error)
+	return newResponseError(operation, resource, resp.StatusCode, resp.Error, resp.RawBody)
 }
 
 // IsNotFound reports whether err (or any error in its chain) represents a 404 Not Found response.

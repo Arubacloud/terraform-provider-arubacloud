@@ -206,7 +206,7 @@ func (r *DatabaseGrantResource) Read(ctx context.Context, req resource.ReadReque
 			return
 		}
 
-		apiErr := newResponseError("read", "Databasegrant", response.StatusCode, response.Error)
+		apiErr := newResponseError("read", "Databasegrant", response.StatusCode, response.Error, response.RawBody)
 		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}

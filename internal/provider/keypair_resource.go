@@ -288,7 +288,7 @@ func (r *KeypairResource) Read(ctx context.Context, req resource.ReadRequest, re
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		apiErr := newResponseError("read", "Keypair", response.StatusCode, response.Error)
+		apiErr := newResponseError("read", "Keypair", response.StatusCode, response.Error, response.RawBody)
 		resp.Diagnostics.AddError("API Error", apiErr.Error())
 		return
 	}
