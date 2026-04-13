@@ -628,7 +628,10 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 	getResp, err := r.client.Client.FromNetwork().SecurityGroupRules().Get(ctx, projectID, vpcID, securityGroupID, ruleID, nil)
 	if err == nil && getResp != nil && getResp.Data != nil {
 		rule := getResp.Data
-		// Update tags from re-read response
+		// Update tags from re-read response only when the API returned tags.
+		// When the API returns 0 tags we keep data.Tags unchanged (the planned value),
+		// otherwise we would overwrite a non-null planned list with null and trigger
+		// "Provider produced inconsistent result after apply".
 		if len(rule.Metadata.Tags) > 0 {
 			tagValues := make([]types.String, len(rule.Metadata.Tags))
 			for i, tag := range rule.Metadata.Tags {
@@ -639,8 +642,6 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 			if !resp.Diagnostics.HasError() {
 				data.Tags = tagsList
 			}
-		} else {
-			data.Tags = types.ListNull(types.StringType)
 		}
 	}
 
@@ -773,8 +774,11 @@ func (r *SecurityRuleResource) Read(ctx context.Context, req resource.ReadReques
 				data.Tags = tagsList
 			}
 		} else {
-			// API has no tags - set to null
-			data.Tags = types.ListNull(types.StringType)
+			emptyList, diags := types.ListValue(types.StringType, []attr.Value{})
+			resp.Diagnostics.Append(diags...)
+			if !resp.Diagnostics.HasError() {
+				data.Tags = emptyList
+			}
 		}
 
 	} else {
@@ -1072,7 +1076,10 @@ func (r *SecurityRuleResource) Update(ctx context.Context, req resource.UpdateRe
 		data.Location = types.StringValue(updated.Metadata.LocationResponse.Value)
 	}
 
-	// Update tags from response
+	// Update tags from response only when the API returned tags.
+	// When the API returns 0 tags we keep data.Tags unchanged (the planned value),
+	// otherwise we would overwrite a non-null planned list with null and trigger
+	// "Provider produced inconsistent result after apply".
 	if len(updated.Metadata.Tags) > 0 {
 		tagValues := make([]types.String, len(updated.Metadata.Tags))
 		for i, tag := range updated.Metadata.Tags {
@@ -1083,8 +1090,6 @@ func (r *SecurityRuleResource) Update(ctx context.Context, req resource.UpdateRe
 		if !resp.Diagnostics.HasError() {
 			data.Tags = tagsList
 		}
-	} else {
-		data.Tags = types.ListNull(types.StringType)
 	}
 
 	// Properties remain unchanged - they are immutable
