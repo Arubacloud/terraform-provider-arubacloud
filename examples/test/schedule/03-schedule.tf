@@ -19,8 +19,8 @@ resource "arubacloud_schedulejob" "recurring" {
   properties = {
     enabled            = true
     schedule_job_type  = "Recurring"
-    schedule_at        = "2026-02-01T10:00:00Z"  # Start date/time
-    execute_until      = "2026-03-01T10:00:00Z"  # End date/time
+    schedule_at        = "2026-06-01T10:00:00Z"  # Start date/time
+    execute_until      = "2026-08-01T10:00:00Z"  # End date/time
     cron               = "0 10 * * *"             # Daily at 10:00 AM
     steps = [
       {
@@ -45,7 +45,7 @@ resource "arubacloud_schedulejob" "oneshot" {
   properties = {
     enabled            = true
     schedule_job_type  = "OneShot"
-    schedule_at        = "2026-02-15T14:30:00Z"  # Execution date/time
+    schedule_at        = "2026-05-15T14:30:00Z"  # Execution date/time
     steps = [
       {
         name         = "Power Off Server"
