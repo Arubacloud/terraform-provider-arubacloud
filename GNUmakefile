@@ -58,8 +58,6 @@ testcov:
 # ---- Docs generation ----
 
 docs:
-	@echo "Ensuring terraform-plugin-docs is available..."
-	@go get github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@latest || true
 	@echo "Generating documentation..."
 	@go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@latest generate \
 		--provider-dir $(TFPLUGINDOCS_PROVIDER_DIR) \
