@@ -1,16 +1,13 @@
 ---
 page_title: "arubacloud_securityrule"
-subcategory: "Network"
+subcategory: "Security"
 description: |-
   Manages an ArubaCloud Security Rule.
 ---
 
----
-page_title: "arubacloud_securityrule"
-subcategory: "Security"
-description: |-
-  Manages an ArubaCloud Security Rule resource.
----
+# arubacloud_securityrule
+
+Manages an ArubaCloud Security Rule.
 
 ```terraform
 # Example: Ingress rule allowing HTTP traffic

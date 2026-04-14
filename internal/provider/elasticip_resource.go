@@ -86,7 +86,7 @@ func (r *ElasticIPResource) Schema(ctx context.Context, req resource.SchemaReque
 				},
 			},
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Elastic IP Identifier",
+				MarkdownDescription: "Elastic IP identifier",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),

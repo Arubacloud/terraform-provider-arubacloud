@@ -1,16 +1,13 @@
 ---
 page_title: "arubacloud_schedulejob"
-subcategory: "Job"
+subcategory: "Management"
 description: |-
   Manages an ArubaCloud Schedule Job.
 ---
 
----
-page_title: "arubacloud_schedulejob"
-subcategory: "Management"
-description: |-
-  Manages an ArubaCloud Schedule Job resource.
----
+# arubacloud_schedulejob
+
+Manages an ArubaCloud Schedule Job.
 
 ```terraform
 resource "arubacloud_schedulejob" "example" {
@@ -67,7 +64,7 @@ Optional:
 - `enabled` (Boolean) Whether the job is enabled.
 - `execute_until` (String) End date until which the job can run (for Recurring)
 - `schedule_at` (String) Date and time when the job should run (for OneShot)
-- `steps` (Attributes List) (see [below for nested schema](#nestedatt--properties--steps))
+- `steps` (Attributes List) List of steps to execute as part of the schedule job. (see [below for nested schema](#nestedatt--properties--steps))
 
 <a id="nestedatt--properties--steps"></a>
 ### Nested Schema for `properties.steps`

@@ -4,7 +4,6 @@ subcategory: "Security"
 description: |-
   Manages an ArubaCloud KeyPair.
 ---
----
 
 # arubacloud_keypair
 

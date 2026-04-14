@@ -54,7 +54,7 @@ func (r *ProjectResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Optional:            true,
 			},
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Project Identifier",
+				MarkdownDescription: "Project identifier",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),

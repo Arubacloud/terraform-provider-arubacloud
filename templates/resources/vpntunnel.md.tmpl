@@ -2,15 +2,21 @@
 page_title: "arubacloud_vpntunnel"
 subcategory: "Network"
 description: |-
-  Retrieves an ArubaCloud VPN Tunnel.
+  Manages an ArubaCloud VPN Tunnel.
 ---
 
 # arubacloud_vpntunnel
 
-Retrieves an ArubaCloud VPN Tunnel.
+Manages an ArubaCloud VPN Tunnel.
 
-{{ tffile "examples/data-sources/arubacloud_vpn_tunnel/data-source-basic.tf" }}
-
-## Schema
+{{ tffile "examples/resources/arubacloud_vpntunnel/resource-basic.tf" }}
 
 {{ .SchemaMarkdown }}
+
+## Import
+
+Aruba Cloud VPN Tunnel can be imported using the `vpntunnel_id`.
+
+```shell
+terraform import arubacloud_vpntunnel.example <vpntunnel_id>
+```

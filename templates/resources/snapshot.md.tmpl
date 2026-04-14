@@ -9,8 +9,14 @@ description: |-
 
 Manages an ArubaCloud Snapshot.
 
-{{ tffile "examples/data-sources/arubacloud_snapshot/data-source-basic.tf" }}
-
-## Schema
+{{ tffile "examples/resources/arubacloud_snapshot/resource-basic.tf" }}
 
 {{ .SchemaMarkdown }}
+
+## Import
+
+Aruba Cloud Snapshot can be imported using the `snapshot_id`.
+
+```shell
+terraform import arubacloud_snapshot.example <snapshot_id>
+```

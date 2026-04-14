@@ -1,16 +1,15 @@
 ---
 page_title: "arubacloud_securitygroup"
-subcategory: "Network"
-description: |-
-  Manages an ArubaCloud SecurityGroup.
----
-
----
-page_title: "arubacloud_securitygroup"
 subcategory: "Security"
 description: |-
-  Manages an ArubaCloud Security Group resource.
+  Manages an ArubaCloud Security Group.
 ---
+
+# arubacloud_securitygroup
+
+Manages an ArubaCloud Security Group.
+
+{{ tffile "examples/resources/arubacloud_securitygroup/resource-basic.tf" }}
 
 {{ .SchemaMarkdown }}
 
@@ -19,5 +18,5 @@ description: |-
 Aruba Cloud Security Group can be imported using the `securitygroup_id`.
 
 ```shell
-terraform import arubacloud_security_group.example <securitygroup_id>
+terraform import arubacloud_securitygroup.example <securitygroup_id>
 ```

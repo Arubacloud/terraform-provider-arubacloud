@@ -4,7 +4,6 @@ subcategory: "Container"
 description: |-
   Manages an ArubaCloud Container Registry resource.
 ---
----
 
 # arubacloud_containerregistry
 

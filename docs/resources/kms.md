@@ -5,12 +5,9 @@ description: |-
   Manages an ArubaCloud Key Management System (KMS).
 ---
 
----
-page_title: "arubacloud_kms"
-subcategory: "Security"
-description: |-
-  Manages an ArubaCloud Key Management Service (KMS) resource.
----
+# arubacloud_kms
+
+Manages an ArubaCloud Key Management System (KMS).
 
 ```terraform
 resource "arubacloud_kms" "basic" {

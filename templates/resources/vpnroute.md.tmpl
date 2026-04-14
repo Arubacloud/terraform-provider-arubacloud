@@ -2,15 +2,21 @@
 page_title: "arubacloud_vpnroute"
 subcategory: "Network"
 description: |-
-  Retrieves an ArubaCloud VPN Route.
+  Manages an ArubaCloud VPN Route.
 ---
 
 # arubacloud_vpnroute
 
-Retrieves an ArubaCloud VPN Route.
+Manages an ArubaCloud VPN Route.
 
-{{ tffile "examples/data-sources/arubacloud_vpn_route/data-source-basic.tf" }}
-
-## Schema
+{{ tffile "examples/resources/arubacloud_vpnroute/resource-basic.tf" }}
 
 {{ .SchemaMarkdown }}
+
+## Import
+
+Aruba Cloud VPN Route can be imported using the `vpnroute_id`.
+
+```shell
+terraform import arubacloud_vpnroute.example <vpnroute_id>
+```

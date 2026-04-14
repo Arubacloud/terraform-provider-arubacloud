@@ -4,8 +4,6 @@ subcategory: "Storage"
 description: |-
   Manages an ArubaCloud Storage Restore.
 ---
----
----
 
 # arubacloud_restore
 

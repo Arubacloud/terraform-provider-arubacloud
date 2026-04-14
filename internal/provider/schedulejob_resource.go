@@ -91,6 +91,7 @@ func (r *ScheduleJobResource) Schema(ctx context.Context, req resource.SchemaReq
 						Optional:            true,
 					},
 					"steps": schema.ListNestedAttribute{
+						MarkdownDescription: "List of steps to execute as part of the schedule job.",
 						NestedObject: schema.NestedAttributeObject{
 							Attributes: map[string]schema.Attribute{
 								"name": schema.StringAttribute{
