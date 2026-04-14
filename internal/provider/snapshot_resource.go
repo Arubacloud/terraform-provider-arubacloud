@@ -223,11 +223,7 @@ func (r *SnapshotResource) Create(ctx context.Context, req resource.CreateReques
 
 	// Wait for Snapshot to be active - block until ready (using configured timeout)
 	if err := WaitForResourceActive(ctx, checker, "Snapshot", snapshotID, r.client.ResourceTimeout); err != nil {
-		resp.Diagnostics.AddError(
-			"Snapshot Not Active",
-			fmt.Sprintf("Snapshot was created but did not become active within the timeout period: %s", err),
-		)
-		// Save state with the resource ID so destroy/cleanup can run even when wait times out
+		ReportWaitResult(&resp.Diagnostics, err, "Snapshot", snapshotID)
 		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 		return
 	}

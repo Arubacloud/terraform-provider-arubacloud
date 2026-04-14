@@ -239,11 +239,7 @@ func (r *RestoreResource) Create(ctx context.Context, req resource.CreateRequest
 
 	// Wait for Restore to be active - block until ready (using configured timeout)
 	if err := WaitForResourceActive(ctx, checker, "Restore", restoreID, r.client.ResourceTimeout); err != nil {
-		resp.Diagnostics.AddError(
-			"Restore Not Active",
-			fmt.Sprintf("Restore was created but did not become active within the timeout period: %s", err),
-		)
-		// Save state with the resource ID so destroy/cleanup can run even when wait times out
+		ReportWaitResult(&resp.Diagnostics, err, "Restore", restoreID)
 		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 		return
 	}

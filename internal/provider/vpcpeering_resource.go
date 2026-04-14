@@ -196,11 +196,7 @@ func (r *VpcPeeringResource) Create(ctx context.Context, req resource.CreateRequ
 
 	// Wait for VPC Peering to be active - block until ready (using configured timeout)
 	if err := WaitForResourceActive(ctx, checker, "VpcPeering", peeringID, r.client.ResourceTimeout); err != nil {
-		resp.Diagnostics.AddError(
-			"VPC Peering Not Active",
-			fmt.Sprintf("VPC peering was created but did not become active within the timeout period: %s", err),
-		)
-		// Save state with the resource ID so destroy/cleanup can run even when wait times out
+		ReportWaitResult(&resp.Diagnostics, err, "VpcPeering", peeringID)
 		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 		return
 	}

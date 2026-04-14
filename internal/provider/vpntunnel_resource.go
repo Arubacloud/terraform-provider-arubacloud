@@ -600,11 +600,7 @@ func (r *VPNTunnelResource) Create(ctx context.Context, req resource.CreateReque
 
 	// Wait for VPN Tunnel to be active - block until ready (using configured timeout)
 	if err := WaitForResourceActive(ctx, checker, "VPNTunnel", tunnelID, r.client.ResourceTimeout); err != nil {
-		resp.Diagnostics.AddError(
-			"VPN Tunnel Not Active",
-			fmt.Sprintf("VPN tunnel was created but did not become active within the timeout period: %s", err),
-		)
-		// Save state with the resource ID so destroy/cleanup can run even when wait times out
+		ReportWaitResult(&resp.Diagnostics, err, "VPNTunnel", tunnelID)
 		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 		return
 	}

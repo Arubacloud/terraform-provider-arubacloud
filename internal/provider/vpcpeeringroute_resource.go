@@ -200,11 +200,7 @@ func (r *VpcPeeringRouteResource) Create(ctx context.Context, req resource.Creat
 
 	// Wait for VPC Peering Route to be active - block until ready (using configured timeout)
 	if err := WaitForResourceActive(ctx, checker, "VpcPeeringRoute", routeID, r.client.ResourceTimeout); err != nil {
-		resp.Diagnostics.AddError(
-			"VPC Peering Route Not Active",
-			fmt.Sprintf("VPC peering route was created but did not become active within the timeout period: %s", err),
-		)
-		// Save state with the resource ID so destroy/cleanup can run even when wait times out
+		ReportWaitResult(&resp.Diagnostics, err, "VpcPeeringRoute", routeID)
 		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 		return
 	}

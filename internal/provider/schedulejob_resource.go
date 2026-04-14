@@ -345,11 +345,7 @@ func (r *ScheduleJobResource) Create(ctx context.Context, req resource.CreateReq
 
 	// Wait for Schedule Job to be active - block until ready (using configured timeout)
 	if err := WaitForResourceActive(ctx, checker, "ScheduleJob", jobID, r.client.ResourceTimeout); err != nil {
-		resp.Diagnostics.AddError(
-			"Schedule Job Not Active",
-			fmt.Sprintf("Schedule job was created but did not become active within the timeout period: %s", err),
-		)
-		// Save state with the resource ID so destroy/cleanup can run even when wait times out
+		ReportWaitResult(&resp.Diagnostics, err, "ScheduleJob", jobID)
 		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 		return
 	}

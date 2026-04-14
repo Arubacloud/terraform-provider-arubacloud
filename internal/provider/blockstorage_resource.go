@@ -263,12 +263,7 @@ func (r *BlockStorageResource) Create(ctx context.Context, req resource.CreateRe
 
 	// Wait for Block Storage to be active - block until ready (using configured timeout)
 	if err := WaitForResourceActive(ctx, checker, "BlockStorage", volumeID, r.client.ResourceTimeout); err != nil {
-		resp.Diagnostics.AddError(
-			"Block Storage Not Active",
-			fmt.Sprintf("Block storage was created but did not become active within the timeout period: %s", err),
-		)
-		// Save state with the resource ID so destroy/cleanup can run even when wait times out
-		// (resource may be creating, active, or failed; ID is always usable for destroy)
+		ReportWaitResult(&resp.Diagnostics, err, "BlockStorage", volumeID)
 		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 		return
 	}
@@ -609,10 +604,7 @@ func (r *BlockStorageResource) Update(ctx context.Context, req resource.UpdateRe
 
 	// Wait for Block Storage to be active - block until ready (using configured timeout)
 	if err := WaitForResourceActive(ctx, checker, "BlockStorage", volumeID, r.client.ResourceTimeout); err != nil {
-		resp.Diagnostics.AddError(
-			"Block Storage Update Not Complete",
-			fmt.Sprintf("Block storage update was initiated but did not complete within the timeout period: %s", err),
-		)
+		ReportWaitResult(&resp.Diagnostics, err, "BlockStorage", volumeID)
 		return
 	}
 

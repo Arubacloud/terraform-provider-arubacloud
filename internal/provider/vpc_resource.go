@@ -186,11 +186,7 @@ func (r *VPCResource) Create(ctx context.Context, req resource.CreateRequest, re
 
 	// Wait for VPC to be active - block until ready (using configured timeout)
 	if err := WaitForResourceActive(ctx, checker, "VPC", vpcID, r.client.ResourceTimeout); err != nil {
-		resp.Diagnostics.AddError(
-			"VPC Not Active",
-			fmt.Sprintf("VPC was created but did not become active within the timeout period: %s", err),
-		)
-		// Save state with the resource ID so destroy/cleanup can run even when wait times out
+		ReportWaitResult(&resp.Diagnostics, err, "VPC", vpcID)
 		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 		return
 	}

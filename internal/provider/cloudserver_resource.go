@@ -393,11 +393,7 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 
 	// Wait for Cloud Server to be active - block until ready (using configured timeout)
 	if err := WaitForResourceActive(ctx, checker, "CloudServer", serverID, r.client.ResourceTimeout); err != nil {
-		resp.Diagnostics.AddError(
-			"Cloud Server Not Active",
-			fmt.Sprintf("Cloud server was created but did not become active within the timeout period: %s", err),
-		)
-		// Save state with the resource ID so destroy/cleanup can run even when wait times out
+		ReportWaitResult(&resp.Diagnostics, err, "CloudServer", serverID)
 		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 		return
 	}

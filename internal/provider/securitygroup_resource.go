@@ -194,11 +194,7 @@ func (r *SecurityGroupResource) Create(ctx context.Context, req resource.CreateR
 
 	// Wait for Security Group to be active - block until ready (using configured timeout)
 	if err := WaitForResourceActive(ctx, checker, "SecurityGroup", sgID, r.client.ResourceTimeout); err != nil {
-		resp.Diagnostics.AddError(
-			"Security Group Not Active",
-			fmt.Sprintf("Security group was created but did not become active within the timeout period: %s", err),
-		)
-		// Save state with the resource ID so destroy/cleanup can run even when wait times out
+		ReportWaitResult(&resp.Diagnostics, err, "SecurityGroup", sgID)
 		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 		return
 	}

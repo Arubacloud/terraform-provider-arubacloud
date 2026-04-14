@@ -243,11 +243,7 @@ func (r *ElasticIPResource) Create(ctx context.Context, req resource.CreateReque
 
 	// Wait for Elastic IP to be active - block until ready (using configured timeout)
 	if err := WaitForResourceActive(ctx, checker, "ElasticIP", eipID, r.client.ResourceTimeout); err != nil {
-		resp.Diagnostics.AddError(
-			"Elastic IP Not Active",
-			fmt.Sprintf("Elastic IP was created but did not become active within the timeout period: %s", err),
-		)
-		// Save state with the resource ID so destroy/cleanup can run even when wait times out
+		ReportWaitResult(&resp.Diagnostics, err, "ElasticIP", eipID)
 		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 		return
 	}

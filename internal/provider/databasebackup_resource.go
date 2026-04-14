@@ -226,11 +226,7 @@ func (r *DatabaseBackupResource) Create(ctx context.Context, req resource.Create
 
 	// Wait for Database Backup to be active - block until ready (using configured timeout)
 	if err := WaitForResourceActive(ctx, checker, "DatabaseBackup", backupID, r.client.ResourceTimeout); err != nil {
-		resp.Diagnostics.AddError(
-			"Database Backup Not Active",
-			fmt.Sprintf("Database backup was created but did not become active within the timeout period: %s", err),
-		)
-		// Save state with the resource ID so destroy/cleanup can run even when wait times out
+		ReportWaitResult(&resp.Diagnostics, err, "DatabaseBackup", backupID)
 		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 		return
 	}

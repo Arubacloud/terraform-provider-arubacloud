@@ -2,11 +2,58 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
+
+// ErrWaitTimeout is returned by WaitForResourceActive when the resource does not
+// reach an active state within the configured timeout. Using a typed error lets
+// callers distinguish a timeout (recoverable) from a hard failure.
+type ErrWaitTimeout struct {
+	ResourceType string
+	ResourceID   string
+	Timeout      time.Duration
+}
+
+func (e *ErrWaitTimeout) Error() string {
+	return fmt.Sprintf("timeout waiting for %s %s to become active (timeout: %v)", e.ResourceType, e.ResourceID, e.Timeout)
+}
+
+// IsWaitTimeout reports whether err is an *ErrWaitTimeout.
+func IsWaitTimeout(err error) bool {
+	var t *ErrWaitTimeout
+	return errors.As(err, &t)
+}
+
+// isFailedState returns true for terminal failure states from which the resource
+// will never recover on its own.
+func isFailedState(state string) bool {
+	switch state {
+	case "Failed", "Error", "Errored", "Faulted":
+		return true
+	}
+	return false
+}
+
+// ReportWaitResult translates a WaitForResourceActive error into Terraform
+// diagnostics. A timeout produces a Warning so the resource is NOT tainted and
+// the next terraform apply will reconcile via Read. Any other error (including
+// a terminal failure state) produces an Error.
+func ReportWaitResult(diags *diag.Diagnostics, err error, resourceType, resourceID string) {
+	if IsWaitTimeout(err) {
+		diags.AddWarning(
+			"Resource Provisioning In Progress",
+			fmt.Sprintf("%s %q was created but did not become active within the timeout. "+
+				"Run terraform apply again to reconcile. (%s)", resourceType, resourceID, err),
+		)
+	} else {
+		diags.AddError("Resource Provisioning Failed", err.Error())
+	}
+}
 
 // ResourceStateChecker is a function that checks the current state of a resource.
 // Returns the state string and an error if the check failed.
@@ -28,7 +75,7 @@ func WaitForResourceActive(ctx context.Context, checker ResourceStateChecker, re
 			return fmt.Errorf("context cancelled while waiting for %s %s", resourceType, resourceID)
 		case <-ticker.C:
 			if time.Now().After(deadline) {
-				return fmt.Errorf("timeout waiting for %s %s to become active (timeout: %v)", resourceType, resourceID, timeout)
+				return &ErrWaitTimeout{ResourceType: resourceType, ResourceID: resourceID, Timeout: timeout}
 			}
 
 			state, err := checker(ctx)
@@ -41,6 +88,11 @@ func WaitForResourceActive(ctx context.Context, checker ResourceStateChecker, re
 				continue
 			}
 			consecutiveErrors = 0
+
+			// Check if resource reached a terminal failure state.
+			if isFailedState(state) {
+				return fmt.Errorf("resource reached failed state: %s", state)
+			}
 
 			// Check if resource is in a ready state
 			if isReadyState(state) {
