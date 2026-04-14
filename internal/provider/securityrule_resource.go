@@ -615,11 +615,7 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 
 	// Wait for Security Rule to be active - block until ready (using configured timeout)
 	if err := WaitForResourceActive(ctx, checker, "SecurityRule", ruleID, r.client.ResourceTimeout); err != nil {
-		resp.Diagnostics.AddError(
-			"Security Rule Not Active",
-			fmt.Sprintf("Security rule was created but did not become active within the timeout period: %s", err),
-		)
-		// Save state with the resource ID so destroy/cleanup can run even when wait times out
+		ReportWaitResult(&resp.Diagnostics, err, "SecurityRule", ruleID)
 		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 		return
 	}
@@ -762,7 +758,8 @@ func (r *SecurityRuleResource) Read(ctx context.Context, req resource.ReadReques
 			data.Properties = propertiesObj
 		}
 
-		// Update tags from response
+		// When the API returns 0 tags we keep data.Tags unchanged (the state value),
+		// to avoid turning a null (never configured) into [] and causing spurious diffs.
 		if len(rule.Metadata.Tags) > 0 {
 			tagValues := make([]types.String, len(rule.Metadata.Tags))
 			for i, tag := range rule.Metadata.Tags {
@@ -772,12 +769,6 @@ func (r *SecurityRuleResource) Read(ctx context.Context, req resource.ReadReques
 			resp.Diagnostics.Append(diags...)
 			if !resp.Diagnostics.HasError() {
 				data.Tags = tagsList
-			}
-		} else {
-			emptyList, diags := types.ListValue(types.StringType, []attr.Value{})
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = emptyList
 			}
 		}
 

@@ -505,12 +505,9 @@ func (r *KaaSResource) Create(ctx context.Context, req resource.CreateRequest, r
 
 	// Wait for KaaS to be active - block until ready (using configured timeout)
 	if err := WaitForResourceActive(ctx, checker, "KaaS", kaasID, r.client.ResourceTimeout); err != nil {
-		resp.Diagnostics.AddError(
-			"KaaS Not Active",
-			fmt.Sprintf("KaaS cluster was created but did not become active within the timeout period: %s", err),
-		)
+		ReportWaitResult(&resp.Diagnostics, err, "KaaS", kaasID)
 		data.Kubeconfig = types.StringNull()
-		// Save state with the resource ID so destroy/cleanup can run even when wait times out
+		data.ManagementIP = types.StringNull()
 		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 		return
 	}
