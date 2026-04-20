@@ -1144,6 +1144,27 @@ func (r *SecurityRuleResource) Delete(ctx context.Context, req resource.DeleteRe
 		return
 	}
 
+	// Poll until the security rule is confirmed deleted (async deletion)
+	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromNetwork().SecurityGroupRules().Get(ctx, projectID, vpcID, securityGroupID, ruleID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "SecurityRule", getErr)
+		}
+		if provErr := CheckResponse("get", "SecurityRule", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}, "SecurityRule", ruleID, r.client.ResourceTimeout); waitErr != nil {
+		resp.Diagnostics.AddError(
+			"Error waiting for SecurityRule deletion",
+			waitErr.Error(),
+		)
+		return
+	}
+
 	tflog.Trace(ctx, "deleted a Security Rule resource", map[string]interface{}{
 		"securityrule_id": ruleID,
 	})

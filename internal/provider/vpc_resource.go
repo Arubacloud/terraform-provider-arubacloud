@@ -503,6 +503,27 @@ func (r *VPCResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 		return
 	}
 
+	// Poll until the VPC is confirmed deleted (async deletion)
+	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromNetwork().VPCs().Get(ctx, projectID, vpcID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "VPC", getErr)
+		}
+		if provErr := CheckResponse("get", "VPC", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}, "VPC", vpcID, r.client.ResourceTimeout); waitErr != nil {
+		resp.Diagnostics.AddError(
+			"Error waiting for VPC deletion",
+			waitErr.Error(),
+		)
+		return
+	}
+
 	tflog.Trace(ctx, "deleted a VPC resource", map[string]interface{}{
 		"vpc_id": vpcID,
 	})

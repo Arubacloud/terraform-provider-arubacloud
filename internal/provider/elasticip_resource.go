@@ -660,6 +660,27 @@ func (r *ElasticIPResource) Delete(ctx context.Context, req resource.DeleteReque
 		return
 	}
 
+	// Poll until the Elastic IP is confirmed deleted (async deletion)
+	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromNetwork().ElasticIPs().Get(ctx, projectID, eipID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "ElasticIP", getErr)
+		}
+		if provErr := CheckResponse("get", "ElasticIP", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}, "ElasticIP", eipID, r.client.ResourceTimeout); waitErr != nil {
+		resp.Diagnostics.AddError(
+			"Error waiting for ElasticIP deletion",
+			waitErr.Error(),
+		)
+		return
+	}
+
 	tflog.Trace(ctx, "deleted an Elastic IP resource", map[string]interface{}{
 		"elasticip_id": eipID,
 	})

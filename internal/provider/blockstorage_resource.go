@@ -711,6 +711,27 @@ func (r *BlockStorageResource) Delete(ctx context.Context, req resource.DeleteRe
 		return
 	}
 
+	// Poll until the block storage volume is confirmed deleted (async deletion)
+	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromStorage().Volumes().Get(ctx, projectID, volumeID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "BlockStorage", getErr)
+		}
+		if provErr := CheckResponse("get", "BlockStorage", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}, "BlockStorage", volumeID, r.client.ResourceTimeout); waitErr != nil {
+		resp.Diagnostics.AddError(
+			"Error waiting for BlockStorage deletion",
+			waitErr.Error(),
+		)
+		return
+	}
+
 	tflog.Trace(ctx, "deleted a Block Storage resource", map[string]interface{}{
 		"volume_id": volumeID,
 	})

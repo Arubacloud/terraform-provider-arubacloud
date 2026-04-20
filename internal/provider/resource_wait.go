@@ -128,6 +128,53 @@ func isReadyState(state string) bool {
 	return true
 }
 
+// ResourceDeletedChecker reports whether a resource has been fully deleted.
+// Returns (true, nil) when confirmed gone (404 or equivalent).
+// Returns (false, nil) when the resource still exists — keep polling.
+// Returns (false, err) on unexpected errors.
+type ResourceDeletedChecker func(ctx context.Context) (deleted bool, err error)
+
+// WaitForResourceDeleted polls until the resource is confirmed deleted (checker returns true)
+// or the timeout elapses. Up to 3 consecutive checker errors are tolerated before giving up,
+// mirroring the behaviour of WaitForResourceActive.
+func WaitForResourceDeleted(ctx context.Context, checker ResourceDeletedChecker, resourceType, resourceID string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
+	tflog.Info(ctx, fmt.Sprintf("Waiting for %s %s to be deleted", resourceType, resourceID))
+
+	consecutiveErrors := 0
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("context cancelled while waiting for %s %s deletion", resourceType, resourceID)
+		case <-ticker.C:
+			if time.Now().After(deadline) {
+				return &ErrWaitTimeout{ResourceType: resourceType, ResourceID: resourceID, Timeout: timeout}
+			}
+
+			deleted, err := checker(ctx)
+			if err != nil {
+				consecutiveErrors++
+				tflog.Warn(ctx, fmt.Sprintf("Error checking deletion of %s %s (attempt %d): %v", resourceType, resourceID, consecutiveErrors, err))
+				if consecutiveErrors >= 3 {
+					return fmt.Errorf("giving up waiting for %s %s deletion after %d consecutive check errors: %w", resourceType, resourceID, consecutiveErrors, err)
+				}
+				continue
+			}
+			consecutiveErrors = 0
+
+			if deleted {
+				tflog.Info(ctx, fmt.Sprintf("%s %s has been deleted", resourceType, resourceID))
+				return nil
+			}
+
+			tflog.Debug(ctx, fmt.Sprintf("%s %s still exists, waiting for deletion...", resourceType, resourceID))
+		}
+	}
+}
+
 // DeleteResourceWithRetry attempts to delete a resource with retry logic.
 // deleteFunc must return nil on success, NewTransportError on network failure, or
 // CheckResponse on API failure. A 404 response is treated as success (already deleted).

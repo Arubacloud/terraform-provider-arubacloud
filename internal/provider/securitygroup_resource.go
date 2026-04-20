@@ -489,7 +489,26 @@ func (r *SecurityGroupResource) Delete(ctx context.Context, req resource.DeleteR
 		)
 		return
 	}
-
+	// Poll until the security group is confirmed deleted (async deletion)
+	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromNetwork().SecurityGroups().Get(ctx, projectID, vpcID, sgID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "SecurityGroup", getErr)
+		}
+		if provErr := CheckResponse("get", "SecurityGroup", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}, "SecurityGroup", sgID, r.client.ResourceTimeout); waitErr != nil {
+		resp.Diagnostics.AddError(
+			"Error waiting for SecurityGroup deletion",
+			waitErr.Error(),
+		)
+		return
+	}
 	tflog.Trace(ctx, "deleted a Security Group resource", map[string]interface{}{
 		"securitygroup_id": sgID,
 	})

@@ -1040,6 +1040,27 @@ func (r *SubnetResource) Delete(ctx context.Context, req resource.DeleteRequest,
 		return
 	}
 
+	// Poll until the subnet is confirmed deleted (async deletion)
+	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromNetwork().Subnets().Get(ctx, projectID, vpcID, subnetID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "Subnet", getErr)
+		}
+		if provErr := CheckResponse("get", "Subnet", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}, "Subnet", subnetID, r.client.ResourceTimeout); waitErr != nil {
+		resp.Diagnostics.AddError(
+			"Error waiting for Subnet deletion",
+			waitErr.Error(),
+		)
+		return
+	}
+
 	tflog.Trace(ctx, "deleted a Subnet resource", map[string]interface{}{
 		"subnet_id": subnetID,
 	})

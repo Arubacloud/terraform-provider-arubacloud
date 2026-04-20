@@ -1358,6 +1358,27 @@ func (r *KaaSResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 		return
 	}
 
+	// Poll until the KaaS cluster is confirmed deleted (async deletion)
+	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromContainer().KaaS().Get(ctx, projectID, kaasID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "KaaS", getErr)
+		}
+		if provErr := CheckResponse("get", "KaaS", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}, "KaaS", kaasID, r.client.ResourceTimeout); waitErr != nil {
+		resp.Diagnostics.AddError(
+			"Error waiting for KaaS cluster deletion",
+			waitErr.Error(),
+		)
+		return
+	}
+
 	tflog.Trace(ctx, "deleted a KaaS resource", map[string]interface{}{
 		"kaas_id": kaasID,
 	})
