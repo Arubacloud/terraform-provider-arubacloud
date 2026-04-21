@@ -134,16 +134,12 @@ func isReadyState(state string) bool {
 // Returns (false, err) on unexpected errors.
 type ResourceDeletedChecker func(ctx context.Context) (deleted bool, err error)
 
-// waitForDeletedPollInterval is the interval between deletion checks.
-// Overridable in tests so the polling loop does not force 10s waits.
-var waitForDeletedPollInterval = 10 * time.Second
-
 // WaitForResourceDeleted polls until the resource is confirmed deleted (checker returns true)
 // or the timeout elapses. Up to 3 consecutive checker errors are tolerated before giving up,
 // mirroring the behaviour of WaitForResourceActive.
 func WaitForResourceDeleted(ctx context.Context, checker ResourceDeletedChecker, resourceType, resourceID string, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
-	ticker := time.NewTicker(waitForDeletedPollInterval)
+	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
 	tflog.Info(ctx, fmt.Sprintf("Waiting for %s %s to be deleted", resourceType, resourceID))
