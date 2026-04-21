@@ -107,7 +107,7 @@ func TestSDKLogAdapterGating(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		a := newSDKLogAdapter(nil, tc.level)
+		a := newSDKLogAdapter(context.TODO(), tc.level)
 		if got := a.level >= LogLevelDebug; got != tc.debugFires {
 			t.Errorf("level=%v: Debugf fires=%v, want %v", tc.level, got, tc.debugFires)
 		}
