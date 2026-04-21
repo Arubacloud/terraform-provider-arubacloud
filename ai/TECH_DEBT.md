@@ -405,3 +405,28 @@ if len(parts) > 0 {  // always true, even for ""
 **Issue:** GoReleaser v2 uses `version: 2` and has breaking changes in schema. The current config on `version: 1` will eventually stop working as GoReleaser drops v1 support.
 
 **Fix:** Migrate to `version: 2` following the GoReleaser migration guide.
+
+---
+
+## Observability
+
+### TD-035 — SDK HTTP Logging Is Permanently Disabled; No Provider Log-Level Control
+
+**Affected file:** `internal/provider/provider.go:127-128`
+
+**Issue:** The provider hard-codes `options.WithDefaultLogger()` when building the SDK client. Despite the name, `WithDefaultLogger()` maps to `LoggerNoLog` in SDK v0.1.24 (`pkg/aruba/options.go:524-528`). This means the SDK never emits any HTTP request/response detail — method, URL, headers, body, response status — regardless of the `TF_LOG` setting. Operators troubleshooting failed provisioning have zero visibility into what the SDK is actually sending to the API.
+
+The SDK already implements full per-call `Debugf` logging in `internal/restclient/client.go` (method + URL, query params, headers with `Authorization: Bearer [REDACTED]`, request body, response status/headers/body). It also exposes `WithCustomLogger(logger.Logger)` (`options.go:689-693`) for injecting a custom logger that satisfies a 4-method interface (`Debugf/Infof/Warnf/Errorf`). This capability is simply unused.
+
+**Fix:** Implement a thin `sdkLogAdapter` struct in `internal/provider/sdk_logger.go` that:
+1. Satisfies the SDK's `logger.Logger` interface (4 methods — no import of the internal package needed due to Go structural typing).
+2. Holds a `LogLevel` field (Off/Error/Warn/Info/Debug/Trace) that gates each method before forwarding via `tflog.SubsystemDebug/Info/Warn/Error(ctx, "arubacloud-sdk", msg)`.
+3. Registers a `tflog` subsystem (`ctx = tflog.NewSubsystem(ctx, "arubacloud-sdk")`) so output is filterable independently from provider-level logs via `TF_LOG_PROVIDER_ARUBACLOUD_SDK`.
+
+Expose the level as a new optional provider attribute `log_level` (+ env var `ARUBACLOUD_LOG_LEVEL`) with default `INFO`. Valid values (case-insensitive): `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `OFF`. Invalid values emit a Warning diagnostic and fall back to `INFO`.
+
+Replace `options.WithDefaultLogger()` with `options.WithCustomLogger(newSDKLogAdapter(ctx, logLevel))`.
+
+Add `ArubaCloudProviderModel.LogLevel types.String \`tfsdk:"log_level"\`` and corresponding schema attribute with a `MarkdownDescription` that explains the two-filter model (`log_level` vs `TF_LOG`).
+
+Add unit tests for `ParseLogLevel` and level-gating in `internal/provider/sdk_logger_test.go`. Regenerate docs via `make generate`.
