@@ -3,16 +3,23 @@ package provider
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync/atomic"
 	"testing"
 	"time"
 )
 
-// These tests exercise the real 10s poll interval of WaitForResourceDeleted.
-// They run in parallel so total wall time stays close to one tick.
+// withFastPoll reduces the WaitForResourceDeleted poll interval so tests
+// don't have to wait 10s per tick. It restores the original value on cleanup.
+func withFastPoll(t *testing.T, d time.Duration) {
+	t.Helper()
+	orig := waitForDeletedPollInterval
+	waitForDeletedPollInterval = d
+	t.Cleanup(func() { waitForDeletedPollInterval = orig })
+}
 
 func TestWaitForResourceDeleted_SucceedsWhenCheckerReportsDeleted(t *testing.T) {
-	t.Parallel()
+	withFastPoll(t, 5*time.Millisecond)
 
 	var calls int32
 	checker := func(ctx context.Context) (bool, error) {
@@ -20,7 +27,7 @@ func TestWaitForResourceDeleted_SucceedsWhenCheckerReportsDeleted(t *testing.T) 
 		return true, nil
 	}
 
-	err := WaitForResourceDeleted(context.Background(), checker, "kaas", "abc", 30*time.Second)
+	err := WaitForResourceDeleted(context.Background(), checker, "kaas", "abc", time.Second)
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -29,14 +36,33 @@ func TestWaitForResourceDeleted_SucceedsWhenCheckerReportsDeleted(t *testing.T) 
 	}
 }
 
+func TestWaitForResourceDeleted_PollsUntilDeleted(t *testing.T) {
+	withFastPoll(t, 5*time.Millisecond)
+
+	var calls int32
+	checker := func(ctx context.Context) (bool, error) {
+		n := atomic.AddInt32(&calls, 1)
+		return n >= 3, nil
+	}
+
+	err := WaitForResourceDeleted(context.Background(), checker, "kaas", "abc", time.Second)
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if got := atomic.LoadInt32(&calls); got < 3 {
+		t.Fatalf("expected >=3 checker calls, got %d", got)
+	}
+}
+
 func TestWaitForResourceDeleted_TimeoutReturnsErrWaitTimeout(t *testing.T) {
-	t.Parallel()
+	withFastPoll(t, 5*time.Millisecond)
 
 	checker := func(ctx context.Context) (bool, error) {
 		return false, nil
 	}
 
-	err := WaitForResourceDeleted(context.Background(), checker, "kaas", "abc", time.Second)
+	start := time.Now()
+	err := WaitForResourceDeleted(context.Background(), checker, "kaas", "abc", 50*time.Millisecond)
 	if err == nil {
 		t.Fatal("expected timeout error, got nil")
 	}
@@ -50,10 +76,64 @@ func TestWaitForResourceDeleted_TimeoutReturnsErrWaitTimeout(t *testing.T) {
 	if te.ResourceType != "kaas" || te.ResourceID != "abc" {
 		t.Fatalf("unexpected timeout fields: %+v", te)
 	}
+	if elapsed := time.Since(start); elapsed > time.Second {
+		t.Fatalf("timeout took too long: %v", elapsed)
+	}
+}
+
+func TestWaitForResourceDeleted_GivesUpAfterThreeConsecutiveErrors(t *testing.T) {
+	withFastPoll(t, 5*time.Millisecond)
+
+	boom := errors.New("transport exploded")
+	var calls int32
+	checker := func(ctx context.Context) (bool, error) {
+		atomic.AddInt32(&calls, 1)
+		return false, boom
+	}
+
+	err := WaitForResourceDeleted(context.Background(), checker, "kaas", "abc", 5*time.Second)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, boom) {
+		t.Fatalf("expected wrapped boom error, got %v", err)
+	}
+	if IsWaitTimeout(err) {
+		t.Fatalf("did not expect a wait-timeout error, got %v", err)
+	}
+	if got := atomic.LoadInt32(&calls); got != 3 {
+		t.Fatalf("expected exactly 3 checker calls before giving up, got %d", got)
+	}
+}
+
+func TestWaitForResourceDeleted_ResetsErrorStreakAfterSuccess(t *testing.T) {
+	withFastPoll(t, 5*time.Millisecond)
+
+	var calls int32
+	checker := func(ctx context.Context) (bool, error) {
+		n := atomic.AddInt32(&calls, 1)
+		// errors on calls 1, 2, 4, 5 — success (not deleted) on 3 — deleted on 6
+		switch n {
+		case 1, 2, 4, 5:
+			return false, fmt.Errorf("flaky: %d", n)
+		case 3:
+			return false, nil
+		default:
+			return true, nil
+		}
+	}
+
+	err := WaitForResourceDeleted(context.Background(), checker, "kaas", "abc", 5*time.Second)
+	if err != nil {
+		t.Fatalf("expected nil error — streak should reset after call 3, got %v", err)
+	}
+	if got := atomic.LoadInt32(&calls); got < 6 {
+		t.Fatalf("expected >=6 checker calls, got %d", got)
+	}
 }
 
 func TestWaitForResourceDeleted_ContextCancelledReturnsError(t *testing.T) {
-	t.Parallel()
+	withFastPoll(t, 5*time.Millisecond)
 
 	checker := func(ctx context.Context) (bool, error) {
 		return false, nil
@@ -61,7 +141,7 @@ func TestWaitForResourceDeleted_ContextCancelledReturnsError(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(20 * time.Millisecond)
 		cancel()
 	}()
 
@@ -77,7 +157,7 @@ func TestWaitForResourceDeleted_ContextCancelledReturnsError(t *testing.T) {
 // Verifies the intended caller pattern: deletion checkers use IsNotFound(err)
 // on the GET response to return (true, nil).
 func TestWaitForResourceDeleted_RecognisesNotFoundPattern(t *testing.T) {
-	t.Parallel()
+	withFastPoll(t, 5*time.Millisecond)
 
 	notFound := newResponseError("get", "kaas", 404, nil, nil)
 	if !IsNotFound(notFound) {
@@ -91,7 +171,7 @@ func TestWaitForResourceDeleted_RecognisesNotFoundPattern(t *testing.T) {
 		return false, notFound
 	}
 
-	if err := WaitForResourceDeleted(context.Background(), checker, "kaas", "abc", 30*time.Second); err != nil {
+	if err := WaitForResourceDeleted(context.Background(), checker, "kaas", "abc", time.Second); err != nil {
 		t.Fatalf("expected deletion to be detected via IsNotFound, got %v", err)
 	}
 }
