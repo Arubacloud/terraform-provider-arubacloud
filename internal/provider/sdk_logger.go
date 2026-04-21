@@ -15,11 +15,11 @@ type LogLevel int
 
 const (
 	LogLevelOff   LogLevel = iota // no SDK logging (default — preserves existing behavior)
-	LogLevelError                  // errors only
-	LogLevelWarn                   // warnings and errors
-	LogLevelInfo                   // info, warnings, and errors
-	LogLevelDebug                  // all messages including HTTP request/response detail
-	LogLevelTrace                  // alias for Debug (SDK has no Trace method)
+	LogLevelError                 // errors only
+	LogLevelWarn                  // warnings and errors
+	LogLevelInfo                  // info, warnings, and errors
+	LogLevelDebug                 // all messages including HTTP request/response detail
+	LogLevelTrace                 // alias for Debug (SDK has no Trace method)
 )
 
 func (l LogLevel) String() string {

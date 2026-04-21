@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"context"
 	"testing"
 )
 
@@ -67,11 +68,11 @@ func TestLogLevelString(t *testing.T) {
 func TestLogLevelOrdering(t *testing.T) {
 	// Verify that the level constants are ordered from least to most verbose,
 	// which is the invariant the adapter's >= comparisons depend on.
-	if !(LogLevelOff < LogLevelError &&
-		LogLevelError < LogLevelWarn &&
-		LogLevelWarn < LogLevelInfo &&
-		LogLevelInfo < LogLevelDebug &&
-		LogLevelDebug < LogLevelTrace) {
+	if LogLevelOff >= LogLevelError ||
+		LogLevelError >= LogLevelWarn ||
+		LogLevelWarn >= LogLevelInfo ||
+		LogLevelInfo >= LogLevelDebug ||
+		LogLevelDebug >= LogLevelTrace {
 		t.Error("LogLevel constants are not in ascending verbosity order")
 	}
 }
@@ -79,7 +80,7 @@ func TestLogLevelOrdering(t *testing.T) {
 func TestSDKLogAdapterLevel(t *testing.T) {
 	// Verify that newSDKLogAdapter stores the level correctly.
 	for _, level := range []LogLevel{LogLevelOff, LogLevelError, LogLevelWarn, LogLevelInfo, LogLevelDebug, LogLevelTrace} {
-		a := newSDKLogAdapter(nil, level)
+		a := newSDKLogAdapter(context.TODO(), level)
 		if a.level != level {
 			t.Errorf("newSDKLogAdapter(level=%v): adapter.level = %v", level, a.level)
 		}
@@ -91,11 +92,11 @@ func TestSDKLogAdapterGating(t *testing.T) {
 	// We do this by inspecting the adapter's level field and the >= invariant
 	// rather than invoking tflog (which requires a wired-up context).
 	tests := []struct {
-		level         LogLevel
-		debugFires    bool
-		infoFires     bool
-		warnFires     bool
-		errorFires    bool
+		level      LogLevel
+		debugFires bool
+		infoFires  bool
+		warnFires  bool
+		errorFires bool
 	}{
 		{LogLevelOff, false, false, false, false},
 		{LogLevelError, false, false, false, true},
