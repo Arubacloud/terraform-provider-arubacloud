@@ -11,15 +11,15 @@ import (
 
 // withFastPoll reduces the WaitForResourceDeleted poll interval so tests
 // don't have to wait 10s per tick. It restores the original value on cleanup.
-func withFastPoll(t *testing.T, d time.Duration) {
+func withFastPoll(t *testing.T) {
 	t.Helper()
 	orig := waitForDeletedPollInterval
-	waitForDeletedPollInterval = d
+	waitForDeletedPollInterval = 5 * time.Millisecond
 	t.Cleanup(func() { waitForDeletedPollInterval = orig })
 }
 
 func TestWaitForResourceDeleted_SucceedsWhenCheckerReportsDeleted(t *testing.T) {
-	withFastPoll(t, 5*time.Millisecond)
+	withFastPoll(t)
 
 	var calls int32
 	checker := func(ctx context.Context) (bool, error) {
@@ -37,7 +37,7 @@ func TestWaitForResourceDeleted_SucceedsWhenCheckerReportsDeleted(t *testing.T) 
 }
 
 func TestWaitForResourceDeleted_PollsUntilDeleted(t *testing.T) {
-	withFastPoll(t, 5*time.Millisecond)
+	withFastPoll(t)
 
 	var calls int32
 	checker := func(ctx context.Context) (bool, error) {
@@ -55,7 +55,7 @@ func TestWaitForResourceDeleted_PollsUntilDeleted(t *testing.T) {
 }
 
 func TestWaitForResourceDeleted_TimeoutReturnsErrWaitTimeout(t *testing.T) {
-	withFastPoll(t, 5*time.Millisecond)
+	withFastPoll(t)
 
 	checker := func(ctx context.Context) (bool, error) {
 		return false, nil
@@ -82,7 +82,7 @@ func TestWaitForResourceDeleted_TimeoutReturnsErrWaitTimeout(t *testing.T) {
 }
 
 func TestWaitForResourceDeleted_GivesUpAfterThreeConsecutiveErrors(t *testing.T) {
-	withFastPoll(t, 5*time.Millisecond)
+	withFastPoll(t)
 
 	boom := errors.New("transport exploded")
 	var calls int32
@@ -107,7 +107,7 @@ func TestWaitForResourceDeleted_GivesUpAfterThreeConsecutiveErrors(t *testing.T)
 }
 
 func TestWaitForResourceDeleted_ResetsErrorStreakAfterSuccess(t *testing.T) {
-	withFastPoll(t, 5*time.Millisecond)
+	withFastPoll(t)
 
 	var calls int32
 	checker := func(ctx context.Context) (bool, error) {
@@ -133,7 +133,7 @@ func TestWaitForResourceDeleted_ResetsErrorStreakAfterSuccess(t *testing.T) {
 }
 
 func TestWaitForResourceDeleted_ContextCancelledReturnsError(t *testing.T) {
-	withFastPoll(t, 5*time.Millisecond)
+	withFastPoll(t)
 
 	checker := func(ctx context.Context) (bool, error) {
 		return false, nil
@@ -157,7 +157,7 @@ func TestWaitForResourceDeleted_ContextCancelledReturnsError(t *testing.T) {
 // Verifies the intended caller pattern: deletion checkers use IsNotFound(err)
 // on the GET response to return (true, nil).
 func TestWaitForResourceDeleted_RecognisesNotFoundPattern(t *testing.T) {
-	withFastPoll(t, 5*time.Millisecond)
+	withFastPoll(t)
 
 	notFound := newResponseError("get", "kaas", 404, nil, nil)
 	if !IsNotFound(notFound) {
