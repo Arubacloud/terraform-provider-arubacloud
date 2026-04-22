@@ -405,3 +405,32 @@ if len(parts) > 0 {  // always true, even for ""
 **Issue:** GoReleaser v2 uses `version: 2` and has breaking changes in schema. The current config on `version: 1` will eventually stop working as GoReleaser drops v1 support.
 
 **Fix:** Migrate to `version: 2` following the GoReleaser migration guide.
+
+---
+
+### TD-035 — `WaitForResourceDeleted` Not Applied to 20 of 27 Resources
+
+**Affected files:** `backup_resource.go`, `cloudserver_resource.go`, `containerregistry_resource.go`, `database_resource.go`, `databasebackup_resource.go`, `databasegrant_resource.go`, `dbaas_resource.go`, `dbaasuser_resource.go`, `key_resource.go`, `keypair_resource.go`, `kmip_resource.go`, `kms_resource.go`, `project_resource.go`, `restore_resource.go`, `schedulejob_resource.go`, `snapshot_resource.go`, `vpcpeering_resource.go`, `vpcpeeringroute_resource.go`, `vpnroute_resource.go`, `vpntunnel_resource.go`
+
+**Issue:** PR #68 fixed async-deletion race conditions for 7 resources (blockstorage, elasticip, kaas, securitygroup, securityrule, subnet, vpc) by polling GET until 404 after a successful DELETE. The same pattern is required for any resource whose API deletes asynchronously: Terraform must not declare destruction complete while the resource still exists, because dependent resources will fail to destroy due to dependency errors.
+
+The 20 resources above have no post-DELETE wait. Terraform removes them from state as soon as the DELETE returns 2xx, even though the API may still be tearing down the underlying infrastructure.
+
+**Priority within the 20:**
+
+High risk (long-lived infrastructure, real dependency chains at destroy time):
+- `cloudserver` — VMs reference subnets and security groups; a still-deleting server blocks subnet/sg teardown
+- `dbaas` / `database` / `databasebackup` / `dbaasuser` — database clusters take seconds to minutes to delete
+- `snapshot` — block storage snapshots are async
+- `vpcpeering` / `vpcpeeringroute` — must be gone before the VPCs they join can be deleted
+- `vpntunnel` / `vpnroute` — network infrastructure, async teardown
+
+Lower risk (simple records with no hard infrastructure dependency):
+- `keypair`, `key`, `kmip`, `kms` — key metadata records, typically synchronous
+- `databasegrant` — user-to-database association
+- `project` — top-level account resource, rarely destroyed by automation
+- `restore`, `backup`, `schedulejob`, `containerregistry` — job/record types
+
+**Fix:** For each resource, add a `WaitForResourceDeleted` call in the Delete handler immediately after the successful DELETE response, following the pattern established in `vpc_resource.go:503-523`. The checker function calls the resource's GET endpoint and returns `(true, nil)` when `IsNotFound(err)` is true. See `CONTRIBUTING.md` for the canonical pattern.
+
+**Architecture note:** `WaitForResourceDeleted` should be considered a required step for any resource that creates real infrastructure. A successful DELETE returning 2xx is a signal that deletion has been *accepted*, not *completed*. Treat polling for 404 as part of the contract for all infrastructure resources.
