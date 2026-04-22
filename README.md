@@ -98,6 +98,32 @@ terraform plan
 terraform apply
 ```
 
+## Debugging & Logging
+
+The provider can emit full HTTP request/response traces to help diagnose API errors. Two filters must both be open before any trace output appears:
+
+| Filter | How to set |
+|---|---|
+| Provider `log_level` | HCL: `log_level = "DEBUG"` or env: `ARUBACLOUD_LOG_LEVEL=DEBUG` |
+| Terraform log pipeline | Env: `TF_LOG=DEBUG` (or narrower: `TF_LOG_PROVIDER_ARUBACLOUD_SDK=DEBUG`) |
+
+```hcl
+provider "arubacloud" {
+  api_key    = var.arubacloud_api_key
+  api_secret = var.arubacloud_api_secret
+  log_level  = "DEBUG"
+}
+```
+
+```bash
+# Both env vars and terraform must be on the same command line (or exported first).
+TF_LOG=DEBUG TF_LOG_PATH=./trace.log terraform plan
+```
+
+Each outbound HTTP request (method, URL, headers, body) and response (status, headers, body) is logged. The `Authorization` header is auto-redacted as `Bearer [REDACTED]`. Other body content is not redacted — do not commit trace files to version control.
+
+For subsystem-scoped output (SDK HTTP only, no other provider noise) and more detail, see the [Logging & Troubleshooting](docs/index.md#logging--troubleshooting) section in the provider docs.
+
 ## Build the provider
 
 Clone repository to your workspace:
@@ -180,6 +206,17 @@ make generate
 ```
 
 For more details, see the [Testing Guide](docs/TESTING.md).
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow: formatting, linting, doc regeneration, and the PR checklist.
+
+**Quick summary:**
+- `make fmt` — format (enforced by lint)
+- `make lint` — lint (auto-installs golangci-lint v2 if missing)
+- `make test` — unit tests
+- `make generate` — regenerate docs after schema/template changes (requires Terraform in PATH; use WSL on Windows)
+- `make ci-test` — full CI pipeline locally
 
 ### Local Development
 

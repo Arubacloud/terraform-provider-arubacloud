@@ -9,6 +9,7 @@ import (
 	"github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/ephemeral"
@@ -39,6 +40,7 @@ type ArubaCloudProviderModel struct {
 	ResourceTimeout types.String `tfsdk:"resource_timeout"`
 	BaseURL         types.String `tfsdk:"base_url"`
 	TokenIssuerURL  types.String `tfsdk:"token_issuer_url"`
+	LogLevel        types.String `tfsdk:"log_level"`
 }
 
 func (p *ArubaCloudProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
@@ -70,6 +72,18 @@ func (p *ArubaCloudProvider) Schema(ctx context.Context, req provider.SchemaRequ
 				MarkdownDescription: "(Optional) Override the ArubaCloud token issuer URL (advanced use only).",
 				Optional:            true,
 			},
+			"log_level": schema.StringAttribute{
+				MarkdownDescription: "(Optional) SDK log level for HTTP request/response tracing. " +
+					"Accepted values (case-insensitive): `OFF`, `ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE`. " +
+					"Default: `OFF` (no SDK logging, preserving existing behavior). " +
+					"Set to `DEBUG` or `TRACE` to see full HTTP request/response detail in Terraform logs. " +
+					"Can also be set via the `ARUBACLOUD_LOG_LEVEL` environment variable; the HCL attribute takes precedence. " +
+					"SDK messages are emitted under the `arubacloud-sdk` subsystem and are subject to the `TF_LOG` filter — " +
+					"both `log_level` and `TF_LOG` must permit a message for it to appear. " +
+					"Note: the SDK already redacts `Authorization` headers, but request/response bodies " +
+					"may contain sensitive data — avoid committing debug logs to version control.",
+				Optional: true,
+			},
 		},
 	}
 }
@@ -80,6 +94,7 @@ func (p *ArubaCloudProvider) Configure(ctx context.Context, req provider.Configu
 	apiKey := os.Getenv("ARUBACLOUD_API_KEY")
 	apiSecret := os.Getenv("ARUBACLOUD_API_SECRET")
 	tokenIssuerURL := os.Getenv("ARUBACLOUD_TOKEN_ISSUER_URL")
+	logLevelStr := os.Getenv("ARUBACLOUD_LOG_LEVEL")
 
 	// Retrieve provider data from configuration
 	var config ArubaCloudProviderModel
@@ -99,6 +114,10 @@ func (p *ArubaCloudProvider) Configure(ctx context.Context, req provider.Configu
 
 	if !config.TokenIssuerURL.IsNull() && config.TokenIssuerURL.ValueString() != "" {
 		tokenIssuerURL = config.TokenIssuerURL.ValueString()
+	}
+
+	if !config.LogLevel.IsNull() && config.LogLevel.ValueString() != "" {
+		logLevelStr = config.LogLevel.ValueString()
 	}
 
 	if apiKey == "" {
@@ -123,9 +142,23 @@ func (p *ArubaCloudProvider) Configure(ctx context.Context, req provider.Configu
 		return
 	}
 
+	// Parse log level — invalid values produce a warning and fall back to Off (no SDK logging).
+	logLevel, err := ParseLogLevel(logLevelStr)
+	if err != nil {
+		resp.Diagnostics.AddWarning(
+			"Invalid log_level value",
+			fmt.Sprintf("%s. SDK logging disabled. Set log_level to one of: OFF, ERROR, WARN, INFO, DEBUG, TRACE.", err),
+		)
+		logLevel = LogLevelOff
+	}
+
+	// Register the arubacloud-sdk tflog subsystem so its output can be filtered
+	// independently via TF_LOG_PROVIDER_ARUBACLOUD_SDK.
+	ctx = tflog.NewSubsystem(ctx, subsystemName)
+
 	// Create SDK client with credentials using DefaultOptions
 	options := aruba.DefaultOptions(apiKey, apiSecret)
-	options = options.WithDefaultLogger()
+	options = options.WithCustomLogger(newSDKLogAdapter(ctx, logLevel))
 
 	// Optionally override base URL and token issuer
 	if !config.BaseURL.IsNull() && config.BaseURL.ValueString() != "" {

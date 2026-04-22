@@ -59,7 +59,7 @@ testcov:
 
 docs:
 	@echo "Generating documentation..."
-	@go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@latest generate \
+	@go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@v0.24.0 generate \
 		--provider-dir $(TFPLUGINDOCS_PROVIDER_DIR) \
 		--provider-name $(TFPLUGINDOCS_PROVIDER_NAME) \
 		--rendered-provider-name "$(TFPLUGINDOCS_RENDERED_NAME)" \

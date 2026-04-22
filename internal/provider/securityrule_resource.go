@@ -671,27 +671,18 @@ func (r *SecurityRuleResource) Read(ctx context.Context, req resource.ReadReques
 
 	// Get security rule details using the SDK
 	response, err := r.client.Client.FromNetwork().SecurityGroupRules().Get(ctx, projectID, vpcID, securityGroupID, ruleID, nil)
+	fields := map[string]any{"project_id": projectID, "vpc_id": vpcID, "security_group_id": securityGroupID, "rule_id": ruleID}
 	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading security rule",
-			NewTransportError("read", "Securityrule", err).Error(),
-		)
+		LogAndAppendAPIError(ctx, &resp.Diagnostics, "Error reading security rule",
+			NewTransportError("read", "Securityrule", err), fields)
 		return
 	}
-
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
+	if apiErr := CheckResponse("read", "Securityrule", response); apiErr != nil {
+		if IsNotFound(apiErr) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		errorMsg := "Failed to read security rule"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
-		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
-		resp.Diagnostics.AddError("API Error", errorMsg)
+		LogAndAppendAPIError(ctx, &resp.Diagnostics, "API Error", apiErr, fields)
 		return
 	}
 
