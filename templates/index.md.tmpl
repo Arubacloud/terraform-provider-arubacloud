@@ -54,11 +54,29 @@ TF_LOG=DEBUG terraform apply
 TF_LOG_PROVIDER_ARUBACLOUD_SDK=DEBUG terraform apply
 ```
 
-This emits each outbound HTTP request (method, URL, headers, body) and response (status, headers, body) to stderr. The `Authorization` header is automatically redacted as `Bearer [REDACTED]`.
+To route trace output to a file (keeps terminal output readable):
+
+```sh
+TF_LOG=DEBUG TF_LOG_PATH=./trace.log terraform plan
+```
+
+Filter the captured file to SDK HTTP lines only:
+
+```sh
+grep '@module=arubacloud.arubacloud-sdk' trace.log
+```
+
+This emits each outbound HTTP request (method, URL, headers, body) and response (status, headers, body) to stderr or the log file. The `Authorization` header is automatically redacted as `Bearer [REDACTED]`.
 
 > **Warning**: request/response bodies may contain sensitive data. Do not commit debug logs to version control.
 
+### Common pitfalls
+
+- **`log_level = "DEBUG"` set but no output appears** — `log_level` is filter #1 (SDK → Terraform). Filter #2 (Terraform → stderr/file) is controlled by `TF_LOG`. Both must be set. Add `TF_LOG=DEBUG` (or `TF_LOG_PROVIDER_ARUBACLOUD_SDK=DEBUG`) to the same command.
+- **Env vars set on one line, `terraform` run on the next** — In bash, the `VAR=value command` prefix form only applies to the command on that line. Setting them on a blank line is a no-op. Use a single-line invocation (`TF_LOG=DEBUG terraform plan`) or `export TF_LOG=DEBUG` first.
+- **Want SDK silent but still see provider events** — Set `log_level = "OFF"` (the default) or omit it. Provider-level `tflog` calls (resource lifecycle events, wait/retry status) are unaffected by `log_level` and continue to respect `TF_LOG` alone.
+
 ### Suppress SDK output while keeping provider tracing
 
-Set `log_level = "OFF"` (the default) or omit it entirely. The 154 provider-level `tflog` calls (resource lifecycle events, wait/retry status) are unaffected by `log_level` and continue to respect `TF_LOG` alone.
+Set `log_level = "OFF"` (the default) or omit it entirely. The provider-level `tflog` calls (resource lifecycle events, wait/retry status) are unaffected by `log_level` and continue to respect `TF_LOG` alone.
 
