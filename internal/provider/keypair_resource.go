@@ -487,6 +487,23 @@ func (r *KeypairResource) Delete(ctx context.Context, req resource.DeleteRequest
 		return
 	}
 
+	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromCompute().KeyPairs().Get(ctx, projectID, keypairID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "Keypair", getErr)
+		}
+		if provErr := CheckResponse("get", "Keypair", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}, "Keypair", keypairID, r.client.ResourceTimeout); waitErr != nil {
+		resp.Diagnostics.AddError("Error waiting for Keypair deletion", waitErr.Error())
+		return
+	}
+
 	tflog.Trace(ctx, "deleted a Keypair resource", map[string]interface{}{
 		"keypair_id": keypairID,
 	})

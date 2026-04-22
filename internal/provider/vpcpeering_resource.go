@@ -465,6 +465,23 @@ func (r *VpcPeeringResource) Delete(ctx context.Context, req resource.DeleteRequ
 		return
 	}
 
+	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromNetwork().VPCPeerings().Get(ctx, projectID, vpcID, peeringID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "VPCPeering", getErr)
+		}
+		if provErr := CheckResponse("get", "VPCPeering", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}, "VPCPeering", peeringID, r.client.ResourceTimeout); waitErr != nil {
+		resp.Diagnostics.AddError("Error waiting for VPCPeering deletion", waitErr.Error())
+		return
+	}
+
 	tflog.Trace(ctx, "deleted a VPC Peering resource", map[string]interface{}{
 		"vpcpeering_id": peeringID,
 	})

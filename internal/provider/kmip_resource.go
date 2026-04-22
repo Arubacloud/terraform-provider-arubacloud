@@ -394,6 +394,23 @@ func (r *KMIPResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 		return
 	}
 
+	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromSecurity().KMS().Kmips().Get(ctx, projectID, kmsID, kmipID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "KMIP", getErr)
+		}
+		if provErr := CheckResponse("get", "KMIP", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}, "KMIP", kmipID, r.client.ResourceTimeout); waitErr != nil {
+		resp.Diagnostics.AddError("Error waiting for KMIP deletion", waitErr.Error())
+		return
+	}
+
 	tflog.Trace(ctx, "deleted a KMIP resource", map[string]interface{}{
 		"kmip_id": kmipID,
 	})

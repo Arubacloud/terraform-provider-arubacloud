@@ -801,6 +801,23 @@ func (r *ScheduleJobResource) Delete(ctx context.Context, req resource.DeleteReq
 		return
 	}
 
+	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromSchedule().Jobs().Get(ctx, projectID, jobID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "ScheduleJob", getErr)
+		}
+		if provErr := CheckResponse("get", "ScheduleJob", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}, "ScheduleJob", jobID, r.client.ResourceTimeout); waitErr != nil {
+		resp.Diagnostics.AddError("Error waiting for ScheduleJob deletion", waitErr.Error())
+		return
+	}
+
 	tflog.Trace(ctx, "deleted a Schedule Job resource", map[string]interface{}{
 		"job_id": jobID,
 	})

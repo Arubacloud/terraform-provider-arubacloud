@@ -341,6 +341,23 @@ func (r *DBaaSUserResource) Delete(ctx context.Context, req resource.DeleteReque
 		return
 	}
 
+	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromDatabase().Users().Get(ctx, projectID, dbaasID, username, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "DBaaSUser", getErr)
+		}
+		if provErr := CheckResponse("get", "DBaaSUser", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}, "DBaaSUser", username, r.client.ResourceTimeout); waitErr != nil {
+		resp.Diagnostics.AddError("Error waiting for DBaaSUser deletion", waitErr.Error())
+		return
+	}
+
 	tflog.Trace(ctx, "deleted a DBaaS User resource", map[string]interface{}{
 		"user_id": username,
 	})

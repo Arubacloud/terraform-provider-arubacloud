@@ -1024,6 +1024,23 @@ func (r *DBaaSResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 		return
 	}
 
+	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromDatabase().DBaaS().Get(ctx, projectID, dbaasID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "DBaaS", getErr)
+		}
+		if provErr := CheckResponse("get", "DBaaS", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}, "DBaaS", dbaasID, r.client.ResourceTimeout); waitErr != nil {
+		resp.Diagnostics.AddError("Error waiting for DBaaS deletion", waitErr.Error())
+		return
+	}
+
 	tflog.Trace(ctx, "deleted a DBaaS resource", map[string]interface{}{
 		"dbaas_id": dbaasID,
 	})

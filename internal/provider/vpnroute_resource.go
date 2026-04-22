@@ -523,6 +523,23 @@ func (r *VPNRouteResource) Delete(ctx context.Context, req resource.DeleteReques
 		return
 	}
 
+	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromNetwork().VPNRoutes().Get(ctx, projectID, vpnTunnelID, routeID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "VPNRoute", getErr)
+		}
+		if provErr := CheckResponse("get", "VPNRoute", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}, "VPNRoute", routeID, r.client.ResourceTimeout); waitErr != nil {
+		resp.Diagnostics.AddError("Error waiting for VPNRoute deletion", waitErr.Error())
+		return
+	}
+
 	tflog.Trace(ctx, "deleted a VPN Route resource", map[string]interface{}{
 		"vpnroute_id": routeID,
 	})

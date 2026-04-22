@@ -518,6 +518,23 @@ func (r *RestoreResource) Delete(ctx context.Context, req resource.DeleteRequest
 		return
 	}
 
+	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromStorage().Restores().Get(ctx, projectID, backupID, restoreID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "Restore", getErr)
+		}
+		if provErr := CheckResponse("get", "Restore", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}, "Restore", restoreID, r.client.ResourceTimeout); waitErr != nil {
+		resp.Diagnostics.AddError("Error waiting for Restore deletion", waitErr.Error())
+		return
+	}
+
 	tflog.Trace(ctx, "deleted a Restore resource", map[string]interface{}{
 		"restore_id": restoreID,
 	})

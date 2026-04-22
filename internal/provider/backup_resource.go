@@ -534,6 +534,23 @@ func (r *BackupResource) Delete(ctx context.Context, req resource.DeleteRequest,
 		return
 	}
 
+	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromStorage().Backups().Get(ctx, projectID, backupID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "Backup", getErr)
+		}
+		if provErr := CheckResponse("get", "Backup", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}, "Backup", backupID, r.client.ResourceTimeout); waitErr != nil {
+		resp.Diagnostics.AddError("Error waiting for Backup deletion", waitErr.Error())
+		return
+	}
+
 	tflog.Trace(ctx, "deleted a Backup resource", map[string]interface{}{
 		"backup_id": backupID,
 	})

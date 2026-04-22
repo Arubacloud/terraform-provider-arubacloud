@@ -344,6 +344,23 @@ func (r *DatabaseGrantResource) Delete(ctx context.Context, req resource.DeleteR
 		return
 	}
 
+	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromDatabase().Grants().Get(ctx, projectID, dbaasID, databaseName, userID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "DatabaseGrant", getErr)
+		}
+		if provErr := CheckResponse("get", "DatabaseGrant", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}, "DatabaseGrant", grantID, r.client.ResourceTimeout); waitErr != nil {
+		resp.Diagnostics.AddError("Error waiting for DatabaseGrant deletion", waitErr.Error())
+		return
+	}
+
 	tflog.Trace(ctx, "deleted a Database Grant resource", map[string]interface{}{
 		"grant_id": grantID,
 	})

@@ -321,6 +321,23 @@ func (r *DatabaseResource) Delete(ctx context.Context, req resource.DeleteReques
 		return
 	}
 
+	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromDatabase().Databases().Get(ctx, projectID, dbaasID, databaseName, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "Database", getErr)
+		}
+		if provErr := CheckResponse("get", "Database", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}, "Database", databaseName, r.client.ResourceTimeout); waitErr != nil {
+		resp.Diagnostics.AddError("Error waiting for Database deletion", waitErr.Error())
+		return
+	}
+
 	tflog.Trace(ctx, "deleted a Database resource", map[string]interface{}{
 		"database_id": databaseName,
 	})

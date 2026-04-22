@@ -941,6 +941,23 @@ func (r *ContainerRegistryResource) Delete(ctx context.Context, req resource.Del
 		return
 	}
 
+	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromContainer().ContainerRegistry().Get(ctx, projectID, registryID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "ContainerRegistry", getErr)
+		}
+		if provErr := CheckResponse("get", "ContainerRegistry", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}, "ContainerRegistry", registryID, r.client.ResourceTimeout); waitErr != nil {
+		resp.Diagnostics.AddError("Error waiting for ContainerRegistry deletion", waitErr.Error())
+		return
+	}
+
 	tflog.Trace(ctx, "deleted a Container Registry resource", map[string]interface{}{
 		"containerregistry_id": registryID,
 	})

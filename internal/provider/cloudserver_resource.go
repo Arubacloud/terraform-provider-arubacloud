@@ -851,6 +851,23 @@ func (r *CloudServerResource) Delete(ctx context.Context, req resource.DeleteReq
 		return
 	}
 
+	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromCompute().CloudServers().Get(ctx, projectID, serverID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "CloudServer", getErr)
+		}
+		if provErr := CheckResponse("get", "CloudServer", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}, "CloudServer", serverID, r.client.ResourceTimeout); waitErr != nil {
+		resp.Diagnostics.AddError("Error waiting for CloudServer deletion", waitErr.Error())
+		return
+	}
+
 	tflog.Trace(ctx, "deleted a CloudServer resource", map[string]interface{}{
 		"cloudserver_id": serverID,
 	})

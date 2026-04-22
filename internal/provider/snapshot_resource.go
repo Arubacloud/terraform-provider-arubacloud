@@ -611,6 +611,23 @@ func (r *SnapshotResource) Delete(ctx context.Context, req resource.DeleteReques
 		return
 	}
 
+	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromStorage().Snapshots().Get(ctx, projectID, snapshotID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "Snapshot", getErr)
+		}
+		if provErr := CheckResponse("get", "Snapshot", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}, "Snapshot", snapshotID, r.client.ResourceTimeout); waitErr != nil {
+		resp.Diagnostics.AddError("Error waiting for Snapshot deletion", waitErr.Error())
+		return
+	}
+
 	tflog.Trace(ctx, "deleted a Snapshot resource", map[string]interface{}{
 		"snapshot_id": snapshotID,
 	})

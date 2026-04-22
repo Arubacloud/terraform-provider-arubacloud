@@ -445,6 +445,23 @@ func (r *KeyResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 		return
 	}
 
+	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromSecurity().KMS().Keys().Get(ctx, projectID, kmsID, keyID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "Key", getErr)
+		}
+		if provErr := CheckResponse("get", "Key", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}, "Key", keyID, r.client.ResourceTimeout); waitErr != nil {
+		resp.Diagnostics.AddError("Error waiting for Key deletion", waitErr.Error())
+		return
+	}
+
 	tflog.Trace(ctx, "deleted a Key resource", map[string]interface{}{
 		"key_id": keyID,
 	})

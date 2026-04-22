@@ -490,6 +490,23 @@ func (r *KMSResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 		return
 	}
 
+	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromSecurity().KMS().Get(ctx, projectID, kmsID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "KMS", getErr)
+		}
+		if provErr := CheckResponse("get", "KMS", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}, "KMS", kmsID, r.client.ResourceTimeout); waitErr != nil {
+		resp.Diagnostics.AddError("Error waiting for KMS deletion", waitErr.Error())
+		return
+	}
+
 	tflog.Trace(ctx, "deleted a KMS resource", map[string]interface{}{
 		"kms_id": kmsID,
 	})
