@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"time"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -829,6 +830,39 @@ func (r *CloudServerResource) Delete(ctx context.Context, req resource.DeleteReq
 
 	// Delete the cloud server using the SDK with retry mechanism
 	// Retry on any error except 404 (Resource Not Found)
+	deletionChecker := func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromCompute().CloudServers().Get(ctx, projectID, serverID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "CloudServer", getErr)
+		}
+		// Log the HTTP status and state so deletion progress is visible at DEBUG level.
+		statusCode := 0
+		if getResp != nil {
+			statusCode = getResp.StatusCode
+		}
+		state := "<nil response>"
+		if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
+			state = *getResp.Data.Status.State
+		} else if getResp != nil && getResp.Data != nil {
+			state = "<Status.State nil>"
+		}
+		tflog.Debug(ctx, "CloudServer deletion check: GET response", map[string]interface{}{
+			"resource_type": "CloudServer",
+			"resource_id":   serverID,
+			"http_status":   statusCode,
+			"state":         state,
+			"is_error":      getResp != nil && getResp.IsError(),
+		})
+		if provErr := CheckResponse("get", "CloudServer", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}
+
+	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(
 		ctx,
 		func() error {
@@ -841,6 +875,7 @@ func (r *CloudServerResource) Delete(ctx context.Context, req resource.DeleteReq
 		"CloudServer",
 		serverID,
 		r.client.ResourceTimeout,
+		deletionChecker,
 	)
 
 	if err != nil {
@@ -848,6 +883,11 @@ func (r *CloudServerResource) Delete(ctx context.Context, req resource.DeleteReq
 			"Error deleting cloud server",
 			NewTransportError("delete", "Cloudserver", err).Error(),
 		)
+		return
+	}
+
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "CloudServer", serverID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+		resp.Diagnostics.AddError("Error waiting for CloudServer deletion", waitErr.Error())
 		return
 	}
 

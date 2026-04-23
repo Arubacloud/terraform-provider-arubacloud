@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -1113,6 +1114,21 @@ func (r *SecurityRuleResource) Delete(ctx context.Context, req resource.DeleteRe
 
 	// Delete the security rule using the SDK with retry mechanism
 	// Retry on any error except 404 (Resource Not Found)
+	deletionChecker := func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromNetwork().SecurityGroupRules().Get(ctx, projectID, vpcID, securityGroupID, ruleID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "SecurityRule", getErr)
+		}
+		if provErr := CheckResponse("get", "SecurityRule", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}
+
+	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(
 		ctx,
 		func() error {
@@ -1125,12 +1141,22 @@ func (r *SecurityRuleResource) Delete(ctx context.Context, req resource.DeleteRe
 		"SecurityRule",
 		ruleID,
 		r.client.ResourceTimeout,
+		deletionChecker,
 	)
 
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting security rule",
 			NewTransportError("delete", "Securityrule", err).Error(),
+		)
+		return
+	}
+
+	// Poll until the security rule is confirmed deleted (async deletion)
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "SecurityRule", ruleID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+		resp.Diagnostics.AddError(
+			"Error waiting for SecurityRule deletion",
+			waitErr.Error(),
 		)
 		return
 	}

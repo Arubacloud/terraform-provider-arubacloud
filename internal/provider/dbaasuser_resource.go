@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"time"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -319,6 +320,21 @@ func (r *DBaaSUserResource) Delete(ctx context.Context, req resource.DeleteReque
 
 	// Delete the user using the SDK with retry mechanism
 	// Retry on any error except 404 (Resource Not Found)
+	deletionChecker := func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromDatabase().Users().Get(ctx, projectID, dbaasID, username, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "DBaaSUser", getErr)
+		}
+		if provErr := CheckResponse("get", "DBaaSUser", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}
+
+	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(
 		ctx,
 		func() error {
@@ -331,6 +347,7 @@ func (r *DBaaSUserResource) Delete(ctx context.Context, req resource.DeleteReque
 		"DBaaSUser",
 		username,
 		r.client.ResourceTimeout,
+		deletionChecker,
 	)
 
 	if err != nil {
@@ -338,6 +355,11 @@ func (r *DBaaSUserResource) Delete(ctx context.Context, req resource.DeleteReque
 			"Error deleting DBaaS user",
 			NewTransportError("delete", "Dbaasuser", err).Error(),
 		)
+		return
+	}
+
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "DBaaSUser", username, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+		resp.Diagnostics.AddError("Error waiting for DBaaSUser deletion", waitErr.Error())
 		return
 	}
 

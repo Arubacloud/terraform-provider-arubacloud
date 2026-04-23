@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"time"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -423,6 +424,21 @@ func (r *KeyResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 
 	// Delete the Key using the SDK with retry mechanism
 	// Retry on any error except 404 (Resource Not Found)
+	deletionChecker := func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromSecurity().KMS().Keys().Get(ctx, projectID, kmsID, keyID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "Key", getErr)
+		}
+		if provErr := CheckResponse("get", "Key", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}
+
+	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(
 		ctx,
 		func() error {
@@ -435,6 +451,7 @@ func (r *KeyResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 		"Key",
 		keyID,
 		r.client.ResourceTimeout,
+		deletionChecker,
 	)
 
 	if err != nil {
@@ -442,6 +459,11 @@ func (r *KeyResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 			"Error deleting Key",
 			NewTransportError("delete", "Key", err).Error(),
 		)
+		return
+	}
+
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "Key", keyID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+		resp.Diagnostics.AddError("Error waiting for Key deletion", waitErr.Error())
 		return
 	}
 

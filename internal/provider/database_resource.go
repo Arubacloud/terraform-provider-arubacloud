@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"time"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -299,6 +300,21 @@ func (r *DatabaseResource) Delete(ctx context.Context, req resource.DeleteReques
 
 	// Delete the database using the SDK with retry mechanism
 	// Retry on any error except 404 (Resource Not Found)
+	deletionChecker := func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromDatabase().Databases().Get(ctx, projectID, dbaasID, databaseName, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "Database", getErr)
+		}
+		if provErr := CheckResponse("get", "Database", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}
+
+	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(
 		ctx,
 		func() error {
@@ -311,6 +327,7 @@ func (r *DatabaseResource) Delete(ctx context.Context, req resource.DeleteReques
 		"Database",
 		databaseName,
 		r.client.ResourceTimeout,
+		deletionChecker,
 	)
 
 	if err != nil {
@@ -318,6 +335,11 @@ func (r *DatabaseResource) Delete(ctx context.Context, req resource.DeleteReques
 			"Error deleting database",
 			NewTransportError("delete", "Database", err).Error(),
 		)
+		return
+	}
+
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "Database", databaseName, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+		resp.Diagnostics.AddError("Error waiting for Database deletion", waitErr.Error())
 		return
 	}
 

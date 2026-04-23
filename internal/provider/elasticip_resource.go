@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"time"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -638,6 +639,21 @@ func (r *ElasticIPResource) Delete(ctx context.Context, req resource.DeleteReque
 
 	// Delete the Elastic IP using the SDK with retry mechanism
 	// Retry on any error except 404 (Resource Not Found)
+	deletionChecker := func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromNetwork().ElasticIPs().Get(ctx, projectID, eipID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "ElasticIP", getErr)
+		}
+		if provErr := CheckResponse("get", "ElasticIP", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}
+
+	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(
 		ctx,
 		func() error {
@@ -650,12 +666,22 @@ func (r *ElasticIPResource) Delete(ctx context.Context, req resource.DeleteReque
 		"ElasticIP",
 		eipID,
 		r.client.ResourceTimeout,
+		deletionChecker,
 	)
 
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting Elastic IP",
 			NewTransportError("delete", "Elasticip", err).Error(),
+		)
+		return
+	}
+
+	// Poll until the Elastic IP is confirmed deleted (async deletion)
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "ElasticIP", eipID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+		resp.Diagnostics.AddError(
+			"Error waiting for ElasticIP deletion",
+			waitErr.Error(),
 		)
 		return
 	}
