@@ -1,2 +1,9 @@
-# Ensure docs use LF so make generate output matches on all platforms
-docs/**/*.md text eol=lf
+# Normalize all text files to LF on all platforms.
+# text=auto lets git detect binary vs text; eol=lf enforces LF for text files.
+* text=auto eol=lf
+
+# Binary files — never normalize
+*.exe binary
+*.png binary
+*.jpg binary
+*.gif binary
