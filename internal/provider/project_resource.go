@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"time"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -470,6 +471,21 @@ func (r *ProjectResource) Delete(ctx context.Context, req resource.DeleteRequest
 
 	// Delete the project using the SDK with retry mechanism
 	// Retry on any error except 404 (Resource Not Found)
+	deletionChecker := func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromProject().Get(ctx, projectID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "Project", getErr)
+		}
+		if provErr := CheckResponse("get", "Project", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}
+
+	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(
 		ctx,
 		func() error {
@@ -482,6 +498,7 @@ func (r *ProjectResource) Delete(ctx context.Context, req resource.DeleteRequest
 		"Project",
 		projectID,
 		r.client.ResourceTimeout,
+		deletionChecker,
 	)
 
 	if err != nil {
@@ -492,19 +509,7 @@ func (r *ProjectResource) Delete(ctx context.Context, req resource.DeleteRequest
 		return
 	}
 
-	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
-		getResp, getErr := r.client.Client.FromProject().Get(ctx, projectID, nil)
-		if getErr != nil {
-			return false, NewTransportError("get", "Project", getErr)
-		}
-		if provErr := CheckResponse("get", "Project", getResp); provErr != nil {
-			if IsNotFound(provErr) {
-				return true, nil
-			}
-			return false, provErr
-		}
-		return false, nil
-	}, "Project", projectID, r.client.ResourceTimeout); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "Project", projectID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for Project deletion", waitErr.Error())
 		return
 	}

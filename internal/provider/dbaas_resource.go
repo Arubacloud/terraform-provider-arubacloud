@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"time"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -1002,6 +1003,21 @@ func (r *DBaaSResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 
 	// Delete the DBaaS instance using the SDK with retry mechanism
 	// Retry on any error except 404 (Resource Not Found)
+	deletionChecker := func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromDatabase().DBaaS().Get(ctx, projectID, dbaasID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "DBaaS", getErr)
+		}
+		if provErr := CheckResponse("get", "DBaaS", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}
+
+	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(
 		ctx,
 		func() error {
@@ -1014,6 +1030,7 @@ func (r *DBaaSResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 		"DBaaS",
 		dbaasID,
 		r.client.ResourceTimeout,
+		deletionChecker,
 	)
 
 	if err != nil {
@@ -1024,19 +1041,7 @@ func (r *DBaaSResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 		return
 	}
 
-	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
-		getResp, getErr := r.client.Client.FromDatabase().DBaaS().Get(ctx, projectID, dbaasID, nil)
-		if getErr != nil {
-			return false, NewTransportError("get", "DBaaS", getErr)
-		}
-		if provErr := CheckResponse("get", "DBaaS", getResp); provErr != nil {
-			if IsNotFound(provErr) {
-				return true, nil
-			}
-			return false, provErr
-		}
-		return false, nil
-	}, "DBaaS", dbaasID, r.client.ResourceTimeout); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "DBaaS", dbaasID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for DBaaS deletion", waitErr.Error())
 		return
 	}

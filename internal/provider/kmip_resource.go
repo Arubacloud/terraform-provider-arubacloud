@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"time"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -372,6 +373,21 @@ func (r *KMIPResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 
 	// Delete the KMIP using the SDK with retry mechanism
 	// Retry on any error except 404 (Resource Not Found)
+	deletionChecker := func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromSecurity().KMS().Kmips().Get(ctx, projectID, kmsID, kmipID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "KMIP", getErr)
+		}
+		if provErr := CheckResponse("get", "KMIP", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}
+
+	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(
 		ctx,
 		func() error {
@@ -384,6 +400,7 @@ func (r *KMIPResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 		"KMIP",
 		kmipID,
 		r.client.ResourceTimeout,
+		deletionChecker,
 	)
 
 	if err != nil {
@@ -394,19 +411,7 @@ func (r *KMIPResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 		return
 	}
 
-	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
-		getResp, getErr := r.client.Client.FromSecurity().KMS().Kmips().Get(ctx, projectID, kmsID, kmipID, nil)
-		if getErr != nil {
-			return false, NewTransportError("get", "KMIP", getErr)
-		}
-		if provErr := CheckResponse("get", "KMIP", getResp); provErr != nil {
-			if IsNotFound(provErr) {
-				return true, nil
-			}
-			return false, provErr
-		}
-		return false, nil
-	}, "KMIP", kmipID, r.client.ResourceTimeout); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "KMIP", kmipID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for KMIP deletion", waitErr.Error())
 		return
 	}

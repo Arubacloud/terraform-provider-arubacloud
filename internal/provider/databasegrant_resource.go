@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"time"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -322,6 +323,21 @@ func (r *DatabaseGrantResource) Delete(ctx context.Context, req resource.DeleteR
 	// Delete the grant using the SDK with retry mechanism
 	// Retry on any error except 404 (Resource Not Found)
 	grantID := data.Id.ValueString()
+	deletionChecker := func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromDatabase().Grants().Get(ctx, projectID, dbaasID, databaseName, userID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "DatabaseGrant", getErr)
+		}
+		if provErr := CheckResponse("get", "DatabaseGrant", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}
+
+	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(
 		ctx,
 		func() error {
@@ -334,6 +350,7 @@ func (r *DatabaseGrantResource) Delete(ctx context.Context, req resource.DeleteR
 		"DatabaseGrant",
 		grantID,
 		r.client.ResourceTimeout,
+		deletionChecker,
 	)
 
 	if err != nil {
@@ -344,19 +361,7 @@ func (r *DatabaseGrantResource) Delete(ctx context.Context, req resource.DeleteR
 		return
 	}
 
-	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
-		getResp, getErr := r.client.Client.FromDatabase().Grants().Get(ctx, projectID, dbaasID, databaseName, userID, nil)
-		if getErr != nil {
-			return false, NewTransportError("get", "DatabaseGrant", getErr)
-		}
-		if provErr := CheckResponse("get", "DatabaseGrant", getResp); provErr != nil {
-			if IsNotFound(provErr) {
-				return true, nil
-			}
-			return false, provErr
-		}
-		return false, nil
-	}, "DatabaseGrant", grantID, r.client.ResourceTimeout); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "DatabaseGrant", grantID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for DatabaseGrant deletion", waitErr.Error())
 		return
 	}
