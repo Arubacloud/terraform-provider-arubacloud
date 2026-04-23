@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"time"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -1018,6 +1019,21 @@ func (r *SubnetResource) Delete(ctx context.Context, req resource.DeleteRequest,
 
 	// Delete the subnet using the SDK with retry mechanism
 	// Retry on any error except 404 (Resource Not Found)
+	deletionChecker := func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromNetwork().Subnets().Get(ctx, projectID, vpcID, subnetID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "Subnet", getErr)
+		}
+		if provErr := CheckResponse("get", "Subnet", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}
+
+	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(
 		ctx,
 		func() error {
@@ -1030,6 +1046,7 @@ func (r *SubnetResource) Delete(ctx context.Context, req resource.DeleteRequest,
 		"Subnet",
 		subnetID,
 		r.client.ResourceTimeout,
+		deletionChecker,
 	)
 
 	if err != nil {
@@ -1041,19 +1058,7 @@ func (r *SubnetResource) Delete(ctx context.Context, req resource.DeleteRequest,
 	}
 
 	// Poll until the subnet is confirmed deleted (async deletion)
-	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
-		getResp, getErr := r.client.Client.FromNetwork().Subnets().Get(ctx, projectID, vpcID, subnetID, nil)
-		if getErr != nil {
-			return false, NewTransportError("get", "Subnet", getErr)
-		}
-		if provErr := CheckResponse("get", "Subnet", getResp); provErr != nil {
-			if IsNotFound(provErr) {
-				return true, nil
-			}
-			return false, provErr
-		}
-		return false, nil
-	}, "Subnet", subnetID, r.client.ResourceTimeout); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "Subnet", subnetID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
 		resp.Diagnostics.AddError(
 			"Error waiting for Subnet deletion",
 			waitErr.Error(),

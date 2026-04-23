@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"time"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -501,6 +502,21 @@ func (r *VPNRouteResource) Delete(ctx context.Context, req resource.DeleteReques
 
 	// Delete the VPN route using the SDK with retry mechanism
 	// Retry on any error except 404 (Resource Not Found)
+	deletionChecker := func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromNetwork().VPNRoutes().Get(ctx, projectID, vpnTunnelID, routeID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "VPNRoute", getErr)
+		}
+		if provErr := CheckResponse("get", "VPNRoute", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}
+
+	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(
 		ctx,
 		func() error {
@@ -513,6 +529,7 @@ func (r *VPNRouteResource) Delete(ctx context.Context, req resource.DeleteReques
 		"VPNRoute",
 		routeID,
 		r.client.ResourceTimeout,
+		deletionChecker,
 	)
 
 	if err != nil {
@@ -523,19 +540,7 @@ func (r *VPNRouteResource) Delete(ctx context.Context, req resource.DeleteReques
 		return
 	}
 
-	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
-		getResp, getErr := r.client.Client.FromNetwork().VPNRoutes().Get(ctx, projectID, vpnTunnelID, routeID, nil)
-		if getErr != nil {
-			return false, NewTransportError("get", "VPNRoute", getErr)
-		}
-		if provErr := CheckResponse("get", "VPNRoute", getResp); provErr != nil {
-			if IsNotFound(provErr) {
-				return true, nil
-			}
-			return false, provErr
-		}
-		return false, nil
-	}, "VPNRoute", routeID, r.client.ResourceTimeout); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "VPNRoute", routeID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for VPNRoute deletion", waitErr.Error())
 		return
 	}

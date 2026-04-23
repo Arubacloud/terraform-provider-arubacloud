@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"time"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -779,6 +780,21 @@ func (r *ScheduleJobResource) Delete(ctx context.Context, req resource.DeleteReq
 
 	// Delete the job using the SDK with retry mechanism
 	// Retry on any error except 404 (Resource Not Found)
+	deletionChecker := func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromSchedule().Jobs().Get(ctx, projectID, jobID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "ScheduleJob", getErr)
+		}
+		if provErr := CheckResponse("get", "ScheduleJob", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}
+
+	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(
 		ctx,
 		func() error {
@@ -791,6 +807,7 @@ func (r *ScheduleJobResource) Delete(ctx context.Context, req resource.DeleteReq
 		"ScheduleJob",
 		jobID,
 		r.client.ResourceTimeout,
+		deletionChecker,
 	)
 
 	if err != nil {
@@ -801,19 +818,7 @@ func (r *ScheduleJobResource) Delete(ctx context.Context, req resource.DeleteReq
 		return
 	}
 
-	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
-		getResp, getErr := r.client.Client.FromSchedule().Jobs().Get(ctx, projectID, jobID, nil)
-		if getErr != nil {
-			return false, NewTransportError("get", "ScheduleJob", getErr)
-		}
-		if provErr := CheckResponse("get", "ScheduleJob", getResp); provErr != nil {
-			if IsNotFound(provErr) {
-				return true, nil
-			}
-			return false, provErr
-		}
-		return false, nil
-	}, "ScheduleJob", jobID, r.client.ResourceTimeout); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "ScheduleJob", jobID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for ScheduleJob deletion", waitErr.Error())
 		return
 	}

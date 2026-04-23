@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -443,6 +444,21 @@ func (r *VpcPeeringResource) Delete(ctx context.Context, req resource.DeleteRequ
 
 	// Delete the VPC peering using the SDK with retry mechanism
 	// Retry on any error except 404 (Resource Not Found)
+	deletionChecker := func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromNetwork().VPCPeerings().Get(ctx, projectID, vpcID, peeringID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "VPCPeering", getErr)
+		}
+		if provErr := CheckResponse("get", "VPCPeering", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}
+
+	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(
 		ctx,
 		func() error {
@@ -455,6 +471,7 @@ func (r *VpcPeeringResource) Delete(ctx context.Context, req resource.DeleteRequ
 		"VPCPeering",
 		peeringID,
 		r.client.ResourceTimeout,
+		deletionChecker,
 	)
 
 	if err != nil {
@@ -465,19 +482,7 @@ func (r *VpcPeeringResource) Delete(ctx context.Context, req resource.DeleteRequ
 		return
 	}
 
-	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
-		getResp, getErr := r.client.Client.FromNetwork().VPCPeerings().Get(ctx, projectID, vpcID, peeringID, nil)
-		if getErr != nil {
-			return false, NewTransportError("get", "VPCPeering", getErr)
-		}
-		if provErr := CheckResponse("get", "VPCPeering", getResp); provErr != nil {
-			if IsNotFound(provErr) {
-				return true, nil
-			}
-			return false, provErr
-		}
-		return false, nil
-	}, "VPCPeering", peeringID, r.client.ResourceTimeout); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "VPCPeering", peeringID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for VPCPeering deletion", waitErr.Error())
 		return
 	}

@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"time"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -365,6 +366,21 @@ func (r *DatabaseBackupResource) Delete(ctx context.Context, req resource.Delete
 
 	// Delete the backup using the SDK with retry mechanism
 	// Retry on any error except 404 (Resource Not Found)
+	deletionChecker := func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromDatabase().Backups().Get(ctx, projectID, backupID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "DatabaseBackup", getErr)
+		}
+		if provErr := CheckResponse("get", "DatabaseBackup", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}
+
+	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(
 		ctx,
 		func() error {
@@ -377,6 +393,7 @@ func (r *DatabaseBackupResource) Delete(ctx context.Context, req resource.Delete
 		"DatabaseBackup",
 		backupID,
 		r.client.ResourceTimeout,
+		deletionChecker,
 	)
 
 	if err != nil {
@@ -387,19 +404,7 @@ func (r *DatabaseBackupResource) Delete(ctx context.Context, req resource.Delete
 		return
 	}
 
-	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
-		getResp, getErr := r.client.Client.FromDatabase().Backups().Get(ctx, projectID, backupID, nil)
-		if getErr != nil {
-			return false, NewTransportError("get", "DatabaseBackup", getErr)
-		}
-		if provErr := CheckResponse("get", "DatabaseBackup", getResp); provErr != nil {
-			if IsNotFound(provErr) {
-				return true, nil
-			}
-			return false, provErr
-		}
-		return false, nil
-	}, "DatabaseBackup", backupID, r.client.ResourceTimeout); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "DatabaseBackup", backupID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for DatabaseBackup deletion", waitErr.Error())
 		return
 	}

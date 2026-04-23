@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"time"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -468,6 +469,21 @@ func (r *SecurityGroupResource) Delete(ctx context.Context, req resource.DeleteR
 
 	// Delete the security group using the SDK with retry mechanism
 	// Retry on any error except 404 (Resource Not Found)
+	deletionChecker := func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromNetwork().SecurityGroups().Get(ctx, projectID, vpcID, sgID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "SecurityGroup", getErr)
+		}
+		if provErr := CheckResponse("get", "SecurityGroup", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}
+
+	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(
 		ctx,
 		func() error {
@@ -480,6 +496,7 @@ func (r *SecurityGroupResource) Delete(ctx context.Context, req resource.DeleteR
 		"SecurityGroup",
 		sgID,
 		r.client.ResourceTimeout,
+		deletionChecker,
 	)
 
 	if err != nil {
@@ -490,19 +507,7 @@ func (r *SecurityGroupResource) Delete(ctx context.Context, req resource.DeleteR
 		return
 	}
 	// Poll until the security group is confirmed deleted (async deletion)
-	if waitErr := WaitForResourceDeleted(ctx, func(ctx context.Context) (bool, error) {
-		getResp, getErr := r.client.Client.FromNetwork().SecurityGroups().Get(ctx, projectID, vpcID, sgID, nil)
-		if getErr != nil {
-			return false, NewTransportError("get", "SecurityGroup", getErr)
-		}
-		if provErr := CheckResponse("get", "SecurityGroup", getResp); provErr != nil {
-			if IsNotFound(provErr) {
-				return true, nil
-			}
-			return false, provErr
-		}
-		return false, nil
-	}, "SecurityGroup", sgID, r.client.ResourceTimeout); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "SecurityGroup", sgID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
 		resp.Diagnostics.AddError(
 			"Error waiting for SecurityGroup deletion",
 			waitErr.Error(),
