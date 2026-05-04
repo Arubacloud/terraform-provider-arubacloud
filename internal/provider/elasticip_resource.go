@@ -245,6 +245,11 @@ func (r *ElasticIPResource) Create(ctx context.Context, req resource.CreateReque
 	// Wait for Elastic IP to be active - block until ready (using configured timeout)
 	if err := WaitForResourceActive(ctx, checker, "ElasticIP", eipID, r.client.ResourceTimeout); err != nil {
 		ReportWaitResult(&resp.Diagnostics, err, "ElasticIP", eipID)
+		// address is only assigned once the EIP is active; null it out if the create
+		// response didn't include it, so state has no unknown values.
+		if data.Address.IsUnknown() {
+			data.Address = types.StringNull()
+		}
 		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 		return
 	}

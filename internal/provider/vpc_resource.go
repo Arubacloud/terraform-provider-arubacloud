@@ -188,6 +188,11 @@ func (r *VPCResource) Create(ctx context.Context, req resource.CreateRequest, re
 	// Wait for VPC to be active - block until ready (using configured timeout)
 	if err := WaitForResourceActive(ctx, checker, "VPC", vpcID, r.client.ResourceTimeout); err != nil {
 		ReportWaitResult(&resp.Diagnostics, err, "VPC", vpcID)
+		// uri is only populated from the GET after the wait; null it out so state has
+		// no unknown values (Terraform rejects unknown values in saved state).
+		if data.Uri.IsUnknown() {
+			data.Uri = types.StringNull()
+		}
 		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 		return
 	}
