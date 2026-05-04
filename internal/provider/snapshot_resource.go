@@ -289,31 +289,13 @@ func (r *SnapshotResource) Read(ctx context.Context, req resource.ReadRequest, r
 	projectID := data.ProjectId.ValueString()
 	snapshotID := data.Id.ValueString()
 
-	// If ID is unknown or null, check if this is a new resource (no state) or existing resource (state exists but ID missing)
-	// For new resources (during plan), we can return early
-	// For existing resources, we need the ID to read - if it's missing, that's an error
 	if data.Id.IsUnknown() || data.Id.IsNull() || snapshotID == "" {
-		// Check if we have any other state data that indicates this is an existing resource
-		// If name is set in state, this is likely an existing resource with missing ID (error case)
-		if !data.Name.IsUnknown() && !data.Name.IsNull() && data.Name.ValueString() != "" {
-			tflog.Error(ctx, "Snapshot exists in state but ID is missing - this indicates a state corruption issue")
-			resp.Diagnostics.AddError(
-				"Missing Snapshot ID",
-				"Snapshot ID is required to read the snapshot. The resource exists in state but the ID is missing. This may indicate a state corruption issue. Try running 'terraform refresh' or 'terraform import arubacloud_snapshot.test <snapshot_id>'.",
-			)
-			return
-		}
-		// Otherwise, this is likely a new resource during plan - return early
-		tflog.Info(ctx, "Snapshot ID is unknown or null during read, skipping API call (likely new resource).")
-		return // Do not error, as this is expected during plan for new resources
+		tflog.Debug(ctx, "Snapshot ID is empty, removing resource from state", map[string]interface{}{"snapshot_id": snapshotID})
+		resp.State.RemoveResource(ctx)
+		return
 	}
 
 	if projectID == "" {
-		// Check if ProjectID is unknown (new resource) vs missing (error)
-		if data.ProjectId.IsUnknown() || data.ProjectId.IsNull() {
-			tflog.Info(ctx, "Snapshot Project ID is unknown or null during read, skipping API call (likely new resource).")
-			return // Do not error, as this is expected during plan for new resources
-		}
 		resp.Diagnostics.AddError(
 			"Missing Required Fields",
 			"Project ID is required to read the snapshot",

@@ -254,10 +254,16 @@ func (r *KMSResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	projectID := data.ProjectID.ValueString()
 	kmsID := data.Id.ValueString()
 
-	if projectID == "" || kmsID == "" {
+	if data.Id.IsUnknown() || data.Id.IsNull() || kmsID == "" {
+		tflog.Debug(ctx, "KMS ID is empty, removing resource from state", map[string]interface{}{"kms_id": kmsID})
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	if projectID == "" {
 		resp.Diagnostics.AddError(
 			"Missing Required Fields",
-			"Project ID and KMS ID are required to read the KMS",
+			"Project ID is required to read the KMS",
 		)
 		return
 	}

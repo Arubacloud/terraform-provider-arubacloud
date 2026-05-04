@@ -243,10 +243,16 @@ func (r *KeyResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 		"key_id":     keyID,
 	})
 
-	if projectID == "" || kmsID == "" || keyID == "" {
+	if data.Id.IsUnknown() || data.Id.IsNull() || keyID == "" {
+		tflog.Debug(ctx, "Key ID is empty, removing resource from state", map[string]interface{}{"key_id": keyID})
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	if projectID == "" || kmsID == "" {
 		resp.Diagnostics.AddError(
 			"Missing Required Fields",
-			"Project ID, KMS ID, and Key ID are required to read the Key",
+			"Project ID and KMS ID are required to read the Key",
 		)
 		return
 	}

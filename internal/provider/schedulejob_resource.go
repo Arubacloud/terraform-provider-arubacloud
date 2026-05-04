@@ -370,10 +370,16 @@ func (r *ScheduleJobResource) Read(ctx context.Context, req resource.ReadRequest
 	projectID := data.ProjectID.ValueString()
 	jobID := data.Id.ValueString()
 
-	if projectID == "" || jobID == "" {
+	if data.Id.IsUnknown() || data.Id.IsNull() || jobID == "" {
+		tflog.Debug(ctx, "Schedule Job ID is empty, removing resource from state", map[string]interface{}{"job_id": jobID})
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	if projectID == "" {
 		resp.Diagnostics.AddError(
 			"Missing Required Fields",
-			"Project ID and Job ID are required to read the schedule job",
+			"Project ID is required to read the schedule job",
 		)
 		return
 	}

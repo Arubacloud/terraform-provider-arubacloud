@@ -662,10 +662,15 @@ func (r *SecurityRuleResource) Read(ctx context.Context, req resource.ReadReques
 	securityGroupID := data.SecurityGroupId.ValueString()
 	ruleID := data.Id.ValueString()
 
-	if projectID == "" || vpcID == "" || securityGroupID == "" || ruleID == "" {
+	if data.Id.IsUnknown() || data.Id.IsNull() || ruleID == "" {
+		tflog.Debug(ctx, "Security Rule ID is empty, removing resource from state", map[string]interface{}{"rule_id": ruleID})
+		resp.State.RemoveResource(ctx)
+		return
+	}
+	if projectID == "" || vpcID == "" || securityGroupID == "" {
 		resp.Diagnostics.AddError(
 			"Missing Required Fields",
-			"Project ID, VPC ID, Security Group ID, and Rule ID are required to read the security rule",
+			"Project ID, VPC ID, and Security Group ID are required to read the security rule",
 		)
 		return
 	}

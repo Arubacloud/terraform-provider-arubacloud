@@ -169,6 +169,12 @@ func (r *DatabaseGrantResource) Read(ctx context.Context, req resource.ReadReque
 	databaseName := data.Database.ValueString()
 	userID := data.UserID.ValueString()
 
+	if data.Id.IsUnknown() || data.Id.IsNull() || data.Id.ValueString() == "" {
+		tflog.Debug(ctx, "Database Grant ID is empty, removing resource from state", map[string]interface{}{"grant_id": data.Id.ValueString()})
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
 	if projectID == "" || dbaasID == "" || databaseName == "" || userID == "" {
 		resp.Diagnostics.AddError(
 			"Missing Required Fields",

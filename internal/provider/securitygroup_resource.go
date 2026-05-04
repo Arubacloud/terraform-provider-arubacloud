@@ -261,10 +261,15 @@ func (r *SecurityGroupResource) Read(ctx context.Context, req resource.ReadReque
 	vpcID := data.VpcId.ValueString()
 	sgID := data.Id.ValueString()
 
-	if projectID == "" || vpcID == "" || sgID == "" {
+	if data.Id.IsUnknown() || data.Id.IsNull() || sgID == "" {
+		tflog.Debug(ctx, "Security Group ID is empty, removing resource from state", map[string]interface{}{"sg_id": sgID})
+		resp.State.RemoveResource(ctx)
+		return
+	}
+	if projectID == "" || vpcID == "" {
 		resp.Diagnostics.AddError(
 			"Missing Required Fields",
-			"Project ID, VPC ID, and Security Group ID are required to read the security group",
+			"Project ID and VPC ID are required to read the security group",
 		)
 		return
 	}

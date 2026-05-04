@@ -315,12 +315,9 @@ func (r *ElasticIPResource) Read(ctx context.Context, req resource.ReadRequest, 
 	projectID := data.ProjectId.ValueString()
 	eipID := data.Id.ValueString()
 
-	// If ID is unknown or empty, the resource doesn't exist yet (e.g., during plan for new resources)
-	// Return early without error - this is expected behavior
 	if data.Id.IsUnknown() || data.Id.IsNull() || eipID == "" {
-		tflog.Debug(ctx, "Elastic IP ID is unknown or empty, skipping read", map[string]interface{}{
-			"eip_id": eipID,
-		})
+		tflog.Debug(ctx, "Elastic IP ID is empty, removing resource from state", map[string]interface{}{"eip_id": eipID})
+		resp.State.RemoveResource(ctx)
 		return
 	}
 

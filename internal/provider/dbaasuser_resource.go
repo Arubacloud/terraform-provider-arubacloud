@@ -187,10 +187,16 @@ func (r *DBaaSUserResource) Read(ctx context.Context, req resource.ReadRequest, 
 	dbaasID := data.DBaaSID.ValueString()
 	username := data.Id.ValueString()
 
-	if projectID == "" || dbaasID == "" || username == "" {
+	if data.Id.IsUnknown() || data.Id.IsNull() || username == "" {
+		tflog.Debug(ctx, "DBaaS User ID is empty, removing resource from state", map[string]interface{}{"username": username})
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	if projectID == "" || dbaasID == "" {
 		resp.Diagnostics.AddError(
 			"Missing Required Fields",
-			"Project ID, DBaaS ID, and Username are required to read the DBaaS user",
+			"Project ID and DBaaS ID are required to read the DBaaS user",
 		)
 		return
 	}

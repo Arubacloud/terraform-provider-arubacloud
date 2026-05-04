@@ -177,10 +177,16 @@ func (r *DatabaseResource) Read(ctx context.Context, req resource.ReadRequest, r
 	dbaasID := data.DBaaSID.ValueString()
 	databaseName := data.Id.ValueString()
 
-	if projectID == "" || dbaasID == "" || databaseName == "" {
+	if data.Id.IsUnknown() || data.Id.IsNull() || databaseName == "" {
+		tflog.Debug(ctx, "Database ID is empty, removing resource from state", map[string]interface{}{"database_name": databaseName})
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	if projectID == "" || dbaasID == "" {
 		resp.Diagnostics.AddError(
 			"Missing Required Fields",
-			"Project ID, DBaaS ID, and Database Name are required to read the database",
+			"Project ID and DBaaS ID are required to read the database",
 		)
 		return
 	}

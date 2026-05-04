@@ -226,10 +226,15 @@ func (r *VpcPeeringRouteResource) Read(ctx context.Context, req resource.ReadReq
 	peeringID := data.VpcPeeringId.ValueString()
 	routeID := data.Id.ValueString()
 
-	if projectID == "" || vpcID == "" || peeringID == "" || routeID == "" {
+	if data.Id.IsUnknown() || data.Id.IsNull() || routeID == "" {
+		tflog.Debug(ctx, "VPC Peering Route ID is empty, removing resource from state", map[string]interface{}{"route_id": routeID})
+		resp.State.RemoveResource(ctx)
+		return
+	}
+	if projectID == "" || vpcID == "" || peeringID == "" {
 		resp.Diagnostics.AddError(
 			"Missing Required Fields",
-			"Project ID, VPC ID, VPC Peering ID, and Route ID are required to read the VPC peering route",
+			"Project ID, VPC ID, and VPC Peering ID are required to read the VPC peering route",
 		)
 		return
 	}

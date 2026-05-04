@@ -222,29 +222,13 @@ func (r *KeypairResource) Read(ctx context.Context, req resource.ReadRequest, re
 	projectID := data.ProjectID.ValueString()
 	keypairID := data.Id.ValueString()
 
-	// If ID is unknown or null, check if this is a new resource (no state) or existing resource (state exists but ID missing)
-	// For new resources (during plan), we can return early
-	// For existing resources, we need the ID to read - if it's missing, that's an error
 	if data.Id.IsUnknown() || data.Id.IsNull() || keypairID == "" {
-		// Check if ProjectID is also unknown - if so, this is definitely a new resource
-		if data.ProjectID.IsUnknown() || data.ProjectID.IsNull() {
-			tflog.Info(ctx, "Keypair ID and Project ID are unknown or null during read, skipping API call (likely new resource).")
-			return // Do not error, as this is expected during plan for new resources
-		}
-		// If ProjectID is set but ID is unknown, still skip (new resource)
-		if keypairID == "" {
-			tflog.Info(ctx, "Keypair ID is unknown or null during read, skipping API call (likely new resource).")
-			return // Do not error, as this is expected during plan for new resources
-		}
+		tflog.Debug(ctx, "Keypair ID is empty, removing resource from state", map[string]interface{}{"keypair_id": keypairID})
+		resp.State.RemoveResource(ctx)
+		return
 	}
 
-	// If ProjectID is missing, we can't read the keypair
 	if projectID == "" {
-		// Check if ProjectID is unknown (new resource) vs missing (error)
-		if data.ProjectID.IsUnknown() || data.ProjectID.IsNull() {
-			tflog.Info(ctx, "Keypair Project ID is unknown or null during read, skipping API call (likely new resource).")
-			return // Do not error, as this is expected during plan for new resources
-		}
 		resp.Diagnostics.AddError(
 			"Missing Required Fields",
 			"Project ID is required to read the keypair",
