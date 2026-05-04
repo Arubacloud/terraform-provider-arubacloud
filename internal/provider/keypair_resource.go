@@ -6,7 +6,6 @@ import (
 	"time"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -330,8 +329,7 @@ func (r *KeypairResource) Read(ctx context.Context, req resource.ReadRequest, re
 				data.Tags = tagsList
 			}
 		} else {
-			// Set tags to null when empty to match state (prevents false changes)
-			data.Tags = types.ListValueMust(types.StringType, []attr.Value{})
+			data.Tags = types.ListNull(types.StringType)
 		}
 
 		// Restore ProjectID and Value from state (they're not returned by the API)
@@ -439,9 +437,8 @@ func (r *KeypairResource) Update(ctx context.Context, req resource.UpdateRequest
 		data.Uri = state.Uri
 	}
 
-	// Tags cannot be updated via API, so preserve tags from state
-	// (The API doesn't support tag updates, so we keep what's in state)
-	data.Tags = state.Tags
+	// Tags can't be updated via API; use plan value so state stays consistent with config.
+	// (data.Tags already holds the plan value from req.Plan.Get above)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
