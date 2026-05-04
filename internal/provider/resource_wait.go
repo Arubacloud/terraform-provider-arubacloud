@@ -231,6 +231,71 @@ func WaitForResourceDeleted(ctx context.Context, checker ResourceDeletedChecker,
 	}
 }
 
+// CreateWithTransientRetry calls createFunc and retries automatically whenever it
+// returns an ErrorIsTransient error (e.g. HTTP 400 with category "transient").
+// This handles the case where a child resource is created while its parent is
+// still provisioning: the API returns a transient 400 until the parent is active.
+//
+// Non-transient errors (semantic validation failures, transport errors) are
+// returned immediately without retrying. A timeout error is returned if the
+// deadline is exceeded before a non-transient result is observed.
+func CreateWithTransientRetry(
+	ctx context.Context,
+	createFunc func() error,
+	resourceType, resourceID string,
+	timeout time.Duration,
+) error {
+	deadline := time.Now().Add(timeout)
+	maxRetryInterval := 30 * time.Second
+	attempt := 0
+
+	tflog.Info(ctx, "creating resource (with transient retry)", map[string]interface{}{
+		"resource_type": resourceType,
+		"resource_id":   resourceID,
+		"timeout":       timeout.String(),
+	})
+
+	for {
+		attempt++
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("context cancelled while creating %s %s", resourceType, resourceID)
+		default:
+		}
+
+		err := createFunc()
+		if err == nil {
+			return nil
+		}
+		if !ErrorIsTransient(err) {
+			return err
+		}
+
+		if time.Now().After(deadline) {
+			return fmt.Errorf("timeout waiting to create %s %s after %d transient failures (timeout: %v): %w",
+				resourceType, resourceID, attempt, timeout, err)
+		}
+
+		waitTime := time.Duration(5*attempt) * time.Second
+		if waitTime > maxRetryInterval {
+			waitTime = maxRetryInterval
+		}
+		tflog.Info(ctx, "transient error creating resource, retrying", map[string]interface{}{
+			"resource_type": resourceType,
+			"resource_id":   resourceID,
+			"attempt":       attempt,
+			"retry_in":      waitTime.String(),
+			"error":         err.Error(),
+		})
+
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("context cancelled while waiting to retry create %s %s", resourceType, resourceID)
+		case <-time.After(waitTime):
+		}
+	}
+}
+
 // remainingTimeout returns how much of the original timeout budget is left
 // since start, clamped to zero. Pass this as the timeout to WaitForResourceDeleted
 // so that DeleteResourceWithRetry and WaitForResourceDeleted share a single

@@ -102,18 +102,24 @@ func (r *DatabaseResource) Create(ctx context.Context, req resource.CreateReques
 		Name: data.Name.ValueString(),
 	}
 
-	// Create the database using the SDK
-	response, err := r.client.Client.FromDatabase().Databases().Create(ctx, projectID, dbaasID, createRequest, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error creating database",
-			NewTransportError("create", "Database", err).Error(),
-		)
-		return
-	}
-
-	if apiErr := CheckResponse("create", "Database", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
+	// Create the database using the SDK, retrying on transient errors (e.g. when the
+	// parent DBaaS is still in InCreation and returns 400 category:transient).
+	var response *sdktypes.Response[sdktypes.DatabaseResponse]
+	if createErr := CreateWithTransientRetry(
+		ctx,
+		func() error {
+			var err error
+			response, err = r.client.Client.FromDatabase().Databases().Create(ctx, projectID, dbaasID, createRequest, nil)
+			if err != nil {
+				return NewTransportError("create", "Database", err)
+			}
+			return CheckResponse("create", "Database", response)
+		},
+		"Database",
+		data.Name.ValueString(),
+		r.client.ResourceTimeout,
+	); createErr != nil {
+		resp.Diagnostics.AddError("Error creating database", createErr.Error())
 		return
 	}
 

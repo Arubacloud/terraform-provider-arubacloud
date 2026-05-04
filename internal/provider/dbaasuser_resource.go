@@ -112,23 +112,24 @@ func (r *DBaaSUserResource) Create(ctx context.Context, req resource.CreateReque
 		Password: passwordBase64,
 	}
 
-	// Create the user using the SDK
-	response, err := r.client.Client.FromDatabase().Users().Create(ctx, projectID, dbaasID, createRequest, nil)
-	if err != nil {
-		tflog.Error(ctx, "DBaaS user create error", map[string]interface{}{
-			"error":      err.Error(),
-			"project_id": projectID,
-			"dbaas_id":   dbaasID,
-		})
-		resp.Diagnostics.AddError(
-			"Error creating DBaaS user",
-			NewTransportError("create", "Dbaasuser", err).Error(),
-		)
-		return
-	}
-
-	if apiErr := CheckResponse("create", "Dbaasuser", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
+	// Create the user using the SDK, retrying on transient errors (e.g. when the
+	// parent DBaaS is still in InCreation and returns 400 category:transient).
+	var response *sdktypes.Response[sdktypes.UserResponse]
+	if createErr := CreateWithTransientRetry(
+		ctx,
+		func() error {
+			var err error
+			response, err = r.client.Client.FromDatabase().Users().Create(ctx, projectID, dbaasID, createRequest, nil)
+			if err != nil {
+				return NewTransportError("create", "Dbaasuser", err)
+			}
+			return CheckResponse("create", "Dbaasuser", response)
+		},
+		"DBaaSUser",
+		data.Username.ValueString(),
+		r.client.ResourceTimeout,
+	); createErr != nil {
+		resp.Diagnostics.AddError("Error creating DBaaS user", createErr.Error())
 		return
 	}
 
