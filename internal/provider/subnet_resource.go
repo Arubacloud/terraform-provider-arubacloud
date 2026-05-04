@@ -518,10 +518,15 @@ func (r *SubnetResource) Read(ctx context.Context, req resource.ReadRequest, res
 	vpcID := data.VpcId.ValueString()
 	subnetID := data.Id.ValueString()
 
-	if projectID == "" || vpcID == "" || subnetID == "" {
+	if data.Id.IsUnknown() || data.Id.IsNull() || subnetID == "" {
+		tflog.Debug(ctx, "Subnet ID is empty, removing resource from state", map[string]interface{}{"subnet_id": subnetID})
+		resp.State.RemoveResource(ctx)
+		return
+	}
+	if projectID == "" || vpcID == "" {
 		resp.Diagnostics.AddError(
 			"Missing Required Fields",
-			"Project ID, VPC ID, and Subnet ID are required to read the subnet",
+			"Project ID and VPC ID are required to read the subnet",
 		)
 		return
 	}

@@ -367,10 +367,16 @@ func (r *ContainerRegistryResource) Read(ctx context.Context, req resource.ReadR
 	projectID := data.ProjectID.ValueString()
 	registryID := data.Id.ValueString()
 
-	if projectID == "" || registryID == "" {
+	if data.Id.IsUnknown() || data.Id.IsNull() || registryID == "" {
+		tflog.Debug(ctx, "Container Registry ID is empty, removing resource from state", map[string]interface{}{"registry_id": registryID})
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	if projectID == "" {
 		resp.Diagnostics.AddError(
 			"Missing Required Fields",
-			"Project ID and Registry ID are required to read the container registry",
+			"Project ID is required to read the container registry",
 		)
 		return
 	}

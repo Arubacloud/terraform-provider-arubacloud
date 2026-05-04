@@ -486,10 +486,16 @@ func (r *DBaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp
 	projectID := data.ProjectID.ValueString()
 	dbaasID := data.Id.ValueString()
 
-	if projectID == "" || dbaasID == "" {
+	if data.Id.IsUnknown() || data.Id.IsNull() || dbaasID == "" {
+		tflog.Debug(ctx, "DBaaS ID is empty, removing resource from state", map[string]interface{}{"dbaas_id": dbaasID})
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	if projectID == "" {
 		resp.Diagnostics.AddError(
 			"Missing Required Fields",
-			"Project ID and DBaaS ID are required to read the DBaaS instance",
+			"Project ID is required to read the DBaaS instance",
 		)
 		return
 	}

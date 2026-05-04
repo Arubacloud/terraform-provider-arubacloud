@@ -250,10 +250,16 @@ func (r *DatabaseBackupResource) Read(ctx context.Context, req resource.ReadRequ
 	projectID := data.ProjectID.ValueString()
 	backupID := data.Id.ValueString()
 
-	if projectID == "" || backupID == "" {
+	if data.Id.IsUnknown() || data.Id.IsNull() || backupID == "" {
+		tflog.Debug(ctx, "Database Backup ID is empty, removing resource from state", map[string]interface{}{"backup_id": backupID})
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	if projectID == "" {
 		resp.Diagnostics.AddError(
 			"Missing Required Fields",
-			"Project ID and Backup ID are required to read the database backup",
+			"Project ID is required to read the database backup",
 		)
 		return
 	}

@@ -438,10 +438,16 @@ func (r *CloudServerResource) Read(ctx context.Context, req resource.ReadRequest
 	projectID := originalState.ProjectID.ValueString()
 	serverID := originalState.Id.ValueString()
 
-	if projectID == "" || serverID == "" {
+	if originalState.Id.IsUnknown() || originalState.Id.IsNull() || serverID == "" {
+		tflog.Debug(ctx, "Cloud Server ID is empty, removing resource from state", map[string]interface{}{"server_id": serverID})
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	if projectID == "" {
 		resp.Diagnostics.AddError(
 			"Missing Required Fields",
-			"Project ID and Server ID are required to read the cloud server",
+			"Project ID is required to read the cloud server",
 		)
 		return
 	}

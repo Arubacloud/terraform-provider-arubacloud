@@ -245,10 +245,15 @@ func (r *VPNRouteResource) Read(ctx context.Context, req resource.ReadRequest, r
 	vpnTunnelID := data.VPNTunnelId.ValueString()
 	routeID := data.Id.ValueString()
 
-	if projectID == "" || vpnTunnelID == "" || routeID == "" {
+	if data.Id.IsUnknown() || data.Id.IsNull() || routeID == "" {
+		tflog.Debug(ctx, "VPN Route ID is empty, removing resource from state", map[string]interface{}{"route_id": routeID})
+		resp.State.RemoveResource(ctx)
+		return
+	}
+	if projectID == "" || vpnTunnelID == "" {
 		resp.Diagnostics.AddError(
 			"Missing Required Fields",
-			"Project ID, VPN Tunnel ID, and Route ID are required to read the VPN route",
+			"Project ID and VPN Tunnel ID are required to read the VPN route",
 		)
 		return
 	}

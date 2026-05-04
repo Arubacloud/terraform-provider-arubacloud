@@ -624,10 +624,15 @@ func (r *VPNTunnelResource) Read(ctx context.Context, req resource.ReadRequest, 
 	projectID := data.ProjectId.ValueString()
 	tunnelID := data.Id.ValueString()
 
-	if projectID == "" || tunnelID == "" {
+	if data.Id.IsUnknown() || data.Id.IsNull() || tunnelID == "" {
+		tflog.Debug(ctx, "VPN Tunnel ID is empty, removing resource from state", map[string]interface{}{"tunnel_id": tunnelID})
+		resp.State.RemoveResource(ctx)
+		return
+	}
+	if projectID == "" {
 		resp.Diagnostics.AddError(
 			"Missing Required Fields",
-			"Project ID and Tunnel ID are required to read the VPN tunnel",
+			"Project ID is required to read the VPN tunnel",
 		)
 		return
 	}

@@ -262,10 +262,15 @@ func (r *VPCResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	projectID := data.ProjectID.ValueString()
 	vpcID := data.Id.ValueString()
 
-	if projectID == "" || vpcID == "" {
+	if data.Id.IsUnknown() || data.Id.IsNull() || vpcID == "" {
+		tflog.Debug(ctx, "VPC ID is empty, removing resource from state", map[string]interface{}{"vpc_id": vpcID})
+		resp.State.RemoveResource(ctx)
+		return
+	}
+	if projectID == "" {
 		resp.Diagnostics.AddError(
 			"Missing Required Fields",
-			"Project ID and VPC ID are required to read the VPC",
+			"Project ID is required to read the VPC",
 		)
 		return
 	}

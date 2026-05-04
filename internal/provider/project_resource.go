@@ -196,26 +196,10 @@ func (r *ProjectResource) Read(ctx context.Context, req resource.ReadRequest, re
 	// Get project ID from state
 	projectID := data.Id.ValueString()
 
-	// If ID is unknown or null, check if this is a new resource (no state) or existing resource (state exists but ID missing)
-	// For new resources (during plan), we can return early
-	// For existing resources, we need the ID to read - if it's missing, that's a state corruption issue
 	if data.Id.IsUnknown() || data.Id.IsNull() || projectID == "" {
-		// Check if we have any other state data that indicates this is an existing resource
-		// If name is set in state, this is likely an existing resource with missing ID (state corruption)
-		if !data.Name.IsUnknown() && !data.Name.IsNull() && data.Name.ValueString() != "" {
-			tflog.Error(ctx, "Project exists in state but ID is missing - this indicates a state corruption issue")
-			resp.Diagnostics.AddError(
-				"Missing Project ID",
-				"Project ID is required to read the project. The resource exists in state but the ID is missing. This indicates a state corruption issue. To fix this, you can:\n"+
-					"1. Find the project ID using: acloud management project list\n"+
-					"2. Import the resource: terraform import arubacloud_project.test <project_id>\n"+
-					"Or manually edit the terraform.tfstate file to add the ID.",
-			)
-			return
-		}
-		// Otherwise, this is likely a new resource during plan - return early
-		tflog.Info(ctx, "Project ID is unknown or null during read, skipping API call (likely new resource).")
-		return // Do not error, as this is expected during plan for new resources
+		tflog.Debug(ctx, "Project ID is empty, removing resource from state", map[string]interface{}{"project_id": projectID})
+		resp.State.RemoveResource(ctx)
+		return
 	}
 
 	// Get project details using the SDK

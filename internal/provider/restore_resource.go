@@ -264,10 +264,16 @@ func (r *RestoreResource) Read(ctx context.Context, req resource.ReadRequest, re
 	backupID := data.BackupID.ValueString()
 	restoreID := data.Id.ValueString()
 
-	if projectID == "" || backupID == "" || restoreID == "" {
+	if data.Id.IsUnknown() || data.Id.IsNull() || restoreID == "" {
+		tflog.Debug(ctx, "Restore ID is empty, removing resource from state", map[string]interface{}{"restore_id": restoreID})
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	if projectID == "" || backupID == "" {
 		resp.Diagnostics.AddError(
 			"Missing Required Fields",
-			"Project ID, Backup ID, and Restore ID are required to read the restore",
+			"Project ID and Backup ID are required to read the restore",
 		)
 		return
 	}

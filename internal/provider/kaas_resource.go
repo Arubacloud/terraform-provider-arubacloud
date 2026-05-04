@@ -558,10 +558,16 @@ func (r *KaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	projectID := data.ProjectID.ValueString()
 	kaasID := data.Id.ValueString()
 
-	if projectID == "" || kaasID == "" {
+	if data.Id.IsUnknown() || data.Id.IsNull() || kaasID == "" {
+		tflog.Debug(ctx, "KaaS ID is empty, removing resource from state", map[string]interface{}{"kaas_id": kaasID})
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	if projectID == "" {
 		resp.Diagnostics.AddError(
 			"Missing Required Fields",
-			"Project ID and KaaS ID are required to read the KaaS cluster",
+			"Project ID is required to read the KaaS cluster",
 		)
 		return
 	}
