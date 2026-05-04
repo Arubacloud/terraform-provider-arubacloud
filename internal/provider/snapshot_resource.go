@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"time"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -589,6 +590,21 @@ func (r *SnapshotResource) Delete(ctx context.Context, req resource.DeleteReques
 
 	// Delete the snapshot using the SDK with retry mechanism
 	// Retry on any error except 404 (Resource Not Found)
+	deletionChecker := func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromStorage().Snapshots().Get(ctx, projectID, snapshotID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "Snapshot", getErr)
+		}
+		if provErr := CheckResponse("get", "Snapshot", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}
+
+	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(
 		ctx,
 		func() error {
@@ -601,6 +617,7 @@ func (r *SnapshotResource) Delete(ctx context.Context, req resource.DeleteReques
 		"Snapshot",
 		snapshotID,
 		r.client.ResourceTimeout,
+		deletionChecker,
 	)
 
 	if err != nil {
@@ -608,6 +625,11 @@ func (r *SnapshotResource) Delete(ctx context.Context, req resource.DeleteReques
 			"Error deleting snapshot",
 			NewTransportError("delete", "Snapshot", err).Error(),
 		)
+		return
+	}
+
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "Snapshot", snapshotID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+		resp.Diagnostics.AddError("Error waiting for Snapshot deletion", waitErr.Error())
 		return
 	}
 

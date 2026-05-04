@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"time"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -919,6 +920,21 @@ func (r *ContainerRegistryResource) Delete(ctx context.Context, req resource.Del
 
 	// Delete the container registry using the SDK with retry mechanism
 	// Retry on any error except 404 (Resource Not Found)
+	deletionChecker := func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromContainer().ContainerRegistry().Get(ctx, projectID, registryID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "ContainerRegistry", getErr)
+		}
+		if provErr := CheckResponse("get", "ContainerRegistry", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}
+
+	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(
 		ctx,
 		func() error {
@@ -931,6 +947,7 @@ func (r *ContainerRegistryResource) Delete(ctx context.Context, req resource.Del
 		"ContainerRegistry",
 		registryID,
 		r.client.ResourceTimeout,
+		deletionChecker,
 	)
 
 	if err != nil {
@@ -938,6 +955,11 @@ func (r *ContainerRegistryResource) Delete(ctx context.Context, req resource.Del
 			"Error deleting container registry",
 			NewTransportError("delete", "Containerregistry", err).Error(),
 		)
+		return
+	}
+
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "ContainerRegistry", registryID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+		resp.Diagnostics.AddError("Error waiting for ContainerRegistry deletion", waitErr.Error())
 		return
 	}
 

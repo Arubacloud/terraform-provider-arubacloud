@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"time"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -481,6 +482,21 @@ func (r *VPCResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 		return
 	}
 
+	deletionChecker := func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromNetwork().VPCs().Get(ctx, projectID, vpcID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "VPC", getErr)
+		}
+		if provErr := CheckResponse("get", "VPC", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}
+
+	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(
 		ctx,
 		func() error {
@@ -493,12 +509,22 @@ func (r *VPCResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 		"VPC",
 		vpcID,
 		r.client.ResourceTimeout,
+		deletionChecker,
 	)
 
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting VPC",
 			NewTransportError("delete", "Vpc", err).Error(),
+		)
+		return
+	}
+
+	// Poll until the VPC is confirmed deleted (async deletion)
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "VPC", vpcID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+		resp.Diagnostics.AddError(
+			"Error waiting for VPC deletion",
+			waitErr.Error(),
 		)
 		return
 	}

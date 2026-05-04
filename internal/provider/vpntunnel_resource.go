@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -847,6 +848,21 @@ func (r *VPNTunnelResource) Delete(ctx context.Context, req resource.DeleteReque
 
 	// Delete the VPN tunnel using the SDK with retry mechanism
 	// Retry on any error except 404 (Resource Not Found)
+	deletionChecker := func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromNetwork().VPNTunnels().Get(ctx, projectID, tunnelID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "VPNTunnel", getErr)
+		}
+		if provErr := CheckResponse("get", "VPNTunnel", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}
+
+	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(
 		ctx,
 		func() error {
@@ -859,6 +875,7 @@ func (r *VPNTunnelResource) Delete(ctx context.Context, req resource.DeleteReque
 		"VPNTunnel",
 		tunnelID,
 		r.client.ResourceTimeout,
+		deletionChecker,
 	)
 
 	if err != nil {
@@ -866,6 +883,11 @@ func (r *VPNTunnelResource) Delete(ctx context.Context, req resource.DeleteReque
 			"Error deleting VPN tunnel",
 			NewTransportError("delete", "Vpntunnel", err).Error(),
 		)
+		return
+	}
+
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "VPNTunnel", tunnelID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+		resp.Diagnostics.AddError("Error waiting for VPNTunnel deletion", waitErr.Error())
 		return
 	}
 

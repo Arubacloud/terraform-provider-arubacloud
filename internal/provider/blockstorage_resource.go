@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"time"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -689,6 +690,21 @@ func (r *BlockStorageResource) Delete(ctx context.Context, req resource.DeleteRe
 
 	// Delete the block storage using the SDK with retry mechanism
 	// Retry on any error except 404 (Resource Not Found)
+	deletionChecker := func(ctx context.Context) (bool, error) {
+		getResp, getErr := r.client.Client.FromStorage().Volumes().Get(ctx, projectID, volumeID, nil)
+		if getErr != nil {
+			return false, NewTransportError("get", "BlockStorage", getErr)
+		}
+		if provErr := CheckResponse("get", "BlockStorage", getResp); provErr != nil {
+			if IsNotFound(provErr) {
+				return true, nil
+			}
+			return false, provErr
+		}
+		return false, nil
+	}
+
+	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(
 		ctx,
 		func() error {
@@ -701,12 +717,22 @@ func (r *BlockStorageResource) Delete(ctx context.Context, req resource.DeleteRe
 		"BlockStorage",
 		volumeID,
 		r.client.ResourceTimeout,
+		deletionChecker,
 	)
 
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting block storage",
 			NewTransportError("delete", "Blockstorage", err).Error(),
+		)
+		return
+	}
+
+	// Poll until the block storage volume is confirmed deleted (async deletion)
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "BlockStorage", volumeID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+		resp.Diagnostics.AddError(
+			"Error waiting for BlockStorage deletion",
+			waitErr.Error(),
 		)
 		return
 	}
