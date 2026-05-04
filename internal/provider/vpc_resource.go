@@ -163,6 +163,11 @@ func (r *VPCResource) Create(ctx context.Context, req resource.CreateRequest, re
 		if response.Data.Metadata.ID != nil {
 			data.Id = types.StringValue(*response.Data.Metadata.ID)
 		}
+		if response.Data.Metadata.URI != nil {
+			data.Uri = types.StringValue(*response.Data.Metadata.URI)
+		} else {
+			data.Uri = types.StringNull()
+		}
 	} else {
 		resp.Diagnostics.AddError(
 			"Invalid API Response",
