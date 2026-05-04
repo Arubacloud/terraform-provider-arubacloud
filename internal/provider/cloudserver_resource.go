@@ -472,6 +472,52 @@ func (r *CloudServerResource) Read(ctx context.Context, req resource.ReadRequest
 		return
 	}
 
+	// Resume provisioning wait if the resource is still in a transitional state.
+	if response.Data.Status.State != nil {
+		switch st := *response.Data.Status.State; {
+		case isFailedState(st):
+			resp.Diagnostics.AddError(
+				"Resource in Failed State",
+				fmt.Sprintf("CloudServer %q reached a terminal failure state (%s) and will not recover on its own. "+
+					"Use `terraform apply -replace=<address>` to recreate it.", serverID, st),
+			)
+			return
+		case IsCreatingState(st):
+			checker := func(ctx context.Context) (string, error) {
+				getResp, err := r.client.Client.FromCompute().CloudServers().Get(ctx, projectID, serverID, nil)
+				if err != nil {
+					return "", err
+				}
+				if getResp != nil && getResp.IsError() {
+					if getResp.Error != nil && getResp.Error.Title != nil {
+						return "", fmt.Errorf("cloud server in error state: %s", *getResp.Error.Title)
+					}
+					return "", fmt.Errorf("cloud server API returned error response")
+				}
+				if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
+					return *getResp.Data.Status.State, nil
+				}
+				return "InCreation", nil
+			}
+			if err := WaitForResourceActive(ctx, checker, "CloudServer", serverID, r.client.ResourceTimeout); err != nil {
+				ReportWaitResult(&resp.Diagnostics, err, "CloudServer", serverID)
+				resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+				return
+			}
+			// Re-read to get the final active state.
+			response, err = r.client.Client.FromCompute().CloudServers().Get(ctx, projectID, serverID, nil)
+			if err != nil {
+				resp.Diagnostics.AddError("Error reading CloudServer after provisioning wait",
+					NewTransportError("read", "Cloudserver", err).Error())
+				return
+			}
+			if response == nil || response.Data == nil {
+				resp.State.RemoveResource(ctx)
+				return
+			}
+		}
+	}
+
 	server := response.Data
 
 	// Extract original nested models to preserve fields not returned by API

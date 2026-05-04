@@ -260,6 +260,51 @@ func (r *VpcPeeringRouteResource) Read(ctx context.Context, req resource.ReadReq
 		return
 	}
 
+	// If the resource is still provisioning (e.g. after a Create timeout that saved
+	// partial state), resume the wait so the next terraform apply reconciles correctly.
+	if response != nil && response.Data != nil && response.Data.Status.State != nil {
+		switch st := *response.Data.Status.State; {
+		case isFailedState(st):
+			resp.Diagnostics.AddError(
+				"Resource in Failed State",
+				fmt.Sprintf("VpcPeeringRoute %q reached a terminal failure state (%s) and will not recover on its own. "+
+					"Use `terraform apply -replace=<address>` to recreate it.", routeID, st),
+			)
+			return
+		case IsCreatingState(st):
+			checker := func(ctx context.Context) (string, error) {
+				getResp, err := r.client.Client.FromNetwork().VPCPeeringRoutes().Get(ctx, projectID, vpcID, peeringID, routeID, nil)
+				if err != nil {
+					return "", err
+				}
+				if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
+					return *getResp.Data.Status.State, nil
+				}
+				return "Unknown", nil
+			}
+			if err := WaitForResourceActive(ctx, checker, "VpcPeeringRoute", routeID, r.client.ResourceTimeout); err != nil {
+				ReportWaitResult(&resp.Diagnostics, err, "VpcPeeringRoute", routeID)
+				resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+				return
+			}
+			// Re-read to get the final active state.
+			response, err = r.client.Client.FromNetwork().VPCPeeringRoutes().Get(ctx, projectID, vpcID, peeringID, routeID, nil)
+			if err != nil {
+				resp.Diagnostics.AddError("Error reading VpcPeeringRoute after provisioning wait",
+					NewTransportError("read", "Vpcpeeringroute", err).Error())
+				return
+			}
+			if response != nil && response.IsError() && response.Error != nil {
+				if response.StatusCode == 404 {
+					resp.State.RemoveResource(ctx)
+					return
+				}
+				resp.Diagnostics.AddError("API Error", "Failed to read VPC peering route after provisioning wait")
+				return
+			}
+		}
+	}
+
 	if response != nil && response.Data != nil {
 		route := response.Data
 

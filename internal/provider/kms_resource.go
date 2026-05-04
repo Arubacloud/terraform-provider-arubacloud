@@ -281,6 +281,51 @@ func (r *KMSResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 		return
 	}
 
+	// If the resource is still provisioning (e.g. after a Create timeout that saved
+	// partial state), resume the wait so the next terraform apply reconciles correctly.
+	if response.Data.Status.State != nil {
+		switch st := *response.Data.Status.State; {
+		case isFailedState(st):
+			resp.Diagnostics.AddError(
+				"Resource in Failed State",
+				fmt.Sprintf("KMS %q reached a terminal failure state (%s) and will not recover on its own. "+
+					"Use `terraform apply -replace=<address>` to recreate it.", kmsID, st),
+			)
+			return
+		case IsCreatingState(st):
+			checker := func(ctx context.Context) (string, error) {
+				getResp, err := r.client.Client.FromSecurity().KMS().Get(ctx, projectID, kmsID, nil)
+				if err != nil {
+					return "", err
+				}
+				if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
+					return *getResp.Data.Status.State, nil
+				}
+				return "Unknown", nil
+			}
+			if err := WaitForResourceActive(ctx, checker, "KMS", kmsID, r.client.ResourceTimeout); err != nil {
+				ReportWaitResult(&resp.Diagnostics, err, "KMS", kmsID)
+				resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+				return
+			}
+			// Re-read to get the final active state.
+			response, err = r.client.Client.FromSecurity().KMS().Get(ctx, projectID, kmsID, nil)
+			if err != nil {
+				resp.Diagnostics.AddError("Error reading KMS after provisioning wait",
+					NewTransportError("read", "Kms", err).Error())
+				return
+			}
+			if apiErr := CheckResponse("read", "Kms", response); apiErr != nil {
+				if IsNotFound(apiErr) {
+					resp.State.RemoveResource(ctx)
+					return
+				}
+				resp.Diagnostics.AddError("API Error", apiErr.Error())
+				return
+			}
+		}
+	}
+
 	if response != nil && response.Data != nil {
 		kms := response.Data
 		if kms.Metadata.ID != nil {

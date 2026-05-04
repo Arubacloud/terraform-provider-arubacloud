@@ -513,6 +513,51 @@ func (r *DBaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp
 		return
 	}
 
+	// If the resource is still provisioning (e.g. after a Create timeout that saved
+	// partial state), resume the wait so the next terraform apply reconciles correctly.
+	if response.Data.Status.State != nil {
+		switch st := *response.Data.Status.State; {
+		case isFailedState(st):
+			resp.Diagnostics.AddError(
+				"Resource in Failed State",
+				fmt.Sprintf("DBaaS %q reached a terminal failure state (%s) and will not recover on its own. "+
+					"Use `terraform apply -replace=<address>` to recreate it.", dbaasID, st),
+			)
+			return
+		case IsCreatingState(st):
+			checker := func(ctx context.Context) (string, error) {
+				getResp, err := r.client.Client.FromDatabase().DBaaS().Get(ctx, projectID, dbaasID, nil)
+				if err != nil {
+					return "", err
+				}
+				if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
+					return *getResp.Data.Status.State, nil
+				}
+				return "Unknown", nil
+			}
+			if err := WaitForResourceActive(ctx, checker, "DBaaS", dbaasID, r.client.ResourceTimeout); err != nil {
+				ReportWaitResult(&resp.Diagnostics, err, "DBaaS", dbaasID)
+				resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+				return
+			}
+			// Re-read to get the final active state.
+			response, err = r.client.Client.FromDatabase().DBaaS().Get(ctx, projectID, dbaasID, nil)
+			if err != nil {
+				resp.Diagnostics.AddError("Error reading DBaaS after provisioning wait",
+					NewTransportError("read", "Dbaas", err).Error())
+				return
+			}
+			if apiErr := CheckResponse("read", "Dbaas", response); apiErr != nil {
+				if IsNotFound(apiErr) {
+					resp.State.RemoveResource(ctx)
+					return
+				}
+				resp.Diagnostics.AddError("API Error", apiErr.Error())
+				return
+			}
+		}
+	}
+
 	if response != nil && response.Data != nil {
 		dbaas := response.Data
 

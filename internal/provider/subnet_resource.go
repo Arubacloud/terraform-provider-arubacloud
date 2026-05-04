@@ -545,6 +545,51 @@ func (r *SubnetResource) Read(ctx context.Context, req resource.ReadRequest, res
 		return
 	}
 
+	// If the resource is still provisioning (e.g. after a Create timeout that saved
+	// partial state), resume the wait so the next terraform apply reconciles correctly.
+	if response.Data.Status.State != nil {
+		switch st := *response.Data.Status.State; {
+		case isFailedState(st):
+			resp.Diagnostics.AddError(
+				"Resource in Failed State",
+				fmt.Sprintf("Subnet %q reached a terminal failure state (%s) and will not recover on its own. "+
+					"Use `terraform apply -replace=<address>` to recreate it.", subnetID, st),
+			)
+			return
+		case IsCreatingState(st):
+			checker := func(ctx context.Context) (string, error) {
+				getResp, err := r.client.Client.FromNetwork().Subnets().Get(ctx, projectID, vpcID, subnetID, nil)
+				if err != nil {
+					return "", err
+				}
+				if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
+					return *getResp.Data.Status.State, nil
+				}
+				return "Unknown", nil
+			}
+			if err := WaitForResourceActive(ctx, checker, "Subnet", subnetID, r.client.ResourceTimeout); err != nil {
+				ReportWaitResult(&resp.Diagnostics, err, "Subnet", subnetID)
+				resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+				return
+			}
+			// Re-read to get the final active state.
+			response, err = r.client.Client.FromNetwork().Subnets().Get(ctx, projectID, vpcID, subnetID, nil)
+			if err != nil {
+				resp.Diagnostics.AddError("Error reading Subnet after provisioning wait",
+					NewTransportError("read", "Subnet", err).Error())
+				return
+			}
+			if apiErr := CheckResponse("read", "Subnet", response); apiErr != nil {
+				if IsNotFound(apiErr) {
+					resp.State.RemoveResource(ctx)
+					return
+				}
+				resp.Diagnostics.AddError("API Error", apiErr.Error())
+				return
+			}
+		}
+	}
+
 	if response != nil && response.Data != nil {
 		subnet := response.Data
 

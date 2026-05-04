@@ -36,6 +36,17 @@ func IsWaitTimeout(err error) bool {
 	return errors.As(err, &t)
 }
 
+// IsCreatingState reports whether a resource status string indicates the resource
+// is still being provisioned. Read() uses this to resume WaitForResourceActive
+// after a Create timeout saved partial state.
+func IsCreatingState(status string) bool {
+	switch status {
+	case "InCreation", "Creating", "Pending", "Provisioning":
+		return true
+	}
+	return false
+}
+
 // isFailedState returns true for terminal failure states from which the resource
 // will never recover on its own.
 func isFailedState(state string) bool {
