@@ -28,7 +28,7 @@ Manage your [ArubaCloud](https://arubacloud.com/) infrastructure with Terraform 
 ## Requirements
 
 - [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.0
-- [Go](https://go.dev/doc/install) >= 1.22 (only needed to build from source)
+- [Go](https://go.dev/doc/install) >= 1.24 (only needed to build from source)
 
 ## Installation
 
@@ -106,7 +106,7 @@ make              # fmt → lint → test → build → generate
 
 ## Develop the Provider
 
-- Install Go >= 1.22
+- Install Go >= 1.24
 - Run `make test` to run unit tests
 - Run `make testacc` to run acceptance tests (requires `TF_ACC=1`, creates real resources)
 - Run `make lint` to run the linter (auto-installs `golangci-lint` if needed)
