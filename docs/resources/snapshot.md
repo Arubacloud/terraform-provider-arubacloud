@@ -31,7 +31,7 @@ The following arguments are supported:
 #### Required
 
 - `billing_period` (String) Billing cycle. Accepted values: `Hour`, `Month`, `Year`.
-- `location` (String) Region identifier (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions). (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). (Immutable — changing this value forces the resource to be destroyed and re-created.)
 - `name` (String) Display name for the snapshot.
 - `project_id` (String) ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)
 - `volume_uri` (String) URI of the block storage volume this snapshot is taken from. Reference the `uri` attribute of an `arubacloud_blockstorage` resource (e.g., `/projects/{project_id}/providers/Aruba.Storage/volumes/{volume_id}`). (Immutable — changing this value forces the resource to be destroyed and re-created.)

@@ -16,7 +16,7 @@ Manages a scheduled backup of an `arubacloud_blockstorage` volume. Backups are s
 ```terraform
 resource "arubacloud_backup" "basic" {
   name          = "example-backup"
-  location      = "de-1"
+  location      = "ITBG-Bergamo"
   project_id    = "project-123"
   type          = "full"
   volume_id     = "volume-123"
@@ -37,7 +37,7 @@ The following arguments are supported:
 
 #### Required
 
-- `location` (String) Region identifier (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).
+- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
 - `name` (String) Display name for the backup.
 - `project_id` (String) ID of the project that owns this resource.
 - `type` (String) Backup type. Accepted values: `Full`, `Incremental`.

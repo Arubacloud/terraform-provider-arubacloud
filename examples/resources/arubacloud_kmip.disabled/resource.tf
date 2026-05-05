@@ -16,7 +16,7 @@ resource "arubacloud_project" "example" {
 resource "arubacloud_kms" "example" {
   name           = "production-kms"
   project_id     = arubacloud_project.example.id
-  location       = "it-mil1"
+  location       = "ITBG-Bergamo"
   billing_period = "monthly"
   tags           = ["production", "kmip"]
 }

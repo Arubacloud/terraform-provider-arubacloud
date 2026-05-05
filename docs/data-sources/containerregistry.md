@@ -74,7 +74,7 @@ In addition to all arguments above, the following attributes are exported:
 - `billing_period` (String) Billing cycle. Accepted values: `Hour`, `Month`, `Year`.
 - `block_storage_uri_ref` (String) URI of the block storage volume backing the registry image store.
 - `concurrent_users_flavor` (String) Concurrency tier for simultaneous push/pull sessions (`Small`, `Medium`, `HighPerf`).
-- `location` (String) Region identifier (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).
+- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
 - `name` (String) Display name for the container registry.
 - `public_ip_uri_ref` (String) URI of the Elastic IP that exposes the registry endpoint.
 - `security_group_uri_ref` (String) URI of the security group controlling registry traffic.

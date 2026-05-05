@@ -60,7 +60,7 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `direction` (String) Traffic direction the rule applies to. Accepted values: `Inbound`, `Outbound`.
-- `location` (String) Region identifier for the resource (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).
+- `location` (String) Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
 - `name` (String) Display name for the security rule.
 - `port` (String) Port or port range for TCP/UDP (e.g., `80` or `8080-8090`). Use `0` for ICMP or ANY.
 - `protocol` (String) IP protocol. Accepted values: `TCP`, `UDP`, `ICMP`, `ANY`.

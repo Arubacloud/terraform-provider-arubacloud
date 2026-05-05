@@ -73,7 +73,7 @@ In addition to all arguments above, the following attributes are exported:
 - `billing_period` (String) Billing cycle. Accepted values: `Hour`, `Month`, `Year`.
 - `bootable` (Boolean) Whether this volume can be used as a boot volume for an `arubacloud_cloudserver`. Must be `true` when `image` is set.
 - `image` (String) Image ID to use when creating a bootable volume. Required when `bootable` is `true`. See the [available images](https://api.arubacloud.com/docs/metadata/#cloud-server-bootvolume).
-- `location` (String) Region identifier (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).
+- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
 - `name` (String) Display name for the block storage volume.
 - `size_gb` (Number) Size of the block storage volume in GiB. Must be a positive integer.
 - `snapshot_id` (String) ID of the snapshot this volume was created from, if any.

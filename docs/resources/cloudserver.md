@@ -50,13 +50,13 @@ The following arguments are supported:
 
 #### Required
 
-- `location` (String) Region identifier for the resource (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).
+- `location` (String) Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
 - `name` (String) Display name for the CloudServer.
 - `network` (Attributes) Network configuration for the CloudServer. (see [below for nested schema](#nestedatt--network))
 - `project_id` (String) ID of the project that owns this resource.
 - `settings` (Attributes) Compute and access settings for the CloudServer. (see [below for nested schema](#nestedatt--settings))
 - `storage` (Attributes) Storage configuration for the CloudServer. (see [below for nested schema](#nestedatt--storage))
-- `zone` (String) Availability zone within the region (e.g., `ITBG-1`). See [available zones](https://api.arubacloud.com/docs/metadata/#regions).
+- `zone` (String) Availability zone within the region (e.g., `ITBG-1`). See [available zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
 
 #### Optional
 

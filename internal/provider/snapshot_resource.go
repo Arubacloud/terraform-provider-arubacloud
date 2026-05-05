@@ -66,7 +66,7 @@ func (r *SnapshotResource) Schema(ctx context.Context, req resource.SchemaReques
 				},
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "Region identifier (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions). (Immutable — changing this value forces the resource to be destroyed and re-created.)",
+				MarkdownDescription: "Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
 				// Validators removed for v1.16.1 compatibility
 				PlanModifiers: []planmodifier.String{

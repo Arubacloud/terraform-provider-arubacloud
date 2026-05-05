@@ -77,7 +77,7 @@ In addition to all arguments above, the following attributes are exported:
 - `elastic_ip_uri_ref` (String) Computed by the API. URI reference to the Elastic IP attached to the DBaaS cluster, if any.
 - `engine_id` (String) Database engine type and version identifier (e.g., `mysql-8.0`, `postgresql-15`).
 - `flavor` (String) Compute flavour for the DBaaS cluster nodes (e.g., `DBO2A4`).
-- `location` (String) Region identifier (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).
+- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
 - `name` (String) Display name for the DBaaS cluster.
 - `security_group_uri_ref` (String) Computed by the API. URI reference to the Security Group attached to the DBaaS cluster.
 - `storage_size_gb` (Number) Computed by the API. Storage size in GB allocated to the DBaaS instance.

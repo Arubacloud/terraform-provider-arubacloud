@@ -66,7 +66,7 @@ In addition to all arguments above, the following attributes are exported:
 - `dhcp_range_start` (String) First IP address in the DHCP allocation range.
 - `dhcp_routes` (Attributes List) Static routes distributed to DHCP clients. (see [below for nested schema](#nestedatt--dhcp_routes))
 - `dns` (List of String) List of DNS server IP addresses distributed to DHCP clients.
-- `location` (String) Region identifier for the resource (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).
+- `location` (String) Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
 - `name` (String) Display name for the subnet.
 - `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
 - `type` (String) Subnet type. Accepted values: `Basic` (no custom CIDR), `Advanced` (requires the `network` block).

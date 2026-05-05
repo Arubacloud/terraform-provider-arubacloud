@@ -47,7 +47,7 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `billing_period` (String) Billing cycle. Accepted values: `Hour`, `Month`, `Year`.
-- `location` (String) Region identifier (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).
+- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
 - `name` (String) Display name for the snapshot.
 - `volume_id` (String) ID of the block storage volume this snapshot was taken from.
 

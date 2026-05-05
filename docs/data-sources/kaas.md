@@ -86,7 +86,7 @@ In addition to all arguments above, the following attributes are exported:
 - `ha` (Boolean) Whether the control plane is deployed in high-availability mode.
 - `kubeconfig` (String, Sensitive) Computed by the API. Kubeconfig YAML for kubectl access. Write-only — this value is sent to the API but is not returned in subsequent read responses.
 - `kubernetes_version` (String) Kubernetes version string (e.g., `1.28`). Available versions are listed in the ArubaCloud metadata API.
-- `location` (String) Region identifier (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).
+- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
 - `management_ip` (String) Computed by the API. Management IP address of the cluster control plane.
 - `name` (String) Display name for the KaaS cluster.
 - `node_cidr_address` (String) Node CIDR address in CIDR notation.

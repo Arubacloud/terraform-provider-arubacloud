@@ -81,7 +81,7 @@ The following arguments are supported:
 
 #### Required
 
-- `location` (String) Region identifier (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).
+- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
 - `name` (String) Display name for the KaaS cluster.
 - `network` (Attributes) Network configuration for the KaaS cluster. (see [below for nested schema](#nestedatt--network))
 - `project_id` (String) ID of the project that owns this resource.

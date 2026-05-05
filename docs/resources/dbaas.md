@@ -58,7 +58,7 @@ The following arguments are supported:
 
 - `engine_id` (String) Database engine type and version identifier (e.g., `mysql-8.0` for MySQL 8.0, `postgresql-15` for PostgreSQL 15). See the [available engines](https://api.arubacloud.com/docs/metadata/#dbaas-engines).
 - `flavor` (String) Compute flavour for the DBaaS cluster nodes. See [available flavours](https://api.arubacloud.com/docs/metadata/#dbaas-flavors). For example, `DBO2A4` means 2 vCPU and 4 GB RAM.
-- `location` (String) Region identifier (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).
+- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
 - `name` (String) Display name for the DBaaS cluster.
 - `network` (Attributes) Network configuration for the DBaaS instance. All URI references are immutable after creation. (see [below for nested schema](#nestedatt--network))
 - `project_id` (String) ID of the project that owns this resource.

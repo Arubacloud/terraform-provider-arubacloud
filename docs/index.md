@@ -73,7 +73,7 @@ resource "arubacloud_project" "quickstart" {
 # 2. SSH key pair â€” used for passwordless access to the CloudServer.
 resource "arubacloud_keypair" "quickstart" {
   name       = "quickstart-keypair"
-  location   = "it-mil1" # Milan region; any valid region string works here
+  location   = "ITBG-Bergamo" # Location (region); see https://api.arubacloud.com/docs/metadata/#location-and-data-center
   project_id = arubacloud_project.quickstart.id
   # Replace with your own public key.
   value = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC3... user@host"
@@ -83,7 +83,7 @@ resource "arubacloud_keypair" "quickstart" {
 # 3. VPC â€” isolated private network for all resources in this project.
 resource "arubacloud_vpc" "quickstart" {
   name       = "quickstart-vpc"
-  location   = "it-mil1"
+  location   = "ITBG-Bergamo"
   project_id = arubacloud_project.quickstart.id
   tags       = ["quickstart"]
 }
@@ -92,7 +92,7 @@ resource "arubacloud_vpc" "quickstart" {
 #    The Advanced type enables DHCP, which is required for CloudServer attachment.
 resource "arubacloud_subnet" "quickstart" {
   name       = "quickstart-subnet"
-  location   = "it-mil1"
+  location   = "ITBG-Bergamo"
   project_id = arubacloud_project.quickstart.id
   vpc_id     = arubacloud_vpc.quickstart.id
   type       = "Advanced" # Must be "Advanced" to support DHCP
@@ -119,7 +119,7 @@ resource "arubacloud_subnet" "quickstart" {
 # 5. Security group â€” a named container for firewall rules attached to the VPC.
 resource "arubacloud_securitygroup" "quickstart" {
   name       = "quickstart-sg"
-  location   = "it-mil1"
+  location   = "ITBG-Bergamo"
   project_id = arubacloud_project.quickstart.id
   vpc_id     = arubacloud_vpc.quickstart.id
   tags       = ["quickstart"]
@@ -129,7 +129,7 @@ resource "arubacloud_securitygroup" "quickstart" {
 #    Add additional arubacloud_securityrule resources for other ports (e.g. 80, 443).
 resource "arubacloud_securityrule" "ssh_inbound" {
   name              = "quickstart-allow-ssh"
-  location          = "it-mil1"
+  location          = "ITBG-Bergamo"
   project_id        = arubacloud_project.quickstart.id
   vpc_id            = arubacloud_vpc.quickstart.id
   security_group_id = arubacloud_securitygroup.quickstart.id
@@ -151,8 +151,8 @@ resource "arubacloud_securityrule" "ssh_inbound" {
 resource "arubacloud_blockstorage" "quickstart_boot" {
   name           = "quickstart-boot-disk"
   project_id     = arubacloud_project.quickstart.id
-  location       = "it-mil1"
-  zone           = "it-mil1-1" # Zone must match the CloudServer zone below
+  location       = "ITBG-Bergamo"
+  zone           = "ITBG-1" # Zone (datacenter) — must match the CloudServer zone below
   size_gb        = 50
   billing_period = "Hour"
   type           = "Performance" # Performance type recommended for boot volumes
@@ -166,9 +166,9 @@ resource "arubacloud_blockstorage" "quickstart_boot" {
 #    https://api.arubacloud.com/docs/metadata/#cloudserver-flavors for the full list.
 resource "arubacloud_cloudserver" "quickstart" {
   name       = "quickstart-server"
-  location   = "it-mil1"
+  location   = "ITBG-Bergamo"
   project_id = arubacloud_project.quickstart.id
-  zone       = "it-mil1-1" # Must match the boot-volume zone above
+  zone       = "ITBG-1" # Zone (datacenter) — must match the boot-volume zone above
   tags       = ["quickstart", "compute"]
 
   network = {

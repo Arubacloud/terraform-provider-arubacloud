@@ -34,7 +34,7 @@ The following arguments are supported:
 - `billing_period` (String) Billing cycle. Accepted values: `Hour`, `Month`, `Year`.
 - `database` (String) Name of the logical database within the DBaaS cluster to back up.
 - `dbaas_id` (String) ID of the DBaaS cluster or database to back up.
-- `location` (String) Region identifier (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).
+- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
 - `name` (String) Display name for the database backup.
 - `project_id` (String) ID of the project that owns this resource.
 - `zone` (String) Availability zone within the region where the backup is stored.

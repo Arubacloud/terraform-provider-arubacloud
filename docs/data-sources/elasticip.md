@@ -54,7 +54,7 @@ In addition to all arguments above, the following attributes are exported:
 
 - `address` (String) Computed by the API. Public IPv4 address allocated for this Elastic IP.
 - `billing_period` (String) Billing cycle for the resource. Accepted values: `Hour`, `Month`, `Year`.
-- `location` (String) Region identifier for the resource (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).
+- `location` (String) Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
 - `name` (String) Display name for the Elastic IP.
 - `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
 

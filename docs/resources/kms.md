@@ -38,7 +38,7 @@ The following arguments are supported:
 #### Optional
 
 - `billing_period` (String) Billing cycle. Accepted values: `Hour`, `Month`, `Year`.
-- `location` (String) Region identifier (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).
+- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
 - `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
 
 ### Attributes Reference

@@ -85,7 +85,7 @@ func (r *CloudServerResource) Schema(ctx context.Context, req resource.SchemaReq
 				Required:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "Region identifier for the resource (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).",
+				MarkdownDescription: "Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).",
 				Required:            true,
 			},
 			"project_id": schema.StringAttribute{
@@ -93,7 +93,7 @@ func (r *CloudServerResource) Schema(ctx context.Context, req resource.SchemaReq
 				Required:            true,
 			},
 			"zone": schema.StringAttribute{
-				MarkdownDescription: "Availability zone within the region (e.g., `ITBG-1`). See [available zones](https://api.arubacloud.com/docs/metadata/#regions).",
+				MarkdownDescription: "Availability zone within the region (e.g., `ITBG-1`). See [available zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).",
 				Required:            true,
 			},
 			"tags": schema.ListAttribute{

@@ -17,7 +17,7 @@ func TestAccBackupResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccBackupResourceConfig("test-backup", "de-1", "full", 30),
+				Config: testAccBackupResourceConfig("test-backup", "ITBG-Bergamo", "full", 30),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_backup.test",
@@ -27,7 +27,7 @@ func TestAccBackupResource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"arubacloud_backup.test",
 						tfjsonpath.New("location"),
-						knownvalue.StringExact("de-1"),
+						knownvalue.StringExact("ITBG-Bergamo"),
 					),
 					statecheck.ExpectKnownValue(
 						"arubacloud_backup.test",
@@ -54,7 +54,7 @@ func TestAccBackupResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccBackupResourceConfig("test-backup-updated", "de-1", "incremental", 60),
+				Config: testAccBackupResourceConfig("test-backup-updated", "ITBG-Bergamo", "incremental", 60),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_backup.test",
@@ -84,7 +84,7 @@ func TestAccBackupResource_WithTags(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccBackupResourceConfigWithTags("test-backup-tags", "de-1"),
+				Config: testAccBackupResourceConfigWithTags("test-backup-tags", "ITBG-Bergamo"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_backup.test",
