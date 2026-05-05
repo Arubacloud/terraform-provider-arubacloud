@@ -3,45 +3,42 @@
 [![GitHub release](https://img.shields.io/github/tag/arubacloud/terraform-provider-arubacloud.svg?label=release)](https://github.com/arubacloud/terraform-provider-arubacloud/releases/latest)
 [![Tests](https://github.com/arubacloud/terraform-provider-arubacloud/actions/workflows/test.yml/badge.svg)](https://github.com/arubacloud/terraform-provider-arubacloud/actions/workflows/test.yml)
 [![Release](https://github.com/arubacloud/terraform-provider-arubacloud/actions/workflows/release.yml/badge.svg)](https://github.com/arubacloud/terraform-provider-arubacloud/actions/workflows/release.yml)
-[![Coverage](https://img.shields.io/badge/coverage-9.9%25-green)](TEST_RESULTS.md)
 
-Manage your ArubaCloud infrastructure with Terraform! This provider enables you to create and manage Cloud Servers, VPCs, Kubernetes clusters, DBaaS instances, and more using infrastructure as code.
+Manage your [ArubaCloud](https://arubacloud.com/) infrastructure with Terraform — a European cloud platform offering virtual machines, managed Kubernetes, managed databases, private networking, block storage, and security services.
 
-## Features
+## Resources
 
-- **Compute**: Cloud Servers, SSH keypairs, Elastic IPs
-- **Storage**: Block Storage, Snapshots, Backups
-- **Networking**: VPCs, Subnets, Security Groups, VPN, VPC Peering
-- **Kubernetes**: KaaS (Kubernetes as a Service)
-- **Database**: DBaaS with MySQL/PostgreSQL support
-- **Container**: Container Registry
-- **Security**: Key Management Service (KMS)
-
-> **Note**: This is the initial v0.0.1 release. While all resources are functional and tested with real infrastructure, comprehensive automated testing is ongoing. Please report any issues on GitHub.
+| Category | Resources & Data Sources |
+|---|---|
+| **Compute** | `arubacloud_cloudserver`, `arubacloud_keypair`, `arubacloud_elasticip` |
+| **Network** | `arubacloud_vpc`, `arubacloud_subnet`, `arubacloud_securitygroup`, `arubacloud_securityrule`, `arubacloud_vpcpeering`, `arubacloud_vpcpeeringroute`, `arubacloud_vpntunnel`, `arubacloud_vpnroute` |
+| **Storage** | `arubacloud_blockstorage`, `arubacloud_snapshot`, `arubacloud_backup`, `arubacloud_restore` |
+| **Container** | `arubacloud_kaas`, `arubacloud_containerregistry` |
+| **Database** | `arubacloud_dbaas`, `arubacloud_database`, `arubacloud_databasegrant`, `arubacloud_databasebackup`, `arubacloud_dbaasuser` |
+| **Management** | `arubacloud_project`, `arubacloud_schedulejob` |
+| **Security** | `arubacloud_kms` |
 
 ## Documentation
 
-- [Terraform Registry Documentation](https://registry.terraform.io/providers/arubacloud/arubacloud/latest/docs) (after publication)
-- [Examples](examples/) - Complete working examples for all resources
-- [Generated Docs](docs/) - Detailed documentation for all resources and data sources
+- [Terraform Registry](https://registry.terraform.io/providers/Arubacloud/arubacloud/latest/docs) — full provider reference
+- [examples/](examples/) — complete working examples for all resources
+- [docs/](docs/) — generated reference for all resources and data sources
 
 ## Requirements
 
 - [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.0
-- [Go](https://go.dev/doc/install) >= 1.24.x (only needed to build the provider from source)
+- [Go](https://go.dev/doc/install) >= 1.22 (only needed to build from source)
 
 ## Installation
 
-### Via Terraform Registry (Recommended)
-
-Once published, the provider will be automatically downloaded when you run `terraform init`:
+Add the provider to your Terraform configuration and run `terraform init`:
 
 ```hcl
 terraform {
   required_providers {
     arubacloud = {
       source  = "arubacloud/arubacloud"
-      version = "~> 0.0.1"
+      version = ">= 0.1.3"
     }
   }
 }
@@ -52,32 +49,7 @@ provider "arubacloud" {
 }
 ```
 
-## Quick Start
-
-### 1. Configure the provider
-
-To use the provider, configure it with your ArubaCloud credentials:
-
-```hcl
-terraform {
-  required_providers {
-    arubacloud = {
-      source  = "arubacloud/arubacloud"
-      version = "~> 0.0.1"
-    }
-  }
-}
-
-provider "arubacloud" {
-  api_key    = "YOUR_API_KEY"
-  api_secret = "YOUR_API_SECRET"
-}
-```
-
-You can also use environment variables:
-
-- **ARUBACLOUD_API_KEY** - Your ArubaCloud API key
-- **ARUBACLOUD_API_SECRET** - Your ArubaCloud API secret
+Credentials can also be supplied via environment variables:
 
 ```bash
 export ARUBACLOUD_API_KEY="your-api-key"
@@ -85,12 +57,9 @@ export ARUBACLOUD_API_SECRET="your-api-secret"
 terraform plan
 ```
 
-### 2. How to start?
+## Quick Start
 
-Have a look to [examples](examples/test/)
-
-
-### 3. Apply the configuration
+A full end-to-end example (project → keypair → VPC → subnet → security group → boot disk → CloudServer) is in [`examples/provider/quick-start.tf`](examples/provider/quick-start.tf).
 
 ```bash
 terraform init
@@ -98,9 +67,11 @@ terraform plan
 terraform apply
 ```
 
+See [`examples/test/`](examples/test/) for more complete scenario-based examples.
+
 ## Debugging & Logging
 
-The provider can emit full HTTP request/response traces to help diagnose API errors. Two filters must both be open before any trace output appears:
+The provider can emit full HTTP request/response traces to help diagnose API errors. Two independent filters must both be open before any trace output appears:
 
 | Filter | How to set |
 |---|---|
@@ -116,128 +87,54 @@ provider "arubacloud" {
 ```
 
 ```bash
-# Both env vars and terraform must be on the same command line (or exported first).
 TF_LOG=DEBUG TF_LOG_PATH=./trace.log terraform plan
 ```
 
-Each outbound HTTP request (method, URL, headers, body) and response (status, headers, body) is logged. The `Authorization` header is auto-redacted as `Bearer [REDACTED]`. Other body content is not redacted — do not commit trace files to version control.
+The `Authorization` header is auto-redacted as `Bearer [REDACTED]`. Other body content is not redacted — **do not commit trace files to version control**.
 
-For subsystem-scoped output (SDK HTTP only, no other provider noise) and more detail, see the [Logging & Troubleshooting](docs/index.md#logging--troubleshooting) section in the provider docs.
+For more details see the [Logging & Troubleshooting](docs/index.md#logging--troubleshooting) section.
 
-## Build the provider
-
-Clone repository to your workspace:
+## Build the Provider
 
 ```bash
 git clone https://github.com/arubacloud/terraform-provider-arubacloud.git
 cd terraform-provider-arubacloud
+make build        # build provider binary
+make              # fmt → lint → test → build → generate
 ```
 
-Build the provider:
-```bash
-make build
-```
+## Develop the Provider
 
-Or run all checks (format, lint, test, build, generate):
-```bash
-make
-```
-
-## Develop the provider
-
-- Install Go >= 1.24
-- Run `make build` to build the provider binary
+- Install Go >= 1.22
 - Run `make test` to run unit tests
-- Run `make testacc` to run acceptance tests (may create real resources)
-- Run `make ci-test` to run all CI checks locally (build, lint, generate, test)
+- Run `make testacc` to run acceptance tests (requires `TF_ACC=1`, creates real resources)
+- Run `make lint` to run the linter (auto-installs `golangci-lint` if needed)
+- Run `make generate` to regenerate docs after schema changes
+- Run `make testcov` to generate an HTML coverage report
 
-### Testing
+### Local Development Override
 
-The provider includes comprehensive unit and acceptance tests.
-
-**Run all CI checks locally** (build, lint, generate, test):
-```bash
-make ci-test
-```
-This runs the same checks as the CI pipeline:
-- Downloads dependencies
-- Builds the provider
-- Runs linter (auto-installs `golangci-lint` if needed)
-- Generates documentation
-- Runs `go mod tidy`
-- Checks for uncommitted changes
-- Runs unit tests
-- Generates coverage report
-
-**Run unit tests** (fast, no external dependencies):
-```bash
-make test
-```
-
-**Run linter** (auto-installs `golangci-lint` if needed):
-```bash
-make lint
-```
-
-**Run acceptance tests** (requires `TF_ACC=1`, may create real resources):
-```bash
-make testacc
-```
-
-**Run a specific test**:
-```bash
-make testacc-run TEST=TestAccBackupResource
-```
-
-**Generate coverage report**:
-```bash
-make testcov
-# Opens coverage.html in your browser
-```
-
-**Format code**:
-```bash
-make fmt
-```
-
-**Generate documentation**:
-```bash
-make generate
-```
-
-For more details, see the [Testing Guide](docs/TESTING.md).
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow: formatting, linting, doc regeneration, and the PR checklist.
-
-**Quick summary:**
-- `make fmt` — format (enforced by lint)
-- `make lint` — lint (auto-installs golangci-lint v2 if missing)
-- `make test` — unit tests
-- `make generate` — regenerate docs after schema/template changes (requires Terraform in PATH; use WSL on Windows)
-- `make ci-test` — full CI pipeline locally
-
-### Local Development
-
-To use a locally built provider, set up a Terraform CLI config file:
-> export TF_CLI_CONFIG_FILE="terraform.tfrc"
-
-In the config file, override the lookup path for the provider:
+To use a locally built binary instead of the registry version:
 
 ```bash
+# 1. Build
+make build
+
+# 2. Create a dev override config (terraform.tfrc)
+cat > terraform.tfrc <<'EOF'
 provider_installation {
   dev_overrides {
     "arubacloud/arubacloud" = "$PWD"
   }
   direct {}
 }
+EOF
+
+# 3. Point Terraform at it
+export TF_CLI_CONFIG_FILE="$PWD/terraform.tfrc"
+terraform plan   # will warn about dev overrides — that's expected
 ```
 
-Build the provider:
-> make build
+## Contributing
 
-Run Terraform:
-> terraform plan
-
-You should see a warning about provider development overrides.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow: formatting, linting, doc regeneration, and the PR checklist.
