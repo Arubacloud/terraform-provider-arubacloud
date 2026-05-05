@@ -33,22 +33,22 @@ func (d *DatabaseDataSource) Metadata(ctx context.Context, req datasource.Metada
 
 func (d *DatabaseDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Database data source",
+		MarkdownDescription: "Retrieves read-only information about an existing ArubaCloud database within a DBaaS cluster.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Database identifier (same as name)",
+				MarkdownDescription: "Unique identifier of the database to look up (same as the database name).",
 				Required:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this database belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"dbaas_id": schema.StringAttribute{
-				MarkdownDescription: "DBaaS ID this database belongs to",
+				MarkdownDescription: "ID of the parent DBaaS cluster this database belongs to.",
 				Required:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Database name",
+				MarkdownDescription: "Display name for the database.",
 				Computed:            true,
 			},
 		},

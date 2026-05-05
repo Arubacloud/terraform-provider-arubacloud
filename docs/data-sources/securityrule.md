@@ -1,13 +1,15 @@
 ---
-page_title: "arubacloud_securityrule"
-subcategory: "Security"
+page_title: "arubacloud_securityrule Data Source - ArubaCloud"
+subcategory: "Network"
 description: |-
-  Reads an existing ArubaCloud Security Rule.
+  Retrieves information about an existing ArubaCloud Security Rule.
 ---
 
-# arubacloud_securityrule
+# arubacloud_securityrule (Data Source)
 
-Reads an existing ArubaCloud Security Rule.
+Retrieves read-only information about an existing `arubacloud_securityrule` resource. Use this data source to reference security rule metadata in other configurations without managing the lifecycle via Terraform.
+
+## Example Usage
 
 ```terraform
 data "arubacloud_securityrule" "example" {
@@ -46,10 +48,10 @@ The following arguments are supported:
 
 #### Required
 
-- `id` (String) Security Rule identifier
-- `project_id` (String) ID of the project this Security Rule belongs to
-- `security_group_id` (String) ID of the Security Group this rule belongs to
-- `vpc_id` (String) ID of the VPC this Security Rule belongs to
+- `id` (String) Unique identifier of the security rule to look up.
+- `project_id` (String) ID of the project that owns this resource.
+- `security_group_id` (String) ID of the security group this rule belongs to.
+- `vpc_id` (String) ID of the VPC this security rule belongs to.
 
 ### Attributes Reference
 
@@ -57,14 +59,14 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `direction` (String) Direction of the rule (Ingress/Egress)
-- `location` (String) Security Rule location
-- `name` (String) Security Rule name
-- `port` (String) Port or port range (for TCP/UDP)
-- `protocol` (String) Protocol (ANY, TCP, UDP, ICMP)
-- `tags` (List of String) List of tags for the Security Rule
-- `target_kind` (String) Type of the target (IP/SecurityGroup)
-- `target_value` (String) Value of the target (CIDR or SecurityGroup URI)
-- `uri` (String) Security Rule URI
+- `direction` (String) Traffic direction the rule applies to. Accepted values: `Inbound`, `Outbound`.
+- `location` (String) Region identifier for the resource (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).
+- `name` (String) Display name for the security rule.
+- `port` (String) Port or port range for TCP/UDP (e.g., `80` or `8080-8090`). Use `0` for ICMP or ANY.
+- `protocol` (String) IP protocol. Accepted values: `TCP`, `UDP`, `ICMP`, `ANY`.
+- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
+- `target_kind` (String) Type of the target endpoint. Accepted values: `IP`, `SecurityGroup`.
+- `target_value` (String) Source (inbound) or destination (outbound) CIDR in notation like `0.0.0.0/0`, or SecurityGroup URI.
+- `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).
 
 

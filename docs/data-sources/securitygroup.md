@@ -1,13 +1,15 @@
 ---
-page_title: "arubacloud_securitygroup"
-subcategory: "Security"
+page_title: "arubacloud_securitygroup Data Source - ArubaCloud"
+subcategory: "Network"
 description: |-
-  Reads an existing ArubaCloud Security Group.
+  Retrieves information about an existing ArubaCloud Security Group.
 ---
 
-# arubacloud_securitygroup
+# arubacloud_securitygroup (Data Source)
 
-Reads an existing ArubaCloud Security Group.
+Retrieves read-only information about an existing `arubacloud_securitygroup` resource. Use this data source to look up a security group's URI for use in CloudServer network configurations without managing the lifecycle via Terraform.
+
+## Example Usage
 
 ```terraform
 data "arubacloud_securitygroup" "example" {
@@ -36,9 +38,9 @@ The following arguments are supported:
 
 #### Required
 
-- `id` (String) Security Group identifier
-- `project_id` (String) ID of the project this Security Group belongs to
-- `vpc_id` (String) ID of the VPC this Security Group belongs to
+- `id` (String) Unique identifier of the security group to look up.
+- `project_id` (String) ID of the project that owns this resource.
+- `vpc_id` (String) ID of the VPC this security group is scoped to.
 
 ### Attributes Reference
 
@@ -46,8 +48,8 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `location` (String) Security Group location
-- `name` (String) Security Group name
-- `tags` (List of String) List of tags for the Security Group
+- `location` (String) Region identifier for the resource (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).
+- `name` (String) Display name for the security group.
+- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
 
 

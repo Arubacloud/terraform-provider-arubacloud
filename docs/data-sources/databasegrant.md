@@ -1,13 +1,15 @@
 ---
-page_title: "arubacloud_databasegrant"
+page_title: "arubacloud_databasegrant Data Source - ArubaCloud"
 subcategory: "Database"
 description: |-
-  Retrieves an ArubaCloud Database Grant.
+  Retrieves information about an existing ArubaCloud database grant.
 ---
 
-# arubacloud_databasegrant
+# arubacloud_databasegrant (Data Source)
 
-Retrieves an ArubaCloud Database Grant.
+Retrieves read-only information about an existing `arubacloud_databasegrant`. Use this data source to reference grant metadata in other configurations without managing the lifecycle via Terraform.
+
+## Example Usage
 
 ```terraform
 data "arubacloud_databasegrant" "example" {
@@ -27,10 +29,10 @@ The following arguments are supported:
 
 #### Required
 
-- `database` (String) Database name or ID
-- `dbaas_id` (String) DBaaS ID this grant belongs to
-- `project_id` (String) ID of the project this database grant belongs to
-- `user_id` (String) User ID to grant access
+- `database` (String) ID of the database this grant applies to.
+- `dbaas_id` (String) ID of the parent DBaaS cluster this grant belongs to.
+- `project_id` (String) ID of the project that owns this resource.
+- `user_id` (String) Name or ID of the DBaaS user whose grant is being looked up.
 
 ### Attributes Reference
 
@@ -38,7 +40,7 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `id` (String) Database Grant identifier (composite key: project_id/dbaas_id/database/user_id)
-- `role` (String) Role to grant (e.g., read, write, admin)
+- `id` (String) Computed by the API. Unique identifier for the grant (composite key: `project_id/dbaas_id/database/user_id`).
+- `role` (String) Privilege level granted to the user on the database.
 
 

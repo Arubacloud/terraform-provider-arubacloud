@@ -34,26 +34,26 @@ func (d *ScheduleJobDataSource) Metadata(ctx context.Context, req datasource.Met
 
 func (d *ScheduleJobDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Schedule Job data source",
+		MarkdownDescription: "Retrieves information about an existing ArubaCloud Scheduled Job.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Schedule Job identifier",
+				MarkdownDescription: "Unique identifier of the scheduled job to look up.",
 				Required:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Schedule Job name",
+				MarkdownDescription: "Display name for the scheduled job.",
 				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this Schedule Job belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"description": schema.StringAttribute{
-				MarkdownDescription: "Schedule Job description",
+				MarkdownDescription: "Optional human-readable description of the scheduled job.",
 				Computed:            true,
 			},
 			"cron": schema.StringAttribute{
-				MarkdownDescription: "Cron expression for the schedule job",
+				MarkdownDescription: "Cron expression defining the job schedule (e.g., `0 * * * *` for hourly). Standard 5-field cron format.",
 				Computed:            true,
 			},
 		},

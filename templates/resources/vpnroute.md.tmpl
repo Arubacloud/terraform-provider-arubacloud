@@ -1,22 +1,39 @@
 ---
-page_title: "arubacloud_vpnroute"
+page_title: "arubacloud_vpnroute Resource - ArubaCloud"
 subcategory: "Network"
 description: |-
-  Manages an ArubaCloud VPN Route.
+  Manages a static route associated with an ArubaCloud VPN Tunnel.
 ---
 
 # arubacloud_vpnroute
 
-Manages an ArubaCloud VPN Route.
+Manages a static route associated with an ArubaCloud VPN Tunnel. The route instructs the ArubaCloud gateway to forward traffic for a specified CIDR over the parent VPN tunnel.
+
+## Example Usage
+
+### Basic VPN Route
 
 {{ tffile "examples/resources/arubacloud_vpnroute/resource-basic.tf" }}
 
 {{ .SchemaMarkdown }}
 
+## Notes
+
+- **Dependencies:** Requires an [`arubacloud_vpntunnel`](https://registry.terraform.io/providers/Arubacloud/arubacloud/latest/docs/resources/vpntunnel) and an [`arubacloud_project`](https://registry.terraform.io/providers/Arubacloud/arubacloud/latest/docs/resources/project).
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
+
 ## Import
 
-Aruba Cloud VPN Route can be imported using the `vpnroute_id`.
+Aruba Cloud VPN Route can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_vpnroute.example <vpnroute_id>
+terraform import arubacloud_vpnroute.example <vpnroute-id>
 ```

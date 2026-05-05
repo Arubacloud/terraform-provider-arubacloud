@@ -1,13 +1,17 @@
 ---
-page_title: "arubacloud_vpntunnel"
+page_title: "arubacloud_vpntunnel Resource - ArubaCloud"
 subcategory: "Network"
 description: |-
-  Manages an ArubaCloud VPN Tunnel.
+  Manages an ArubaCloud VPN Tunnel — an IPSec site-to-site VPN connection between an ArubaCloud VPC and an external network.
 ---
 
 # arubacloud_vpntunnel
 
-Manages an ArubaCloud VPN Tunnel.
+Manages an ArubaCloud IPSec VPN Tunnel — a site-to-site connection between an ArubaCloud VPC and an external on-premises or cloud network. The tunnel is established using a pre-shared key. Use `arubacloud_vpnroute` resources to configure which CIDRs are routed over the tunnel.
+
+## Example Usage
+
+### Basic VPN Tunnel
 
 ```terraform
 resource "arubacloud_vpntunnel" "example" {
@@ -31,14 +35,14 @@ The following arguments are supported:
 
 #### Required
 
-- `location` (String) VPN Tunnel location
-- `name` (String) VPN Tunnel name
-- `project_id` (String) ID of the project this VPN Tunnel belongs to
-- `properties` (Attributes) Properties of the VPN Tunnel (see [below for nested schema](#nestedatt--properties))
+- `location` (String) Region identifier for the resource (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).
+- `name` (String) Display name for the VPN tunnel.
+- `project_id` (String) ID of the project that owns this resource.
+- `properties` (Attributes) Configuration properties for the VPN tunnel. (see [below for nested schema](#nestedatt--properties))
 
 #### Optional
 
-- `tags` (List of String) List of tags for the VPN Tunnel
+- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
 
 ### Attributes Reference
 
@@ -46,35 +50,35 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `id` (String) VPN Tunnel identifier
-- `uri` (String) VPN Tunnel URI
+- `id` (String) Computed by the API. Unique identifier for the resource.
+- `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).
 
 <a id="nestedatt--properties"></a>
 ### Nested Schema for `properties`
 
 Optional:
 
-- `billing_period` (String) Billing period (Hour, Month, Year)
-- `ip_configurations` (Attributes) Network configuration of the VPN tunnel (see [below for nested schema](#nestedatt--properties--ip_configurations))
-- `vpn_client_protocol` (String) Protocol of the VPN tunnel (ikev2)
-- `vpn_client_settings` (Attributes) Client settings of the VPN tunnel (see [below for nested schema](#nestedatt--properties--vpn_client_settings))
-- `vpn_type` (String) Type of VPN tunnel (Site-To-Site)
+- `billing_period` (String) Billing cycle for the resource. Accepted values: `Hour`, `Month`, `Year`.
+- `ip_configurations` (Attributes) Network references for the VPN tunnel — VPC, subnet, and public IP. (see [below for nested schema](#nestedatt--properties--ip_configurations))
+- `vpn_client_protocol` (String) IKE protocol version. Accepted values: `ikev2`.
+- `vpn_client_settings` (Attributes) IKE/ESP/PSK client settings for the VPN tunnel. (see [below for nested schema](#nestedatt--properties--vpn_client_settings))
+- `vpn_type` (String) Type of VPN tunnel. Accepted values: `Site-To-Site`.
 
 <a id="nestedatt--properties--ip_configurations"></a>
 ### Nested Schema for `properties.ip_configurations`
 
 Optional:
 
-- `public_ip` (Attributes) Public IP reference (see [below for nested schema](#nestedatt--properties--ip_configurations--public_ip))
-- `subnet` (Attributes) Subnet reference (see [below for nested schema](#nestedatt--properties--ip_configurations--subnet))
-- `vpc` (Attributes) VPC reference (see [below for nested schema](#nestedatt--properties--ip_configurations--vpc))
+- `public_ip` (Attributes) Reference to the elastic public IP assigned to this tunnel. (see [below for nested schema](#nestedatt--properties--ip_configurations--public_ip))
+- `subnet` (Attributes) Reference to the subnet used by this tunnel. (see [below for nested schema](#nestedatt--properties--ip_configurations--subnet))
+- `vpc` (Attributes) Reference to the VPC this tunnel is attached to. (see [below for nested schema](#nestedatt--properties--ip_configurations--vpc))
 
 <a id="nestedatt--properties--ip_configurations--public_ip"></a>
 ### Nested Schema for `properties.ip_configurations.public_ip`
 
 Optional:
 
-- `id` (String) Public IP id
+- `id` (String) ID of the elastic public IP.
 
 
 <a id="nestedatt--properties--ip_configurations--subnet"></a>
@@ -82,7 +86,7 @@ Optional:
 
 Optional:
 
-- `id` (String) Subnet id
+- `id` (String) ID of the subnet.
 
 
 <a id="nestedatt--properties--ip_configurations--vpc"></a>
@@ -90,7 +94,7 @@ Optional:
 
 Optional:
 
-- `id` (String) VPC id
+- `id` (String) ID of the VPC.
 
 
 
@@ -99,20 +103,20 @@ Optional:
 
 Optional:
 
-- `esp` (Attributes) ESP settings (see [below for nested schema](#nestedatt--properties--vpn_client_settings--esp))
-- `ike` (Attributes) IKE settings (see [below for nested schema](#nestedatt--properties--vpn_client_settings--ike))
-- `peer_client_public_ip` (String) Peer client public IP address
-- `psk` (Attributes) PSK settings (see [below for nested schema](#nestedatt--properties--vpn_client_settings--psk))
+- `esp` (Attributes) ESP (Encapsulating Security Payload) phase-2 settings. (see [below for nested schema](#nestedatt--properties--vpn_client_settings--esp))
+- `ike` (Attributes) IKE (Internet Key Exchange) phase-1 settings. (see [below for nested schema](#nestedatt--properties--vpn_client_settings--ike))
+- `peer_client_public_ip` (String) Public IP address of the remote peer (on-premises gateway).
+- `psk` (Attributes) Pre-Shared Key (PSK) authentication settings. (see [below for nested schema](#nestedatt--properties--vpn_client_settings--psk))
 
 <a id="nestedatt--properties--vpn_client_settings--esp"></a>
 ### Nested Schema for `properties.vpn_client_settings.esp`
 
 Optional:
 
-- `encryption` (String) ESP encryption algorithm
-- `hash` (String) ESP hash algorithm
-- `lifetime` (Number) ESP lifetime
-- `pfs` (String) ESP PFS
+- `encryption` (String) ESP encryption algorithm (e.g., `aes256`).
+- `hash` (String) ESP integrity/hash algorithm (e.g., `sha256`).
+- `lifetime` (Number) ESP phase-2 lifetime in seconds.
+- `pfs` (String) ESP Perfect Forward Secrecy group (e.g., `modp2048`).
 
 
 <a id="nestedatt--properties--vpn_client_settings--ike"></a>
@@ -120,13 +124,13 @@ Optional:
 
 Optional:
 
-- `dh_group` (String) IKE DH group
-- `dpd_action` (String) IKE DPD action
-- `dpd_interval` (Number) IKE DPD interval
-- `dpd_timeout` (Number) IKE DPD timeout
-- `encryption` (String) IKE encryption algorithm
-- `hash` (String) IKE hash algorithm
-- `lifetime` (Number) IKE lifetime
+- `dh_group` (String) IKE Diffie-Hellman group (e.g., `modp2048`).
+- `dpd_action` (String) Dead Peer Detection action on failure (e.g., `restart`).
+- `dpd_interval` (Number) DPD keep-alive interval in seconds.
+- `dpd_timeout` (Number) DPD timeout before the peer is considered dead, in seconds.
+- `encryption` (String) IKE encryption algorithm (e.g., `aes256`).
+- `hash` (String) IKE integrity/hash algorithm (e.g., `sha256`).
+- `lifetime` (Number) IKE phase-1 lifetime in seconds.
 
 
 <a id="nestedatt--properties--vpn_client_settings--psk"></a>
@@ -134,19 +138,33 @@ Optional:
 
 Optional:
 
-- `cloud_site` (String) PSK cloud site
-- `on_prem_site` (String) PSK on-prem site
-- `secret` (String) PSK secret
+- `cloud_site` (String) Pre-shared key for the ArubaCloud side of the tunnel.
+- `on_prem_site` (String) Pre-shared key for the on-premises side of the tunnel.
+- `secret` (String) Shared secret used to authenticate the VPN tunnel. Write-only — this value is sent to the API but is not returned in subsequent read responses.
 
 
 
 
 
+
+## Notes
+
+- **Dependencies:** Requires an [`arubacloud_project`](https://registry.terraform.io/providers/Arubacloud/arubacloud/latest/docs/resources/project).
+- **Sensitive fields:** `properties.vpn_client_settings.psk.secret` — sent to the API but not returned in read responses.
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
 
 ## Import
 
-Aruba Cloud VPN Tunnel can be imported using the `vpntunnel_id`.
+Aruba Cloud VPN Tunnel can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_vpntunnel.example <vpntunnel_id>
+terraform import arubacloud_vpntunnel.example <vpntunnel-id>
 ```

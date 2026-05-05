@@ -44,14 +44,14 @@ func (r *ElasticIPResource) Metadata(ctx context.Context, req resource.MetadataR
 
 func (r *ElasticIPResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Elastic IP resource",
+		MarkdownDescription: "Manages an ArubaCloud Elastic IP — a static public IPv4 address.",
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Elastic IP name",
+				MarkdownDescription: "Display name for the Elastic IP.",
 				Required:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "Elastic IP location",
+				MarkdownDescription: "Region identifier for the resource (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions). (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
 				// Validators removed for v1.16.1 compatibility
 				PlanModifiers: []planmodifier.String{
@@ -60,11 +60,11 @@ func (r *ElasticIPResource) Schema(ctx context.Context, req resource.SchemaReque
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of tags for the Elastic IP",
+				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
 				Optional:            true,
 			},
 			"billing_period": schema.StringAttribute{
-				MarkdownDescription: "Billing period for the Elastic IP (only 'hourly' allowed)",
+				MarkdownDescription: "Computed by the API. Billing cycle for the resource. Accepted values: `Hour`, `Month`, `Year`.",
 				Optional:            true,
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
@@ -73,28 +73,28 @@ func (r *ElasticIPResource) Schema(ctx context.Context, req resource.SchemaReque
 				// Validators removed for v1.16.1 compatibility
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this Elastic IP belongs to",
+				MarkdownDescription: "ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"address": schema.StringAttribute{
-				MarkdownDescription: "Elastic IP address (computed from ElasticIpPropertiesResponse)",
+				MarkdownDescription: "Computed by the API. Public IPv4 address allocated for this Elastic IP.",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Elastic IP identifier",
+				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"uri": schema.StringAttribute{
-				MarkdownDescription: "Elastic IP URI",
+				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),

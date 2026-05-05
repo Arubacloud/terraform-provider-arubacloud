@@ -1,13 +1,17 @@
 ---
-page_title: "arubacloud_dbaasuser"
+page_title: "arubacloud_dbaasuser Resource - ArubaCloud"
 subcategory: "Database"
 description: |-
-  Manages an ArubaCloud DBaaS User.
+  Manages a database user within an ArubaCloud DBaaS cluster.
 ---
 
 # arubacloud_dbaasuser
 
-Manages an ArubaCloud DBaaS User.
+Manages a database user within an `arubacloud_dbaas` cluster. The user password is write-only and is not returned by the API after creation. Grant access to specific databases using `arubacloud_databasegrant`. Requires a parent `arubacloud_dbaas` cluster.
+
+## Example Usage
+
+### Basic DBaaS user
 
 ```terraform
 resource "arubacloud_dbaasuser" "example" {
@@ -26,10 +30,10 @@ The following arguments are supported:
 
 #### Required
 
-- `dbaas_id` (String) DBaaS ID this user belongs to
-- `password` (String, Sensitive) Password for the DBaaS user
-- `project_id` (String) ID of the project this user belongs to
-- `username` (String) Username for the DBaaS user
+- `dbaas_id` (String) ID of the parent DBaaS cluster this user belongs to.
+- `password` (String, Sensitive) Password for the DBaaS user. Write-only — this value is sent to the API but is not returned in subsequent read responses.
+- `project_id` (String) ID of the project that owns this resource.
+- `username` (String) Display name for the DBaaS user.
 
 ### Attributes Reference
 
@@ -37,15 +41,29 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `id` (String) DBaaS User identifier (same as username)
-- `uri` (String) DBaaS User URI
+- `id` (String) Computed by the API. Unique identifier for the resource (same as the username).
+- `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources.
 
 
+
+## Notes
+
+- **Dependencies:** Requires a running `arubacloud_dbaas` cluster referenced by `dbaas_id`.
+- **Sensitive fields:** `password` — sent to the API but not returned in read responses.
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
 
 ## Import
 
-Aruba Cloud DBaaS User can be imported using the `dbaasuser_id`.
+Aruba Cloud DBaaS User can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_dbaasuser.example <dbaasuser_id>
+terraform import arubacloud_dbaasuser.example <dbaasuser-id>
 ```

@@ -34,23 +34,23 @@ func (d *ProjectDataSource) Metadata(ctx context.Context, req datasource.Metadat
 
 func (d *ProjectDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Project data source",
+		MarkdownDescription: "Retrieves read-only information about an existing ArubaCloud Project.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Project identifier",
+				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
 				Required:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Project name",
+				MarkdownDescription: "Display name for the Project.",
 				Computed:            true,
 			},
 			"description": schema.StringAttribute{
-				MarkdownDescription: "Project description",
+				MarkdownDescription: "Optional human-readable description of the project.",
 				Computed:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of tags for the project",
+				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
 				Computed:            true,
 			},
 		},

@@ -1,13 +1,15 @@
 ---
-page_title: "arubacloud_keypair"
+page_title: "arubacloud_keypair Data Source - ArubaCloud"
 subcategory: "Security"
 description: |-
-  Retrieves an ArubaCloud KeyPair.
+  Retrieves information about an existing ArubaCloud SSH KeyPair.
 ---
 
-# arubacloud_keypair
+# arubacloud_keypair (Data Source)
 
-Retrieves an ArubaCloud KeyPair.
+Retrieves read-only information about an existing `arubacloud_keypair`. Use this data source to look up a key pair's URI and fingerprint when you need to reference a key pair managed outside of this Terraform configuration.
+
+## Example Usage
 
 {{ tffile "examples/data-sources/arubacloud_keypair/data-source-basic.tf" }}
 

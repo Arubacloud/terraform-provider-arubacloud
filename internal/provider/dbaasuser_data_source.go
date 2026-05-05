@@ -34,26 +34,26 @@ func (d *DBaaSUserDataSource) Metadata(ctx context.Context, req datasource.Metad
 
 func (d *DBaaSUserDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "DBaaS User data source",
+		MarkdownDescription: "Retrieves read-only information about an existing ArubaCloud DBaaS user.",
 		Attributes: map[string]schema.Attribute{
 			"username": schema.StringAttribute{
-				MarkdownDescription: "Username for the DBaaS user (lookup key)",
+				MarkdownDescription: "Username of the DBaaS user to look up.",
 				Required:            true,
 			},
 			"id": schema.StringAttribute{
-				MarkdownDescription: "DBaaS User identifier (same as username)",
+				MarkdownDescription: "Computed by the API. Unique identifier for the resource (same as the username).",
 				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this DBaaS user belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"dbaas_id": schema.StringAttribute{
-				MarkdownDescription: "DBaaS ID this user belongs to",
+				MarkdownDescription: "ID of the parent DBaaS cluster this user belongs to.",
 				Required:            true,
 			},
 			"password": schema.StringAttribute{
-				MarkdownDescription: "Password for the DBaaS user (not returned by API)",
+				MarkdownDescription: "Password for the DBaaS user. Write-only — this value is sent to the API but is not returned in subsequent read responses.",
 				Computed:            true,
 				Sensitive:           true,
 			},

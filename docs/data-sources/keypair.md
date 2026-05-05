@@ -1,13 +1,15 @@
 ---
-page_title: "arubacloud_keypair"
+page_title: "arubacloud_keypair Data Source - ArubaCloud"
 subcategory: "Security"
 description: |-
-  Retrieves an ArubaCloud KeyPair.
+  Retrieves information about an existing ArubaCloud SSH KeyPair.
 ---
 
-# arubacloud_keypair
+# arubacloud_keypair (Data Source)
 
-Retrieves an ArubaCloud KeyPair.
+Retrieves read-only information about an existing `arubacloud_keypair`. Use this data source to look up a key pair's URI and fingerprint when you need to reference a key pair managed outside of this Terraform configuration.
+
+## Example Usage
 
 ```terraform
 data "arubacloud_keypair" "basic" {
@@ -41,8 +43,8 @@ The following arguments are supported:
 
 #### Required
 
-- `id` (String) Keypair identifier
-- `project_id` (String) ID of the project this keypair belongs to
+- `id` (String) Computed by the API. Unique identifier for the resource.
+- `project_id` (String) ID of the project that owns this resource.
 
 ### Attributes Reference
 
@@ -50,9 +52,9 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `location` (String) Keypair location
-- `name` (String) Keypair name
-- `tags` (List of String) List of tags for the keypair
-- `value` (String) Keypair value (public key)
+- `location` (String) Region identifier for the resource (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).
+- `name` (String) Display name for the KeyPair.
+- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
+- `value` (String) OpenSSH-format public key string (e.g., `ssh-rsa AAAA...`). The provider uploads this to ArubaCloud; the corresponding private key is never stored.
 
 

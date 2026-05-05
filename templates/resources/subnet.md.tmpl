@@ -2,34 +2,12 @@
 page_title: "arubacloud_subnet Resource - ArubaCloud"
 subcategory: "Network"
 description: |-
-  Manages an ArubaCloud Subnet resource.
+  Manages an ArubaCloud Subnet within a VPC. Subnets can be Basic (default networking) or Advanced (custom CIDR with configurable DHCP).
 ---
 
 # arubacloud_subnet
 
-Manages an ArubaCloud Subnet resource.
-
-## Important Notes
-
-### Basic Subnet Type
-- When `type` is set to `"Basic"`, the `network` block is not required.
-- The subnet will use default networking settings.
-
-### Advanced Subnet Type
-- When `type` is set to `"Advanced"`, the following fields are **required**:
-  - `network` block
-  - `network.address`: Network CIDR notation (e.g., "10.0.1.0/24")
-  - `network.dhcp` block
-  - `network.dhcp.enabled`: Boolean to enable/disable DHCP
-  - `network.dhcp.range` block with:
-    - `start`: Starting IP address for DHCP range
-    - `count`: Number of available IP addresses
-
-### Optional Fields (Advanced Type)
-- `network.dhcp.routes`: List of DHCP routes with:
-  - `address`: Destination network address in CIDR notation (e.g., "0.0.0.0/0")
-  - `gateway`: Gateway IP address for the route
-- `network.dhcp.dns`: List of DNS server IP addresses
+Manages an ArubaCloud Subnet within a parent `arubacloud_vpc`. Subnets can be `Basic` (uses platform-managed networking) or `Advanced` (custom CIDR with configurable DHCP pools, routes, and DNS). Changing `type`, `location`, `project_id`, or `vpc_id` destroys and re-creates the subnet. For `Advanced` subnets the `network` block is mandatory and must include a valid RFC-1918 CIDR.
 
 ## Example Usage
 
@@ -43,10 +21,24 @@ Manages an ArubaCloud Subnet resource.
 
 {{ .SchemaMarkdown }}
 
+## Notes
+
+- **Dependencies:** Requires an [`arubacloud_vpc`](https://registry.terraform.io/providers/Arubacloud/arubacloud/latest/docs/resources/vpc) and an [`arubacloud_project`](https://registry.terraform.io/providers/Arubacloud/arubacloud/latest/docs/resources/project).
+- **Immutable fields:** `location`, `project_id`, `vpc_id`, `type` — changing these forces the resource to be destroyed and re-created.
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
+
 ## Import
 
-Aruba Cloud Subnet can be imported using the `subnet_id`.
+Aruba Cloud Subnet can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_subnet.example <subnet_id>
+terraform import arubacloud_subnet.example <subnet-id>
 ```

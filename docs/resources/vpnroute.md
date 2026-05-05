@@ -1,13 +1,17 @@
 ---
-page_title: "arubacloud_vpnroute"
+page_title: "arubacloud_vpnroute Resource - ArubaCloud"
 subcategory: "Network"
 description: |-
-  Manages an ArubaCloud VPN Route.
+  Manages a static route associated with an ArubaCloud VPN Tunnel.
 ---
 
 # arubacloud_vpnroute
 
-Manages an ArubaCloud VPN Route.
+Manages a static route associated with an ArubaCloud VPN Tunnel. The route instructs the ArubaCloud gateway to forward traffic for a specified CIDR over the parent VPN tunnel.
+
+## Example Usage
+
+### Basic VPN Route
 
 ```terraform
 resource "arubacloud_vpnroute" "example" {
@@ -32,15 +36,15 @@ The following arguments are supported:
 
 #### Required
 
-- `location` (String) VPN Route location
-- `name` (String) VPN Route name
-- `project_id` (String) ID of the project this VPN Route belongs to
-- `properties` (Attributes) Properties of the VPN Route (see [below for nested schema](#nestedatt--properties))
-- `vpn_tunnel_id` (String) ID of the VPN Tunnel this route belongs to
+- `location` (String) Region identifier for the resource (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).
+- `name` (String) Display name for the VPN route.
+- `project_id` (String) ID of the project that owns this resource.
+- `properties` (Attributes) Routing properties for the VPN route. (see [below for nested schema](#nestedatt--properties))
+- `vpn_tunnel_id` (String) ID of the VPN tunnel this route is associated with.
 
 #### Optional
 
-- `tags` (List of String) List of tags for the VPN Route
+- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
 
 ### Attributes Reference
 
@@ -48,24 +52,37 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `id` (String) VPN Route identifier
-- `uri` (String) VPN Route URI
+- `id` (String) Computed by the API. Unique identifier for the resource.
+- `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).
 
 <a id="nestedatt--properties"></a>
 ### Nested Schema for `properties`
 
 Required:
 
-- `cloud_subnet` (String) CIDR of the cloud subnet
-- `on_prem_subnet` (String) CIDR of the on-prem subnet
+- `cloud_subnet` (String) CIDR of the ArubaCloud-side subnet to route over this tunnel (e.g., `10.0.1.0/24`).
+- `on_prem_subnet` (String) CIDR of the on-premises subnet reachable through this tunnel (e.g., `192.168.1.0/24`).
 
 
 
+
+## Notes
+
+- **Dependencies:** Requires an [`arubacloud_vpntunnel`](https://registry.terraform.io/providers/Arubacloud/arubacloud/latest/docs/resources/vpntunnel) and an [`arubacloud_project`](https://registry.terraform.io/providers/Arubacloud/arubacloud/latest/docs/resources/project).
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
 
 ## Import
 
-Aruba Cloud VPN Route can be imported using the `vpnroute_id`.
+Aruba Cloud VPN Route can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_vpnroute.example <vpnroute_id>
+terraform import arubacloud_vpnroute.example <vpnroute-id>
 ```

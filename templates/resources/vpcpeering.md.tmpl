@@ -1,22 +1,39 @@
 ---
-page_title: "arubacloud_vpcpeering"
+page_title: "arubacloud_vpcpeering Resource - ArubaCloud"
 subcategory: "Network"
 description: |-
-  Manages an ArubaCloud VPC Peering.
+  Manages an ArubaCloud VPC Peering connection between two VPCs, enabling private routing between them.
 ---
 
 # arubacloud_vpcpeering
 
-Manages an ArubaCloud VPC Peering.
+Manages an ArubaCloud VPC Peering connection between two VPCs, enabling private IP routing between them without traversing the public internet. Both VPCs must exist in the same region. Use `arubacloud_vpcpeeringroute` to configure the routes within each peered VPC.
+
+## Example Usage
+
+### Basic VPC Peering
 
 {{ tffile "examples/resources/arubacloud_vpcpeering/resource-basic.tf" }}
 
 {{ .SchemaMarkdown }}
 
+## Notes
+
+- **Dependencies:** Requires two [`arubacloud_vpc`](https://registry.terraform.io/providers/Arubacloud/arubacloud/latest/docs/resources/vpc) resources and an [`arubacloud_project`](https://registry.terraform.io/providers/Arubacloud/arubacloud/latest/docs/resources/project).
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
+
 ## Import
 
-Aruba Cloud VPC Peering can be imported using the `vpcpeering_id`.
+Aruba Cloud VPC Peering can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_vpcpeering.example <vpcpeering_id>
+terraform import arubacloud_vpcpeering.example <vpcpeering-id>
 ```

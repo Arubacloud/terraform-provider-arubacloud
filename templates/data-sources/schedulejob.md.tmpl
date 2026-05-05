@@ -1,13 +1,15 @@
 ---
-page_title: "arubacloud_schedulejob"
+page_title: "arubacloud_schedulejob Data Source - ArubaCloud"
 subcategory: "Management"
 description: |-
-  Reads an existing ArubaCloud Schedule Job.
+  Retrieves information about an existing ArubaCloud Scheduled Job.
 ---
 
-# arubacloud_schedulejob
+# arubacloud_schedulejob (Data Source)
 
-Reads an existing ArubaCloud Schedule Job.
+Retrieves read-only information about an existing `arubacloud_schedulejob`. Use this data source to reference scheduled job metadata in other configurations without managing the lifecycle via Terraform.
+
+## Example Usage
 
 {{ tffile "examples/data-sources/arubacloud_schedulejob/data-source-basic.tf" }}
 

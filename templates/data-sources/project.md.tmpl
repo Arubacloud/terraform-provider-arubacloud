@@ -1,15 +1,16 @@
 ---
-page_title: "arubacloud_project"
+page_title: "arubacloud_project Data Source - ArubaCloud"
 subcategory: "Management"
 description: |-
-  Reads an existing ArubaCloud project.
+  Retrieves information about an existing ArubaCloud Project.
 ---
 
-# arubacloud_project
+# arubacloud_project (Data Source)
 
-Reads an existing ArubaCloud project.
+Retrieves read-only information about an existing `arubacloud_project`. Use this data source to reference the project ID when the project is managed in a separate root module.
+
+## Example Usage
 
 {{ tffile "examples/data-sources/arubacloud_project/data-source-basic.tf" }}
-
 
 {{ .SchemaMarkdown }}

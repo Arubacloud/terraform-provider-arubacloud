@@ -42,77 +42,78 @@ func (r *ScheduleJobResource) Metadata(ctx context.Context, req resource.Metadat
 
 func (r *ScheduleJobResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Schedule Job resource",
+		MarkdownDescription: "Manages an ArubaCloud Scheduled Job — a cron-triggered automation task.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Schedule Job identifier",
+				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
 				Computed:            true,
 			},
 			"uri": schema.StringAttribute{
-				MarkdownDescription: "Schedule Job URI",
+				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources.",
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Schedule Job name",
+				MarkdownDescription: "Display name for the scheduled job.",
 				Required:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this job belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of tags for the job",
+				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
 				Optional:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "Location for the job",
+				MarkdownDescription: "Region identifier (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).",
 				Required:            true,
 			},
 			"properties": schema.SingleNestedAttribute{
+				MarkdownDescription: "Job scheduling and execution configuration.",
 				Attributes: map[string]schema.Attribute{
 					"enabled": schema.BoolAttribute{
-						MarkdownDescription: "Whether the job is enabled.",
+						MarkdownDescription: "When `true`, the job is active and will trigger on schedule.",
 						Optional:            true,
 					},
 					"schedule_job_type": schema.StringAttribute{
-						MarkdownDescription: "Type of job (OneShot, Recurring)",
+						MarkdownDescription: "Execution mode of the job. Accepted values: `OneShot` (runs once at `schedule_at`), `Recurring` (repeats on a `cron` schedule).",
 						Required:            true,
 					},
 					"schedule_at": schema.StringAttribute{
-						MarkdownDescription: "Date and time when the job should run (for OneShot)",
+						MarkdownDescription: "ISO 8601 date-time at which the job executes once (required for `OneShot` type).",
 						Optional:            true,
 					},
 					"execute_until": schema.StringAttribute{
-						MarkdownDescription: "End date until which the job can run (for Recurring)",
+						MarkdownDescription: "ISO 8601 date-time after which a `Recurring` job stops executing.",
 						Optional:            true,
 					},
 					"cron": schema.StringAttribute{
-						MarkdownDescription: "CRON expression for recurrence (for Recurring)",
+						MarkdownDescription: "Cron expression defining the job schedule (e.g., `0 * * * *` for hourly). Standard 5-field cron format.",
 						Optional:            true,
 					},
 					"steps": schema.ListNestedAttribute{
-						MarkdownDescription: "List of steps to execute as part of the schedule job.",
+						MarkdownDescription: "Ordered list of API actions executed when the job triggers.",
 						NestedObject: schema.NestedAttributeObject{
 							Attributes: map[string]schema.Attribute{
 								"name": schema.StringAttribute{
-									MarkdownDescription: "Descriptive name of the step.",
+									MarkdownDescription: "Optional human-readable label for the step.",
 									Optional:            true,
 								},
 								"resource_uri": schema.StringAttribute{
-									MarkdownDescription: "URI of the resource.",
+									MarkdownDescription: "URI of the ArubaCloud resource that the step targets.",
 									Required:            true,
 								},
 								"action_uri": schema.StringAttribute{
-									MarkdownDescription: "URI of the action to execute.",
+									MarkdownDescription: "URI of the API action to invoke on the target resource.",
 									Required:            true,
 								},
 								"http_verb": schema.StringAttribute{
-									MarkdownDescription: "HTTP verb to use (GET, POST, etc.)",
+									MarkdownDescription: "HTTP method used to call the action URI (e.g., `GET`, `POST`, `PUT`, `DELETE`).",
 									Required:            true,
 								},
 								"body": schema.StringAttribute{
-									MarkdownDescription: "Optional HTTP request body.",
+									MarkdownDescription: "Optional JSON request body sent with the HTTP call.",
 									Optional:            true,
 								},
 							},

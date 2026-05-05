@@ -1,13 +1,15 @@
 ---
-page_title: "arubacloud_vpntunnel"
+page_title: "arubacloud_vpntunnel Data Source - ArubaCloud"
 subcategory: "Network"
 description: |-
-  Reads an existing ArubaCloud VPN Tunnel.
+  Retrieves information about an existing ArubaCloud VPN Tunnel.
 ---
 
-# arubacloud_vpntunnel
+# arubacloud_vpntunnel (Data Source)
 
-Reads an existing ArubaCloud VPN Tunnel.
+Retrieves read-only information about an existing `arubacloud_vpntunnel`. Use this data source to reference VPN tunnel metadata in other configurations without managing the lifecycle via Terraform.
+
+## Example Usage
 
 ```terraform
 data "arubacloud_vpntunnel" "basic" {
@@ -29,8 +31,8 @@ The following arguments are supported:
 
 #### Required
 
-- `id` (String) VPN Tunnel identifier
-- `project_id` (String) ID of the project this VPN Tunnel belongs to
+- `id` (String) Unique identifier of the VPN tunnel to look up.
+- `project_id` (String) ID of the project that owns this resource.
 
 ### Attributes Reference
 
@@ -38,8 +40,8 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `name` (String) VPN Tunnel name
-- `remote_peer` (String) Remote peer address for the VPN tunnel
-- `status` (String) Status of the VPN tunnel
+- `name` (String) Display name for the VPN tunnel.
+- `remote_peer` (String) Public IP address of the remote peer (on-premises gateway).
+- `status` (String) Current operational status of the VPN tunnel.
 
 

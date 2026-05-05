@@ -1,13 +1,15 @@
 ---
-page_title: "arubacloud_snapshot"
+page_title: "arubacloud_snapshot Data Source - ArubaCloud"
 subcategory: "Storage"
 description: |-
-  Reads an existing ArubaCloud snapshot.
+  Retrieves information about an existing ArubaCloud Snapshot.
 ---
 
-# arubacloud_snapshot
+# arubacloud_snapshot (Data Source)
 
-Reads an existing ArubaCloud snapshot.
+Retrieves read-only information about an existing `arubacloud_snapshot`. Use this data source to reference snapshot metadata in other configurations without managing the lifecycle via Terraform.
+
+## Example Usage
 
 {{ tffile "examples/data-sources/arubacloud_snapshot/data-source-basic.tf" }}
 

@@ -147,28 +147,28 @@ func (r *SecurityRuleResource) Metadata(ctx context.Context, req resource.Metada
 
 func (r *SecurityRuleResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Security Rule resource",
+		MarkdownDescription: "Manages an individual ArubaCloud Security Rule within an `arubacloud_securitygroup`. Each rule defines allowed or denied traffic for one direction (inbound or outbound), protocol, port range, and source/destination CIDR. Most rule attributes are immutable after creation; to change them, destroy and re-create the rule.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Security Rule identifier",
+				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"uri": schema.StringAttribute{
-				MarkdownDescription: "Security Rule URI",
+				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Security Rule name",
+				MarkdownDescription: "Display name for the security rule.",
 				Required:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "Security Rule location",
+				MarkdownDescription: "Region identifier for the resource (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions). (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
 				// Validators removed for v1.16.1 compatibility
 				PlanModifiers: []planmodifier.String{
@@ -176,21 +176,21 @@ func (r *SecurityRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 				},
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this Security Rule belongs to",
+				MarkdownDescription: "ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"vpc_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the VPC this Security Rule belongs to",
+				MarkdownDescription: "ID of the VPC this security rule belongs to. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"security_group_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the Security Group this rule belongs to",
+				MarkdownDescription: "ID of the security group this rule belongs to. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
@@ -198,20 +198,20 @@ func (r *SecurityRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of tags for the Security Rule",
+				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
 				Optional:            true,
 			},
 			"properties": schema.SingleNestedAttribute{
-				MarkdownDescription: "Properties of the security rule",
+				MarkdownDescription: "Traffic-matching properties of the security rule. Most fields are immutable after creation.",
 				Required:            true,
 				Attributes: map[string]schema.Attribute{
 					"direction": schema.StringAttribute{
-						MarkdownDescription: "Direction of the rule (Ingress/Egress)",
+						MarkdownDescription: "Traffic direction the rule applies to. Accepted values: `Inbound`, `Outbound`. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 						Required:            true,
 						// Validators removed for v1.16.1 compatibility
 					},
 					"protocol": schema.StringAttribute{
-						MarkdownDescription: "Protocol (ANY, TCP, UDP, ICMP)",
+						MarkdownDescription: "IP protocol. Accepted values: `TCP`, `UDP`, `ICMP`, `ANY`. (Immutable if marked.)",
 						Required:            true,
 						// Validators removed for v1.16.1 compatibility
 						PlanModifiers: []planmodifier.String{
@@ -221,20 +221,20 @@ func (r *SecurityRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 						},
 					},
 					"port": schema.StringAttribute{
-						MarkdownDescription: "Port or port range (for TCP/UDP)",
+						MarkdownDescription: "Port or port range for TCP/UDP (e.g., `80` or `8080-8090`). Use `0` for ICMP or ANY.",
 						Optional:            true,
 					},
 					"target": schema.SingleNestedAttribute{
-						MarkdownDescription: "Target of the rule (source or destination)",
+						MarkdownDescription: "Source (inbound) or destination (outbound) endpoint for this rule.",
 						Required:            true,
 						Attributes: map[string]schema.Attribute{
 							"kind": schema.StringAttribute{
-								MarkdownDescription: "Type of the target (Ip/SecurityGroup)",
+								MarkdownDescription: "Type of the target endpoint. Accepted values: `IP`, `SecurityGroup`.",
 								Required:            true,
 								// Validators removed for v1.16.1 compatibility
 							},
 							"value": schema.StringAttribute{
-								MarkdownDescription: "Value of the target (CIDR or SecurityGroup URI)",
+								MarkdownDescription: "Source (inbound) or destination (outbound) CIDR in notation like `0.0.0.0/0`, or SecurityGroup URI.",
 								Required:            true,
 							},
 						},

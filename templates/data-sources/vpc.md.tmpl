@@ -1,13 +1,15 @@
 ---
-page_title: "arubacloud_vpc"
+page_title: "arubacloud_vpc Data Source - ArubaCloud"
 subcategory: "Network"
 description: |-
-  Reads an existing ArubaCloud VPC.
+  Retrieves information about an existing ArubaCloud VPC (Virtual Private Cloud).
 ---
 
-# arubacloud_vpc
+# arubacloud_vpc (Data Source)
 
-Reads an existing ArubaCloud VPC.
+Retrieves read-only information about an existing `arubacloud_vpc` resource. Use this data source to reference a VPC's URI in subnet or server configurations when the VPC is managed in a separate Terraform root module.
+
+## Example Usage
 
 {{ tffile "examples/data-sources/arubacloud_vpc/data-source-basic.tf" }}
 

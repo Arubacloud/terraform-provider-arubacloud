@@ -48,70 +48,70 @@ func (r *DBaaSResource) Metadata(ctx context.Context, req resource.MetadataReque
 
 func (r *DBaaSResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "DBaaS resource",
+		MarkdownDescription: "Manages an ArubaCloud DBaaS cluster — a managed database cluster with automated backups and high availability.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "DBaaS identifier",
+				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
 				Computed:            true,
 			},
 			"uri": schema.StringAttribute{
-				MarkdownDescription: "DBaaS URI",
+				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources.",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "DBaaS name",
+				MarkdownDescription: "Display name for the DBaaS cluster.",
 				Required:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "DBaaS location",
+				MarkdownDescription: "Region identifier (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).",
 				Required:            true,
 			},
 			"zone": schema.StringAttribute{
-				MarkdownDescription: "Zone",
+				MarkdownDescription: "Availability zone within the region where the DBaaS cluster is deployed.",
 				Required:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of tags for the DBaaS resource",
+				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
 				Optional:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this DBaaS belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"engine_id": schema.StringAttribute{
-				MarkdownDescription: "Database engine ID. Available engines are described in the [ArubaCloud API documentation](https://api.arubacloud.com/docs/metadata/#dbaas-engines). For example, `mysql-8.0` for MySQL version 8.0.",
+				MarkdownDescription: "Database engine type and version identifier (e.g., `mysql-8.0` for MySQL 8.0, `postgresql-15` for PostgreSQL 15). See the [available engines](https://api.arubacloud.com/docs/metadata/#dbaas-engines).",
 				Required:            true,
 			},
 			"flavor": schema.StringAttribute{
-				MarkdownDescription: "DBaaS flavor name. Available flavors are described in the [ArubaCloud API documentation](https://api.arubacloud.com/docs/metadata/#dbaas-flavors). For example, `DBO2A4` means 2 CPU and 4GB RAM.",
+				MarkdownDescription: "Compute flavour for the DBaaS cluster nodes. See [available flavours](https://api.arubacloud.com/docs/metadata/#dbaas-flavors). For example, `DBO2A4` means 2 vCPU and 4 GB RAM.",
 				Required:            true,
 			},
 			"storage": schema.SingleNestedAttribute{
-				MarkdownDescription: "Storage configuration for the DBaaS instance",
+				MarkdownDescription: "Storage configuration for the DBaaS instance.",
 				Required:            true,
 				Attributes: map[string]schema.Attribute{
 					"size_gb": schema.Int64Attribute{
-						MarkdownDescription: "Storage size in GB for the DBaaS instance",
+						MarkdownDescription: "Storage size in GB for the DBaaS instance.",
 						Required:            true,
 					},
 					"autoscaling": schema.SingleNestedAttribute{
-						MarkdownDescription: "Autoscaling configuration for the DBaaS instance",
+						MarkdownDescription: "Optional autoscaling configuration for the DBaaS storage.",
 						Optional:            true,
 						Attributes: map[string]schema.Attribute{
 							"enabled": schema.BoolAttribute{
-								MarkdownDescription: "Enable autoscaling",
+								MarkdownDescription: "Whether storage autoscaling is enabled.",
 								Required:            true,
 							},
 							"available_space": schema.Int64Attribute{
-								MarkdownDescription: "Minimum available space threshold in GB. When the available storage falls below this value, autoscaling will increase the storage by the step_size amount.",
+								MarkdownDescription: "Minimum available space threshold in GB. When the available storage falls below this value, autoscaling increases storage by the `step_size` amount.",
 								Required:            true,
 							},
 							"step_size": schema.Int64Attribute{
-								MarkdownDescription: "Step size for autoscaling (in GB)",
+								MarkdownDescription: "Amount of storage (in GB) added on each autoscaling event.",
 								Required:            true,
 							},
 						},
@@ -119,32 +119,32 @@ func (r *DBaaSResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				},
 			},
 			"network": schema.SingleNestedAttribute{
-				MarkdownDescription: "Network configuration for the DBaaS instance",
+				MarkdownDescription: "Network configuration for the DBaaS instance. All URI references are immutable after creation.",
 				Required:            true,
 				Attributes: map[string]schema.Attribute{
 					"vpc_uri_ref": schema.StringAttribute{
-						MarkdownDescription: "URI reference to the VPC resource (e.g., `arubacloud_vpc.example.uri`)",
+						MarkdownDescription: "URI reference to the VPC resource. References the `uri` attribute of an `arubacloud_vpc` resource (e.g., `arubacloud_vpc.example.uri`).",
 						Required:            true,
 						PlanModifiers: []planmodifier.String{
 							stringplanmodifier.UseStateForUnknown(),
 						},
 					},
 					"subnet_uri_ref": schema.StringAttribute{
-						MarkdownDescription: "URI reference to the Subnet resource (e.g., `arubacloud_subnet.example.uri`)",
+						MarkdownDescription: "URI reference to the Subnet resource. References the `uri` attribute of an `arubacloud_subnet` resource (e.g., `arubacloud_subnet.example.uri`).",
 						Required:            true,
 						PlanModifiers: []planmodifier.String{
 							stringplanmodifier.UseStateForUnknown(),
 						},
 					},
 					"security_group_uri_ref": schema.StringAttribute{
-						MarkdownDescription: "URI reference to the Security Group resource (e.g., `arubacloud_securitygroup.example.uri`)",
+						MarkdownDescription: "URI reference to the Security Group resource. References the `uri` attribute of an `arubacloud_securitygroup` resource (e.g., `arubacloud_securitygroup.example.uri`).",
 						Required:            true,
 						PlanModifiers: []planmodifier.String{
 							stringplanmodifier.UseStateForUnknown(),
 						},
 					},
 					"elastic_ip_uri_ref": schema.StringAttribute{
-						MarkdownDescription: "URI reference to the Elastic IP resource (e.g., `arubacloud_elasticip.example.uri`)",
+						MarkdownDescription: "Optional URI reference to an Elastic IP resource. References the `uri` attribute of an `arubacloud_elasticip` resource (e.g., `arubacloud_elasticip.example.uri`).",
 						Optional:            true,
 						PlanModifiers: []planmodifier.String{
 							stringplanmodifier.UseStateForUnknown(),
@@ -153,7 +153,7 @@ func (r *DBaaSResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				},
 			},
 			"billing_period": schema.StringAttribute{
-				MarkdownDescription: "Billing period (Hour, Month, Year)",
+				MarkdownDescription: "Billing cycle. Accepted values: `Hour`, `Month`, `Year`.",
 				Optional:            true,
 			},
 		},

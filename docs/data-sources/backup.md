@@ -1,13 +1,15 @@
 ---
-page_title: "arubacloud_backup"
+page_title: "arubacloud_backup Data Source - ArubaCloud"
 subcategory: "Storage"
 description: |-
-  Retrieves an ArubaCloud Storage Backup.
+  Retrieves information about an existing ArubaCloud Block Storage Backup.
 ---
 
-# arubacloud_backup
+# arubacloud_backup (Data Source)
 
-Retrieves an ArubaCloud Storage Backup.
+Retrieves read-only information about an existing `arubacloud_backup`. Use this data source to look up backup metadata (ID, URI, type, retention) without managing the backup's lifecycle.
+
+## Example Usage
 
 ```terraform
 data "arubacloud_backup" "basic" {
@@ -25,8 +27,8 @@ The following arguments are supported:
 
 #### Required
 
-- `id` (String) Backup identifier
-- `project_id` (String) ID of the project this backup belongs to
+- `id` (String) Unique identifier of the backup to look up.
+- `project_id` (String) ID of the project that owns this resource.
 
 ### Attributes Reference
 
@@ -34,13 +36,12 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `billing_period` (String) Billing period
-- `location` (String) Backup location
-- `name` (String) Backup name
-- `retention_days` (Number) Retention days for the backup
-- `tags` (List of String) List of tags for the backup resource
-- `type` (String) Type of backup (Full, Incremental)
-- `volume_id` (String) Volume ID for the backup
-
+- `billing_period` (String) Billing cycle. Accepted values: `Hour`, `Month`, `Year`.
+- `location` (String) Region identifier (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).
+- `name` (String) Display name for the backup.
+- `retention_days` (Number) Number of days to retain the backup before automatic deletion. Optional — if omitted, the backup is retained indefinitely.
+- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
+- `type` (String) Backup type. Accepted values: `Full`, `Incremental`.
+- `volume_id` (String) ID of the block storage volume this backup was taken from.
 
 

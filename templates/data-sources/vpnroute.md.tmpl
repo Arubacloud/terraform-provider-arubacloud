@@ -1,13 +1,15 @@
 ---
-page_title: "arubacloud_vpnroute"
+page_title: "arubacloud_vpnroute Data Source - ArubaCloud"
 subcategory: "Network"
 description: |-
-  Reads an existing ArubaCloud VPN Route.
+  Retrieves information about an existing ArubaCloud VPN Route.
 ---
 
-# arubacloud_vpnroute
+# arubacloud_vpnroute (Data Source)
 
-Reads an existing ArubaCloud VPN Route.
+Retrieves read-only information about an existing `arubacloud_vpnroute`. Use this data source to reference VPN route metadata in other configurations without managing the lifecycle via Terraform.
+
+## Example Usage
 
 {{ tffile "examples/data-sources/arubacloud_vpn_route/data-source-basic.tf" }}
 

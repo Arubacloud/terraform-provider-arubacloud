@@ -1,13 +1,15 @@
 ---
-page_title: "arubacloud_subnet"
+page_title: "arubacloud_subnet Data Source - ArubaCloud"
 subcategory: "Network"
 description: |-
-  Reads an existing ArubaCloud subnet.
+  Retrieves information about an existing ArubaCloud Subnet within a VPC.
 ---
 
-# arubacloud_subnet
+# arubacloud_subnet (Data Source)
 
-Reads an existing ArubaCloud subnet.
+Retrieves read-only information about an existing `arubacloud_subnet` resource. Use this data source to reference a subnet's URI when attaching a CloudServer to a subnet managed in a separate configuration.
+
+## Example Usage
 
 {{ tffile "examples/data-sources/arubacloud_subnet/data-source-basic.tf" }}
 

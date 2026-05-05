@@ -34,26 +34,26 @@ func (d *VPCPeeringRouteDataSource) Metadata(ctx context.Context, req datasource
 
 func (d *VPCPeeringRouteDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "VPC Peering Route data source",
+		MarkdownDescription: "Retrieves read-only information about an existing `arubacloud_vpcpeeringroute`.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "VPC Peering Route identifier (same as name)",
+				MarkdownDescription: "Unique identifier of the VPC peering route to look up (same as the route name).",
 				Required:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "VPC Peering Route name",
+				MarkdownDescription: "Display name for the VPC peering route.",
 				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this VPC Peering Route belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"vpc_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the VPC this peering route belongs to",
+				MarkdownDescription: "ID of the VPC this peering route belongs to.",
 				Required:            true,
 			},
 			"vpc_peering_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the VPC Peering this route belongs to",
+				MarkdownDescription: "ID of the VPC peering connection this route belongs to.",
 				Required:            true,
 			},
 		},

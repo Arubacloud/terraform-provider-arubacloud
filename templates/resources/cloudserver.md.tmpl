@@ -1,22 +1,39 @@
 ---
-page_title: "arubacloud_cloudserver"
+page_title: "arubacloud_cloudserver Resource - ArubaCloud"
 subcategory: "Compute"
 description: |-
-  Manages an ArubaCloud CloudServer.
+  Manages an ArubaCloud CloudServer virtual machine.
 ---
 
 # arubacloud_cloudserver
 
-Manages an ArubaCloud CloudServer.
+Manages an ArubaCloud CloudServer — a virtual machine hosted on ArubaCloud compute infrastructure. A CloudServer requires a parent `arubacloud_project`, an `arubacloud_vpc` with at least one `arubacloud_subnet`, one or more `arubacloud_securitygroup` resources, an `arubacloud_keypair` for SSH access, and a bootable `arubacloud_blockstorage` volume. Destroying a CloudServer detaches all attached block storage but does not delete those volumes; destroy them explicitly if they are no longer needed.
+
+## Example Usage
+
+### Basic CloudServer
 
 {{ tffile "examples/resources/arubacloud_cloudserver/resource-basic.tf" }}
 
 {{ .SchemaMarkdown }}
 
+## Notes
+
+- **Dependencies:** Requires [`arubacloud_project`](../resources/project), [`arubacloud_vpc`](../resources/vpc), [`arubacloud_subnet`](../resources/subnet), [`arubacloud_securitygroup`](../resources/securitygroup), [`arubacloud_keypair`](../resources/keypair), [`arubacloud_blockstorage`](../resources/blockstorage).
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
+
 ## Import
 
-Aruba Cloud CloudServers can be imported using the `cloudserver_id`.
+Aruba Cloud CloudServer can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_cloudserver.example <cloudserver_id>
+terraform import arubacloud_cloudserver.example <cloudserver-id>
 ```

@@ -1,22 +1,40 @@
 ---
-page_title: "arubacloud_dbaas"
+page_title: "arubacloud_dbaas Resource - ArubaCloud"
 subcategory: "Database"
 description: |-
-  Manages an ArubaCloud DBaaS.
+  Manages an ArubaCloud DBaaS cluster — a managed database cluster with automated backups and high availability.
 ---
 
 # arubacloud_dbaas
 
-Manages an ArubaCloud DBaaS.
+Manages an ArubaCloud DBaaS cluster — a managed, highly available database cluster with automated backups. The cluster engine and version are set at creation time and cannot be changed without destroying and re-creating the cluster. A DBaaS cluster is the parent resource for `arubacloud_database`, `arubacloud_dbaasuser`, and `arubacloud_databasebackup`.
+
+## Example Usage
+
+### Basic DBaaS cluster
 
 {{ tffile "examples/resources/arubacloud_dbaas/resource-basic.tf" }}
 
 {{ .SchemaMarkdown }}
 
+## Notes
+
+- **Dependencies:** Requires `arubacloud_project`, `arubacloud_vpc`, `arubacloud_subnet`, and `arubacloud_securitygroup` to exist before creating a DBaaS cluster.
+- **Immutable fields:** `engine_id`, `location`, `zone`, and all `network` URI references cannot be changed after creation without destroying and re-creating the cluster.
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
+
 ## Import
 
-Aruba Cloud DBaaS can be imported using the `dbaas_id`.
+Aruba Cloud DBaaS can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_dbaas.example <dbaas_id>
+terraform import arubacloud_dbaas.example <dbaas-id>
 ```

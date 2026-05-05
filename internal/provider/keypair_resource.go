@@ -42,42 +42,42 @@ func (r *KeypairResource) Metadata(ctx context.Context, req resource.MetadataReq
 
 func (r *KeypairResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Keypair resource",
+		MarkdownDescription: "Manages an ArubaCloud SSH KeyPair.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Keypair identifier (name)",
+				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"uri": schema.StringAttribute{
-				MarkdownDescription: "Keypair URI",
+				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Keypair name",
+				MarkdownDescription: "Display name for the KeyPair.",
 				Required:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "Keypair location",
+				MarkdownDescription: "Region identifier for the resource (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).",
 				Required:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "Project ID",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"value": schema.StringAttribute{
-				MarkdownDescription: "Public key value",
+				MarkdownDescription: "OpenSSH-format public key string (e.g., `ssh-rsa AAAA...`). The provider uploads this to ArubaCloud; the corresponding private key is never stored. Write-only — this value is sent to the API but is not returned in subsequent read responses.",
 				Required:            true,
 				Sensitive:           true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of tags for the keypair",
+				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
 				Optional:            true,
 			},
 		},

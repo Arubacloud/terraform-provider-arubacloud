@@ -64,56 +64,56 @@ func (r *CloudServerResource) Metadata(ctx context.Context, req resource.Metadat
 
 func (r *CloudServerResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "CloudServer resource",
+		MarkdownDescription: "Manages an ArubaCloud CloudServer virtual machine.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "CloudServer identifier",
+				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"uri": schema.StringAttribute{
-				MarkdownDescription: "CloudServer URI",
+				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "CloudServer name",
+				MarkdownDescription: "Display name for the CloudServer.",
 				Required:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "CloudServer location",
+				MarkdownDescription: "Region identifier for the resource (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).",
 				Required:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "Project ID",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"zone": schema.StringAttribute{
-				MarkdownDescription: "Zone",
+				MarkdownDescription: "Availability zone within the region (e.g., `ITBG-1`). See [available zones](https://api.arubacloud.com/docs/metadata/#regions).",
 				Required:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of tags for the Cloud Server",
+				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
 				Optional:            true,
 			},
 			"network": schema.SingleNestedAttribute{
-				MarkdownDescription: "Network configuration for the cloud server",
+				MarkdownDescription: "Network configuration for the CloudServer.",
 				Required:            true,
 				Attributes: map[string]schema.Attribute{
 					"vpc_uri_ref": schema.StringAttribute{
-						MarkdownDescription: "VPC URI reference (e.g., arubacloud_vpc.example.uri)",
+						MarkdownDescription: "URI of the VPC to attach this CloudServer to. Reference the `uri` attribute of an `arubacloud_vpc` resource.",
 						Required:            true,
 						PlanModifiers: []planmodifier.String{
 							stringplanmodifier.UseStateForUnknown(),
 						},
 					},
 					"elastic_ip_uri_ref": schema.StringAttribute{
-						MarkdownDescription: "Elastic IP URI reference (e.g., arubacloud_elasticip.example.uri)",
+						MarkdownDescription: "URI of an Elastic IP to associate with this CloudServer. Reference the `uri` attribute of an `arubacloud_elasticip` resource. Optional — omit to use a dynamic IP.",
 						Optional:            true,
 						PlanModifiers: []planmodifier.String{
 							stringplanmodifier.UseStateForUnknown(),
@@ -121,44 +121,44 @@ func (r *CloudServerResource) Schema(ctx context.Context, req resource.SchemaReq
 					},
 					"subnet_uri_refs": schema.ListAttribute{
 						ElementType:         types.StringType,
-						MarkdownDescription: "List of subnet URI references (e.g., [arubacloud_subnet.example.uri])",
+						MarkdownDescription: "List of subnet URIs to attach this CloudServer to. Reference the `uri` attribute of each `arubacloud_subnet` resource.",
 						Required:            true,
 					},
 					"securitygroup_uri_refs": schema.ListAttribute{
 						ElementType:         types.StringType,
-						MarkdownDescription: "List of security group URI references (e.g., [arubacloud_securitygroup.example.uri])",
+						MarkdownDescription: "List of security group URIs to apply to this CloudServer. Reference the `uri` attribute of each `arubacloud_securitygroup` resource.",
 						Required:            true,
 					},
 				},
 			},
 			"settings": schema.SingleNestedAttribute{
-				MarkdownDescription: "Cloud server settings",
+				MarkdownDescription: "Compute and access settings for the CloudServer.",
 				Required:            true,
 				Attributes: map[string]schema.Attribute{
 					"flavor_name": schema.StringAttribute{
-						MarkdownDescription: "Flavor name (e.g., CSO4A8 for 4 CPU, 8GB RAM). See https://api.arubacloud.com/docs/metadata/#cloudserver-flavors",
+						MarkdownDescription: "Compute flavour name (e.g., `CSO4A8` for 4 vCPU / 8 GB RAM). See [available flavours](https://api.arubacloud.com/docs/metadata/#cloudserver-flavors).",
 						Required:            true,
 					},
 					"key_pair_uri_ref": schema.StringAttribute{
-						MarkdownDescription: "Key Pair URI reference (e.g., arubacloud_keypair.example.uri)",
+						MarkdownDescription: "URI of the SSH key pair to inject at boot. Reference the `uri` attribute of an `arubacloud_keypair` resource.",
 						Optional:            true,
 						PlanModifiers: []planmodifier.String{
 							stringplanmodifier.UseStateForUnknown(),
 						},
 					},
 					"user_data": schema.StringAttribute{
-						MarkdownDescription: "Cloud-Init user data (raw YAML content)",
+						MarkdownDescription: "Cloud-Init configuration passed verbatim to the instance at first boot (raw YAML or shell-script). Write-only — this value is sent to the API but is not returned in subsequent read responses.",
 						Optional:            true,
 						Sensitive:           true,
 					},
 				},
 			},
 			"storage": schema.SingleNestedAttribute{
-				MarkdownDescription: "Storage configuration for the cloud server",
+				MarkdownDescription: "Storage configuration for the CloudServer.",
 				Required:            true,
 				Attributes: map[string]schema.Attribute{
 					"boot_volume_uri_ref": schema.StringAttribute{
-						MarkdownDescription: "Boot volume URI reference (e.g., arubacloud_blockstorage.example.uri)",
+						MarkdownDescription: "URI of the bootable block storage volume. Reference the `uri` attribute of an `arubacloud_blockstorage` resource (must be bootable).",
 						Required:            true,
 						PlanModifiers: []planmodifier.String{
 							stringplanmodifier.UseStateForUnknown(),

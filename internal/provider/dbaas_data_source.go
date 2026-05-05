@@ -50,79 +50,79 @@ func (d *DBaaSDataSource) Metadata(ctx context.Context, req datasource.MetadataR
 
 func (d *DBaaSDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "DBaaS data source",
+		MarkdownDescription: "Retrieves read-only information about an existing ArubaCloud DBaaS cluster.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "DBaaS identifier",
+				MarkdownDescription: "Unique identifier of the DBaaS cluster to look up.",
 				Required:            true,
 			},
 			"uri": schema.StringAttribute{
-				MarkdownDescription: "DBaaS URI",
+				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources.",
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "DBaaS name",
+				MarkdownDescription: "Display name for the DBaaS cluster.",
 				Computed:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "DBaaS location",
+				MarkdownDescription: "Region identifier (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).",
 				Computed:            true,
 			},
 			"zone": schema.StringAttribute{
-				MarkdownDescription: "Zone",
+				MarkdownDescription: "Availability zone within the region where the DBaaS cluster is deployed.",
 				Computed:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of tags for the DBaaS resource",
+				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
 				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this DBaaS belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"engine_id": schema.StringAttribute{
-				MarkdownDescription: "Database engine ID (e.g., mysql-8.0, mssql-2022-web)",
+				MarkdownDescription: "Database engine type and version identifier (e.g., `mysql-8.0`, `postgresql-15`).",
 				Computed:            true,
 			},
 			"flavor": schema.StringAttribute{
-				MarkdownDescription: "DBaaS flavor name (e.g., DBO2A4)",
+				MarkdownDescription: "Compute flavour for the DBaaS cluster nodes (e.g., `DBO2A4`).",
 				Computed:            true,
 			},
 			"billing_period": schema.StringAttribute{
-				MarkdownDescription: "Billing period (Hour, Month, Year)",
+				MarkdownDescription: "Billing cycle. Accepted values: `Hour`, `Month`, `Year`.",
 				Computed:            true,
 			},
 			"storage_size_gb": schema.Int64Attribute{
-				MarkdownDescription: "Storage size in GB",
+				MarkdownDescription: "Computed by the API. Storage size in GB allocated to the DBaaS instance.",
 				Computed:            true,
 			},
 			"autoscaling_enabled": schema.BoolAttribute{
-				MarkdownDescription: "Enable autoscaling",
+				MarkdownDescription: "Computed by the API. Whether storage autoscaling is enabled.",
 				Computed:            true,
 			},
 			"autoscaling_available_space": schema.Int64Attribute{
-				MarkdownDescription: "Minimum available space threshold in GB for autoscaling",
+				MarkdownDescription: "Computed by the API. Minimum available space threshold in GB that triggers autoscaling.",
 				Computed:            true,
 			},
 			"autoscaling_step_size": schema.Int64Attribute{
-				MarkdownDescription: "Step size for autoscaling (in GB)",
+				MarkdownDescription: "Computed by the API. Amount of storage (in GB) added on each autoscaling event.",
 				Computed:            true,
 			},
 			"vpc_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "VPC URI reference",
+				MarkdownDescription: "Computed by the API. URI reference to the VPC the DBaaS cluster is attached to.",
 				Computed:            true,
 			},
 			"subnet_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "Subnet URI reference",
+				MarkdownDescription: "Computed by the API. URI reference to the Subnet the DBaaS cluster is attached to.",
 				Computed:            true,
 			},
 			"security_group_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "Security Group URI reference",
+				MarkdownDescription: "Computed by the API. URI reference to the Security Group attached to the DBaaS cluster.",
 				Computed:            true,
 			},
 			"elastic_ip_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "Elastic IP URI reference",
+				MarkdownDescription: "Computed by the API. URI reference to the Elastic IP attached to the DBaaS cluster, if any.",
 				Computed:            true,
 			},
 		},

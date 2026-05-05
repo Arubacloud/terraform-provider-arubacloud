@@ -1,13 +1,15 @@
 ---
-page_title: "arubacloud_vpcpeering"
+page_title: "arubacloud_vpcpeering Data Source - ArubaCloud"
 subcategory: "Network"
 description: |-
-  Reads an existing ArubaCloud VPC Peering.
+  Retrieves information about an existing ArubaCloud VPC Peering connection.
 ---
 
-# arubacloud_vpcpeering
+# arubacloud_vpcpeering (Data Source)
 
-Reads an existing ArubaCloud VPC Peering.
+Retrieves read-only information about an existing `arubacloud_vpcpeering` connection. Use this data source to reference VPC peering metadata in other configurations without managing the lifecycle via Terraform.
+
+## Example Usage
 
 {{ tffile "examples/data-sources/arubacloud_vpc_peering/data-source-basic.tf" }}
 

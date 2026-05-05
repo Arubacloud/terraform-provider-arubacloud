@@ -42,47 +42,47 @@ func (r *VPNRouteResource) Metadata(ctx context.Context, req resource.MetadataRe
 
 func (r *VPNRouteResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "VPN Route resource",
+		MarkdownDescription: "Manages a static route associated with an ArubaCloud VPN Tunnel. The route instructs the ArubaCloud gateway to forward traffic for a specified CIDR over the parent VPN tunnel.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "VPN Route identifier",
+				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
 				Computed:            true,
 			},
 			"uri": schema.StringAttribute{
-				MarkdownDescription: "VPN Route URI",
+				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).",
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "VPN Route name",
+				MarkdownDescription: "Display name for the VPN route.",
 				Required:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "VPN Route location",
+				MarkdownDescription: "Region identifier for the resource (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).",
 				Required:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of tags for the VPN Route",
+				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
 				Optional:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this VPN Route belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"vpn_tunnel_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the VPN Tunnel this route belongs to",
+				MarkdownDescription: "ID of the VPN tunnel this route is associated with.",
 				Required:            true,
 			},
 			"properties": schema.SingleNestedAttribute{
-				MarkdownDescription: "Properties of the VPN Route",
+				MarkdownDescription: "Routing properties for the VPN route.",
 				Required:            true,
 				Attributes: map[string]schema.Attribute{
 					"cloud_subnet": schema.StringAttribute{
-						MarkdownDescription: "CIDR of the cloud subnet",
+						MarkdownDescription: "CIDR of the ArubaCloud-side subnet to route over this tunnel (e.g., `10.0.1.0/24`).",
 						Required:            true,
 					},
 					"on_prem_subnet": schema.StringAttribute{
-						MarkdownDescription: "CIDR of the on-prem subnet",
+						MarkdownDescription: "CIDR of the on-premises subnet reachable through this tunnel (e.g., `192.168.1.0/24`).",
 						Required:            true,
 					},
 				},

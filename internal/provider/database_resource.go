@@ -38,26 +38,26 @@ func (r *DatabaseResource) Metadata(ctx context.Context, req resource.MetadataRe
 
 func (r *DatabaseResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Database resource",
+		MarkdownDescription: "Manages a logical database within an ArubaCloud DBaaS cluster.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Database identifier (same as name)",
+				MarkdownDescription: "Computed by the API. Unique identifier for the resource (same as the database name).",
 				Computed:            true,
 			},
 			"uri": schema.StringAttribute{
-				MarkdownDescription: "Database URI",
+				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources.",
 				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this database belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"dbaas_id": schema.StringAttribute{
-				MarkdownDescription: "DBaaS ID this database belongs to",
+				MarkdownDescription: "ID of the parent DBaaS cluster this database belongs to.",
 				Required:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Database name",
+				MarkdownDescription: "Display name for the database.",
 				Required:            true,
 			},
 		},

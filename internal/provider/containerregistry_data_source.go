@@ -47,63 +47,63 @@ func (d *ContainerRegistryDataSource) Metadata(ctx context.Context, req datasour
 
 func (d *ContainerRegistryDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Container Registry data source",
+		MarkdownDescription: "Retrieves information about an existing ArubaCloud Container Registry.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Container Registry identifier",
+				MarkdownDescription: "Unique identifier of the container registry to look up.",
 				Required:            true,
 			},
 			"uri": schema.StringAttribute{
-				MarkdownDescription: "Container Registry URI",
+				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources.",
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Container Registry name",
+				MarkdownDescription: "Display name for the container registry.",
 				Computed:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "Container Registry location",
+				MarkdownDescription: "Region identifier (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).",
 				Computed:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of tags for the Container Registry resource",
+				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
 				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this Container Registry belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"billing_period": schema.StringAttribute{
-				MarkdownDescription: "Billing period (Hour, Month, Year)",
+				MarkdownDescription: "Billing cycle. Accepted values: `Hour`, `Month`, `Year`.",
 				Computed:            true,
 			},
 			"public_ip_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "Public IP URI reference",
+				MarkdownDescription: "URI of the Elastic IP that exposes the registry endpoint.",
 				Computed:            true,
 			},
 			"vpc_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "VPC URI reference",
+				MarkdownDescription: "URI of the VPC that hosts the registry.",
 				Computed:            true,
 			},
 			"subnet_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "Subnet URI reference",
+				MarkdownDescription: "URI of the subnet within the VPC.",
 				Computed:            true,
 			},
 			"security_group_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "Security Group URI reference",
+				MarkdownDescription: "URI of the security group controlling registry traffic.",
 				Computed:            true,
 			},
 			"block_storage_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "Block Storage URI reference",
+				MarkdownDescription: "URI of the block storage volume backing the registry image store.",
 				Computed:            true,
 			},
 			"admin_user": schema.StringAttribute{
-				MarkdownDescription: "Administrator username",
+				MarkdownDescription: "Administrator username for the registry.",
 				Computed:            true,
 			},
 			"concurrent_users_flavor": schema.StringAttribute{
-				MarkdownDescription: "Concurrent users flavor size (Small, Medium, HighPerf)",
+				MarkdownDescription: "Concurrency tier for simultaneous push/pull sessions (`Small`, `Medium`, `HighPerf`).",
 				Computed:            true,
 			},
 		},

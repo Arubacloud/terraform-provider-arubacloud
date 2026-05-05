@@ -35,30 +35,30 @@ func (d *DatabaseGrantDataSource) Metadata(ctx context.Context, req datasource.M
 
 func (d *DatabaseGrantDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Database Grant data source",
+		MarkdownDescription: "Retrieves read-only information about an existing ArubaCloud database grant.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Database Grant identifier (composite key: project_id/dbaas_id/database/user_id)",
+				MarkdownDescription: "Computed by the API. Unique identifier for the grant (composite key: `project_id/dbaas_id/database/user_id`).",
 				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this database grant belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"dbaas_id": schema.StringAttribute{
-				MarkdownDescription: "DBaaS ID this grant belongs to",
+				MarkdownDescription: "ID of the parent DBaaS cluster this grant belongs to.",
 				Required:            true,
 			},
 			"database": schema.StringAttribute{
-				MarkdownDescription: "Database name or ID",
+				MarkdownDescription: "ID of the database this grant applies to.",
 				Required:            true,
 			},
 			"user_id": schema.StringAttribute{
-				MarkdownDescription: "User ID to grant access",
+				MarkdownDescription: "Name or ID of the DBaaS user whose grant is being looked up.",
 				Required:            true,
 			},
 			"role": schema.StringAttribute{
-				MarkdownDescription: "Role to grant (e.g., read, write, admin)",
+				MarkdownDescription: "Privilege level granted to the user on the database.",
 				Computed:            true,
 			},
 		},

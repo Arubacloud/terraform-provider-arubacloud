@@ -1,15 +1,17 @@
 ---
-page_title: "arubacloud_project"
+page_title: "arubacloud_project Resource - ArubaCloud"
 subcategory: "Management"
 description: |-
-  Manages an ArubaCloud Project.
+  Manages an ArubaCloud Project — the top-level organisational unit for all resources.
 ---
 
 # arubacloud_project
 
-Manages an ArubaCloud Project.
+Manages an ArubaCloud Project — the top-level organisational unit for all ArubaCloud resources. Every resource in this provider (CloudServer, VPC, BlockStorage, DBaaS, etc.) belongs to exactly one project via its `project_id` attribute. Projects are global and not tied to a specific region. This is typically the first resource to create in a new Terraform workspace.
 
 ## Example Usage
+
+### Basic project
 
 ```terraform
 resource "arubacloud_project" "basic" {
@@ -28,12 +30,12 @@ The following arguments are supported:
 
 #### Required
 
-- `name` (String) Project name
+- `name` (String) Display name for the Project.
 
 #### Optional
 
-- `description` (String) Project description
-- `tags` (List of String) List of tags for the project
+- `description` (String) Optional human-readable description of the project.
+- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
 
 ### Attributes Reference
 
@@ -41,14 +43,27 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `id` (String) Project identifier
+- `id` (String) Computed by the API. Unique identifier for the resource.
 
 
+
+## Notes
+
+- **Dependencies:** None — `arubacloud_project` is the root resource; all other resources depend on it.
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
 
 ## Import
 
-Aruba Cloud Project can be imported using the `project_id`.
+Aruba Cloud Project can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_project.example <project_id>
+terraform import arubacloud_project.example <project-id>
 ```

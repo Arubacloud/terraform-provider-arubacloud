@@ -1,13 +1,15 @@
 ---
-page_title: "arubacloud_schedulejob"
+page_title: "arubacloud_schedulejob Data Source - ArubaCloud"
 subcategory: "Management"
 description: |-
-  Reads an existing ArubaCloud Schedule Job.
+  Retrieves information about an existing ArubaCloud Scheduled Job.
 ---
 
-# arubacloud_schedulejob
+# arubacloud_schedulejob (Data Source)
 
-Reads an existing ArubaCloud Schedule Job.
+Retrieves read-only information about an existing `arubacloud_schedulejob`. Use this data source to reference scheduled job metadata in other configurations without managing the lifecycle via Terraform.
+
+## Example Usage
 
 ```terraform
 data "arubacloud_schedulejob" "example" {
@@ -35,8 +37,8 @@ The following arguments are supported:
 
 #### Required
 
-- `id` (String) Schedule Job identifier
-- `project_id` (String) ID of the project this Schedule Job belongs to
+- `id` (String) Unique identifier of the scheduled job to look up.
+- `project_id` (String) ID of the project that owns this resource.
 
 ### Attributes Reference
 
@@ -44,8 +46,8 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `cron` (String) Cron expression for the schedule job
-- `description` (String) Schedule Job description
-- `name` (String) Schedule Job name
+- `cron` (String) Cron expression defining the job schedule (e.g., `0 * * * *` for hourly). Standard 5-field cron format.
+- `description` (String) Optional human-readable description of the scheduled job.
+- `name` (String) Display name for the scheduled job.
 
 

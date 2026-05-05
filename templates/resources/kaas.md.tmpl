@@ -1,22 +1,39 @@
 ---
-page_title: "arubacloud_kaas"
+page_title: "arubacloud_kaas Resource - ArubaCloud"
 subcategory: "Container"
 description: |-
-  Manages an ArubaCloud Kubernetes as a Service (KaaS) cluster. Once the cluster is ready, the provider downloads and exposes the kubeconfig (decoded from the API) so you can use it with kubectl or write it to a file.
+  Manages an ArubaCloud Kubernetes cluster (KaaS — Kubernetes-as-a-Service).
 ---
 
 # arubacloud_kaas
 
-Manages an ArubaCloud Kubernetes as a Service (KaaS) cluster. Once the cluster is ready, the provider downloads and exposes the kubeconfig (decoded from the API) so you can use it with kubectl or write it to a file.
+Manages an ArubaCloud Kubernetes-as-a-Service (KaaS) cluster — a managed Kubernetes control plane with a configurable number of worker nodes. The cluster is provisioned within a `arubacloud_project` and a specific region. Worker node flavours and Kubernetes version are set at creation time and some attributes may be immutable; refer to the schema notes below.
+
+## Example Usage
+
+### Basic KaaS cluster
 
 {{ tffile "examples/resources/arubacloud_kaas/resource-basic.tf" }}
 
 {{ .SchemaMarkdown }}
 
+## Notes
+
+- **Dependencies:** `arubacloud_project`, `arubacloud_vpc`, `arubacloud_subnet`
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
+
 ## Import
 
-Aruba Cloud KaaS can be imported using the `kaas_id`.
+Aruba Cloud KaaS can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_kaas.example <kaas_id>
+terraform import arubacloud_kaas.example <kaas-id>
 ```

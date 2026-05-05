@@ -34,26 +34,26 @@ func (d *VPNTunnelDataSource) Metadata(ctx context.Context, req datasource.Metad
 
 func (d *VPNTunnelDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "VPN Tunnel data source",
+		MarkdownDescription: "Retrieves read-only information about an existing `arubacloud_vpntunnel`.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "VPN Tunnel identifier",
+				MarkdownDescription: "Unique identifier of the VPN tunnel to look up.",
 				Required:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "VPN Tunnel name",
+				MarkdownDescription: "Display name for the VPN tunnel.",
 				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this VPN Tunnel belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"remote_peer": schema.StringAttribute{
-				MarkdownDescription: "Remote peer address for the VPN tunnel",
+				MarkdownDescription: "Public IP address of the remote peer (on-premises gateway).",
 				Computed:            true,
 			},
 			"status": schema.StringAttribute{
-				MarkdownDescription: "Status of the VPN tunnel",
+				MarkdownDescription: "Current operational status of the VPN tunnel.",
 				Computed:            true,
 			},
 		},

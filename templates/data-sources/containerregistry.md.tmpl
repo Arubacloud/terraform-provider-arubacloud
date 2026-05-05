@@ -1,13 +1,15 @@
 ---
-page_title: "arubacloud_containerregistry"
+page_title: "arubacloud_containerregistry Data Source - ArubaCloud"
 subcategory: "Container"
 description: |-
-  Retrieves an ArubaCloud Container Registry.
+  Retrieves information about an existing ArubaCloud Container Registry.
 ---
 
-# arubacloud_containerregistry
+# arubacloud_containerregistry (Data Source)
 
-Retrieves an ArubaCloud Container Registry.
+Retrieves read-only information about an existing `arubacloud_containerregistry`. Use this data source to look up the registry endpoint URL in other configurations without managing the lifecycle via Terraform.
+
+## Example Usage
 
 {{ tffile "examples/data-sources/arubacloud_containerregistry/data-source-basic.tf" }}
 

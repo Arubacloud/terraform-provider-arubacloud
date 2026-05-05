@@ -1,13 +1,17 @@
 ---
-page_title: "arubacloud_securityrule"
-subcategory: "Security"
+page_title: "arubacloud_securityrule Resource - ArubaCloud"
+subcategory: "Network"
 description: |-
-  Manages an ArubaCloud Security Rule.
+  Manages an ArubaCloud Security Rule within an arubacloud_securitygroup.
 ---
 
 # arubacloud_securityrule
 
-Manages an ArubaCloud Security Rule.
+Manages an individual ArubaCloud Security Rule within an `arubacloud_securitygroup`. Each rule defines allowed or denied traffic for one direction (inbound or outbound), protocol, port range, and source/destination CIDR. Most rule attributes are immutable after creation; to change them, destroy and re-create the rule.
+
+## Example Usage
+
+### Basic Security Rule
 
 ```terraform
 # Example: Ingress rule allowing HTTP traffic
@@ -58,16 +62,16 @@ The following arguments are supported:
 
 #### Required
 
-- `location` (String) Security Rule location
-- `name` (String) Security Rule name
-- `project_id` (String) ID of the project this Security Rule belongs to
-- `properties` (Attributes) Properties of the security rule (see [below for nested schema](#nestedatt--properties))
-- `security_group_id` (String) ID of the Security Group this rule belongs to
-- `vpc_id` (String) ID of the VPC this Security Rule belongs to
+- `location` (String) Region identifier for the resource (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions). (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `name` (String) Display name for the security rule.
+- `project_id` (String) ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `properties` (Attributes) Traffic-matching properties of the security rule. Most fields are immutable after creation. (see [below for nested schema](#nestedatt--properties))
+- `security_group_id` (String) ID of the security group this rule belongs to. (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `vpc_id` (String) ID of the VPC this security rule belongs to. (Immutable — changing this value forces the resource to be destroyed and re-created.)
 
 #### Optional
 
-- `tags` (List of String) List of tags for the Security Rule
+- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
 
 ### Attributes Reference
 
@@ -75,38 +79,52 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `id` (String) Security Rule identifier
-- `uri` (String) Security Rule URI
+- `id` (String) Computed by the API. Unique identifier for the resource.
+- `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).
 
 <a id="nestedatt--properties"></a>
 ### Nested Schema for `properties`
 
 Required:
 
-- `direction` (String) Direction of the rule (Ingress/Egress)
-- `protocol` (String) Protocol (ANY, TCP, UDP, ICMP)
-- `target` (Attributes) Target of the rule (source or destination) (see [below for nested schema](#nestedatt--properties--target))
+- `direction` (String) Traffic direction the rule applies to. Accepted values: `Inbound`, `Outbound`. (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `protocol` (String) IP protocol. Accepted values: `TCP`, `UDP`, `ICMP`, `ANY`. (Immutable if marked.)
+- `target` (Attributes) Source (inbound) or destination (outbound) endpoint for this rule. (see [below for nested schema](#nestedatt--properties--target))
 
 Optional:
 
-- `port` (String) Port or port range (for TCP/UDP)
+- `port` (String) Port or port range for TCP/UDP (e.g., `80` or `8080-8090`). Use `0` for ICMP or ANY.
 
 <a id="nestedatt--properties--target"></a>
 ### Nested Schema for `properties.target`
 
 Required:
 
-- `kind` (String) Type of the target (Ip/SecurityGroup)
-- `value` (String) Value of the target (CIDR or SecurityGroup URI)
+- `kind` (String) Type of the target endpoint. Accepted values: `IP`, `SecurityGroup`.
+- `value` (String) Source (inbound) or destination (outbound) CIDR in notation like `0.0.0.0/0`, or SecurityGroup URI.
 
 
 
 
+
+## Notes
+
+- **Dependencies:** Requires an [`arubacloud_securitygroup`](https://registry.terraform.io/providers/Arubacloud/arubacloud/latest/docs/resources/securitygroup), [`arubacloud_vpc`](https://registry.terraform.io/providers/Arubacloud/arubacloud/latest/docs/resources/vpc), and an [`arubacloud_project`](https://registry.terraform.io/providers/Arubacloud/arubacloud/latest/docs/resources/project).
+- **Immutable fields:** `location`, `project_id`, `vpc_id`, `security_group_id` — changing these forces the resource to be destroyed and re-created. Rule properties (`direction`, `protocol`, `port`, `target`) cannot be updated in place; destroy and re-create the rule to change them.
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
 
 ## Import
 
-Aruba Cloud Security Rule can be imported using the `securityrule_id`.
+Aruba Cloud Security Rule can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_securityrule.example <securityrule_id>
+terraform import arubacloud_securityrule.example <securityrule-id>
 ```

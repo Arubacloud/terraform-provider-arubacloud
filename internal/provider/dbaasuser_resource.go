@@ -40,30 +40,30 @@ func (r *DBaaSUserResource) Metadata(ctx context.Context, req resource.MetadataR
 
 func (r *DBaaSUserResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "DBaaS User resource",
+		MarkdownDescription: "Manages a database user within an ArubaCloud DBaaS cluster.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "DBaaS User identifier (same as username)",
+				MarkdownDescription: "Computed by the API. Unique identifier for the resource (same as the username).",
 				Computed:            true,
 			},
 			"uri": schema.StringAttribute{
-				MarkdownDescription: "DBaaS User URI",
+				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources.",
 				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this user belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"dbaas_id": schema.StringAttribute{
-				MarkdownDescription: "DBaaS ID this user belongs to",
+				MarkdownDescription: "ID of the parent DBaaS cluster this user belongs to.",
 				Required:            true,
 			},
 			"username": schema.StringAttribute{
-				MarkdownDescription: "Username for the DBaaS user",
+				MarkdownDescription: "Display name for the DBaaS user.",
 				Required:            true,
 			},
 			"password": schema.StringAttribute{
-				MarkdownDescription: "Password for the DBaaS user",
+				MarkdownDescription: "Password for the DBaaS user. Write-only — this value is sent to the API but is not returned in subsequent read responses.",
 				Required:            true,
 				Sensitive:           true,
 			},

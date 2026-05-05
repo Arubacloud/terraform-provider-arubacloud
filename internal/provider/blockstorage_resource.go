@@ -48,64 +48,64 @@ func (r *BlockStorageResource) Metadata(ctx context.Context, req resource.Metada
 
 func (r *BlockStorageResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Block Storage resource",
+		MarkdownDescription: "Manages an ArubaCloud Block Storage volume.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Block Storage identifier",
+				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
 				Computed:            true,
 			},
 			"uri": schema.StringAttribute{
-				MarkdownDescription: "Block Storage URI",
+				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources.",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Block Storage name",
+				MarkdownDescription: "Display name for the block storage volume.",
 				Required:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this Block Storage belongs to",
+				MarkdownDescription: "ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "Block Storage location/region",
+				MarkdownDescription: "Region identifier (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions). (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"size_gb": schema.Int64Attribute{
-				MarkdownDescription: "Size of the block storage in GB",
+				MarkdownDescription: "Size of the block storage volume in GiB. Must be a positive integer.",
 				Required:            true,
 			},
 			"billing_period": schema.StringAttribute{
-				MarkdownDescription: "Billing period (Hour, Month, Year)",
+				MarkdownDescription: "Billing cycle. Accepted values: `Hour`, `Month`, `Year`.",
 				Required:            true,
 			},
 			"zone": schema.StringAttribute{
-				MarkdownDescription: "Zone where blockstorage will be created. If not specified, the block storage will be regional (available across all zones in the location). If specified, the block storage will be zonal (tied to a specific zone).",
+				MarkdownDescription: "Availability zone within the region. If omitted the volume is regional (accessible across all zones).",
 				Optional:            true,
 			},
 			"type": schema.StringAttribute{
-				MarkdownDescription: "Type of block storage (Standard, Performance)",
+				MarkdownDescription: "Storage type. Accepted values: `Standard`, `Performance`.",
 				Required:            true,
 			},
 			"bootable": schema.BoolAttribute{
-				MarkdownDescription: "Whether the block storage is bootable. Must be set to true along with image to create a bootable disk.",
+				MarkdownDescription: "Whether this volume can be used as a boot volume for an `arubacloud_cloudserver`. Must be `true` when `image` is set.",
 				Optional:            true,
 			},
 			"image": schema.StringAttribute{
-				MarkdownDescription: "Image ID for bootable block storage. Required when bootable is true. See [available images](https://api.arubacloud.com/docs/metadata/#cloud-server-bootvolume) for a list of supported image IDs.",
+				MarkdownDescription: "Image ID to use when creating a bootable volume. Required when `bootable` is `true`. See the [available images](https://api.arubacloud.com/docs/metadata/#cloud-server-bootvolume).",
 				Optional:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of tags for the block storage",
+				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
 				Optional:            true,
 			},
 		},

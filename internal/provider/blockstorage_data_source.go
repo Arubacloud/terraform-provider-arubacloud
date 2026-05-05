@@ -52,55 +52,55 @@ func (d *BlockStorageDataSource) Metadata(ctx context.Context, req datasource.Me
 
 func (d *BlockStorageDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Block Storage data source",
+		MarkdownDescription: "Retrieves read-only information about an existing ArubaCloud Block Storage volume.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Block Storage identifier",
+				MarkdownDescription: "Unique identifier of the block storage volume to look up.",
 				Required:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Block Storage name",
+				MarkdownDescription: "Display name for the block storage volume.",
 				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this Block Storage belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "Location of the block storage",
+				MarkdownDescription: "Region identifier (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).",
 				Computed:            true,
 			},
 			"size_gb": schema.Int64Attribute{
-				MarkdownDescription: "Size of the block storage in GB",
+				MarkdownDescription: "Size of the block storage volume in GiB. Must be a positive integer.",
 				Computed:            true,
 			},
 			"billing_period": schema.StringAttribute{
-				MarkdownDescription: "Billing period of the block storage",
+				MarkdownDescription: "Billing cycle. Accepted values: `Hour`, `Month`, `Year`.",
 				Computed:            true,
 			},
 			"zone": schema.StringAttribute{
-				MarkdownDescription: "Zone of the block storage",
+				MarkdownDescription: "Availability zone within the region. If omitted the volume is regional (accessible across all zones).",
 				Computed:            true,
 			},
 			"type": schema.StringAttribute{
-				MarkdownDescription: "Type of block storage (Standard, Performance)",
+				MarkdownDescription: "Storage type. Accepted values: `Standard`, `Performance`.",
 				Computed:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of tags for the block storage",
+				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
 				Computed:            true,
 			},
 			"snapshot_id": schema.StringAttribute{
-				MarkdownDescription: "Snapshot ID for the block storage",
+				MarkdownDescription: "ID of the snapshot this volume was created from, if any.",
 				Computed:            true,
 			},
 			"bootable": schema.BoolAttribute{
-				MarkdownDescription: "Whether the block storage is bootable",
+				MarkdownDescription: "Whether this volume can be used as a boot volume for an `arubacloud_cloudserver`. Must be `true` when `image` is set.",
 				Computed:            true,
 			},
 			"image": schema.StringAttribute{
-				MarkdownDescription: "Image for the block storage",
+				MarkdownDescription: "Image ID to use when creating a bootable volume. Required when `bootable` is `true`. See the [available images](https://api.arubacloud.com/docs/metadata/#cloud-server-bootvolume).",
 				Computed:            true,
 			},
 		},

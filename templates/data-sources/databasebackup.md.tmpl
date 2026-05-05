@@ -1,15 +1,16 @@
 ---
-page_title: "arubacloud_databasebackup"
+page_title: "arubacloud_databasebackup Data Source - ArubaCloud"
 subcategory: "Database"
 description: |-
-  Retrieves an ArubaCloud Database Backup.
+  Retrieves information about an existing ArubaCloud database backup.
 ---
 
-# arubacloud_databasebackup
+# arubacloud_databasebackup (Data Source)
 
-Reads an existing ArubaCloud database backup.
+Retrieves read-only information about an existing `arubacloud_databasebackup`. Use this data source to reference backup metadata in other configurations without managing the lifecycle via Terraform.
+
+## Example Usage
 
 {{ tffile "examples/data-sources/arubacloud_databasebackup/data-source-basic.tf" }}
-
 
 {{ .SchemaMarkdown }}

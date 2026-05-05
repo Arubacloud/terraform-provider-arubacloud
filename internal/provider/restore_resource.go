@@ -42,39 +42,39 @@ func (r *RestoreResource) Metadata(ctx context.Context, req resource.MetadataReq
 
 func (r *RestoreResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Restore resource",
+		MarkdownDescription: "Manages an ArubaCloud Block Storage Restore operation — restores a backup to a block storage volume.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Restore identifier",
+				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
 				Computed:            true,
 			},
 			"uri": schema.StringAttribute{
-				MarkdownDescription: "Restore URI",
+				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources.",
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Restore name",
+				MarkdownDescription: "Display name for the restore operation.",
 				Required:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "Restore location",
+				MarkdownDescription: "Region identifier (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).",
 				Required:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of tags for the restore resource",
+				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
 				Optional:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this restore belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"backup_id": schema.StringAttribute{
-				MarkdownDescription: "Backup ID to restore from",
+				MarkdownDescription: "ID of the backup to restore from.",
 				Required:            true,
 			},
 			"volume_id": schema.StringAttribute{
-				MarkdownDescription: "Volume ID to restore to",
+				MarkdownDescription: "ID of the target block storage volume to restore the backup onto.",
 				Required:            true,
 			},
 		},

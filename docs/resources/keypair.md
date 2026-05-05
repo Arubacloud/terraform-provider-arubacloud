@@ -1,13 +1,17 @@
 ---
-page_title: "arubacloud_keypair"
+page_title: "arubacloud_keypair Resource - ArubaCloud"
 subcategory: "Security"
 description: |-
-  Manages an ArubaCloud KeyPair.
+  Manages an ArubaCloud SSH KeyPair.
 ---
 
 # arubacloud_keypair
 
-Manages an ArubaCloud KeyPair.
+Manages an ArubaCloud SSH KeyPair. The key pair stores a public key on the ArubaCloud platform; the corresponding private key is kept locally and never uploaded. Reference the `uri` output in an `arubacloud_cloudserver` `settings.key_pair_uri_ref` to inject the key at instance creation time.
+
+## Example Usage
+
+### Basic KeyPair
 
 ```terraform
 # Note: Keypair updates are not supported by the API.
@@ -30,14 +34,14 @@ The following arguments are supported:
 
 #### Required
 
-- `location` (String) Keypair location
-- `name` (String) Keypair name
-- `project_id` (String) Project ID
-- `value` (String, Sensitive) Public key value
+- `location` (String) Region identifier for the resource (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).
+- `name` (String) Display name for the KeyPair.
+- `project_id` (String) ID of the project that owns this resource.
+- `value` (String, Sensitive) OpenSSH-format public key string (e.g., `ssh-rsa AAAA...`). The provider uploads this to ArubaCloud; the corresponding private key is never stored. Write-only — this value is sent to the API but is not returned in subsequent read responses.
 
 #### Optional
 
-- `tags` (List of String) List of tags for the keypair
+- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
 
 ### Attributes Reference
 
@@ -45,15 +49,29 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `id` (String) Keypair identifier (name)
-- `uri` (String) Keypair URI
+- `id` (String) Computed by the API. Unique identifier for the resource.
+- `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).
 
 
+
+## Notes
+
+- **Dependencies:** Requires [`arubacloud_project`](../resources/project).
+- **Sensitive fields:** `value` — sent to the API but not returned in read responses.
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
 
 ## Import
 
-Aruba Cloud KeyPair can be imported using the `keypair_id`.
+Aruba Cloud KeyPair can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_keypair.example <keypair_id>
+terraform import arubacloud_keypair.example <keypair-id>
 ```

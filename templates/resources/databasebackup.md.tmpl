@@ -1,22 +1,39 @@
 ---
-page_title: "arubacloud_databasebackup"
+page_title: "arubacloud_databasebackup Resource - ArubaCloud"
 subcategory: "Database"
 description: |-
-  Manages an ArubaCloud Database Backup.
+  Manages a backup of an ArubaCloud DBaaS database.
 ---
 
 # arubacloud_databasebackup
 
-Manages an ArubaCloud Database Backup.
+Manages a backup of an ArubaCloud database (within a DBaaS cluster). Database backups are stored independently from the cluster and can be used for point-in-time recovery. Requires a pre-existing `arubacloud_dbaas` cluster or `arubacloud_database`.
+
+## Example Usage
+
+### Basic database backup
 
 {{ tffile "examples/resources/arubacloud_databasebackup/resource-basic.tf" }}
 
 {{ .SchemaMarkdown }}
 
+## Notes
+
+- **Dependencies:** Requires a running `arubacloud_dbaas` cluster and an existing `arubacloud_database`.
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
+
 ## Import
 
-Aruba Cloud Database Backup can be imported using the `databasebackup_id`.
+Aruba Cloud Database Backup can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_databasebackup.example <databasebackup_id>
+terraform import arubacloud_databasebackup.example <databasebackup-id>
 ```

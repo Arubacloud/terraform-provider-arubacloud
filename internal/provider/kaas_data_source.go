@@ -61,112 +61,112 @@ func (d *KaaSDataSource) Metadata(ctx context.Context, req datasource.MetadataRe
 
 func (d *KaaSDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "KaaS data source",
+		MarkdownDescription: "Retrieves information about an existing ArubaCloud KaaS (Kubernetes-as-a-Service) cluster.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "KaaS identifier",
+				MarkdownDescription: "Unique identifier of the KaaS cluster to look up.",
 				Required:            true,
 			},
 			"uri": schema.StringAttribute{
-				MarkdownDescription: "KaaS URI",
+				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources.",
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "KaaS name",
+				MarkdownDescription: "Display name for the KaaS cluster.",
 				Computed:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "KaaS location",
+				MarkdownDescription: "Region identifier (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).",
 				Computed:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of tags for the KaaS resource",
+				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
 				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this KaaS resource belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"billing_period": schema.StringAttribute{
-				MarkdownDescription: "Billing period (Hour, Month, Year)",
+				MarkdownDescription: "Billing cycle. Accepted values: `Hour`, `Month`, `Year`.",
 				Computed:            true,
 			},
 			"management_ip": schema.StringAttribute{
-				MarkdownDescription: "Management IP address",
+				MarkdownDescription: "Computed by the API. Management IP address of the cluster control plane.",
 				Computed:            true,
 			},
 			"kubeconfig": schema.StringAttribute{
-				MarkdownDescription: "Kubeconfig YAML for kubectl access (downloaded when KaaS is ready). Sensitive.",
+				MarkdownDescription: "Computed by the API. Kubeconfig YAML for kubectl access. Write-only — this value is sent to the API but is not returned in subsequent read responses.",
 				Computed:            true,
 				Sensitive:           true,
 			},
 			"vpc_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "VPC URI reference",
+				MarkdownDescription: "URI of the VPC that hosts the cluster.",
 				Computed:            true,
 			},
 			"subnet_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "Subnet URI reference",
+				MarkdownDescription: "URI of the subnet within the VPC.",
 				Computed:            true,
 			},
 			"node_cidr_address": schema.StringAttribute{
-				MarkdownDescription: "Node CIDR address in CIDR notation",
+				MarkdownDescription: "Node CIDR address in CIDR notation.",
 				Computed:            true,
 			},
 			"node_cidr_name": schema.StringAttribute{
-				MarkdownDescription: "Node CIDR name",
+				MarkdownDescription: "Human-readable label for the node CIDR block.",
 				Computed:            true,
 			},
 			"security_group_name": schema.StringAttribute{
-				MarkdownDescription: "Security group name",
+				MarkdownDescription: "Name of the security group applied to cluster nodes.",
 				Computed:            true,
 			},
 			"pod_cidr": schema.StringAttribute{
-				MarkdownDescription: "Pod CIDR in CIDR notation",
+				MarkdownDescription: "CIDR block used for pod networking within the cluster.",
 				Computed:            true,
 			},
 			"kubernetes_version": schema.StringAttribute{
-				MarkdownDescription: "Kubernetes version",
+				MarkdownDescription: "Kubernetes version string (e.g., `1.28`). Available versions are listed in the ArubaCloud metadata API.",
 				Computed:            true,
 			},
 			"node_pools": schema.ListNestedAttribute{
-				MarkdownDescription: "Node pools configuration",
+				MarkdownDescription: "Node pools that make up the cluster worker fleet.",
 				Computed:            true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"name": schema.StringAttribute{
-							MarkdownDescription: "Node pool name",
+							MarkdownDescription: "Display name for the node pool.",
 							Computed:            true,
 						},
 						"nodes": schema.Int64Attribute{
-							MarkdownDescription: "Number of nodes in the node pool",
+							MarkdownDescription: "Number of worker nodes in the cluster.",
 							Computed:            true,
 						},
 						"instance": schema.StringAttribute{
-							MarkdownDescription: "KaaS flavor name for nodes",
+							MarkdownDescription: "Compute flavour for cluster nodes.",
 							Computed:            true,
 						},
 						"zone": schema.StringAttribute{
-							MarkdownDescription: "Datacenter/zone code for nodes",
+							MarkdownDescription: "Datacenter zone code where the node pool is deployed.",
 							Computed:            true,
 						},
 						"autoscaling": schema.BoolAttribute{
-							MarkdownDescription: "Enable autoscaling for node pool",
+							MarkdownDescription: "Whether autoscaling is enabled for this node pool.",
 							Computed:            true,
 						},
 						"min_count": schema.Int64Attribute{
-							MarkdownDescription: "Minimum number of nodes for autoscaling",
+							MarkdownDescription: "Minimum number of nodes when autoscaling is enabled.",
 							Computed:            true,
 						},
 						"max_count": schema.Int64Attribute{
-							MarkdownDescription: "Maximum number of nodes for autoscaling",
+							MarkdownDescription: "Maximum number of nodes when autoscaling is enabled.",
 							Computed:            true,
 						},
 					},
 				},
 			},
 			"ha": schema.BoolAttribute{
-				MarkdownDescription: "High availability",
+				MarkdownDescription: "Whether the control plane is deployed in high-availability mode.",
 				Computed:            true,
 			},
 		},

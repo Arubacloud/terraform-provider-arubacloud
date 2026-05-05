@@ -1,13 +1,17 @@
 ---
-page_title: "arubacloud_schedulejob"
+page_title: "arubacloud_schedulejob Resource - ArubaCloud"
 subcategory: "Management"
 description: |-
-  Manages an ArubaCloud Schedule Job.
+  Manages an ArubaCloud Scheduled Job — a cron-triggered automation task.
 ---
 
 # arubacloud_schedulejob
 
-Manages an ArubaCloud Schedule Job.
+Manages an ArubaCloud Scheduled Job — a cron-triggered automation task that runs on a defined schedule within an `arubacloud_project`. Use scheduled jobs for periodic maintenance tasks, data exports, or any repeating operation supported by the ArubaCloud automation API.
+
+## Example Usage
+
+### Basic scheduled job
 
 ```terraform
 resource "arubacloud_schedulejob" "example" {
@@ -33,14 +37,14 @@ The following arguments are supported:
 
 #### Required
 
-- `location` (String) Location for the job
-- `name` (String) Schedule Job name
-- `project_id` (String) ID of the project this job belongs to
-- `properties` (Attributes) (see [below for nested schema](#nestedatt--properties))
+- `location` (String) Region identifier (e.g., `de-1`, `it-mil1`). See the [available regions](https://api.arubacloud.com/docs/metadata/#regions).
+- `name` (String) Display name for the scheduled job.
+- `project_id` (String) ID of the project that owns this resource.
+- `properties` (Attributes) Job scheduling and execution configuration. (see [below for nested schema](#nestedatt--properties))
 
 #### Optional
 
-- `tags` (List of String) List of tags for the job
+- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
 
 ### Attributes Reference
 
@@ -48,46 +52,59 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `id` (String) Schedule Job identifier
-- `uri` (String) Schedule Job URI
+- `id` (String) Computed by the API. Unique identifier for the resource.
+- `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources.
 
 <a id="nestedatt--properties"></a>
 ### Nested Schema for `properties`
 
 Required:
 
-- `schedule_job_type` (String) Type of job (OneShot, Recurring)
+- `schedule_job_type` (String) Execution mode of the job. Accepted values: `OneShot` (runs once at `schedule_at`), `Recurring` (repeats on a `cron` schedule).
 
 Optional:
 
-- `cron` (String) CRON expression for recurrence (for Recurring)
-- `enabled` (Boolean) Whether the job is enabled.
-- `execute_until` (String) End date until which the job can run (for Recurring)
-- `schedule_at` (String) Date and time when the job should run (for OneShot)
-- `steps` (Attributes List) List of steps to execute as part of the schedule job. (see [below for nested schema](#nestedatt--properties--steps))
+- `cron` (String) Cron expression defining the job schedule (e.g., `0 * * * *` for hourly). Standard 5-field cron format.
+- `enabled` (Boolean) When `true`, the job is active and will trigger on schedule.
+- `execute_until` (String) ISO 8601 date-time after which a `Recurring` job stops executing.
+- `schedule_at` (String) ISO 8601 date-time at which the job executes once (required for `OneShot` type).
+- `steps` (Attributes List) Ordered list of API actions executed when the job triggers. (see [below for nested schema](#nestedatt--properties--steps))
 
 <a id="nestedatt--properties--steps"></a>
 ### Nested Schema for `properties.steps`
 
 Required:
 
-- `action_uri` (String) URI of the action to execute.
-- `http_verb` (String) HTTP verb to use (GET, POST, etc.)
-- `resource_uri` (String) URI of the resource.
+- `action_uri` (String) URI of the API action to invoke on the target resource.
+- `http_verb` (String) HTTP method used to call the action URI (e.g., `GET`, `POST`, `PUT`, `DELETE`).
+- `resource_uri` (String) URI of the ArubaCloud resource that the step targets.
 
 Optional:
 
-- `body` (String) Optional HTTP request body.
-- `name` (String) Descriptive name of the step.
+- `body` (String) Optional JSON request body sent with the HTTP call.
+- `name` (String) Optional human-readable label for the step.
 
 
 
 
+
+## Notes
+
+- **Dependencies:** `arubacloud_project`
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
 
 ## Import
 
-Aruba Cloud Schedule Job can be imported using the `schedulejob_id`.
+Aruba Cloud Scheduled Job can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_schedulejob.example <schedulejob_id>
+terraform import arubacloud_schedulejob.example <schedulejob-id>
 ```

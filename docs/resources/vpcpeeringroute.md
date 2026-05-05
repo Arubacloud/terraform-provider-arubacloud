@@ -1,13 +1,17 @@
 ---
-page_title: "arubacloud_vpcpeeringroute"
+page_title: "arubacloud_vpcpeeringroute Resource - ArubaCloud"
 subcategory: "Network"
 description: |-
-  Manages an ArubaCloud VPC Peering Route.
+  Manages a route entry within an ArubaCloud VPC Peering connection.
 ---
 
 # arubacloud_vpcpeeringroute
 
-Manages an ArubaCloud VPC Peering Route.
+Manages a route entry within an ArubaCloud VPC Peering connection. Each route directs traffic destined for a specific CIDR block over the peering link. Routes must be created on both sides of the peering connection.
+
+## Example Usage
+
+### Basic VPC Peering Route
 
 ```terraform
 resource "arubacloud_vpc_peering_route" "basic" {
@@ -25,17 +29,17 @@ The following arguments are supported:
 
 #### Required
 
-- `billing_period` (String) Billing period (Hour, Month, Year)
-- `local_network_address` (String) Local network address in CIDR notation
-- `name` (String) VPC Peering Route name
-- `project_id` (String) ID of the project this VPC Peering Route belongs to
-- `remote_network_address` (String) Remote network address in CIDR notation
-- `vpc_id` (String) ID of the VPC this peering route belongs to
-- `vpc_peering_id` (String) ID of the VPC Peering this route belongs to
+- `billing_period` (String) Billing cycle for the resource. Accepted values: `Hour`, `Month`, `Year`.
+- `local_network_address` (String) Local network CIDR that is reachable on this side of the peering (e.g., `10.0.1.0/24`).
+- `name` (String) Display name for the VPC peering route.
+- `project_id` (String) ID of the project that owns this resource.
+- `remote_network_address` (String) Remote network CIDR reachable through the peering connection (e.g., `10.0.2.0/24`).
+- `vpc_id` (String) ID of the VPC this peering route belongs to.
+- `vpc_peering_id` (String) ID of the VPC peering connection this route belongs to.
 
 #### Optional
 
-- `tags` (List of String) List of tags for the VPC Peering Route
+- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
 
 ### Attributes Reference
 
@@ -43,15 +47,28 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `id` (String) VPC Peering Route identifier
-- `uri` (String) VPC Peering Route URI
+- `id` (String) Computed by the API. Unique identifier for the resource.
+- `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).
 
 
+
+## Notes
+
+- **Dependencies:** Requires an [`arubacloud_vpcpeering`](https://registry.terraform.io/providers/Arubacloud/arubacloud/latest/docs/resources/vpcpeering), [`arubacloud_vpc`](https://registry.terraform.io/providers/Arubacloud/arubacloud/latest/docs/resources/vpc), and an [`arubacloud_project`](https://registry.terraform.io/providers/Arubacloud/arubacloud/latest/docs/resources/project).
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
 
 ## Import
 
-Aruba Cloud VPC Peering Route can be imported using the `vpcpeeringroute_id`.
+Aruba Cloud VPC Peering Route can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_vpcpeeringroute.example <vpcpeeringroute_id>
+terraform import arubacloud_vpcpeeringroute.example <vpcpeeringroute-id>
 ```

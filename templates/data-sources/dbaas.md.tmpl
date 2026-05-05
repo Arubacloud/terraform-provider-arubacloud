@@ -1,15 +1,16 @@
 ---
-page_title: "arubacloud_dbaas"
+page_title: "arubacloud_dbaas Data Source - ArubaCloud"
 subcategory: "Database"
 description: |-
-  Retrieves an ArubaCloud DBaaS.
+  Retrieves information about an existing ArubaCloud DBaaS cluster.
 ---
 
-# arubacloud_dbaas
+# arubacloud_dbaas (Data Source)
 
-Reads an existing ArubaCloud DBaaS instance.
+Retrieves read-only information about an existing `arubacloud_dbaas` cluster. Use this data source to reference the cluster ID or URI when creating databases, users, or grants in a separate Terraform configuration.
+
+## Example Usage
 
 {{ tffile "examples/data-sources/arubacloud_dbaas/data-source-basic.tf" }}
-
 
 {{ .SchemaMarkdown }}

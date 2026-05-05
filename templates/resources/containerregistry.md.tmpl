@@ -1,22 +1,39 @@
 ---
-page_title: "arubacloud_containerregistry"
+page_title: "arubacloud_containerregistry Resource - ArubaCloud"
 subcategory: "Container"
 description: |-
-  Manages an ArubaCloud Container Registry resource.
+  Manages an ArubaCloud Container Registry — a private OCI-compatible image registry.
 ---
 
 # arubacloud_containerregistry
 
-Manages an ArubaCloud Container Registry.
+Manages an ArubaCloud Container Registry — a private, OCI-compatible image registry for storing and distributing container images and Helm charts. The registry endpoint and credentials are available as computed attributes once the resource is created. Requires an `arubacloud_project`.
+
+## Example Usage
+
+### Basic container registry
 
 {{ tffile "examples/resources/arubacloud_containerregistry/resource-basic.tf" }}
 
 {{ .SchemaMarkdown }}
 
+## Notes
+
+- **Dependencies:** `arubacloud_project`, `arubacloud_vpc`, `arubacloud_subnet`, `arubacloud_elasticip`, `arubacloud_securitygroup`, `arubacloud_blockstorage`
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
+
 ## Import
 
-Aruba Cloud Container Registry can be imported using the `containerregistry_id`.
+Aruba Cloud Container Registry can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_containerregistry.example <containerregistry_id>
+terraform import arubacloud_containerregistry.example <containerregistry-id>
 ```
