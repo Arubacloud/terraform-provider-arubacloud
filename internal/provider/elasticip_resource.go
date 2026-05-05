@@ -160,9 +160,8 @@ func (r *ElasticIPResource) Create(ctx context.Context, req resource.CreateReque
 			BillingPlan: sdktypes.BillingPeriodResource{
 				BillingPeriod: func() string {
 					if !data.BillingPeriod.IsNull() && !data.BillingPeriod.IsUnknown() {
-						return data.BillingPeriod.ValueString()
+						return billingPeriodToAPI(data.BillingPeriod.ValueString())
 					}
-					// Default to "hourly" if not provided
 					return "hourly"
 				}(),
 			},
@@ -204,14 +203,9 @@ func (r *ElasticIPResource) Create(ctx context.Context, req resource.CreateReque
 		}
 		// Set billing_period from create response if available
 		if response.Data.Properties.BillingPlan.BillingPeriod != "" {
-			data.BillingPeriod = types.StringValue(response.Data.Properties.BillingPlan.BillingPeriod)
+			data.BillingPeriod = types.StringValue(billingPeriodFromAPI(response.Data.Properties.BillingPlan.BillingPeriod))
 		} else if data.BillingPeriod.IsNull() || data.BillingPeriod.IsUnknown() {
-			// Fallback to plan value or default
-			if !data.BillingPeriod.IsNull() && !data.BillingPeriod.IsUnknown() {
-				// Keep plan value
-			} else {
-				data.BillingPeriod = types.StringValue("hourly")
-			}
+			data.BillingPeriod = types.StringValue("Hour")
 		}
 	} else {
 		resp.Diagnostics.AddError(
@@ -275,14 +269,9 @@ func (r *ElasticIPResource) Create(ctx context.Context, req resource.CreateReque
 		}
 		// Update billing_period from the re-read response
 		if getResp.Data.Properties.BillingPlan.BillingPeriod != "" {
-			data.BillingPeriod = types.StringValue(getResp.Data.Properties.BillingPlan.BillingPeriod)
-		} else {
-			// Fallback to plan value or default if not available
-			if !data.BillingPeriod.IsNull() && !data.BillingPeriod.IsUnknown() {
-				// Keep the plan value
-			} else {
-				data.BillingPeriod = types.StringValue("hourly")
-			}
+			data.BillingPeriod = types.StringValue(billingPeriodFromAPI(getResp.Data.Properties.BillingPlan.BillingPeriod))
+		} else if data.BillingPeriod.IsNull() || data.BillingPeriod.IsUnknown() {
+			data.BillingPeriod = types.StringValue("Hour")
 		}
 		// Also update other fields that might have changed
 		if getResp.Data.Metadata.Name != nil {
@@ -293,7 +282,7 @@ func (r *ElasticIPResource) Create(ctx context.Context, req resource.CreateReque
 		tflog.Warn(ctx, fmt.Sprintf("Failed to refresh Elastic IP after creation: %v", err))
 		// Ensure billing_period is set even if re-read fails
 		if data.BillingPeriod.IsNull() || data.BillingPeriod.IsUnknown() {
-			data.BillingPeriod = types.StringValue("hourly")
+			data.BillingPeriod = types.StringValue("Hour")
 		}
 	}
 
@@ -421,10 +410,9 @@ func (r *ElasticIPResource) Read(ctx context.Context, req resource.ReadRequest, 
 		// Always set billing_period from API response (it's always available from API)
 		// This ensures it's always in state, preventing false changes in plan
 		if eip.Properties.BillingPlan.BillingPeriod != "" {
-			data.BillingPeriod = types.StringValue(eip.Properties.BillingPlan.BillingPeriod)
+			data.BillingPeriod = types.StringValue(billingPeriodFromAPI(eip.Properties.BillingPlan.BillingPeriod))
 		} else {
-			// Fallback to "hourly" if API doesn't return it (shouldn't happen)
-			data.BillingPeriod = types.StringValue("hourly")
+			data.BillingPeriod = types.StringValue("Hour")
 		}
 
 		// Update tags from response
@@ -600,19 +588,19 @@ func (r *ElasticIPResource) Update(ctx context.Context, req resource.UpdateReque
 		}
 		// Always set billing_period from response if available
 		if response.Data.Properties.BillingPlan.BillingPeriod != "" {
-			data.BillingPeriod = types.StringValue(response.Data.Properties.BillingPlan.BillingPeriod)
+			data.BillingPeriod = types.StringValue(billingPeriodFromAPI(response.Data.Properties.BillingPlan.BillingPeriod))
 		} else {
 			// If not in response, re-read to get it
 			getResp, err := r.client.Client.FromNetwork().ElasticIPs().Get(ctx, projectID, eipID, nil)
 			if err == nil && getResp != nil && getResp.Data != nil {
 				if getResp.Data.Properties.BillingPlan.BillingPeriod != "" {
-					data.BillingPeriod = types.StringValue(getResp.Data.Properties.BillingPlan.BillingPeriod)
+					data.BillingPeriod = types.StringValue(billingPeriodFromAPI(getResp.Data.Properties.BillingPlan.BillingPeriod))
 				} else {
 					// Fallback to state or default
 					if !state.BillingPeriod.IsNull() && !state.BillingPeriod.IsUnknown() {
 						data.BillingPeriod = state.BillingPeriod
 					} else {
-						data.BillingPeriod = types.StringValue("hourly")
+						data.BillingPeriod = types.StringValue("Hour")
 					}
 				}
 				// Also update address from re-read if available (computed field from ElasticIpPropertiesResponse)
@@ -624,7 +612,7 @@ func (r *ElasticIPResource) Update(ctx context.Context, req resource.UpdateReque
 				if !state.BillingPeriod.IsNull() && !state.BillingPeriod.IsUnknown() {
 					data.BillingPeriod = state.BillingPeriod
 				} else {
-					data.BillingPeriod = types.StringValue("hourly")
+					data.BillingPeriod = types.StringValue("Hour")
 				}
 			}
 		}
@@ -635,12 +623,12 @@ func (r *ElasticIPResource) Update(ctx context.Context, req resource.UpdateReque
 		getResp, err := r.client.Client.FromNetwork().ElasticIPs().Get(ctx, projectID, eipID, nil)
 		if err == nil && getResp != nil && getResp.Data != nil {
 			if getResp.Data.Properties.BillingPlan.BillingPeriod != "" {
-				data.BillingPeriod = types.StringValue(getResp.Data.Properties.BillingPlan.BillingPeriod)
+				data.BillingPeriod = types.StringValue(billingPeriodFromAPI(getResp.Data.Properties.BillingPlan.BillingPeriod))
 			} else {
 				if !state.BillingPeriod.IsNull() && !state.BillingPeriod.IsUnknown() {
 					data.BillingPeriod = state.BillingPeriod
 				} else {
-					data.BillingPeriod = types.StringValue("hourly")
+					data.BillingPeriod = types.StringValue("Hour")
 				}
 			}
 		} else {
@@ -648,7 +636,7 @@ func (r *ElasticIPResource) Update(ctx context.Context, req resource.UpdateReque
 			if !state.BillingPeriod.IsNull() && !state.BillingPeriod.IsUnknown() {
 				data.BillingPeriod = state.BillingPeriod
 			} else {
-				data.BillingPeriod = types.StringValue("hourly")
+				data.BillingPeriod = types.StringValue("Hour")
 			}
 		}
 	}

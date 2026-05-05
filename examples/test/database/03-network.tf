@@ -69,6 +69,6 @@ resource "arubacloud_elasticip" "dbaas" {
   name           = "dbaas-elastic-ip"
   location       = "ITBG-Bergamo"  # Change to your region
   project_id     = arubacloud_project.test.id
-  billing_period = "hourly"
+  billing_period = "Hour"
   tags           = ["public", "dbaas", "database", "test"]
 }

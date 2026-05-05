@@ -144,7 +144,7 @@ func (d *ElasticIPDataSource) Read(ctx context.Context, req datasource.ReadReque
 		data.Address = types.StringNull()
 	}
 	if eip.Properties.BillingPlan.BillingPeriod != "" {
-		data.BillingPeriod = types.StringValue(eip.Properties.BillingPlan.BillingPeriod)
+		data.BillingPeriod = types.StringValue(billingPeriodFromAPI(eip.Properties.BillingPlan.BillingPeriod))
 	} else {
 		data.BillingPeriod = types.StringNull()
 	}
