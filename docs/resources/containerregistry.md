@@ -1,13 +1,17 @@
 ---
-page_title: "arubacloud_containerregistry"
+page_title: "arubacloud_containerregistry Resource - ArubaCloud"
 subcategory: "Container"
 description: |-
-  Manages an ArubaCloud Container Registry resource.
+  Manages an ArubaCloud Container Registry — a private OCI-compatible image registry.
 ---
 
 # arubacloud_containerregistry
 
-Manages an ArubaCloud Container Registry.
+Manages an ArubaCloud Container Registry — a private, OCI-compatible image registry for storing and distributing container images and Helm charts. The registry endpoint and credentials are available as computed attributes once the resource is created. Requires an `arubacloud_project`.
+
+## Example Usage
+
+### Basic container registry
 
 ```terraform
 # Container Registry Example
@@ -51,17 +55,17 @@ The following arguments are supported:
 
 #### Required
 
-- `location` (String) Container Registry location
-- `name` (String) Container Registry name
-- `network` (Attributes) Network configuration for the container registry (see [below for nested schema](#nestedatt--network))
-- `project_id` (String) ID of the project this Container Registry belongs to
-- `storage` (Attributes) Storage configuration for the container registry (see [below for nested schema](#nestedatt--storage))
+- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
+- `name` (String) Display name for the container registry.
+- `network` (Attributes) Network resources attached to the registry. (see [below for nested schema](#nestedatt--network))
+- `project_id` (String) ID of the project that owns this resource.
+- `storage` (Attributes) Block storage volume that backs the registry image store. (see [below for nested schema](#nestedatt--storage))
 
 #### Optional
 
-- `billing_period` (String) Billing period (Hour, Month, Year)
-- `settings` (Attributes) Container registry settings (see [below for nested schema](#nestedatt--settings))
-- `tags` (List of String) List of tags for the Container Registry resource
+- `billing_period` (String) Billing cycle. Accepted values: `Hour`, `Month`, `Year`.
+- `settings` (Attributes) Optional registry configuration settings. (see [below for nested schema](#nestedatt--settings))
+- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
 
 ### Attributes Reference
 
@@ -69,18 +73,18 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `id` (String) Container Registry identifier
-- `uri` (String) Container Registry URI
+- `id` (String) Computed by the API. Unique identifier for the resource.
+- `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources.
 
 <a id="nestedatt--network"></a>
 ### Nested Schema for `network`
 
 Required:
 
-- `public_ip_uri_ref` (String) Public IP URI reference (e.g., arubacloud_elasticip.example.uri)
-- `security_group_uri_ref` (String) Security Group URI reference (e.g., arubacloud_securitygroup.example.uri)
-- `subnet_uri_ref` (String) Subnet URI reference (e.g., arubacloud_subnet.example.uri)
-- `vpc_uri_ref` (String) VPC URI reference (e.g., arubacloud_vpc.example.uri)
+- `public_ip_uri_ref` (String) URI of the Elastic IP that exposes the registry endpoint (e.g., `arubacloud_elasticip.example.uri`).
+- `security_group_uri_ref` (String) URI of the security group controlling registry traffic (e.g., `arubacloud_securitygroup.example.uri`).
+- `subnet_uri_ref` (String) URI of the subnet within the VPC (e.g., `arubacloud_subnet.example.uri`).
+- `vpc_uri_ref` (String) URI of the VPC that hosts the registry (e.g., `arubacloud_vpc.example.uri`).
 
 
 <a id="nestedatt--storage"></a>
@@ -88,7 +92,7 @@ Required:
 
 Required:
 
-- `block_storage_uri_ref` (String) Block Storage URI reference (e.g., arubacloud_blockstorage.example.uri)
+- `block_storage_uri_ref` (String) URI of the block storage volume (e.g., `arubacloud_blockstorage.example.uri`).
 
 
 <a id="nestedatt--settings"></a>
@@ -96,16 +100,29 @@ Required:
 
 Optional:
 
-- `admin_user` (String) Administrator username
-- `concurrent_users_flavor` (String) Concurrent users flavor size. Must be one of: Small, Medium, HighPerf
+- `admin_user` (String) Administrator username for the registry.
+- `concurrent_users_flavor` (String) Concurrency tier that determines how many simultaneous push/pull sessions are supported. Accepted values: `Small`, `Medium`, `HighPerf`.
 
 
 
+
+## Notes
+
+- **Dependencies:** `arubacloud_project`, `arubacloud_vpc`, `arubacloud_subnet`, `arubacloud_elasticip`, `arubacloud_securitygroup`, `arubacloud_blockstorage`
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
 
 ## Import
 
-Aruba Cloud Container Registry can be imported using the `containerregistry_id`.
+Aruba Cloud Container Registry can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_containerregistry.example <containerregistry_id>
+terraform import arubacloud_containerregistry.example <containerregistry-id>
 ```

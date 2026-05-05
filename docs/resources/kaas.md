@@ -1,13 +1,17 @@
 ---
-page_title: "arubacloud_kaas"
+page_title: "arubacloud_kaas Resource - ArubaCloud"
 subcategory: "Container"
 description: |-
-  Manages an ArubaCloud Kubernetes as a Service (KaaS) cluster. Once the cluster is ready, the provider downloads and exposes the kubeconfig (decoded from the API) so you can use it with kubectl or write it to a file.
+  Manages an ArubaCloud Kubernetes cluster (KaaS — Kubernetes-as-a-Service).
 ---
 
 # arubacloud_kaas
 
-Manages an ArubaCloud Kubernetes as a Service (KaaS) cluster. Once the cluster is ready, the provider downloads and exposes the kubeconfig (decoded from the API) so you can use it with kubectl or write it to a file.
+Manages an ArubaCloud Kubernetes-as-a-Service (KaaS) cluster — a managed Kubernetes control plane with a configurable number of worker nodes. The cluster is provisioned within a `arubacloud_project` and a specific region. Worker node flavours and Kubernetes version are set at creation time and some attributes may be immutable; refer to the schema notes below.
+
+## Example Usage
+
+### Basic KaaS cluster
 
 ```terraform
 # KaaS (Kubernetes as a Service) Example
@@ -77,16 +81,16 @@ The following arguments are supported:
 
 #### Required
 
-- `location` (String) KaaS location
-- `name` (String) KaaS name
-- `network` (Attributes) Network configuration for the KaaS cluster (see [below for nested schema](#nestedatt--network))
-- `project_id` (String) ID of the project this KaaS resource belongs to
-- `settings` (Attributes) Kubernetes cluster settings (see [below for nested schema](#nestedatt--settings))
+- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
+- `name` (String) Display name for the KaaS cluster.
+- `network` (Attributes) Network configuration for the KaaS cluster. (see [below for nested schema](#nestedatt--network))
+- `project_id` (String) ID of the project that owns this resource.
+- `settings` (Attributes) Kubernetes version and node-pool configuration. (see [below for nested schema](#nestedatt--settings))
 
 #### Optional
 
-- `billing_period` (String) Billing period (Hour, Month, Year)
-- `tags` (List of String) List of tags for the KaaS resource
+- `billing_period` (String) Billing cycle. Accepted values: `Hour`, `Month`, `Year`.
+- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
 
 ### Attributes Reference
 
@@ -94,32 +98,32 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `id` (String) KaaS identifier
-- `kubeconfig` (String, Sensitive) Kubeconfig YAML for kubectl access (downloaded when KaaS is ready). Sensitive.
-- `management_ip` (String) Management IP address (available when KaaS is active)
-- `uri` (String) KaaS URI
+- `id` (String) Computed by the API. Unique identifier for the resource.
+- `kubeconfig` (String, Sensitive) Computed by the API. Kubeconfig YAML for kubectl access, downloaded when the cluster is active. Write-only — this value is sent to the API but is not returned in subsequent read responses.
+- `management_ip` (String) Computed by the API. Management IP address of the cluster control plane, available once the cluster is active.
+- `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources.
 
 <a id="nestedatt--network"></a>
 ### Nested Schema for `network`
 
 Required:
 
-- `node_cidr` (Attributes) Node CIDR configuration (see [below for nested schema](#nestedatt--network--node_cidr))
-- `security_group_name` (String) Security group name
-- `subnet_uri_ref` (String) Subnet URI reference for the KaaS resource (e.g., arubacloud_subnet.example.uri)
-- `vpc_uri_ref` (String) VPC URI reference for the KaaS resource (e.g., arubacloud_vpc.example.uri)
+- `node_cidr` (Attributes) CIDR block assigned to cluster nodes. (see [below for nested schema](#nestedatt--network--node_cidr))
+- `security_group_name` (String) Name of the security group applied to cluster nodes.
+- `subnet_uri_ref` (String) URI of the subnet within the VPC (e.g., `arubacloud_subnet.example.uri`).
+- `vpc_uri_ref` (String) URI of the VPC that hosts the cluster (e.g., `arubacloud_vpc.example.uri`).
 
 Optional:
 
-- `pod_cidr` (String) Pod CIDR in CIDR notation (e.g., 10.0.3.0/24)
+- `pod_cidr` (String) CIDR block used for pod networking within the cluster (e.g., `10.0.3.0/24`).
 
 <a id="nestedatt--network--node_cidr"></a>
 ### Nested Schema for `network.node_cidr`
 
 Required:
 
-- `address` (String) Node CIDR address in CIDR notation (e.g., 10.0.0.0/24)
-- `name` (String) Node CIDR name
+- `address` (String) Node CIDR address in CIDR notation (e.g., `10.0.0.0/24`).
+- `name` (String) Human-readable label for the node CIDR block.
 
 
 
@@ -128,37 +132,50 @@ Required:
 
 Required:
 
-- `kubernetes_version` (String) Kubernetes version. Available versions are described in the [ArubaCloud API documentation](https://api.arubacloud.com/docs/metadata#kubernetes-version). For example, `1.33.2`.
-- `node_pools` (Attributes List) Node pools configuration (see [below for nested schema](#nestedatt--settings--node_pools))
+- `kubernetes_version` (String) Kubernetes version string (e.g., `1.28`). Available versions are listed in the ArubaCloud metadata API.
+- `node_pools` (Attributes List) One or more node pools that make up the cluster worker fleet. (see [below for nested schema](#nestedatt--settings--node_pools))
 
 Optional:
 
-- `ha` (Boolean) High availability
+- `ha` (Boolean) When `true`, the control plane is deployed in high-availability mode.
 
 <a id="nestedatt--settings--node_pools"></a>
 ### Nested Schema for `settings.node_pools`
 
 Required:
 
-- `instance` (String) KaaS flavor name for nodes. Available flavors are described in the [ArubaCloud API documentation](https://api.arubacloud.com/docs/metadata#kaas-flavors). For example, `K2A4` means 2 CPU, 4GB RAM, and 40GB storage.
-- `name` (String) Node pool name
-- `nodes` (Number) Number of nodes in the node pool
-- `zone` (String) Datacenter/zone code for nodes
+- `instance` (String) Compute flavour for cluster nodes (e.g., `CSO4A8`). See [available flavours](https://api.arubacloud.com/docs/metadata/#cloudserver-flavors).
+- `name` (String) Display name for the node pool.
+- `nodes` (Number) Number of worker nodes in the cluster.
+- `zone` (String) Datacenter zone code where the node pool is deployed.
 
 Optional:
 
-- `autoscaling` (Boolean) Enable autoscaling for node pool
-- `max_count` (Number) Maximum number of nodes for autoscaling
-- `min_count` (Number) Minimum number of nodes for autoscaling
+- `autoscaling` (Boolean) When `true`, the node pool scales automatically between `min_count` and `max_count`.
+- `max_count` (Number) Maximum number of nodes when autoscaling is enabled.
+- `min_count` (Number) Minimum number of nodes when autoscaling is enabled.
 
 
 
 
+
+## Notes
+
+- **Dependencies:** `arubacloud_project`, `arubacloud_vpc`, `arubacloud_subnet`
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
 
 ## Import
 
-Aruba Cloud KaaS can be imported using the `kaas_id`.
+Aruba Cloud KaaS can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_kaas.example <kaas_id>
+terraform import arubacloud_kaas.example <kaas-id>
 ```

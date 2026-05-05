@@ -40,34 +40,34 @@ func (r *DatabaseGrantResource) Metadata(ctx context.Context, req resource.Metad
 
 func (r *DatabaseGrantResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Database Grant resource",
+		MarkdownDescription: "Manages a privilege grant for an ArubaCloud DBaaS user on a specific database.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Database Grant identifier",
+				MarkdownDescription: "Computed by the API. Unique identifier for the resource (composite key: `project_id/dbaas_id/database/user_id`).",
 				Computed:            true,
 			},
 			"uri": schema.StringAttribute{
-				MarkdownDescription: "Database Grant URI",
+				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources.",
 				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this grant belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"dbaas_id": schema.StringAttribute{
-				MarkdownDescription: "DBaaS ID this grant belongs to",
+				MarkdownDescription: "ID of the parent DBaaS cluster this grant belongs to.",
 				Required:            true,
 			},
 			"database": schema.StringAttribute{
-				MarkdownDescription: "Database name",
+				MarkdownDescription: "ID of the database this grant applies to.",
 				Required:            true,
 			},
 			"user_id": schema.StringAttribute{
-				MarkdownDescription: "User ID (username) to grant access",
+				MarkdownDescription: "Name or ID of the DBaaS user receiving the grant.",
 				Required:            true,
 			},
 			"role": schema.StringAttribute{
-				MarkdownDescription: "Role to grant (e.g., read, write, admin)",
+				MarkdownDescription: "Privilege level granted. Accepted values depend on the database engine (e.g., `ALL`, `READ`, `WRITE`).",
 				Required:            true,
 			},
 		},

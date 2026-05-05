@@ -1,13 +1,15 @@
 ---
-page_title: "arubacloud_kaas"
+page_title: "arubacloud_kaas Data Source - ArubaCloud"
 subcategory: "Container"
 description: |-
-  Retrieves an existing ArubaCloud KaaS cluster by ID and project. When the cluster is active, the kubeconfig is downloaded (decoded) and exposed for use with kubectl.
+  Retrieves information about an existing ArubaCloud KaaS (Kubernetes-as-a-Service) cluster.
 ---
 
-# arubacloud_kaas
+# arubacloud_kaas (Data Source)
 
-Reads an existing ArubaCloud KaaS cluster. Both `id` (KaaS cluster ID) and `project_id` are required. The `kubeconfig` attribute is populated when the cluster has a management IP (active state).
+Retrieves read-only information about an existing `arubacloud_kaas` cluster. Use this data source to reference the cluster endpoint or ID in other configurations without managing the lifecycle via Terraform.
+
+## Example Usage
 
 {{ tffile "examples/data-sources/arubacloud_kaas/data-source-basic.tf" }}
 

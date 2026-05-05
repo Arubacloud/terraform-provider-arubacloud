@@ -1,13 +1,17 @@
 ---
-page_title: "arubacloud_cloudserver"
+page_title: "arubacloud_cloudserver Resource - ArubaCloud"
 subcategory: "Compute"
 description: |-
-  Manages an ArubaCloud CloudServer.
+  Manages an ArubaCloud CloudServer virtual machine.
 ---
 
 # arubacloud_cloudserver
 
-Manages an ArubaCloud CloudServer.
+Manages an ArubaCloud CloudServer — a virtual machine hosted on ArubaCloud compute infrastructure. A CloudServer requires a parent `arubacloud_project`, an `arubacloud_vpc` with at least one `arubacloud_subnet`, one or more `arubacloud_securitygroup` resources, an `arubacloud_keypair` for SSH access, and a bootable `arubacloud_blockstorage` volume. Destroying a CloudServer detaches all attached block storage but does not delete those volumes; destroy them explicitly if they are no longer needed.
+
+## Example Usage
+
+### Basic CloudServer
 
 ```terraform
 resource "arubacloud_cloudserver" "basic" {
@@ -46,17 +50,17 @@ The following arguments are supported:
 
 #### Required
 
-- `location` (String) CloudServer location
-- `name` (String) CloudServer name
-- `network` (Attributes) Network configuration for the cloud server (see [below for nested schema](#nestedatt--network))
-- `project_id` (String) Project ID
-- `settings` (Attributes) Cloud server settings (see [below for nested schema](#nestedatt--settings))
-- `storage` (Attributes) Storage configuration for the cloud server (see [below for nested schema](#nestedatt--storage))
-- `zone` (String) Zone
+- `location` (String) Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
+- `name` (String) Display name for the CloudServer.
+- `network` (Attributes) Network configuration for the CloudServer. (see [below for nested schema](#nestedatt--network))
+- `project_id` (String) ID of the project that owns this resource.
+- `settings` (Attributes) Compute and access settings for the CloudServer. (see [below for nested schema](#nestedatt--settings))
+- `storage` (Attributes) Storage configuration for the CloudServer. (see [below for nested schema](#nestedatt--storage))
+- `zone` (String) Availability zone within the region (e.g., `ITBG-1`). See [available zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
 
 #### Optional
 
-- `tags` (List of String) List of tags for the Cloud Server
+- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
 
 ### Attributes Reference
 
@@ -64,21 +68,21 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `id` (String) CloudServer identifier
-- `uri` (String) CloudServer URI
+- `id` (String) Computed by the API. Unique identifier for the resource.
+- `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).
 
 <a id="nestedatt--network"></a>
 ### Nested Schema for `network`
 
 Required:
 
-- `securitygroup_uri_refs` (List of String) List of security group URI references (e.g., [arubacloud_securitygroup.example.uri])
-- `subnet_uri_refs` (List of String) List of subnet URI references (e.g., [arubacloud_subnet.example.uri])
-- `vpc_uri_ref` (String) VPC URI reference (e.g., arubacloud_vpc.example.uri)
+- `securitygroup_uri_refs` (List of String) List of security group URIs to apply to this CloudServer. Reference the `uri` attribute of each `arubacloud_securitygroup` resource.
+- `subnet_uri_refs` (List of String) List of subnet URIs to attach this CloudServer to. Reference the `uri` attribute of each `arubacloud_subnet` resource.
+- `vpc_uri_ref` (String) URI of the VPC to attach this CloudServer to. Reference the `uri` attribute of an `arubacloud_vpc` resource.
 
 Optional:
 
-- `elastic_ip_uri_ref` (String) Elastic IP URI reference (e.g., arubacloud_elasticip.example.uri)
+- `elastic_ip_uri_ref` (String) URI of an Elastic IP to associate with this CloudServer. Reference the `uri` attribute of an `arubacloud_elasticip` resource. Optional — omit to use a dynamic IP.
 
 
 <a id="nestedatt--settings"></a>
@@ -86,12 +90,12 @@ Optional:
 
 Required:
 
-- `flavor_name` (String) Flavor name (e.g., CSO4A8 for 4 CPU, 8GB RAM). See https://api.arubacloud.com/docs/metadata/#cloudserver-flavors
+- `flavor_name` (String) Compute flavour name (e.g., `CSO4A8` for 4 vCPU / 8 GB RAM). See [available flavours](https://api.arubacloud.com/docs/metadata/#cloudserver-flavors).
 
 Optional:
 
-- `key_pair_uri_ref` (String) Key Pair URI reference (e.g., arubacloud_keypair.example.uri)
-- `user_data` (String, Sensitive) Cloud-Init user data (raw YAML content)
+- `key_pair_uri_ref` (String) URI of the SSH key pair to inject at boot. Reference the `uri` attribute of an `arubacloud_keypair` resource.
+- `user_data` (String, Sensitive) Cloud-Init configuration passed verbatim to the instance at first boot (raw YAML or shell-script). Write-only — this value is sent to the API but is not returned in subsequent read responses.
 
 
 <a id="nestedatt--storage"></a>
@@ -99,15 +103,28 @@ Optional:
 
 Required:
 
-- `boot_volume_uri_ref` (String) Boot volume URI reference (e.g., arubacloud_blockstorage.example.uri)
+- `boot_volume_uri_ref` (String) URI of the bootable block storage volume. Reference the `uri` attribute of an `arubacloud_blockstorage` resource (must be bootable).
 
 
 
+
+## Notes
+
+- **Dependencies:** Requires [`arubacloud_project`](../resources/project), [`arubacloud_vpc`](../resources/vpc), [`arubacloud_subnet`](../resources/subnet), [`arubacloud_securitygroup`](../resources/securitygroup), [`arubacloud_keypair`](../resources/keypair), [`arubacloud_blockstorage`](../resources/blockstorage).
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
 
 ## Import
 
-Aruba Cloud CloudServers can be imported using the `cloudserver_id`.
+Aruba Cloud CloudServer can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_cloudserver.example <cloudserver_id>
+terraform import arubacloud_cloudserver.example <cloudserver-id>
 ```

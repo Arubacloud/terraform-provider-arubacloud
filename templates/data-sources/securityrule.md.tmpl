@@ -1,13 +1,15 @@
 ---
-page_title: "arubacloud_securityrule"
-subcategory: "Security"
+page_title: "arubacloud_securityrule Data Source - ArubaCloud"
+subcategory: "Network"
 description: |-
-  Reads an existing ArubaCloud Security Rule.
+  Retrieves information about an existing ArubaCloud Security Rule.
 ---
 
-# arubacloud_securityrule
+# arubacloud_securityrule (Data Source)
 
-Reads an existing ArubaCloud Security Rule.
+Retrieves read-only information about an existing `arubacloud_securityrule` resource. Use this data source to reference security rule metadata in other configurations without managing the lifecycle via Terraform.
+
+## Example Usage
 
 {{ tffile "examples/data-sources/arubacloud_securityrule/data-source-basic.tf" }}
 

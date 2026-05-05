@@ -37,35 +37,35 @@ func (d *ElasticIPDataSource) Metadata(ctx context.Context, req datasource.Metad
 
 func (d *ElasticIPDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Elastic IP data source",
+		MarkdownDescription: "Retrieves read-only information about an existing ArubaCloud Elastic IP.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Elastic IP identifier",
+				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
 				Required:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Elastic IP name",
+				MarkdownDescription: "Display name for the Elastic IP.",
 				Computed:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "Elastic IP location",
+				MarkdownDescription: "Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).",
 				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this Elastic IP belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"address": schema.StringAttribute{
-				MarkdownDescription: "Elastic IP address",
+				MarkdownDescription: "Computed by the API. Public IPv4 address allocated for this Elastic IP.",
 				Computed:            true,
 			},
 			"billing_period": schema.StringAttribute{
-				MarkdownDescription: "Billing period for the Elastic IP",
+				MarkdownDescription: "Billing cycle for the resource. Accepted values: `Hour`, `Month`, `Year`.",
 				Computed:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of tags for the Elastic IP",
+				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
 				Computed:            true,
 			},
 		},
@@ -144,7 +144,7 @@ func (d *ElasticIPDataSource) Read(ctx context.Context, req datasource.ReadReque
 		data.Address = types.StringNull()
 	}
 	if eip.Properties.BillingPlan.BillingPeriod != "" {
-		data.BillingPeriod = types.StringValue(eip.Properties.BillingPlan.BillingPeriod)
+		data.BillingPeriod = types.StringValue(billingPeriodFromAPI(eip.Properties.BillingPlan.BillingPeriod))
 	} else {
 		data.BillingPeriod = types.StringNull()
 	}

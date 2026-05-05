@@ -1,22 +1,39 @@
 ---
-page_title: "arubacloud_schedulejob"
+page_title: "arubacloud_schedulejob Resource - ArubaCloud"
 subcategory: "Management"
 description: |-
-  Manages an ArubaCloud Schedule Job.
+  Manages an ArubaCloud Scheduled Job — a cron-triggered automation task.
 ---
 
 # arubacloud_schedulejob
 
-Manages an ArubaCloud Schedule Job.
+Manages an ArubaCloud Scheduled Job — a cron-triggered automation task that runs on a defined schedule within an `arubacloud_project`. Use scheduled jobs for periodic maintenance tasks, data exports, or any repeating operation supported by the ArubaCloud automation API.
+
+## Example Usage
+
+### Basic scheduled job
 
 {{ tffile "examples/resources/arubacloud_schedulejob/resource-basic.tf" }}
 
 {{ .SchemaMarkdown }}
 
+## Notes
+
+- **Dependencies:** `arubacloud_project`
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
+
 ## Import
 
-Aruba Cloud Schedule Job can be imported using the `schedulejob_id`.
+Aruba Cloud Scheduled Job can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_schedulejob.example <schedulejob_id>
+terraform import arubacloud_schedulejob.example <schedulejob-id>
 ```

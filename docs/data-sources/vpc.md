@@ -1,13 +1,15 @@
 ---
-page_title: "arubacloud_vpc"
+page_title: "arubacloud_vpc Data Source - ArubaCloud"
 subcategory: "Network"
 description: |-
-  Reads an existing ArubaCloud VPC.
+  Retrieves information about an existing ArubaCloud VPC (Virtual Private Cloud).
 ---
 
-# arubacloud_vpc
+# arubacloud_vpc (Data Source)
 
-Reads an existing ArubaCloud VPC.
+Retrieves read-only information about an existing `arubacloud_vpc` resource. Use this data source to reference a VPC's URI in subnet or server configurations when the VPC is managed in a separate Terraform root module.
+
+## Example Usage
 
 ```terraform
 data "arubacloud_vpc" "basic" {
@@ -38,8 +40,8 @@ The following arguments are supported:
 
 #### Required
 
-- `id` (String) VPC identifier
-- `project_id` (String) ID of the project this VPC belongs to
+- `id` (String) Unique identifier of the VPC to look up.
+- `project_id` (String) ID of the project that owns this resource.
 
 ### Attributes Reference
 
@@ -47,8 +49,8 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `location` (String) VPC location
-- `name` (String) VPC name
-- `tags` (List of String) List of tags for the VPC
+- `location` (String) Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
+- `name` (String) Display name for the VPC.
+- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
 
 

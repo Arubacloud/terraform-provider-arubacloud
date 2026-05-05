@@ -36,30 +36,30 @@ func (d *SnapshotDataSource) Metadata(ctx context.Context, req datasource.Metada
 
 func (d *SnapshotDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Snapshot data source",
+		MarkdownDescription: "Retrieves read-only information about an existing ArubaCloud Snapshot.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Snapshot identifier",
+				MarkdownDescription: "Unique identifier of the snapshot to look up.",
 				Required:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Snapshot name",
+				MarkdownDescription: "Display name for the snapshot.",
 				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this Snapshot belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "Snapshot location",
+				MarkdownDescription: "Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).",
 				Computed:            true,
 			},
 			"billing_period": schema.StringAttribute{
-				MarkdownDescription: "Billing period (only 'Hour' allowed)",
+				MarkdownDescription: "Billing cycle. Accepted values: `Hour`, `Month`, `Year`.",
 				Computed:            true,
 			},
 			"volume_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the volume this snapshot is for",
+				MarkdownDescription: "ID of the block storage volume this snapshot was taken from.",
 				Computed:            true,
 			},
 		},

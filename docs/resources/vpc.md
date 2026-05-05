@@ -1,13 +1,17 @@
 ---
-page_title: "arubacloud_vpc"
+page_title: "arubacloud_vpc Resource - ArubaCloud"
 subcategory: "Network"
 description: |-
-  Manages an ArubaCloud VPC Network.
+  Manages an ArubaCloud VPC (Virtual Private Cloud) — the isolated network boundary within a region where subnets, security groups, and server instances are provisioned.
 ---
 
 # arubacloud_vpc
 
-Manages an ArubaCloud VPC Network.
+Manages an ArubaCloud VPC (Virtual Private Cloud) — the isolated network boundary within a region where subnets, security groups, and server instances are provisioned. A VPC is scoped to a single `arubacloud_project`. Changing `location` or `project_id` destroys and re-creates the VPC and all resources attached to it.
+
+## Example Usage
+
+### Basic VPC
 
 ```terraform
 resource "arubacloud_vpc" "basic" {
@@ -27,13 +31,13 @@ The following arguments are supported:
 
 #### Required
 
-- `location` (String) VPC location
-- `name` (String) VPC name
-- `project_id` (String) Project ID
+- `location` (String) Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `name` (String) Display name for the VPC.
+- `project_id` (String) ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)
 
 #### Optional
 
-- `tags` (List of String) List of tags for the VPC
+- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
 
 ### Attributes Reference
 
@@ -41,15 +45,29 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `id` (String) VPC identifier
-- `uri` (String) VPC URI
+- `id` (String) Computed by the API. Unique identifier for the resource.
+- `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).
 
 
+
+## Notes
+
+- **Dependencies:** Requires an [`arubacloud_project`](https://registry.terraform.io/providers/Arubacloud/arubacloud/latest/docs/resources/project).
+- **Immutable fields:** `location`, `project_id` — changing these forces the resource to be destroyed and re-created.
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
 
 ## Import
 
-Aruba Cloud VPC Network can be imported using the `vpc_id`.
+Aruba Cloud VPC can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_vpc.example <vpc_id>
+terraform import arubacloud_vpc.example <vpc-id>
 ```

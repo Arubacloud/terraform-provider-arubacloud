@@ -40,43 +40,43 @@ func (d *BackupDataSource) Metadata(ctx context.Context, req datasource.Metadata
 
 func (d *BackupDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Backup data source",
+		MarkdownDescription: "Retrieves read-only information about an existing ArubaCloud Block Storage Backup.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Backup identifier",
+				MarkdownDescription: "Unique identifier of the backup to look up.",
 				Required:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Backup name",
+				MarkdownDescription: "Display name for the backup.",
 				Computed:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "Backup location",
+				MarkdownDescription: "Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).",
 				Computed:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of tags for the backup resource",
+				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
 				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this backup belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"type": schema.StringAttribute{
-				MarkdownDescription: "Type of backup (Full, Incremental)",
+				MarkdownDescription: "Backup type. Accepted values: `Full`, `Incremental`.",
 				Computed:            true,
 			},
 			"volume_id": schema.StringAttribute{
-				MarkdownDescription: "Volume ID for the backup",
+				MarkdownDescription: "ID of the block storage volume this backup was taken from.",
 				Computed:            true,
 			},
 			"retention_days": schema.Int64Attribute{
-				MarkdownDescription: "Retention days for the backup",
+				MarkdownDescription: "Number of days to retain the backup before automatic deletion. Optional — if omitted, the backup is retained indefinitely.",
 				Computed:            true,
 			},
 			"billing_period": schema.StringAttribute{
-				MarkdownDescription: "Billing period",
+				MarkdownDescription: "Billing cycle. Accepted values: `Hour`, `Month`, `Year`.",
 				Computed:            true,
 			},
 		},

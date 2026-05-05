@@ -1,13 +1,15 @@
 ---
-page_title: "arubacloud_cloudserver"
+page_title: "arubacloud_cloudserver Data Source - ArubaCloud"
 subcategory: "Compute"
 description: |-
-  Retrieves an ArubaCloud CloudServer.
+  Retrieves information about an existing ArubaCloud CloudServer virtual machine.
 ---
 
-# arubacloud_cloudserver
+# arubacloud_cloudserver (Data Source)
 
-Retrieves an ArubaCloud CloudServer.
+Retrieves read-only information about an existing `arubacloud_cloudserver` resource. Use this data source to reference a CloudServer's metadata (ID, URI, network configuration) in other Terraform configurations without managing the CloudServer lifecycle.
+
+## Example Usage
 
 {{ tffile "examples/data-sources/arubacloud_cloudserver/data-source-basic.tf" }}
 

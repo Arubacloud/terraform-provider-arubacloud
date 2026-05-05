@@ -36,35 +36,35 @@ func (d *RestoreDataSource) Metadata(ctx context.Context, req datasource.Metadat
 
 func (d *RestoreDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Restore data source",
+		MarkdownDescription: "Retrieves read-only information about an existing ArubaCloud Block Storage Restore operation.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Restore identifier",
+				MarkdownDescription: "Unique identifier of the restore operation to look up.",
 				Required:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Restore name",
+				MarkdownDescription: "Display name for the restore operation.",
 				Computed:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "Restore location",
+				MarkdownDescription: "Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).",
 				Computed:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of tags for the restore resource",
+				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
 				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this restore belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"backup_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the backup this restore belongs to",
+				MarkdownDescription: "ID of the backup this restore operation belongs to.",
 				Required:            true,
 			},
 			"volume_id": schema.StringAttribute{
-				MarkdownDescription: "Volume ID to restore",
+				MarkdownDescription: "ID of the target block storage volume that was restored.",
 				Computed:            true,
 			},
 		},

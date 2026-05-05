@@ -44,47 +44,47 @@ func (r *DatabaseBackupResource) Metadata(ctx context.Context, req resource.Meta
 
 func (r *DatabaseBackupResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Database Backup resource",
+		MarkdownDescription: "Manages a backup of an ArubaCloud DBaaS database.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Database Backup identifier",
+				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
 				Computed:            true,
 			},
 			"uri": schema.StringAttribute{
-				MarkdownDescription: "Database Backup URI",
+				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources.",
 				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this backup belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Database Backup name",
+				MarkdownDescription: "Display name for the database backup.",
 				Required:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "Database Backup location",
+				MarkdownDescription: "Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).",
 				Required:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of tags for the Database Backup resource",
+				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
 				Optional:            true,
 			},
 			"zone": schema.StringAttribute{
-				MarkdownDescription: "Zone for the Database Backup",
+				MarkdownDescription: "Availability zone within the region where the backup is stored.",
 				Required:            true,
 			},
 			"dbaas_id": schema.StringAttribute{
-				MarkdownDescription: "DBaaS ID this backup belongs to",
+				MarkdownDescription: "ID of the DBaaS cluster or database to back up.",
 				Required:            true,
 			},
 			"database": schema.StringAttribute{
-				MarkdownDescription: "Database name to backup",
+				MarkdownDescription: "Name of the logical database within the DBaaS cluster to back up.",
 				Required:            true,
 			},
 			"billing_period": schema.StringAttribute{
-				MarkdownDescription: "Billing period",
+				MarkdownDescription: "Billing cycle. Accepted values: `Hour`, `Month`, `Year`.",
 				Required:            true,
 			},
 		},

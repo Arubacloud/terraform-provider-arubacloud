@@ -1,18 +1,22 @@
 ---
-page_title: "arubacloud_backup"
+page_title: "arubacloud_backup Resource - ArubaCloud"
 subcategory: "Storage"
 description: |-
-  Manages an ArubaCloud Storage Backup.
+  Manages an ArubaCloud Block Storage Backup.
 ---
 
 # arubacloud_backup
 
-Manages an ArubaCloud Storage Backup.
+Manages a scheduled backup of an `arubacloud_blockstorage` volume. Backups are stored in ArubaCloud Object Storage and billed independently from the source volume. They survive volume deletion until the retention period expires or the backup resource is destroyed explicitly. Requires a pre-existing `arubacloud_blockstorage` volume and `arubacloud_project`.
+
+## Example Usage
+
+### Create a full backup of a block storage volume
 
 ```terraform
 resource "arubacloud_backup" "basic" {
   name          = "example-backup"
-  location      = "de-1"
+  location      = "ITBG-Bergamo"
   project_id    = "project-123"
   type          = "full"
   volume_id     = "volume-123"
@@ -33,17 +37,17 @@ The following arguments are supported:
 
 #### Required
 
-- `location` (String) Backup location
-- `name` (String) Backup name
-- `project_id` (String) ID of the project this backup belongs to
-- `type` (String) Type of backup (Full, Incremental)
-- `volume_id` (String) Volume ID for the backup
+- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
+- `name` (String) Display name for the backup.
+- `project_id` (String) ID of the project that owns this resource.
+- `type` (String) Backup type. Accepted values: `Full`, `Incremental`.
+- `volume_id` (String) ID of the block storage volume to back up.
 
 #### Optional
 
-- `billing_period` (String) Billing period (Hour, Month, Year)
-- `retention_days` (Number) Retention days for the backup
-- `tags` (List of String) List of tags for the backup resource
+- `billing_period` (String) Billing cycle. Accepted values: `Hour`, `Month`, `Year`.
+- `retention_days` (Number) Number of days to retain the backup before automatic deletion. Optional — if omitted, the backup is retained indefinitely.
+- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
 
 ### Attributes Reference
 
@@ -51,15 +55,28 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `id` (String) Backup identifier
-- `uri` (String) Backup URI
+- `id` (String) Computed by the API. Unique identifier for the resource.
+- `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources.
 
 
+
+## Notes
+
+- **Dependencies:** requires an [`arubacloud_blockstorage`](../resources/blockstorage.md) volume and an [`arubacloud_project`](../resources/project.md).
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
 
 ## Import
 
-Aruba Cloud Backup can be imported using the `backup_id`.
+Aruba Cloud Backup can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_backup.example <backup_id>
+terraform import arubacloud_backup.example <backup-id>
 ```

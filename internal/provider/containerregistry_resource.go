@@ -64,67 +64,67 @@ func (r *ContainerRegistryResource) Metadata(ctx context.Context, req resource.M
 
 func (r *ContainerRegistryResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Container Registry resource",
+		MarkdownDescription: "Manages an ArubaCloud Container Registry — a private OCI-compatible image registry.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Container Registry identifier",
+				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
 				Computed:            true,
 			},
 			"uri": schema.StringAttribute{
-				MarkdownDescription: "Container Registry URI",
+				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources.",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Container Registry name",
+				MarkdownDescription: "Display name for the container registry.",
 				Required:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "Container Registry location",
+				MarkdownDescription: "Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).",
 				Required:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of tags for the Container Registry resource",
+				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
 				Optional:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this Container Registry belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"billing_period": schema.StringAttribute{
-				MarkdownDescription: "Billing period (Hour, Month, Year)",
+				MarkdownDescription: "Billing cycle. Accepted values: `Hour`, `Month`, `Year`.",
 				Optional:            true,
 			},
 			"network": schema.SingleNestedAttribute{
-				MarkdownDescription: "Network configuration for the container registry",
+				MarkdownDescription: "Network resources attached to the registry.",
 				Required:            true,
 				Attributes: map[string]schema.Attribute{
 					"public_ip_uri_ref": schema.StringAttribute{
-						MarkdownDescription: "Public IP URI reference (e.g., arubacloud_elasticip.example.uri)",
+						MarkdownDescription: "URI of the Elastic IP that exposes the registry endpoint (e.g., `arubacloud_elasticip.example.uri`).",
 						Required:            true,
 						PlanModifiers: []planmodifier.String{
 							stringplanmodifier.UseStateForUnknown(),
 						},
 					},
 					"vpc_uri_ref": schema.StringAttribute{
-						MarkdownDescription: "VPC URI reference (e.g., arubacloud_vpc.example.uri)",
+						MarkdownDescription: "URI of the VPC that hosts the registry (e.g., `arubacloud_vpc.example.uri`).",
 						Required:            true,
 						PlanModifiers: []planmodifier.String{
 							stringplanmodifier.UseStateForUnknown(),
 						},
 					},
 					"subnet_uri_ref": schema.StringAttribute{
-						MarkdownDescription: "Subnet URI reference (e.g., arubacloud_subnet.example.uri)",
+						MarkdownDescription: "URI of the subnet within the VPC (e.g., `arubacloud_subnet.example.uri`).",
 						Required:            true,
 						PlanModifiers: []planmodifier.String{
 							stringplanmodifier.UseStateForUnknown(),
 						},
 					},
 					"security_group_uri_ref": schema.StringAttribute{
-						MarkdownDescription: "Security Group URI reference (e.g., arubacloud_securitygroup.example.uri)",
+						MarkdownDescription: "URI of the security group controlling registry traffic (e.g., `arubacloud_securitygroup.example.uri`).",
 						Required:            true,
 						PlanModifiers: []planmodifier.String{
 							stringplanmodifier.UseStateForUnknown(),
@@ -133,11 +133,11 @@ func (r *ContainerRegistryResource) Schema(ctx context.Context, req resource.Sch
 				},
 			},
 			"storage": schema.SingleNestedAttribute{
-				MarkdownDescription: "Storage configuration for the container registry",
+				MarkdownDescription: "Block storage volume that backs the registry image store.",
 				Required:            true,
 				Attributes: map[string]schema.Attribute{
 					"block_storage_uri_ref": schema.StringAttribute{
-						MarkdownDescription: "Block Storage URI reference (e.g., arubacloud_blockstorage.example.uri)",
+						MarkdownDescription: "URI of the block storage volume (e.g., `arubacloud_blockstorage.example.uri`).",
 						Required:            true,
 						PlanModifiers: []planmodifier.String{
 							stringplanmodifier.UseStateForUnknown(),
@@ -146,15 +146,15 @@ func (r *ContainerRegistryResource) Schema(ctx context.Context, req resource.Sch
 				},
 			},
 			"settings": schema.SingleNestedAttribute{
-				MarkdownDescription: "Container registry settings",
+				MarkdownDescription: "Optional registry configuration settings.",
 				Optional:            true,
 				Attributes: map[string]schema.Attribute{
 					"admin_user": schema.StringAttribute{
-						MarkdownDescription: "Administrator username",
+						MarkdownDescription: "Administrator username for the registry.",
 						Optional:            true,
 					},
 					"concurrent_users_flavor": schema.StringAttribute{
-						MarkdownDescription: "Concurrent users flavor size. Must be one of: Small, Medium, HighPerf",
+						MarkdownDescription: "Concurrency tier that determines how many simultaneous push/pull sessions are supported. Accepted values: `Small`, `Medium`, `HighPerf`.",
 						Optional:            true,
 					},
 				},

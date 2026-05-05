@@ -1,22 +1,40 @@
 ---
-page_title: "arubacloud_dbaasuser"
+page_title: "arubacloud_dbaasuser Resource - ArubaCloud"
 subcategory: "Database"
 description: |-
-  Manages an ArubaCloud DBaaS User.
+  Manages a database user within an ArubaCloud DBaaS cluster.
 ---
 
 # arubacloud_dbaasuser
 
-Manages an ArubaCloud DBaaS User.
+Manages a database user within an `arubacloud_dbaas` cluster. The user password is write-only and is not returned by the API after creation. Grant access to specific databases using `arubacloud_databasegrant`. Requires a parent `arubacloud_dbaas` cluster.
+
+## Example Usage
+
+### Basic DBaaS user
 
 {{ tffile "examples/resources/arubacloud_dbaasuser/resource-basic.tf" }}
 
 {{ .SchemaMarkdown }}
 
+## Notes
+
+- **Dependencies:** Requires a running `arubacloud_dbaas` cluster referenced by `dbaas_id`.
+- **Sensitive fields:** `password` — sent to the API but not returned in read responses.
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
+
 ## Import
 
-Aruba Cloud DBaaS User can be imported using the `dbaasuser_id`.
+Aruba Cloud DBaaS User can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_dbaasuser.example <dbaasuser_id>
+terraform import arubacloud_dbaasuser.example <dbaasuser-id>
 ```

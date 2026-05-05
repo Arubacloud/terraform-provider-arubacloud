@@ -35,30 +35,30 @@ func (d *VPNRouteDataSource) Metadata(ctx context.Context, req datasource.Metada
 
 func (d *VPNRouteDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "VPN Route data source",
+		MarkdownDescription: "Retrieves read-only information about an existing `arubacloud_vpnroute`.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "VPN Route identifier",
+				MarkdownDescription: "Unique identifier of the VPN route to look up.",
 				Required:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "VPN Route name",
+				MarkdownDescription: "Display name for the VPN route.",
 				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this VPN Route belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"vpn_tunnel_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the VPN Tunnel this route belongs to",
+				MarkdownDescription: "ID of the VPN tunnel this route is associated with.",
 				Required:            true,
 			},
 			"destination": schema.StringAttribute{
-				MarkdownDescription: "Destination network for the VPN route (CloudSubnet)",
+				MarkdownDescription: "CIDR of the ArubaCloud-side subnet routed over this tunnel (maps to `cloud_subnet`).",
 				Computed:            true,
 			},
 			"gateway": schema.StringAttribute{
-				MarkdownDescription: "Gateway for the VPN route (OnPremSubnet)",
+				MarkdownDescription: "CIDR of the on-premises subnet reachable through this tunnel (maps to `on_prem_subnet`).",
 				Computed:            true,
 			},
 		},

@@ -1,13 +1,15 @@
 ---
-page_title: "arubacloud_kaas"
+page_title: "arubacloud_kaas Data Source - ArubaCloud"
 subcategory: "Container"
 description: |-
-  Retrieves an existing ArubaCloud KaaS cluster by ID and project. When the cluster is active, the kubeconfig is downloaded (decoded) and exposed for use with kubectl.
+  Retrieves information about an existing ArubaCloud KaaS (Kubernetes-as-a-Service) cluster.
 ---
 
-# arubacloud_kaas
+# arubacloud_kaas (Data Source)
 
-Reads an existing ArubaCloud KaaS cluster. Both `id` (KaaS cluster ID) and `project_id` are required. The `kubeconfig` attribute is populated when the cluster has a management IP (active state).
+Retrieves read-only information about an existing `arubacloud_kaas` cluster. Use this data source to reference the cluster endpoint or ID in other configurations without managing the lifecycle via Terraform.
+
+## Example Usage
 
 ```terraform
 data "arubacloud_kaas" "basic" {
@@ -71,8 +73,8 @@ The following arguments are supported:
 
 #### Required
 
-- `id` (String) KaaS identifier
-- `project_id` (String) ID of the project this KaaS resource belongs to
+- `id` (String) Unique identifier of the KaaS cluster to look up.
+- `project_id` (String) ID of the project that owns this resource.
 
 ### Attributes Reference
 
@@ -80,35 +82,35 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `billing_period` (String) Billing period (Hour, Month, Year)
-- `ha` (Boolean) High availability
-- `kubeconfig` (String, Sensitive) Kubeconfig YAML for kubectl access (downloaded when KaaS is ready). Sensitive.
-- `kubernetes_version` (String) Kubernetes version
-- `location` (String) KaaS location
-- `management_ip` (String) Management IP address
-- `name` (String) KaaS name
-- `node_cidr_address` (String) Node CIDR address in CIDR notation
-- `node_cidr_name` (String) Node CIDR name
-- `node_pools` (Attributes List) Node pools configuration (see [below for nested schema](#nestedatt--node_pools))
-- `pod_cidr` (String) Pod CIDR in CIDR notation
-- `security_group_name` (String) Security group name
-- `subnet_uri_ref` (String) Subnet URI reference
-- `tags` (List of String) List of tags for the KaaS resource
-- `uri` (String) KaaS URI
-- `vpc_uri_ref` (String) VPC URI reference
+- `billing_period` (String) Billing cycle. Accepted values: `Hour`, `Month`, `Year`.
+- `ha` (Boolean) Whether the control plane is deployed in high-availability mode.
+- `kubeconfig` (String, Sensitive) Computed by the API. Kubeconfig YAML for kubectl access. Write-only — this value is sent to the API but is not returned in subsequent read responses.
+- `kubernetes_version` (String) Kubernetes version string (e.g., `1.28`). Available versions are listed in the ArubaCloud metadata API.
+- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
+- `management_ip` (String) Computed by the API. Management IP address of the cluster control plane.
+- `name` (String) Display name for the KaaS cluster.
+- `node_cidr_address` (String) Node CIDR address in CIDR notation.
+- `node_cidr_name` (String) Human-readable label for the node CIDR block.
+- `node_pools` (Attributes List) Node pools that make up the cluster worker fleet. (see [below for nested schema](#nestedatt--node_pools))
+- `pod_cidr` (String) CIDR block used for pod networking within the cluster.
+- `security_group_name` (String) Name of the security group applied to cluster nodes.
+- `subnet_uri_ref` (String) URI of the subnet within the VPC.
+- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
+- `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources.
+- `vpc_uri_ref` (String) URI of the VPC that hosts the cluster.
 
 <a id="nestedatt--node_pools"></a>
 ### Nested Schema for `node_pools`
 
 Read-Only:
 
-- `autoscaling` (Boolean) Enable autoscaling for node pool
-- `instance` (String) KaaS flavor name for nodes
-- `max_count` (Number) Maximum number of nodes for autoscaling
-- `min_count` (Number) Minimum number of nodes for autoscaling
-- `name` (String) Node pool name
-- `nodes` (Number) Number of nodes in the node pool
-- `zone` (String) Datacenter/zone code for nodes
+- `autoscaling` (Boolean) Whether autoscaling is enabled for this node pool.
+- `instance` (String) Compute flavour for cluster nodes.
+- `max_count` (Number) Maximum number of nodes when autoscaling is enabled.
+- `min_count` (Number) Minimum number of nodes when autoscaling is enabled.
+- `name` (String) Display name for the node pool.
+- `nodes` (Number) Number of worker nodes in the cluster.
+- `zone` (String) Datacenter zone code where the node pool is deployed.
 
 
 

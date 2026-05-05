@@ -1,20 +1,24 @@
 ---
-page_title: "arubacloud_elasticip"
+page_title: "arubacloud_elasticip Resource - ArubaCloud"
 subcategory: "Network"
 description: |-
-  Manages an ArubaCloud Elastic IP.
+  Manages an ArubaCloud Elastic IP — a static public IPv4 address.
 ---
 
 # arubacloud_elasticip
 
-Manages an ArubaCloud ElasticIP.
+Manages an ArubaCloud Elastic IP — a static public IPv4 address that can be associated with an `arubacloud_cloudserver`. Elastic IPs are billed continuously once allocated, regardless of whether they are attached to a server. The public IP address is computed by ArubaCloud and available in the `address` output attribute. Changing `location` or `project_id` requires destroying and re-creating the resource.
+
+## Example Usage
+
+### Basic Elastic IP
 
 ```terraform
 resource "arubacloud_elasticip" "example" {
   name           = "example-elastic-ip"
   location       = "ITBG-Bergamo"  # Change to your region
   project_id     = "your-project-id"  # Replace with your project ID
-  billing_period = "hourly"  # Required: "hourly", "monthly", or "yearly"
+  billing_period = "Hour"  # Accepted values: "Hour", "Month", "Year"
   tags           = ["public", "test"]
 }
 
@@ -34,14 +38,14 @@ The following arguments are supported:
 
 #### Required
 
-- `location` (String) Elastic IP location
-- `name` (String) Elastic IP name
-- `project_id` (String) ID of the project this Elastic IP belongs to
+- `location` (String) Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `name` (String) Display name for the Elastic IP.
+- `project_id` (String) ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)
 
 #### Optional
 
-- `billing_period` (String) Billing period for the Elastic IP (only 'hourly' allowed)
-- `tags` (List of String) List of tags for the Elastic IP
+- `billing_period` (String) Computed by the API. Billing cycle for the resource. Accepted values: `Hour`, `Month`, `Year`.
+- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
 
 ### Attributes Reference
 
@@ -49,16 +53,30 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `address` (String) Elastic IP address (computed from ElasticIpPropertiesResponse)
-- `id` (String) Elastic IP identifier
-- `uri` (String) Elastic IP URI
+- `address` (String) Computed by the API. Public IPv4 address allocated for this Elastic IP.
+- `id` (String) Computed by the API. Unique identifier for the resource.
+- `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).
 
 
+
+## Notes
+
+- **Dependencies:** Requires [`arubacloud_project`](../resources/project).
+- **Immutable fields:** `location`, `project_id` — changing these forces the resource to be destroyed and re-created.
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
 
 ## Import
 
-Aruba Cloud Elastic IP can be imported using the `elasticip_id`.
+Aruba Cloud Elastic IP can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_elasticip.example <elasticip_id>
+terraform import arubacloud_elasticip.example <elasticip-id>
 ```

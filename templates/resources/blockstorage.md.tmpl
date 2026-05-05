@@ -1,22 +1,40 @@
 ---
-page_title: "arubacloud_blockstorage"
+page_title: "arubacloud_blockstorage Resource - ArubaCloud"
 subcategory: "Storage"
 description: |-
-  Manages an ArubaCloud Block Storage.
+  Manages an ArubaCloud Block Storage volume.
 ---
 
 # arubacloud_blockstorage
 
-Manages an ArubaCloud Block Storage.
+Manages an ArubaCloud Block Storage volume — a persistent network-attached disk that can be attached to an `arubacloud_cloudserver`. Volumes are provisioned within a specific project and region. Setting `bootable = true` with a valid `image` creates a bootable volume; reference its `uri` in an `arubacloud_cloudserver` `storage.boot_volume_uri_ref`. Changing `project_id` or `location` forces the volume to be destroyed and re-created.
+
+## Example Usage
+
+### Create a standard block storage volume
 
 {{ tffile "examples/resources/arubacloud_blockstorage/resource-basic.tf" }}
 
 {{ .SchemaMarkdown }}
 
+## Notes
+
+- **Dependencies:** requires an [`arubacloud_project`](../resources/project.md) to exist before creating a volume.
+- **Immutable fields:** `project_id`, `location` — changing these forces the resource to be destroyed and re-created.
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
+
 ## Import
 
-Aruba Cloud BlockStorage can be imported using the `blockstorage_id`.
+Aruba Cloud Block Storage can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_blockstorage.example <blockstorage_id>
+terraform import arubacloud_blockstorage.example <blockstorage-id>
 ```

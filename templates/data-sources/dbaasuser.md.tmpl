@@ -1,15 +1,16 @@
 ---
-page_title: "arubacloud_dbaasuser"
+page_title: "arubacloud_dbaasuser Data Source - ArubaCloud"
 subcategory: "Database"
 description: |-
-  Retrieves an ArubaCloud DBaaS User.
+  Retrieves information about an existing ArubaCloud DBaaS user.
 ---
 
-# arubacloud_dbaasuser
+# arubacloud_dbaasuser (Data Source)
 
-Reads an existing ArubaCloud DBaaS user.
+Retrieves read-only information about an existing `arubacloud_dbaasuser`. Note: the password is never returned by the API.
+
+## Example Usage
 
 {{ tffile "examples/data-sources/arubacloud_dbaasuser/data-source-basic.tf" }}
-
 
 {{ .SchemaMarkdown }}

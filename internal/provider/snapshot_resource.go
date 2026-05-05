@@ -44,29 +44,29 @@ func (r *SnapshotResource) Metadata(ctx context.Context, req resource.MetadataRe
 
 func (r *SnapshotResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Snapshot resource",
+		MarkdownDescription: "Manages an ArubaCloud Snapshot — a point-in-time copy of a block storage volume.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Snapshot identifier",
+				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
 				Computed:            true,
 			},
 			"uri": schema.StringAttribute{
-				MarkdownDescription: "Snapshot URI",
+				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources.",
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Snapshot name",
+				MarkdownDescription: "Display name for the snapshot.",
 				Required:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this Snapshot belongs to",
+				MarkdownDescription: "ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "Snapshot location",
+				MarkdownDescription: "Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
 				// Validators removed for v1.16.1 compatibility
 				PlanModifiers: []planmodifier.String{
@@ -74,12 +74,12 @@ func (r *SnapshotResource) Schema(ctx context.Context, req resource.SchemaReques
 				},
 			},
 			"billing_period": schema.StringAttribute{
-				MarkdownDescription: "Billing period (only 'Hour' allowed)",
+				MarkdownDescription: "Billing cycle. Accepted values: `Hour`, `Month`, `Year`.",
 				Required:            true,
 				// Validators removed for v1.16.1 compatibility
 			},
 			"volume_uri": schema.StringAttribute{
-				MarkdownDescription: "URI of the volume this snapshot is for. Should be the volume URI (e.g., `/projects/{project_id}/providers/Aruba.Storage/volumes/{volume_id}`). You can reference the `uri` attribute from an `arubacloud_blockstorage` resource.",
+				MarkdownDescription: "URI of the block storage volume this snapshot is taken from. Reference the `uri` attribute of an `arubacloud_blockstorage` resource (e.g., `/projects/{project_id}/providers/Aruba.Storage/volumes/{volume_id}`). (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
@@ -87,7 +87,7 @@ func (r *SnapshotResource) Schema(ctx context.Context, req resource.SchemaReques
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of tags for the snapshot",
+				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
 				Optional:            true,
 			},
 		},

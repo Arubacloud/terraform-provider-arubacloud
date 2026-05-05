@@ -2,34 +2,12 @@
 page_title: "arubacloud_subnet Resource - ArubaCloud"
 subcategory: "Network"
 description: |-
-  Manages an ArubaCloud Subnet resource.
+  Manages an ArubaCloud Subnet within a VPC. Subnets can be Basic (default networking) or Advanced (custom CIDR with configurable DHCP).
 ---
 
 # arubacloud_subnet
 
-Manages an ArubaCloud Subnet resource.
-
-## Important Notes
-
-### Basic Subnet Type
-- When `type` is set to `"Basic"`, the `network` block is not required.
-- The subnet will use default networking settings.
-
-### Advanced Subnet Type
-- When `type` is set to `"Advanced"`, the following fields are **required**:
-  - `network` block
-  - `network.address`: Network CIDR notation (e.g., "10.0.1.0/24")
-  - `network.dhcp` block
-  - `network.dhcp.enabled`: Boolean to enable/disable DHCP
-  - `network.dhcp.range` block with:
-    - `start`: Starting IP address for DHCP range
-    - `count`: Number of available IP addresses
-
-### Optional Fields (Advanced Type)
-- `network.dhcp.routes`: List of DHCP routes with:
-  - `address`: Destination network address in CIDR notation (e.g., "0.0.0.0/0")
-  - `gateway`: Gateway IP address for the route
-- `network.dhcp.dns`: List of DNS server IP addresses
+Manages an ArubaCloud Subnet within a parent `arubacloud_vpc`. Subnets can be `Basic` (uses platform-managed networking) or `Advanced` (custom CIDR with configurable DHCP pools, routes, and DNS). Changing `type`, `location`, `project_id`, or `vpc_id` destroys and re-creates the subnet. For `Advanced` subnets the `network` block is mandatory and must include a valid RFC-1918 CIDR.
 
 ## Example Usage
 
@@ -85,16 +63,16 @@ The following arguments are supported:
 
 #### Required
 
-- `location` (String) Subnet location
-- `name` (String) Subnet name
-- `project_id` (String) ID of the project this subnet belongs to
-- `type` (String) Subnet type (Basic or Advanced)
-- `vpc_id` (String) ID of the VPC this subnet belongs to
+- `location` (String) Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `name` (String) Display name for the subnet.
+- `project_id` (String) ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `type` (String) Subnet type. Accepted values: `Basic` (no custom CIDR), `Advanced` (requires the `network` block). (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `vpc_id` (String) ID of the parent VPC this subnet belongs to. (Immutable — changing this value forces the resource to be destroyed and re-created.)
 
 #### Optional
 
-- `network` (Attributes) (see [below for nested schema](#nestedatt--network))
-- `tags` (List of String) List of tags for the subnet
+- `network` (Attributes) Network configuration block. Required when `type` is `Advanced`. (see [below for nested schema](#nestedatt--network))
+- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
 
 ### Attributes Reference
 
@@ -102,34 +80,34 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `id` (String) Subnet identifier
-- `uri` (String) Subnet URI
+- `id` (String) Computed by the API. Unique identifier for the resource.
+- `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).
 
 <a id="nestedatt--network"></a>
 ### Nested Schema for `network`
 
 Optional:
 
-- `address` (String) Address of the network in CIDR notation (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
-- `dhcp` (Attributes) (see [below for nested schema](#nestedatt--network--dhcp))
+- `address` (String) Subnet CIDR in RFC-1918 notation (e.g., `10.0.1.0/24`). Must fall within the parent VPC CIDR.
+- `dhcp` (Attributes) DHCP configuration for the subnet. (see [below for nested schema](#nestedatt--network--dhcp))
 
 <a id="nestedatt--network--dhcp"></a>
 ### Nested Schema for `network.dhcp`
 
 Optional:
 
-- `dns` (List of String) DNS server addresses
-- `enabled` (Boolean) Enable DHCP
-- `range` (Attributes) (see [below for nested schema](#nestedatt--network--dhcp--range))
-- `routes` (Attributes List) DHCP routes configuration (see [below for nested schema](#nestedatt--network--dhcp--routes))
+- `dns` (List of String) List of DNS server IP addresses distributed to DHCP clients.
+- `enabled` (Boolean) Whether DHCP is enabled on this subnet.
+- `range` (Attributes) IP address range allocated to DHCP clients. (see [below for nested schema](#nestedatt--network--dhcp--range))
+- `routes` (Attributes List) Static routes distributed to DHCP clients. (see [below for nested schema](#nestedatt--network--dhcp--routes))
 
 <a id="nestedatt--network--dhcp--range"></a>
 ### Nested Schema for `network.dhcp.range`
 
 Optional:
 
-- `count` (Number) Number of available IP addresses
-- `start` (String) Starting IP address
+- `count` (Number) Number of consecutive IP addresses in the DHCP pool.
+- `start` (String) First IP address in the DHCP allocation range.
 
 
 <a id="nestedatt--network--dhcp--routes"></a>
@@ -137,18 +115,32 @@ Optional:
 
 Optional:
 
-- `address` (String) Destination network address in CIDR notation (e.g., 0.0.0.0/0)
-- `gateway` (String) Gateway IP address for the route
+- `address` (String) Destination network in CIDR notation (e.g., `0.0.0.0/0` for a default route).
+- `gateway` (String) Gateway IP address for this route.
 
 
 
 
 
+
+## Notes
+
+- **Dependencies:** Requires an [`arubacloud_vpc`](https://registry.terraform.io/providers/Arubacloud/arubacloud/latest/docs/resources/vpc) and an [`arubacloud_project`](https://registry.terraform.io/providers/Arubacloud/arubacloud/latest/docs/resources/project).
+- **Immutable fields:** `location`, `project_id`, `vpc_id`, `type` — changing these forces the resource to be destroyed and re-created.
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
 
 ## Import
 
-Aruba Cloud Subnet can be imported using the `subnet_id`.
+Aruba Cloud Subnet can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_subnet.example <subnet_id>
+terraform import arubacloud_subnet.example <subnet-id>
 ```

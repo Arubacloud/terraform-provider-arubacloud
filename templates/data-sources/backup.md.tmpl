@@ -1,15 +1,16 @@
 ---
-page_title: "arubacloud_backup"
+page_title: "arubacloud_backup Data Source - ArubaCloud"
 subcategory: "Storage"
 description: |-
-  Retrieves an ArubaCloud Storage Backup.
+  Retrieves information about an existing ArubaCloud Block Storage Backup.
 ---
 
-# arubacloud_backup
+# arubacloud_backup (Data Source)
 
-Retrieves an ArubaCloud Storage Backup.
+Retrieves read-only information about an existing `arubacloud_backup`. Use this data source to look up backup metadata (ID, URI, type, retention) without managing the backup's lifecycle.
+
+## Example Usage
 
 {{ tffile "examples/data-sources/arubacloud_backup/data-source-basic.tf" }}
 
 {{ .SchemaMarkdown }}
-

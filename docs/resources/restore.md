@@ -1,15 +1,17 @@
 ---
-page_title: "arubacloud_restore"
+page_title: "arubacloud_restore Resource - ArubaCloud"
 subcategory: "Storage"
 description: |-
-  Manages an ArubaCloud Storage Restore.
+  Manages an ArubaCloud Block Storage Restore operation — restores a backup to a block storage volume.
 ---
 
 # arubacloud_restore
 
-Manages an ArubaCloud Storage Restore.
+Manages an ArubaCloud Restore operation — applies a previously created backup to a block storage volume. Once the restore completes the resource records the outcome. Destroying this resource does not undo the restore; it only removes the Terraform state record.
 
 ## Example Usage
+
+### Restore a backup to a block storage volume
 
 ```terraform
 resource "arubacloud_restore" "basic" {
@@ -26,15 +28,15 @@ The following arguments are supported:
 
 #### Required
 
-- `backup_id` (String) Backup ID to restore from
-- `location` (String) Restore location
-- `name` (String) Restore name
-- `project_id` (String) ID of the project this restore belongs to
-- `volume_id` (String) Volume ID to restore to
+- `backup_id` (String) ID of the backup to restore from.
+- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
+- `name` (String) Display name for the restore operation.
+- `project_id` (String) ID of the project that owns this resource.
+- `volume_id` (String) ID of the target block storage volume to restore the backup onto.
 
 #### Optional
 
-- `tags` (List of String) List of tags for the restore resource
+- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
 
 ### Attributes Reference
 
@@ -42,15 +44,29 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `id` (String) Restore identifier
-- `uri` (String) Restore URI
+- `id` (String) Computed by the API. Unique identifier for the resource.
+- `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources.
 
 
+
+## Notes
+
+- **Dependencies:** requires an [`arubacloud_backup`](../resources/backup.md) and an [`arubacloud_blockstorage`](../resources/blockstorage.md) volume in the same project.
+- Destroying this resource removes only the Terraform state record; the restore operation itself cannot be undone.
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
 
 ## Import
 
-Aruba Cloud Restore can be imported using the `restore_id`.
+Aruba Cloud Restore can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_restore.example <restore_id>
+terraform import arubacloud_restore.example <restore-id>
 ```

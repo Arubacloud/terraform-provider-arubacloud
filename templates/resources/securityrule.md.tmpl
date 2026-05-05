@@ -1,22 +1,40 @@
 ---
-page_title: "arubacloud_securityrule"
-subcategory: "Security"
+page_title: "arubacloud_securityrule Resource - ArubaCloud"
+subcategory: "Network"
 description: |-
-  Manages an ArubaCloud Security Rule.
+  Manages an ArubaCloud Security Rule within an arubacloud_securitygroup.
 ---
 
 # arubacloud_securityrule
 
-Manages an ArubaCloud Security Rule.
+Manages an individual ArubaCloud Security Rule within an `arubacloud_securitygroup`. Each rule defines allowed or denied traffic for one direction (inbound or outbound), protocol, port range, and source/destination CIDR. Most rule attributes are immutable after creation; to change them, destroy and re-create the rule.
+
+## Example Usage
+
+### Basic Security Rule
 
 {{ tffile "examples/resources/arubacloud_securityrule/resource-basic.tf" }}
 
 {{ .SchemaMarkdown }}
 
+## Notes
+
+- **Dependencies:** Requires an [`arubacloud_securitygroup`](https://registry.terraform.io/providers/Arubacloud/arubacloud/latest/docs/resources/securitygroup), [`arubacloud_vpc`](https://registry.terraform.io/providers/Arubacloud/arubacloud/latest/docs/resources/vpc), and an [`arubacloud_project`](https://registry.terraform.io/providers/Arubacloud/arubacloud/latest/docs/resources/project).
+- **Immutable fields:** `location`, `project_id`, `vpc_id`, `security_group_id` — changing these forces the resource to be destroyed and re-created. Rule properties (`direction`, `protocol`, `port`, `target`) cannot be updated in place; destroy and re-create the rule to change them.
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
+
 ## Import
 
-Aruba Cloud Security Rule can be imported using the `securityrule_id`.
+Aruba Cloud Security Rule can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_securityrule.example <securityrule_id>
+terraform import arubacloud_securityrule.example <securityrule-id>
 ```

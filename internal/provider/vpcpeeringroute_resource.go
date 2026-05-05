@@ -44,47 +44,47 @@ func (r *VpcPeeringRouteResource) Metadata(ctx context.Context, req resource.Met
 
 func (r *VpcPeeringRouteResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "VPC Peering Route resource",
+		MarkdownDescription: "Manages a route entry within an ArubaCloud VPC Peering connection. Each route directs traffic destined for a specific CIDR block over the peering link. Routes must be created on both sides of the peering connection.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "VPC Peering Route identifier",
+				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
 				Computed:            true,
 			},
 			"uri": schema.StringAttribute{
-				MarkdownDescription: "VPC Peering Route URI",
+				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).",
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "VPC Peering Route name",
+				MarkdownDescription: "Display name for the VPC peering route.",
 				Required:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of tags for the VPC Peering Route",
+				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
 				Optional:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this VPC Peering Route belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"vpc_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the VPC this peering route belongs to",
+				MarkdownDescription: "ID of the VPC this peering route belongs to.",
 				Required:            true,
 			},
 			"vpc_peering_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the VPC Peering this route belongs to",
+				MarkdownDescription: "ID of the VPC peering connection this route belongs to.",
 				Required:            true,
 			},
 			"local_network_address": schema.StringAttribute{
-				MarkdownDescription: "Local network address in CIDR notation",
+				MarkdownDescription: "Local network CIDR that is reachable on this side of the peering (e.g., `10.0.1.0/24`).",
 				Required:            true,
 			},
 			"remote_network_address": schema.StringAttribute{
-				MarkdownDescription: "Remote network address in CIDR notation",
+				MarkdownDescription: "Remote network CIDR reachable through the peering connection (e.g., `10.0.2.0/24`).",
 				Required:            true,
 			},
 			"billing_period": schema.StringAttribute{
-				MarkdownDescription: "Billing period (Hour, Month, Year)",
+				MarkdownDescription: "Billing cycle for the resource. Accepted values: `Hour`, `Month`, `Year`.",
 				Required:            true,
 			},
 		},

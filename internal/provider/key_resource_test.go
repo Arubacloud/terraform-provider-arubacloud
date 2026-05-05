@@ -50,7 +50,7 @@ resource "arubacloud_project" "test" {
 resource "arubacloud_kms" "test" {
   name           = "test-kms"
   project_id     = arubacloud_project.test.id
-  location       = "it-mil1"
+  location       = "ITBG-Bergamo"
   billing_period = "monthly"
 }
 

@@ -1,13 +1,15 @@
 ---
-page_title: "arubacloud_blockstorage"
+page_title: "arubacloud_blockstorage Data Source - ArubaCloud"
 subcategory: "Storage"
 description: |-
-  Retrieves an existing ArubaCloud Block Storage.
+  Retrieves information about an existing ArubaCloud Block Storage volume.
 ---
 
-# arubacloud_blockstorage
+# arubacloud_blockstorage (Data Source)
 
-Retrieves an existing ArubaCloud Block Storage.
+Retrieves read-only information about an existing `arubacloud_blockstorage` volume. Use this data source to reference a volume's URI when attaching it to a CloudServer managed in a separate Terraform configuration.
+
+## Example Usage
 
 ```terraform
 data "arubacloud_blockstorage" "example" {
@@ -59,8 +61,8 @@ The following arguments are supported:
 
 #### Required
 
-- `id` (String) Block Storage identifier
-- `project_id` (String) ID of the project this Block Storage belongs to
+- `id` (String) Unique identifier of the block storage volume to look up.
+- `project_id` (String) ID of the project that owns this resource.
 
 ### Attributes Reference
 
@@ -68,15 +70,15 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `billing_period` (String) Billing period of the block storage
-- `bootable` (Boolean) Whether the block storage is bootable
-- `image` (String) Image for the block storage
-- `location` (String) Location of the block storage
-- `name` (String) Block Storage name
-- `size_gb` (Number) Size of the block storage in GB
-- `snapshot_id` (String) Snapshot ID for the block storage
-- `tags` (List of String) List of tags for the block storage
-- `type` (String) Type of block storage (Standard, Performance)
-- `zone` (String) Zone of the block storage
+- `billing_period` (String) Billing cycle. Accepted values: `Hour`, `Month`, `Year`.
+- `bootable` (Boolean) Whether this volume can be used as a boot volume for an `arubacloud_cloudserver`. Must be `true` when `image` is set.
+- `image` (String) Image ID to use when creating a bootable volume. Required when `bootable` is `true`. See the [available images](https://api.arubacloud.com/docs/metadata/#cloud-server-bootvolume).
+- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
+- `name` (String) Display name for the block storage volume.
+- `size_gb` (Number) Size of the block storage volume in GiB. Must be a positive integer.
+- `snapshot_id` (String) ID of the snapshot this volume was created from, if any.
+- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
+- `type` (String) Storage type. Accepted values: `Standard`, `Performance`.
+- `zone` (String) Availability zone within the region. If omitted the volume is regional (accessible across all zones).
 
 

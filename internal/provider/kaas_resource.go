@@ -79,140 +79,140 @@ func (r *KaaSResource) Metadata(ctx context.Context, req resource.MetadataReques
 
 func (r *KaaSResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "KaaS (Kubernetes as a Service) resource",
+		MarkdownDescription: "Manages an ArubaCloud Kubernetes cluster (KaaS — Kubernetes-as-a-Service).",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "KaaS identifier",
+				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"uri": schema.StringAttribute{
-				MarkdownDescription: "KaaS URI",
+				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources.",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "KaaS name",
+				MarkdownDescription: "Display name for the KaaS cluster.",
 				Required:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "KaaS location",
+				MarkdownDescription: "Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).",
 				Required:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of tags for the KaaS resource",
+				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
 				Optional:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this KaaS resource belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"billing_period": schema.StringAttribute{
-				MarkdownDescription: "Billing period (Hour, Month, Year)",
+				MarkdownDescription: "Billing cycle. Accepted values: `Hour`, `Month`, `Year`.",
 				Optional:            true,
 			},
 			"management_ip": schema.StringAttribute{
-				MarkdownDescription: "Management IP address (available when KaaS is active)",
+				MarkdownDescription: "Computed by the API. Management IP address of the cluster control plane, available once the cluster is active.",
 				Computed:            true,
 			},
 			"kubeconfig": schema.StringAttribute{
-				MarkdownDescription: "Kubeconfig YAML for kubectl access (downloaded when KaaS is ready). Sensitive.",
+				MarkdownDescription: "Computed by the API. Kubeconfig YAML for kubectl access, downloaded when the cluster is active. Write-only — this value is sent to the API but is not returned in subsequent read responses.",
 				Computed:            true,
 				Sensitive:           true,
 			},
 			"network": schema.SingleNestedAttribute{
-				MarkdownDescription: "Network configuration for the KaaS cluster",
+				MarkdownDescription: "Network configuration for the KaaS cluster.",
 				Required:            true,
 				Attributes: map[string]schema.Attribute{
 					"vpc_uri_ref": schema.StringAttribute{
-						MarkdownDescription: "VPC URI reference for the KaaS resource (e.g., arubacloud_vpc.example.uri)",
+						MarkdownDescription: "URI of the VPC that hosts the cluster (e.g., `arubacloud_vpc.example.uri`).",
 						Required:            true,
 						PlanModifiers: []planmodifier.String{
 							stringplanmodifier.UseStateForUnknown(),
 						},
 					},
 					"subnet_uri_ref": schema.StringAttribute{
-						MarkdownDescription: "Subnet URI reference for the KaaS resource (e.g., arubacloud_subnet.example.uri)",
+						MarkdownDescription: "URI of the subnet within the VPC (e.g., `arubacloud_subnet.example.uri`).",
 						Required:            true,
 						PlanModifiers: []planmodifier.String{
 							stringplanmodifier.UseStateForUnknown(),
 						},
 					},
 					"node_cidr": schema.SingleNestedAttribute{
-						MarkdownDescription: "Node CIDR configuration",
+						MarkdownDescription: "CIDR block assigned to cluster nodes.",
 						Required:            true,
 						Attributes: map[string]schema.Attribute{
 							"address": schema.StringAttribute{
-								MarkdownDescription: "Node CIDR address in CIDR notation (e.g., 10.0.0.0/24)",
+								MarkdownDescription: "Node CIDR address in CIDR notation (e.g., `10.0.0.0/24`).",
 								Required:            true,
 							},
 							"name": schema.StringAttribute{
-								MarkdownDescription: "Node CIDR name",
+								MarkdownDescription: "Human-readable label for the node CIDR block.",
 								Required:            true,
 							},
 						},
 					},
 					"security_group_name": schema.StringAttribute{
-						MarkdownDescription: "Security group name",
+						MarkdownDescription: "Name of the security group applied to cluster nodes.",
 						Required:            true,
 					},
 					"pod_cidr": schema.StringAttribute{
-						MarkdownDescription: "Pod CIDR in CIDR notation (e.g., 10.0.3.0/24)",
+						MarkdownDescription: "CIDR block used for pod networking within the cluster (e.g., `10.0.3.0/24`).",
 						Optional:            true,
 					},
 				},
 			},
 			"settings": schema.SingleNestedAttribute{
-				MarkdownDescription: "Kubernetes cluster settings",
+				MarkdownDescription: "Kubernetes version and node-pool configuration.",
 				Required:            true,
 				Attributes: map[string]schema.Attribute{
 					"kubernetes_version": schema.StringAttribute{
-						MarkdownDescription: "Kubernetes version. Available versions are described in the [ArubaCloud API documentation](https://api.arubacloud.com/docs/metadata#kubernetes-version). For example, `1.33.2`.",
+						MarkdownDescription: "Kubernetes version string (e.g., `1.28`). Available versions are listed in the ArubaCloud metadata API.",
 						Required:            true,
 					},
 					"node_pools": schema.ListNestedAttribute{
-						MarkdownDescription: "Node pools configuration",
+						MarkdownDescription: "One or more node pools that make up the cluster worker fleet.",
 						Required:            true,
 						NestedObject: schema.NestedAttributeObject{
 							Attributes: map[string]schema.Attribute{
 								"name": schema.StringAttribute{
-									MarkdownDescription: "Node pool name",
+									MarkdownDescription: "Display name for the node pool.",
 									Required:            true,
 								},
 								"nodes": schema.Int64Attribute{
-									MarkdownDescription: "Number of nodes in the node pool",
+									MarkdownDescription: "Number of worker nodes in the cluster.",
 									Required:            true,
 								},
 								"instance": schema.StringAttribute{
-									MarkdownDescription: "KaaS flavor name for nodes. Available flavors are described in the [ArubaCloud API documentation](https://api.arubacloud.com/docs/metadata#kaas-flavors). For example, `K2A4` means 2 CPU, 4GB RAM, and 40GB storage.",
+									MarkdownDescription: "Compute flavour for cluster nodes (e.g., `CSO4A8`). See [available flavours](https://api.arubacloud.com/docs/metadata/#cloudserver-flavors).",
 									Required:            true,
 								},
 								"zone": schema.StringAttribute{
-									MarkdownDescription: "Datacenter/zone code for nodes",
+									MarkdownDescription: "Datacenter zone code where the node pool is deployed.",
 									Required:            true,
 								},
 								"autoscaling": schema.BoolAttribute{
-									MarkdownDescription: "Enable autoscaling for node pool",
+									MarkdownDescription: "When `true`, the node pool scales automatically between `min_count` and `max_count`.",
 									Optional:            true,
 								},
 								"min_count": schema.Int64Attribute{
-									MarkdownDescription: "Minimum number of nodes for autoscaling",
+									MarkdownDescription: "Minimum number of nodes when autoscaling is enabled.",
 									Optional:            true,
 								},
 								"max_count": schema.Int64Attribute{
-									MarkdownDescription: "Maximum number of nodes for autoscaling",
+									MarkdownDescription: "Maximum number of nodes when autoscaling is enabled.",
 									Optional:            true,
 								},
 							},
 						},
 					},
 					"ha": schema.BoolAttribute{
-						MarkdownDescription: "High availability",
+						MarkdownDescription: "When `true`, the control plane is deployed in high-availability mode.",
 						Optional:            true,
 					},
 				},

@@ -34,26 +34,26 @@ func (d *KMSDataSource) Metadata(ctx context.Context, req datasource.MetadataReq
 
 func (d *KMSDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "KMS data source",
+		MarkdownDescription: "Retrieves information about an existing ArubaCloud KMS (Key Management Service) instance.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "KMS identifier",
+				MarkdownDescription: "Unique identifier of the KMS instance to look up.",
 				Required:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this KMS belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Name of the KMS resource",
+				MarkdownDescription: "Display name for the KMS instance.",
 				Computed:            true,
 			},
 			"description": schema.StringAttribute{
-				MarkdownDescription: "Description of the KMS resource",
+				MarkdownDescription: "Optional human-readable description of the KMS instance.",
 				Computed:            true,
 			},
 			"endpoint": schema.StringAttribute{
-				MarkdownDescription: "KMS endpoint URL",
+				MarkdownDescription: "Computed by the API. Endpoint URL used to interact with the KMS service.",
 				Computed:            true,
 			},
 		},

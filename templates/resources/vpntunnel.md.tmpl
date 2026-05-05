@@ -1,22 +1,40 @@
 ---
-page_title: "arubacloud_vpntunnel"
+page_title: "arubacloud_vpntunnel Resource - ArubaCloud"
 subcategory: "Network"
 description: |-
-  Manages an ArubaCloud VPN Tunnel.
+  Manages an ArubaCloud VPN Tunnel — an IPSec site-to-site VPN connection between an ArubaCloud VPC and an external network.
 ---
 
 # arubacloud_vpntunnel
 
-Manages an ArubaCloud VPN Tunnel.
+Manages an ArubaCloud IPSec VPN Tunnel — a site-to-site connection between an ArubaCloud VPC and an external on-premises or cloud network. The tunnel is established using a pre-shared key. Use `arubacloud_vpnroute` resources to configure which CIDRs are routed over the tunnel.
+
+## Example Usage
+
+### Basic VPN Tunnel
 
 {{ tffile "examples/resources/arubacloud_vpntunnel/resource-basic.tf" }}
 
 {{ .SchemaMarkdown }}
 
+## Notes
+
+- **Dependencies:** Requires an [`arubacloud_project`](https://registry.terraform.io/providers/Arubacloud/arubacloud/latest/docs/resources/project).
+- **Sensitive fields:** `properties.vpn_client_settings.psk.secret` — sent to the API but not returned in read responses.
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
+
 ## Import
 
-Aruba Cloud VPN Tunnel can be imported using the `vpntunnel_id`.
+Aruba Cloud VPN Tunnel can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_vpntunnel.example <vpntunnel_id>
+terraform import arubacloud_vpntunnel.example <vpntunnel-id>
 ```

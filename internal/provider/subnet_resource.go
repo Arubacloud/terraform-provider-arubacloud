@@ -67,28 +67,28 @@ func (r *SubnetResource) Metadata(ctx context.Context, req resource.MetadataRequ
 
 func (r *SubnetResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Subnet resource",
+		MarkdownDescription: "Manages an ArubaCloud Subnet within a VPC. Subnets can be Basic (default networking) or Advanced (custom CIDR with configurable DHCP pools, routes, and DNS). Changing `type`, `location`, `project_id`, or `vpc_id` destroys and re-creates the subnet. For `Advanced` subnets the `network` block is mandatory and must include a valid RFC-1918 CIDR.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Subnet identifier",
+				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"uri": schema.StringAttribute{
-				MarkdownDescription: "Subnet URI",
+				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Subnet name",
+				MarkdownDescription: "Display name for the subnet.",
 				Required:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "Subnet location",
+				MarkdownDescription: "Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
 				// Validators removed for v1.16.1 compatibility
 				PlanModifiers: []planmodifier.String{
@@ -97,25 +97,25 @@ func (r *SubnetResource) Schema(ctx context.Context, req resource.SchemaRequest,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of tags for the subnet",
+				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
 				Optional:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this subnet belongs to",
+				MarkdownDescription: "ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"vpc_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the VPC this subnet belongs to",
+				MarkdownDescription: "ID of the parent VPC this subnet belongs to. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"type": schema.StringAttribute{
-				MarkdownDescription: "Subnet type (Basic or Advanced)",
+				MarkdownDescription: "Subnet type. Accepted values: `Basic` (no custom CIDR), `Advanced` (requires the `network` block). (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
 				// Validators removed for v1.16.1 compatibility
 				PlanModifiers: []planmodifier.String{
@@ -123,25 +123,28 @@ func (r *SubnetResource) Schema(ctx context.Context, req resource.SchemaRequest,
 				},
 			},
 			"network": schema.SingleNestedAttribute{
+				MarkdownDescription: "Network configuration block. Required when `type` is `Advanced`.",
 				Attributes: map[string]schema.Attribute{
 					"address": schema.StringAttribute{
-						MarkdownDescription: "Address of the network in CIDR notation (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)",
+						MarkdownDescription: "Subnet CIDR in RFC-1918 notation (e.g., `10.0.1.0/24`). Must fall within the parent VPC CIDR.",
 						Optional:            true,
 					},
 					"dhcp": schema.SingleNestedAttribute{
+						MarkdownDescription: "DHCP configuration for the subnet.",
 						Attributes: map[string]schema.Attribute{
 							"enabled": schema.BoolAttribute{
-								MarkdownDescription: "Enable DHCP",
+								MarkdownDescription: "Whether DHCP is enabled on this subnet.",
 								Optional:            true,
 							},
 							"range": schema.SingleNestedAttribute{
+								MarkdownDescription: "IP address range allocated to DHCP clients.",
 								Attributes: map[string]schema.Attribute{
 									"start": schema.StringAttribute{
-										MarkdownDescription: "Starting IP address",
+										MarkdownDescription: "First IP address in the DHCP allocation range.",
 										Optional:            true,
 									},
 									"count": schema.Int64Attribute{
-										MarkdownDescription: "Number of available IP addresses",
+										MarkdownDescription: "Number of consecutive IP addresses in the DHCP pool.",
 										Optional:            true,
 									},
 								},
@@ -151,21 +154,21 @@ func (r *SubnetResource) Schema(ctx context.Context, req resource.SchemaRequest,
 								NestedObject: schema.NestedAttributeObject{
 									Attributes: map[string]schema.Attribute{
 										"address": schema.StringAttribute{
-											MarkdownDescription: "Destination network address in CIDR notation (e.g., 0.0.0.0/0)",
+											MarkdownDescription: "Destination network in CIDR notation (e.g., `0.0.0.0/0` for a default route).",
 											Optional:            true,
 										},
 										"gateway": schema.StringAttribute{
-											MarkdownDescription: "Gateway IP address for the route",
+											MarkdownDescription: "Gateway IP address for this route.",
 											Optional:            true,
 										},
 									},
 								},
-								MarkdownDescription: "DHCP routes configuration",
+								MarkdownDescription: "Static routes distributed to DHCP clients.",
 								Optional:            true,
 							},
 							"dns": schema.ListAttribute{
 								ElementType:         types.StringType,
-								MarkdownDescription: "DNS server addresses",
+								MarkdownDescription: "List of DNS server IP addresses distributed to DHCP clients.",
 								Optional:            true,
 							},
 						},

@@ -1,13 +1,15 @@
 ---
-page_title: "arubacloud_vpcpeering"
+page_title: "arubacloud_vpcpeering Data Source - ArubaCloud"
 subcategory: "Network"
 description: |-
-  Reads an existing ArubaCloud VPC Peering.
+  Retrieves information about an existing ArubaCloud VPC Peering connection.
 ---
 
-# arubacloud_vpcpeering
+# arubacloud_vpcpeering (Data Source)
 
-Reads an existing ArubaCloud VPC Peering.
+Retrieves read-only information about an existing `arubacloud_vpcpeering` connection. Use this data source to reference VPC peering metadata in other configurations without managing the lifecycle via Terraform.
+
+## Example Usage
 
 ```terraform
 data "arubacloud_vpcpeering" "basic" {
@@ -30,9 +32,9 @@ The following arguments are supported:
 
 #### Required
 
-- `id` (String) VPC Peering identifier
-- `project_id` (String) ID of the project this VPC Peering belongs to
-- `vpc_id` (String) ID of the VPC this peering belongs to
+- `id` (String) Unique identifier of the VPC peering to look up.
+- `project_id` (String) ID of the project that owns this resource.
+- `vpc_id` (String) ID of the local VPC this peering belongs to.
 
 ### Attributes Reference
 
@@ -40,6 +42,6 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `name` (String) VPC Peering name
+- `name` (String) Display name for the VPC peering.
 
 

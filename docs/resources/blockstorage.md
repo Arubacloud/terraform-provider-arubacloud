@@ -1,13 +1,17 @@
 ---
-page_title: "arubacloud_blockstorage"
+page_title: "arubacloud_blockstorage Resource - ArubaCloud"
 subcategory: "Storage"
 description: |-
-  Manages an ArubaCloud Block Storage.
+  Manages an ArubaCloud Block Storage volume.
 ---
 
 # arubacloud_blockstorage
 
-Manages an ArubaCloud Block Storage.
+Manages an ArubaCloud Block Storage volume — a persistent network-attached disk that can be attached to an `arubacloud_cloudserver`. Volumes are provisioned within a specific project and region. Setting `bootable = true` with a valid `image` creates a bootable volume; reference its `uri` in an `arubacloud_cloudserver` `storage.boot_volume_uri_ref`. Changing `project_id` or `location` forces the volume to be destroyed and re-created.
+
+## Example Usage
+
+### Create a standard block storage volume
 
 ```terraform
 # Zonal Block Storage Example
@@ -46,19 +50,19 @@ The following arguments are supported:
 
 #### Required
 
-- `billing_period` (String) Billing period (Hour, Month, Year)
-- `location` (String) Block Storage location/region
-- `name` (String) Block Storage name
-- `project_id` (String) ID of the project this Block Storage belongs to
-- `size_gb` (Number) Size of the block storage in GB
-- `type` (String) Type of block storage (Standard, Performance)
+- `billing_period` (String) Billing cycle. Accepted values: `Hour`, `Month`, `Year`.
+- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `name` (String) Display name for the block storage volume.
+- `project_id` (String) ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `size_gb` (Number) Size of the block storage volume in GiB. Must be a positive integer.
+- `type` (String) Storage type. Accepted values: `Standard`, `Performance`.
 
 #### Optional
 
-- `bootable` (Boolean) Whether the block storage is bootable. Must be set to true along with image to create a bootable disk.
-- `image` (String) Image ID for bootable block storage. Required when bootable is true. See [available images](https://api.arubacloud.com/docs/metadata/#cloud-server-bootvolume) for a list of supported image IDs.
-- `tags` (List of String) List of tags for the block storage
-- `zone` (String) Zone where blockstorage will be created. If not specified, the block storage will be regional (available across all zones in the location). If specified, the block storage will be zonal (tied to a specific zone).
+- `bootable` (Boolean) Whether this volume can be used as a boot volume for an `arubacloud_cloudserver`. Must be `true` when `image` is set.
+- `image` (String) Image ID to use when creating a bootable volume. Required when `bootable` is `true`. See the [available images](https://api.arubacloud.com/docs/metadata/#cloud-server-bootvolume).
+- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
+- `zone` (String) Availability zone within the region. If omitted the volume is regional (accessible across all zones).
 
 ### Attributes Reference
 
@@ -66,15 +70,29 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `id` (String) Block Storage identifier
-- `uri` (String) Block Storage URI
+- `id` (String) Computed by the API. Unique identifier for the resource.
+- `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources.
 
 
+
+## Notes
+
+- **Dependencies:** requires an [`arubacloud_project`](../resources/project.md) to exist before creating a volume.
+- **Immutable fields:** `project_id`, `location` — changing these forces the resource to be destroyed and re-created.
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
 
 ## Import
 
-Aruba Cloud BlockStorage can be imported using the `blockstorage_id`.
+Aruba Cloud Block Storage can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_blockstorage.example <blockstorage_id>
+terraform import arubacloud_blockstorage.example <blockstorage-id>
 ```

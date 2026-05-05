@@ -1,13 +1,17 @@
 ---
-page_title: "arubacloud_kms"
+page_title: "arubacloud_kms Resource - ArubaCloud"
 subcategory: "Security"
 description: |-
-  Manages an ArubaCloud Key Management System (KMS).
+  Manages an ArubaCloud KMS (Key Management Service) instance for storing and managing encryption keys.
 ---
 
 # arubacloud_kms
 
-Manages an ArubaCloud Key Management System (KMS).
+Manages an ArubaCloud KMS (Key Management Service) instance — a dedicated service for creating, storing, and managing cryptographic keys. KMS instances are provisioned within an `arubacloud_project` and a region. Access credentials and endpoints are computed by the API.
+
+## Example Usage
+
+### Basic KMS instance
 
 ```terraform
 resource "arubacloud_kms" "basic" {
@@ -28,14 +32,14 @@ The following arguments are supported:
 
 #### Required
 
-- `name` (String) KMS name
-- `project_id` (String) ID of the project this KMS belongs to
+- `name` (String) Display name for the KMS instance.
+- `project_id` (String) ID of the project that owns this resource.
 
 #### Optional
 
-- `billing_period` (String) Billing period for the KMS
-- `location` (String) Location for the KMS
-- `tags` (List of String) List of tags for the KMS
+- `billing_period` (String) Billing cycle. Accepted values: `Hour`, `Month`, `Year`.
+- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
+- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
 
 ### Attributes Reference
 
@@ -43,15 +47,28 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `id` (String) KMS identifier
-- `uri` (String) KMS URI
+- `id` (String) Computed by the API. Unique identifier for the resource.
+- `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources.
 
 
+
+## Notes
+
+- **Dependencies:** `arubacloud_project`
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
 
 ## Import
 
-Aruba Cloud KMS can be imported using the `kms_id`.
+Aruba Cloud KMS can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_kms.example <kms_id>
+terraform import arubacloud_kms.example <kms-id>
 ```

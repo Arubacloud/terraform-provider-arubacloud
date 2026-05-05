@@ -1,13 +1,15 @@
 ---
-page_title: "arubacloud_securitygroup"
-subcategory: "Security"
+page_title: "arubacloud_securitygroup Data Source - ArubaCloud"
+subcategory: "Network"
 description: |-
-  Reads an existing ArubaCloud Security Group.
+  Retrieves information about an existing ArubaCloud Security Group.
 ---
 
-# arubacloud_securitygroup
+# arubacloud_securitygroup (Data Source)
 
-Reads an existing ArubaCloud Security Group.
+Retrieves read-only information about an existing `arubacloud_securitygroup` resource. Use this data source to look up a security group's URI for use in CloudServer network configurations without managing the lifecycle via Terraform.
+
+## Example Usage
 
 {{ tffile "examples/data-sources/arubacloud_securitygroup/data-source-basic.tf" }}
 

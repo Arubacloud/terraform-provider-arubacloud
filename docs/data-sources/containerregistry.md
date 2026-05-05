@@ -1,13 +1,15 @@
 ---
-page_title: "arubacloud_containerregistry"
+page_title: "arubacloud_containerregistry Data Source - ArubaCloud"
 subcategory: "Container"
 description: |-
-  Retrieves an ArubaCloud Container Registry.
+  Retrieves information about an existing ArubaCloud Container Registry.
 ---
 
-# arubacloud_containerregistry
+# arubacloud_containerregistry (Data Source)
 
-Retrieves an ArubaCloud Container Registry.
+Retrieves read-only information about an existing `arubacloud_containerregistry`. Use this data source to look up the registry endpoint URL in other configurations without managing the lifecycle via Terraform.
+
+## Example Usage
 
 ```terraform
 data "arubacloud_containerregistry" "example" {
@@ -59,8 +61,8 @@ The following arguments are supported:
 
 #### Required
 
-- `id` (String) Container Registry identifier
-- `project_id` (String) ID of the project this Container Registry belongs to
+- `id` (String) Unique identifier of the container registry to look up.
+- `project_id` (String) ID of the project that owns this resource.
 
 ### Attributes Reference
 
@@ -68,17 +70,17 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `admin_user` (String) Administrator username
-- `billing_period` (String) Billing period (Hour, Month, Year)
-- `block_storage_uri_ref` (String) Block Storage URI reference
-- `concurrent_users_flavor` (String) Concurrent users flavor size (Small, Medium, HighPerf)
-- `location` (String) Container Registry location
-- `name` (String) Container Registry name
-- `public_ip_uri_ref` (String) Public IP URI reference
-- `security_group_uri_ref` (String) Security Group URI reference
-- `subnet_uri_ref` (String) Subnet URI reference
-- `tags` (List of String) List of tags for the Container Registry resource
-- `uri` (String) Container Registry URI
-- `vpc_uri_ref` (String) VPC URI reference
+- `admin_user` (String) Administrator username for the registry.
+- `billing_period` (String) Billing cycle. Accepted values: `Hour`, `Month`, `Year`.
+- `block_storage_uri_ref` (String) URI of the block storage volume backing the registry image store.
+- `concurrent_users_flavor` (String) Concurrency tier for simultaneous push/pull sessions (`Small`, `Medium`, `HighPerf`).
+- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
+- `name` (String) Display name for the container registry.
+- `public_ip_uri_ref` (String) URI of the Elastic IP that exposes the registry endpoint.
+- `security_group_uri_ref` (String) URI of the security group controlling registry traffic.
+- `subnet_uri_ref` (String) URI of the subnet within the VPC.
+- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
+- `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources.
+- `vpc_uri_ref` (String) URI of the VPC that hosts the registry.
 
 

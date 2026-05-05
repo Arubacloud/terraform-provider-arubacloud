@@ -1,22 +1,40 @@
 ---
-page_title: "arubacloud_keypair"
+page_title: "arubacloud_keypair Resource - ArubaCloud"
 subcategory: "Security"
 description: |-
-  Manages an ArubaCloud KeyPair.
+  Manages an ArubaCloud SSH KeyPair.
 ---
 
 # arubacloud_keypair
 
-Manages an ArubaCloud KeyPair.
+Manages an ArubaCloud SSH KeyPair. The key pair stores a public key on the ArubaCloud platform; the corresponding private key is kept locally and never uploaded. Reference the `uri` output in an `arubacloud_cloudserver` `settings.key_pair_uri_ref` to inject the key at instance creation time.
+
+## Example Usage
+
+### Basic KeyPair
 
 {{ tffile "examples/resources/arubacloud_keypair/resource-basic.tf" }}
 
 {{ .SchemaMarkdown }}
 
+## Notes
+
+- **Dependencies:** Requires [`arubacloud_project`](../resources/project).
+- **Sensitive fields:** `value` — sent to the API but not returned in read responses.
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
+
 ## Import
 
-Aruba Cloud KeyPair can be imported using the `keypair_id`.
+Aruba Cloud KeyPair can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_keypair.example <keypair_id>
+terraform import arubacloud_keypair.example <keypair-id>
 ```

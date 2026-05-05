@@ -40,7 +40,7 @@ resource "arubacloud_elasticip" "vm" {
   name           = "wp-vm-eip"
   location       = "ITBG-Bergamo"
   project_id     = arubacloud_project.test.id
-  billing_period = "hourly"
+  billing_period = "Hour"
   tags           = ["public", "virtual-machine", "wordpress", "test"]
 }
 
@@ -48,7 +48,7 @@ resource "arubacloud_elasticip" "dbaas" {
   name           = "wp-db-eip"
   location       = "ITBG-Bergamo"
   project_id     = arubacloud_project.test.id
-  billing_period = "hourly"
+  billing_period = "Hour"
   tags           = ["public", "dbaas", "wordpress", "test"]
 }
 

@@ -1,13 +1,17 @@
 ---
-page_title: "arubacloud_databasebackup"
+page_title: "arubacloud_databasebackup Resource - ArubaCloud"
 subcategory: "Database"
 description: |-
-  Manages an ArubaCloud Database Backup.
+  Manages a backup of an ArubaCloud DBaaS database.
 ---
 
 # arubacloud_databasebackup
 
-Manages an ArubaCloud Database Backup.
+Manages a backup of an ArubaCloud database (within a DBaaS cluster). Database backups are stored independently from the cluster and can be used for point-in-time recovery. Requires a pre-existing `arubacloud_dbaas` cluster or `arubacloud_database`.
+
+## Example Usage
+
+### Basic database backup
 
 ```terraform
 resource "arubacloud_databasebackup" "basic" {
@@ -27,17 +31,17 @@ The following arguments are supported:
 
 #### Required
 
-- `billing_period` (String) Billing period
-- `database` (String) Database name to backup
-- `dbaas_id` (String) DBaaS ID this backup belongs to
-- `location` (String) Database Backup location
-- `name` (String) Database Backup name
-- `project_id` (String) ID of the project this backup belongs to
-- `zone` (String) Zone for the Database Backup
+- `billing_period` (String) Billing cycle. Accepted values: `Hour`, `Month`, `Year`.
+- `database` (String) Name of the logical database within the DBaaS cluster to back up.
+- `dbaas_id` (String) ID of the DBaaS cluster or database to back up.
+- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
+- `name` (String) Display name for the database backup.
+- `project_id` (String) ID of the project that owns this resource.
+- `zone` (String) Availability zone within the region where the backup is stored.
 
 #### Optional
 
-- `tags` (List of String) List of tags for the Database Backup resource
+- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
 
 ### Attributes Reference
 
@@ -45,15 +49,28 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `id` (String) Database Backup identifier
-- `uri` (String) Database Backup URI
+- `id` (String) Computed by the API. Unique identifier for the resource.
+- `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources.
 
 
+
+## Notes
+
+- **Dependencies:** Requires a running `arubacloud_dbaas` cluster and an existing `arubacloud_database`.
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
 
 ## Import
 
-Aruba Cloud Database Backup can be imported using the `databasebackup_id`.
+Aruba Cloud Database Backup can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_databasebackup.example <databasebackup_id>
+terraform import arubacloud_databasebackup.example <databasebackup-id>
 ```

@@ -1,13 +1,15 @@
 ---
-page_title: "arubacloud_blockstorage"
+page_title: "arubacloud_blockstorage Data Source - ArubaCloud"
 subcategory: "Storage"
 description: |-
-  Retrieves an existing ArubaCloud Block Storage.
+  Retrieves information about an existing ArubaCloud Block Storage volume.
 ---
 
-# arubacloud_blockstorage
+# arubacloud_blockstorage (Data Source)
 
-Retrieves an existing ArubaCloud Block Storage.
+Retrieves read-only information about an existing `arubacloud_blockstorage` volume. Use this data source to reference a volume's URI when attaching it to a CloudServer managed in a separate Terraform configuration.
+
+## Example Usage
 
 {{ tffile "examples/data-sources/arubacloud_blockstorage/data-source-basic.tf" }}
 

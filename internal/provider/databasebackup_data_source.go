@@ -39,43 +39,43 @@ func (d *DatabaseBackupDataSource) Metadata(ctx context.Context, req datasource.
 
 func (d *DatabaseBackupDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Database Backup data source",
+		MarkdownDescription: "Retrieves read-only information about an existing ArubaCloud database backup.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Database Backup identifier",
+				MarkdownDescription: "Unique identifier of the database backup to look up.",
 				Required:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Database Backup name",
+				MarkdownDescription: "Display name for the database backup.",
 				Computed:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "Database Backup location",
+				MarkdownDescription: "Region identifier where the backup is stored.",
 				Computed:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of tags for the Database Backup resource",
+				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
 				Computed:            true,
 			},
 			"zone": schema.StringAttribute{
-				MarkdownDescription: "Zone for the Database Backup",
+				MarkdownDescription: "Availability zone within the region where the backup is stored.",
 				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this database backup belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"dbaas_id": schema.StringAttribute{
-				MarkdownDescription: "DBaaS ID this backup belongs to",
+				MarkdownDescription: "ID of the DBaaS cluster this backup belongs to.",
 				Computed:            true,
 			},
 			"database": schema.StringAttribute{
-				MarkdownDescription: "Database to backup (ID or name)",
+				MarkdownDescription: "Name or ID of the logical database this backup was taken from.",
 				Computed:            true,
 			},
 			"billing_period": schema.StringAttribute{
-				MarkdownDescription: "Billing period",
+				MarkdownDescription: "Billing cycle. Accepted values: `Hour`, `Month`, `Year`.",
 				Computed:            true,
 			},
 		},

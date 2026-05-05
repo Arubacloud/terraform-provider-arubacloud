@@ -46,7 +46,7 @@ resource "arubacloud_elasticip" "test" {
   name           = "test-elastic-ip"
   location       = "ITBG-Bergamo"
   project_id     = arubacloud_project.test.id
-  billing_period = "hourly"
+  billing_period = "Hour"
   tags           = ["public", "test","updated"]
 }
 

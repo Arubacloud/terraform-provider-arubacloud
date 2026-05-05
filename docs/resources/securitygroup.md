@@ -1,13 +1,17 @@
 ---
-page_title: "arubacloud_securitygroup"
-subcategory: "Security"
+page_title: "arubacloud_securitygroup Resource - ArubaCloud"
+subcategory: "Network"
 description: |-
-  Manages an ArubaCloud Security Group.
+  Manages an ArubaCloud Security Group — a collection of firewall rules applied to CloudServer network interfaces.
 ---
 
 # arubacloud_securitygroup
 
-Manages an ArubaCloud Security Group.
+Manages an ArubaCloud Security Group — a named container for firewall rules applied to one or more `arubacloud_cloudserver` network interfaces. A security group is scoped to a VPC and a project. Individual rules are managed by separate `arubacloud_securityrule` resources.
+
+## Example Usage
+
+### Basic Security Group
 
 ```terraform
 resource "arubacloud_securitygroup" "example" {
@@ -28,14 +32,14 @@ The following arguments are supported:
 
 #### Required
 
-- `location` (String) Security Group location
-- `name` (String) Security Group name
-- `project_id` (String) ID of the project this Security Group belongs to
-- `vpc_id` (String) ID of the VPC this Security Group belongs to
+- `location` (String) Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `name` (String) Display name for the security group.
+- `project_id` (String) ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `vpc_id` (String) ID of the VPC this security group is scoped to. (Immutable — changing this value forces the resource to be destroyed and re-created.)
 
 #### Optional
 
-- `tags` (List of String) List of tags for the Security Group
+- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
 
 ### Attributes Reference
 
@@ -43,15 +47,29 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `id` (String) Security Group identifier
-- `uri` (String) Security Group URI
+- `id` (String) Computed by the API. Unique identifier for the resource.
+- `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).
 
 
+
+## Notes
+
+- **Dependencies:** Requires an [`arubacloud_vpc`](https://registry.terraform.io/providers/Arubacloud/arubacloud/latest/docs/resources/vpc) and an [`arubacloud_project`](https://registry.terraform.io/providers/Arubacloud/arubacloud/latest/docs/resources/project).
+- **Immutable fields:** `location`, `project_id`, `vpc_id` — changing these forces the resource to be destroyed and re-created.
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
 
 ## Import
 
-Aruba Cloud Security Group can be imported using the `securitygroup_id`.
+Aruba Cloud Security Group can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_securitygroup.example <securitygroup_id>
+terraform import arubacloud_securitygroup.example <securitygroup-id>
 ```

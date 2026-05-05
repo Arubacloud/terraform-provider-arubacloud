@@ -1,15 +1,14 @@
 ---
-page_title: "Provider: Aruba Cloud"
+page_title: "Provider: ArubaCloud"
 description: |-
-  The Aruba Cloud terraform provider is used to interact with the resources supported by Aruba Cloud.
+  The ArubaCloud Terraform provider manages compute, network, storage, database, container, and security resources on the ArubaCloud platform.
 ---
 
-# Aruba Cloud Provider
+# ArubaCloud Provider
 
-The Aruba Cloud terraform provider is used to interact with the resources supported by [Aruba Cloud](https://arubacloud.com). 
-You need to configure the provider with the proper credentials before it can be used.
+The ArubaCloud Terraform provider lets you manage infrastructure on [ArubaCloud](https://arubacloud.com) — a European cloud platform offering virtual machines, managed Kubernetes, managed databases, private networking, block storage, and security services.
 
-Use the navigation to the left to read about the available resources.
+Use the navigation on the left to browse all available resources and data sources.
 
 ## Example Usage
 
@@ -29,6 +28,182 @@ provider "arubacloud" {
 }
 ```
 
+## Quick Start
+
+The following end-to-end example provisions a CloudServer with all required dependencies (project, SSH key pair, VPC, subnet, security group, and bootable volume):
+
+```terraform
+# Quick Start — end-to-end ArubaCloud CloudServer with networking
+# Replace placeholder values with your own before applying.
+# See https://api.arubacloud.com/docs/metadata for valid locations, flavors, and images.
+
+terraform {
+  required_providers {
+    arubacloud = {
+      source  = "arubacloud/arubacloud"
+      version = ">= 0.0.1"
+    }
+  }
+}
+
+provider "arubacloud" {
+  api_key    = var.api_key
+  api_secret = var.api_secret
+}
+
+variable "api_key" {
+  description = "ArubaCloud API key"
+  type        = string
+  sensitive   = true
+}
+
+variable "api_secret" {
+  description = "ArubaCloud API secret"
+  type        = string
+  sensitive   = true
+}
+
+# 1. Project — the root organisational unit that owns all resources below.
+resource "arubacloud_project" "quickstart" {
+  name        = "quickstart-project"
+  description = "Quick-start project managed by Terraform"
+  tags        = ["quickstart", "terraform"]
+}
+
+# 2. SSH key pair — used for passwordless access to the CloudServer.
+resource "arubacloud_keypair" "quickstart" {
+  name       = "quickstart-keypair"
+  location   = "ITBG-Bergamo" # Location (region); see https://api.arubacloud.com/docs/metadata/#location-and-data-center
+  project_id = arubacloud_project.quickstart.id
+  # Replace with your own public key.
+  value = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC3... user@host"
+  tags  = ["quickstart"]
+}
+
+# 3. VPC — isolated private network for all resources in this project.
+resource "arubacloud_vpc" "quickstart" {
+  name       = "quickstart-vpc"
+  location   = "ITBG-Bergamo"
+  project_id = arubacloud_project.quickstart.id
+  tags       = ["quickstart"]
+}
+
+# 4. Subnet (Advanced type) — carves an address space out of the VPC.
+#    The Advanced type enables DHCP, which is required for CloudServer attachment.
+resource "arubacloud_subnet" "quickstart" {
+  name       = "quickstart-subnet"
+  location   = "ITBG-Bergamo"
+  project_id = arubacloud_project.quickstart.id
+  vpc_id     = arubacloud_vpc.quickstart.id
+  type       = "Advanced" # Must be "Advanced" to support DHCP
+  network = {
+    address = "10.0.0.0/24" # CIDR for this subnet; adjust to avoid conflicts
+    dhcp = {
+      enabled = true # Required for Advanced type
+      range = {
+        start = "10.0.0.10"
+        count = 200
+      }
+      routes = [
+        {
+          address = "0.0.0.0/0"   # Default route
+          gateway = "10.0.0.1"    # First usable address in the CIDR
+        }
+      ]
+      dns = ["8.8.8.8", "8.8.4.4"]
+    }
+  }
+  tags = ["quickstart"]
+}
+
+# 5. Security group — a named container for firewall rules attached to the VPC.
+resource "arubacloud_securitygroup" "quickstart" {
+  name       = "quickstart-sg"
+  location   = "ITBG-Bergamo"
+  project_id = arubacloud_project.quickstart.id
+  vpc_id     = arubacloud_vpc.quickstart.id
+  tags       = ["quickstart"]
+}
+
+# 6. Security rule — allows inbound SSH (TCP/22) from any source.
+#    Add additional arubacloud_securityrule resources for other ports (e.g. 80, 443).
+resource "arubacloud_securityrule" "ssh_inbound" {
+  name              = "quickstart-allow-ssh"
+  location          = "ITBG-Bergamo"
+  project_id        = arubacloud_project.quickstart.id
+  vpc_id            = arubacloud_vpc.quickstart.id
+  security_group_id = arubacloud_securitygroup.quickstart.id
+  tags              = ["quickstart"]
+  properties = {
+    direction = "Ingress"
+    protocol  = "TCP"
+    port      = "22"
+    target = {
+      kind  = "Ip"
+      value = "0.0.0.0/0" # Restrict to your IP range in production
+    }
+  }
+}
+
+# 7. Block storage (bootable) — the boot disk for the CloudServer.
+#    Set bootable = true and supply an image ID. Find image IDs at
+#    https://api.arubacloud.com/docs/metadata/#cloud-server-bootvolume
+resource "arubacloud_blockstorage" "quickstart_boot" {
+  name           = "quickstart-boot-disk"
+  project_id     = arubacloud_project.quickstart.id
+  location       = "ITBG-Bergamo"
+  zone           = "ITBG-1" # Zone (datacenter) � must match the CloudServer zone below
+  size_gb        = 50
+  billing_period = "Hour"
+  type           = "Performance" # Performance type recommended for boot volumes
+  bootable       = true
+  image          = "LU22-001" # Ubuntu 22.04; see metadata API for full list
+  tags           = ["quickstart", "boot"]
+}
+
+# 8. CloudServer — the virtual machine wired to all resources above.
+#    flavor_name selects the vCPU/RAM profile; see
+#    https://api.arubacloud.com/docs/metadata/#cloudserver-flavors for the full list.
+resource "arubacloud_cloudserver" "quickstart" {
+  name       = "quickstart-server"
+  location   = "ITBG-Bergamo"
+  project_id = arubacloud_project.quickstart.id
+  zone       = "ITBG-1" # Zone (datacenter) � must match the boot-volume zone above
+  tags       = ["quickstart", "compute"]
+
+  network = {
+    vpc_uri_ref            = arubacloud_vpc.quickstart.uri
+    subnet_uri_refs        = [arubacloud_subnet.quickstart.uri]
+    securitygroup_uri_refs = [arubacloud_securitygroup.quickstart.uri]
+  }
+
+  settings = {
+    flavor_name      = "CSO4A8" # 4 vCPU, 8 GB RAM; change to suit your workload
+    key_pair_uri_ref = arubacloud_keypair.quickstart.uri
+  }
+
+  storage = {
+    boot_volume_uri_ref = arubacloud_blockstorage.quickstart_boot.uri
+  }
+}
+
+output "cloudserver_id" {
+  description = "The ID of the provisioned CloudServer"
+  value       = arubacloud_cloudserver.quickstart.id
+}
+```
+
+## Resources by Category
+
+| Category | Resources | Data Sources |
+|---|---|---|
+| **Compute** | [`arubacloud_cloudserver`](resources/cloudserver), [`arubacloud_keypair`](resources/keypair), [`arubacloud_elasticip`](resources/elasticip) | [`arubacloud_cloudserver`](data-sources/cloudserver), [`arubacloud_keypair`](data-sources/keypair), [`arubacloud_elasticip`](data-sources/elasticip) |
+| **Network** | [`arubacloud_vpc`](resources/vpc), [`arubacloud_subnet`](resources/subnet), [`arubacloud_securitygroup`](resources/securitygroup), [`arubacloud_securityrule`](resources/securityrule), [`arubacloud_vpcpeering`](resources/vpcpeering), [`arubacloud_vpcpeeringroute`](resources/vpcpeeringroute), [`arubacloud_vpntunnel`](resources/vpntunnel), [`arubacloud_vpnroute`](resources/vpnroute) | [`arubacloud_vpc`](data-sources/vpc), [`arubacloud_subnet`](data-sources/subnet), [`arubacloud_securitygroup`](data-sources/securitygroup), [`arubacloud_securityrule`](data-sources/securityrule), [`arubacloud_vpcpeering`](data-sources/vpcpeering), [`arubacloud_vpcpeeringroute`](data-sources/vpcpeeringroute), [`arubacloud_vpntunnel`](data-sources/vpntunnel), [`arubacloud_vpnroute`](data-sources/vpnroute) |
+| **Storage** | [`arubacloud_blockstorage`](resources/blockstorage), [`arubacloud_snapshot`](resources/snapshot), [`arubacloud_backup`](resources/backup), [`arubacloud_restore`](resources/restore) | [`arubacloud_blockstorage`](data-sources/blockstorage), [`arubacloud_snapshot`](data-sources/snapshot), [`arubacloud_backup`](data-sources/backup), [`arubacloud_restore`](data-sources/restore) |
+| **Container** | [`arubacloud_kaas`](resources/kaas), [`arubacloud_containerregistry`](resources/containerregistry) | [`arubacloud_kaas`](data-sources/kaas), [`arubacloud_containerregistry`](data-sources/containerregistry) |
+| **Database** | [`arubacloud_dbaas`](resources/dbaas), [`arubacloud_database`](resources/database), [`arubacloud_databasegrant`](resources/databasegrant), [`arubacloud_databasebackup`](resources/databasebackup), [`arubacloud_dbaasuser`](resources/dbaasuser) | [`arubacloud_dbaas`](data-sources/dbaas), [`arubacloud_database`](data-sources/database), [`arubacloud_databasegrant`](data-sources/databasegrant), [`arubacloud_databasebackup`](data-sources/databasebackup), [`arubacloud_dbaasuser`](data-sources/dbaasuser) |
+| **Management** | [`arubacloud_project`](resources/project), [`arubacloud_schedulejob`](resources/schedulejob) | [`arubacloud_project`](data-sources/project), [`arubacloud_schedulejob`](data-sources/schedulejob) |
+| **Security** | [`arubacloud_kms`](resources/kms) | [`arubacloud_kms`](data-sources/kms) |
 
 ## Argument Reference
 
@@ -93,4 +268,3 @@ This emits each outbound HTTP request (method, URL, headers, body) and response 
 ### Suppress SDK output while keeping provider tracing
 
 Set `log_level = "OFF"` (the default) or omit it entirely. The provider-level `tflog` calls (resource lifecycle events, wait/retry status) are unaffected by `log_level` and continue to respect `TF_LOG` alone.
-

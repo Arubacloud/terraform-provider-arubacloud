@@ -42,79 +42,79 @@ func (r *VPNTunnelResource) Metadata(ctx context.Context, req resource.MetadataR
 
 func (r *VPNTunnelResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "VPN Tunnel resource",
+		MarkdownDescription: "Manages an ArubaCloud IPSec VPN Tunnel — a site-to-site connection between an ArubaCloud VPC and an external on-premises or cloud network. The tunnel is established using a pre-shared key. Use `arubacloud_vpnroute` resources to configure which CIDRs are routed over the tunnel.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "VPN Tunnel identifier",
+				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
 				Computed:            true,
 			},
 			"uri": schema.StringAttribute{
-				MarkdownDescription: "VPN Tunnel URI",
+				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).",
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "VPN Tunnel name",
+				MarkdownDescription: "Display name for the VPN tunnel.",
 				Required:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "VPN Tunnel location",
+				MarkdownDescription: "Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).",
 				Required:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of tags for the VPN Tunnel",
+				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
 				Optional:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this VPN Tunnel belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"properties": schema.SingleNestedAttribute{
-				MarkdownDescription: "Properties of the VPN Tunnel",
+				MarkdownDescription: "Configuration properties for the VPN tunnel.",
 				Required:            true,
 				Attributes: map[string]schema.Attribute{
 					"vpn_type": schema.StringAttribute{
-						MarkdownDescription: "Type of VPN tunnel (Site-To-Site)",
+						MarkdownDescription: "Type of VPN tunnel. Accepted values: `Site-To-Site`.",
 						Optional:            true,
 					},
 					"vpn_client_protocol": schema.StringAttribute{
-						MarkdownDescription: "Protocol of the VPN tunnel (ikev2)",
+						MarkdownDescription: "IKE protocol version. Accepted values: `ikev2`.",
 						Optional:            true,
 					},
 					"billing_period": schema.StringAttribute{
-						MarkdownDescription: "Billing period (Hour, Month, Year)",
+						MarkdownDescription: "Billing cycle for the resource. Accepted values: `Hour`, `Month`, `Year`.",
 						Optional:            true,
 					},
 					"ip_configurations": schema.SingleNestedAttribute{
-						MarkdownDescription: "Network configuration of the VPN tunnel",
+						MarkdownDescription: "Network references for the VPN tunnel — VPC, subnet, and public IP.",
 						Optional:            true,
 						Attributes: map[string]schema.Attribute{
 							"vpc": schema.SingleNestedAttribute{
-								MarkdownDescription: "VPC reference",
+								MarkdownDescription: "Reference to the VPC this tunnel is attached to.",
 								Optional:            true,
 								Attributes: map[string]schema.Attribute{
 									"id": schema.StringAttribute{
-										MarkdownDescription: "VPC id",
+										MarkdownDescription: "ID of the VPC.",
 										Optional:            true,
 									},
 								},
 							},
 							"subnet": schema.SingleNestedAttribute{
-								MarkdownDescription: "Subnet reference",
+								MarkdownDescription: "Reference to the subnet used by this tunnel.",
 								Optional:            true,
 								Attributes: map[string]schema.Attribute{
 									"id": schema.StringAttribute{
-										MarkdownDescription: "Subnet id",
+										MarkdownDescription: "ID of the subnet.",
 										Optional:            true,
 									},
 								},
 							},
 							"public_ip": schema.SingleNestedAttribute{
-								MarkdownDescription: "Public IP reference",
+								MarkdownDescription: "Reference to the elastic public IP assigned to this tunnel.",
 								Optional:            true,
 								Attributes: map[string]schema.Attribute{
 									"id": schema.StringAttribute{
-										MarkdownDescription: "Public IP id",
+										MarkdownDescription: "ID of the elastic public IP.",
 										Optional:            true,
 									},
 								},
@@ -122,85 +122,85 @@ func (r *VPNTunnelResource) Schema(ctx context.Context, req resource.SchemaReque
 						},
 					},
 					"vpn_client_settings": schema.SingleNestedAttribute{
-						MarkdownDescription: "Client settings of the VPN tunnel",
+						MarkdownDescription: "IKE/ESP/PSK client settings for the VPN tunnel.",
 						Optional:            true,
 						Attributes: map[string]schema.Attribute{
 							"ike": schema.SingleNestedAttribute{
-								MarkdownDescription: "IKE settings",
+								MarkdownDescription: "IKE (Internet Key Exchange) phase-1 settings.",
 								Optional:            true,
 								Attributes: map[string]schema.Attribute{
 									"lifetime": schema.Int64Attribute{
-										MarkdownDescription: "IKE lifetime",
+										MarkdownDescription: "IKE phase-1 lifetime in seconds.",
 										Optional:            true,
 									},
 									"encryption": schema.StringAttribute{
-										MarkdownDescription: "IKE encryption algorithm",
+										MarkdownDescription: "IKE encryption algorithm (e.g., `aes256`).",
 										Optional:            true,
 									},
 									"hash": schema.StringAttribute{
-										MarkdownDescription: "IKE hash algorithm",
+										MarkdownDescription: "IKE integrity/hash algorithm (e.g., `sha256`).",
 										Optional:            true,
 									},
 									"dh_group": schema.StringAttribute{
-										MarkdownDescription: "IKE DH group",
+										MarkdownDescription: "IKE Diffie-Hellman group (e.g., `modp2048`).",
 										Optional:            true,
 									},
 									"dpd_action": schema.StringAttribute{
-										MarkdownDescription: "IKE DPD action",
+										MarkdownDescription: "Dead Peer Detection action on failure (e.g., `restart`).",
 										Optional:            true,
 									},
 									"dpd_interval": schema.Int64Attribute{
-										MarkdownDescription: "IKE DPD interval",
+										MarkdownDescription: "DPD keep-alive interval in seconds.",
 										Optional:            true,
 									},
 									"dpd_timeout": schema.Int64Attribute{
-										MarkdownDescription: "IKE DPD timeout",
+										MarkdownDescription: "DPD timeout before the peer is considered dead, in seconds.",
 										Optional:            true,
 									},
 								},
 							},
 							"esp": schema.SingleNestedAttribute{
-								MarkdownDescription: "ESP settings",
+								MarkdownDescription: "ESP (Encapsulating Security Payload) phase-2 settings.",
 								Optional:            true,
 								Attributes: map[string]schema.Attribute{
 									"lifetime": schema.Int64Attribute{
-										MarkdownDescription: "ESP lifetime",
+										MarkdownDescription: "ESP phase-2 lifetime in seconds.",
 										Optional:            true,
 									},
 									"encryption": schema.StringAttribute{
-										MarkdownDescription: "ESP encryption algorithm",
+										MarkdownDescription: "ESP encryption algorithm (e.g., `aes256`).",
 										Optional:            true,
 									},
 									"hash": schema.StringAttribute{
-										MarkdownDescription: "ESP hash algorithm",
+										MarkdownDescription: "ESP integrity/hash algorithm (e.g., `sha256`).",
 										Optional:            true,
 									},
 									"pfs": schema.StringAttribute{
-										MarkdownDescription: "ESP PFS",
+										MarkdownDescription: "ESP Perfect Forward Secrecy group (e.g., `modp2048`).",
 										Optional:            true,
 									},
 								},
 							},
 							"psk": schema.SingleNestedAttribute{
-								MarkdownDescription: "PSK settings",
+								MarkdownDescription: "Pre-Shared Key (PSK) authentication settings.",
 								Optional:            true,
 								Attributes: map[string]schema.Attribute{
 									"cloud_site": schema.StringAttribute{
-										MarkdownDescription: "PSK cloud site",
+										MarkdownDescription: "Pre-shared key for the ArubaCloud side of the tunnel.",
 										Optional:            true,
 									},
 									"on_prem_site": schema.StringAttribute{
-										MarkdownDescription: "PSK on-prem site",
+										MarkdownDescription: "Pre-shared key for the on-premises side of the tunnel.",
 										Optional:            true,
 									},
 									"secret": schema.StringAttribute{
-										MarkdownDescription: "PSK secret",
+										MarkdownDescription: "Shared secret used to authenticate the VPN tunnel. Write-only — this value is sent to the API but is not returned in subsequent read responses.",
 										Optional:            true,
 									},
 								},
 							},
 							"peer_client_public_ip": schema.StringAttribute{
-								MarkdownDescription: "Peer client public IP address",
+								MarkdownDescription: "Public IP address of the remote peer (on-premises gateway).",
 								Optional:            true,
 							},
 						},

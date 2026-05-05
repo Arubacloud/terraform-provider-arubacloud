@@ -1,13 +1,17 @@
 ---
-page_title: "arubacloud_databasegrant"
+page_title: "arubacloud_databasegrant Resource - ArubaCloud"
 subcategory: "Database"
 description: |-
-  Manages an ArubaCloud Database Grant.
+  Manages a privilege grant for an ArubaCloud DBaaS user on a specific database.
 ---
 
 # arubacloud_databasegrant
 
-Manages an ArubaCloud Database Grant.
+Manages a privilege grant for an `arubacloud_dbaasuser` on a specific `arubacloud_database`. Use this resource to control which users can access which databases and at what privilege level. Grant attributes are typically immutable after creation.
+
+## Example Usage
+
+### Basic database grant
 
 ```terraform
 resource "arubacloud_databasegrant" "example" {
@@ -28,11 +32,11 @@ The following arguments are supported:
 
 #### Required
 
-- `database` (String) Database name
-- `dbaas_id` (String) DBaaS ID this grant belongs to
-- `project_id` (String) ID of the project this grant belongs to
-- `role` (String) Role to grant (e.g., read, write, admin)
-- `user_id` (String) User ID (username) to grant access
+- `database` (String) ID of the database this grant applies to.
+- `dbaas_id` (String) ID of the parent DBaaS cluster this grant belongs to.
+- `project_id` (String) ID of the project that owns this resource.
+- `role` (String) Privilege level granted. Accepted values depend on the database engine (e.g., `ALL`, `READ`, `WRITE`).
+- `user_id` (String) Name or ID of the DBaaS user receiving the grant.
 
 ### Attributes Reference
 
@@ -40,15 +44,29 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `id` (String) Database Grant identifier
-- `uri` (String) Database Grant URI
+- `id` (String) Computed by the API. Unique identifier for the resource (composite key: `project_id/dbaas_id/database/user_id`).
+- `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources.
 
 
+
+## Notes
+
+- **Dependencies:** Requires an existing `arubacloud_dbaas` cluster, `arubacloud_database`, and `arubacloud_dbaasuser`.
+- **Immutable fields:** `project_id`, `dbaas_id`, `database`, and `user_id` cannot be changed after creation.
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
 
 ## Import
 
-Aruba Cloud Database Grant can be imported using the `databasegrant_id`.
+Aruba Cloud Database Grant can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_databasegrant.example <databasegrant_id>
+terraform import arubacloud_databasegrant.example <databasegrant-id>
 ```

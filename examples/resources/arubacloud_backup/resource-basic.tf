@@ -1,6 +1,6 @@
 resource "arubacloud_backup" "basic" {
   name          = "example-backup"
-  location      = "de-1"
+  location      = "ITBG-Bergamo"
   project_id    = "project-123"
   type          = "full"
   volume_id     = "volume-123"

@@ -1,13 +1,15 @@
 ---
-page_title: "arubacloud_subnet"
+page_title: "arubacloud_subnet Data Source - ArubaCloud"
 subcategory: "Network"
 description: |-
-  Reads an existing ArubaCloud subnet.
+  Retrieves information about an existing ArubaCloud Subnet within a VPC.
 ---
 
-# arubacloud_subnet
+# arubacloud_subnet (Data Source)
 
-Reads an existing ArubaCloud subnet.
+Retrieves read-only information about an existing `arubacloud_subnet` resource. Use this data source to reference a subnet's URI when attaching a CloudServer to a subnet managed in a separate configuration.
+
+## Example Usage
 
 ```terraform
 data "arubacloud_subnet" "basic" {
@@ -48,9 +50,9 @@ The following arguments are supported:
 
 #### Required
 
-- `id` (String) Subnet identifier
-- `project_id` (String) ID of the project this subnet belongs to
-- `vpc_id` (String) ID of the VPC this subnet belongs to
+- `id` (String) Unique identifier of the subnet to look up.
+- `project_id` (String) ID of the project that owns this resource.
+- `vpc_id` (String) ID of the parent VPC this subnet belongs to.
 
 ### Attributes Reference
 
@@ -58,25 +60,25 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `address` (String) Address of the network in CIDR notation (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
-- `dhcp_enabled` (Boolean) Enable DHCP
-- `dhcp_range_count` (Number) Number of available IP addresses in DHCP range
-- `dhcp_range_start` (String) Starting IP address for DHCP range
-- `dhcp_routes` (Attributes List) DHCP routes configuration (see [below for nested schema](#nestedatt--dhcp_routes))
-- `dns` (List of String) List of DNS IP addresses
-- `location` (String) Subnet location
-- `name` (String) Subnet name
-- `tags` (List of String) List of tags for the subnet
-- `type` (String) Subnet type (Basic or Advanced)
-- `uri` (String) Subnet URI
+- `address` (String) Subnet CIDR in RFC-1918 notation (e.g., `10.0.1.0/24`). Must fall within the parent VPC CIDR.
+- `dhcp_enabled` (Boolean) Whether DHCP is enabled on this subnet.
+- `dhcp_range_count` (Number) Number of consecutive IP addresses in the DHCP pool.
+- `dhcp_range_start` (String) First IP address in the DHCP allocation range.
+- `dhcp_routes` (Attributes List) Static routes distributed to DHCP clients. (see [below for nested schema](#nestedatt--dhcp_routes))
+- `dns` (List of String) List of DNS server IP addresses distributed to DHCP clients.
+- `location` (String) Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
+- `name` (String) Display name for the subnet.
+- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
+- `type` (String) Subnet type. Accepted values: `Basic` (no custom CIDR), `Advanced` (requires the `network` block).
+- `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).
 
 <a id="nestedatt--dhcp_routes"></a>
 ### Nested Schema for `dhcp_routes`
 
 Read-Only:
 
-- `address` (String) Destination network address in CIDR notation
-- `gateway` (String) Gateway IP address
+- `address` (String) Destination network in CIDR notation (e.g., `0.0.0.0/0` for a default route).
+- `gateway` (String) Gateway IP address for this route.
 
 
 

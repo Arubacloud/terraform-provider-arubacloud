@@ -1,22 +1,40 @@
 ---
-page_title: "arubacloud_vpc"
+page_title: "arubacloud_vpc Resource - ArubaCloud"
 subcategory: "Network"
 description: |-
-  Manages an ArubaCloud VPC Network.
+  Manages an ArubaCloud VPC (Virtual Private Cloud) — the isolated network boundary within a region where subnets, security groups, and server instances are provisioned.
 ---
 
 # arubacloud_vpc
 
-Manages an ArubaCloud VPC Network.
+Manages an ArubaCloud VPC (Virtual Private Cloud) — the isolated network boundary within a region where subnets, security groups, and server instances are provisioned. A VPC is scoped to a single `arubacloud_project`. Changing `location` or `project_id` destroys and re-creates the VPC and all resources attached to it.
+
+## Example Usage
+
+### Basic VPC
 
 {{ tffile "examples/resources/arubacloud_vpc/resource-basic.tf" }}
 
 {{ .SchemaMarkdown }}
 
+## Notes
+
+- **Dependencies:** Requires an [`arubacloud_project`](https://registry.terraform.io/providers/Arubacloud/arubacloud/latest/docs/resources/project).
+- **Immutable fields:** `location`, `project_id` — changing these forces the resource to be destroyed and re-created.
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
+
 ## Import
 
-Aruba Cloud VPC Network can be imported using the `vpc_id`.
+Aruba Cloud VPC can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_vpc.example <vpc_id>
+terraform import arubacloud_vpc.example <vpc-id>
 ```

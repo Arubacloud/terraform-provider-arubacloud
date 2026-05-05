@@ -1,13 +1,17 @@
 ---
-page_title: "arubacloud_snapshot"
+page_title: "arubacloud_snapshot Resource - ArubaCloud"
 subcategory: "Storage"
 description: |-
-  Manages an ArubaCloud Snapshot.
+  Manages an ArubaCloud Snapshot — a point-in-time copy of a block storage volume.
 ---
 
 # arubacloud_snapshot
 
-Manages an ArubaCloud Snapshot.
+Manages an ArubaCloud Snapshot — an immutable point-in-time copy of a block storage volume. Snapshots can be used to clone volumes or as a disaster-recovery checkpoint. The source volume ID and location are immutable after creation; destroying a snapshot does not affect the source volume.
+
+## Example Usage
+
+### Create a snapshot from a block storage volume
 
 ```terraform
 resource "arubacloud_snapshot" "example" {
@@ -26,15 +30,15 @@ The following arguments are supported:
 
 #### Required
 
-- `billing_period` (String) Billing period (only 'Hour' allowed)
-- `location` (String) Snapshot location
-- `name` (String) Snapshot name
-- `project_id` (String) ID of the project this Snapshot belongs to
-- `volume_uri` (String) URI of the volume this snapshot is for. Should be the volume URI (e.g., `/projects/{project_id}/providers/Aruba.Storage/volumes/{volume_id}`). You can reference the `uri` attribute from an `arubacloud_blockstorage` resource.
+- `billing_period` (String) Billing cycle. Accepted values: `Hour`, `Month`, `Year`.
+- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `name` (String) Display name for the snapshot.
+- `project_id` (String) ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `volume_uri` (String) URI of the block storage volume this snapshot is taken from. Reference the `uri` attribute of an `arubacloud_blockstorage` resource (e.g., `/projects/{project_id}/providers/Aruba.Storage/volumes/{volume_id}`). (Immutable — changing this value forces the resource to be destroyed and re-created.)
 
 #### Optional
 
-- `tags` (List of String) List of tags for the snapshot
+- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
 
 ### Attributes Reference
 
@@ -42,15 +46,29 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `id` (String) Snapshot identifier
-- `uri` (String) Snapshot URI
+- `id` (String) Computed by the API. Unique identifier for the resource.
+- `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources.
 
 
+
+## Notes
+
+- **Dependencies:** requires an [`arubacloud_blockstorage`](../resources/blockstorage.md) volume and an [`arubacloud_project`](../resources/project.md).
+- **Immutable fields:** `project_id`, `location`, `volume_uri` — changing these forces the resource to be destroyed and re-created.
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
 
 ## Import
 
-Aruba Cloud Snapshot can be imported using the `snapshot_id`.
+Aruba Cloud Snapshot can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_snapshot.example <snapshot_id>
+terraform import arubacloud_snapshot.example <snapshot-id>
 ```

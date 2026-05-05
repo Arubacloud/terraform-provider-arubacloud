@@ -1,22 +1,39 @@
 ---
-page_title: "arubacloud_kms"
+page_title: "arubacloud_kms Resource - ArubaCloud"
 subcategory: "Security"
 description: |-
-  Manages an ArubaCloud Key Management System (KMS).
+  Manages an ArubaCloud KMS (Key Management Service) instance for storing and managing encryption keys.
 ---
 
 # arubacloud_kms
 
-Manages an ArubaCloud Key Management System (KMS).
+Manages an ArubaCloud KMS (Key Management Service) instance — a dedicated service for creating, storing, and managing cryptographic keys. KMS instances are provisioned within an `arubacloud_project` and a region. Access credentials and endpoints are computed by the API.
+
+## Example Usage
+
+### Basic KMS instance
 
 {{ tffile "examples/resources/arubacloud_kms/resource-basic.tf" }}
 
 {{ .SchemaMarkdown }}
 
+## Notes
+
+- **Dependencies:** `arubacloud_project`
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
+
 ## Import
 
-Aruba Cloud KMS can be imported using the `kms_id`.
+Aruba Cloud KMS can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_kms.example <kms_id>
+terraform import arubacloud_kms.example <kms-id>
 ```

@@ -1,13 +1,15 @@
 ---
-page_title: "arubacloud_snapshot"
+page_title: "arubacloud_snapshot Data Source - ArubaCloud"
 subcategory: "Storage"
 description: |-
-  Reads an existing ArubaCloud snapshot.
+  Retrieves information about an existing ArubaCloud Snapshot.
 ---
 
-# arubacloud_snapshot
+# arubacloud_snapshot (Data Source)
 
-Reads an existing ArubaCloud snapshot.
+Retrieves read-only information about an existing `arubacloud_snapshot`. Use this data source to reference snapshot metadata in other configurations without managing the lifecycle via Terraform.
+
+## Example Usage
 
 ```terraform
 data "arubacloud_snapshot" "basic" {
@@ -35,8 +37,8 @@ The following arguments are supported:
 
 #### Required
 
-- `id` (String) Snapshot identifier
-- `project_id` (String) ID of the project this Snapshot belongs to
+- `id` (String) Unique identifier of the snapshot to look up.
+- `project_id` (String) ID of the project that owns this resource.
 
 ### Attributes Reference
 
@@ -44,9 +46,9 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `billing_period` (String) Billing period (only 'Hour' allowed)
-- `location` (String) Snapshot location
-- `name` (String) Snapshot name
-- `volume_id` (String) ID of the volume this snapshot is for
+- `billing_period` (String) Billing cycle. Accepted values: `Hour`, `Month`, `Year`.
+- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
+- `name` (String) Display name for the snapshot.
+- `volume_id` (String) ID of the block storage volume this snapshot was taken from.
 
 

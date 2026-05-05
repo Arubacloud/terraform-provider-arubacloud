@@ -1,22 +1,40 @@
 ---
-page_title: "arubacloud_elasticip"
+page_title: "arubacloud_elasticip Resource - ArubaCloud"
 subcategory: "Network"
 description: |-
-  Manages an ArubaCloud Elastic IP.
+  Manages an ArubaCloud Elastic IP — a static public IPv4 address.
 ---
 
 # arubacloud_elasticip
 
-Manages an ArubaCloud ElasticIP.
+Manages an ArubaCloud Elastic IP — a static public IPv4 address that can be associated with an `arubacloud_cloudserver`. Elastic IPs are billed continuously once allocated, regardless of whether they are attached to a server. The public IP address is computed by ArubaCloud and available in the `address` output attribute. Changing `location` or `project_id` requires destroying and re-creating the resource.
+
+## Example Usage
+
+### Basic Elastic IP
 
 {{ tffile "examples/resources/arubacloud_elasticip/resource-basic.tf" }}
 
 {{ .SchemaMarkdown }}
 
+## Notes
+
+- **Dependencies:** Requires [`arubacloud_project`](../resources/project).
+- **Immutable fields:** `location`, `project_id` — changing these forces the resource to be destroyed and re-created.
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
+
 ## Import
 
-Aruba Cloud Elastic IP can be imported using the `elasticip_id`.
+Aruba Cloud Elastic IP can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_elasticip.example <elasticip_id>
+terraform import arubacloud_elasticip.example <elasticip-id>
 ```

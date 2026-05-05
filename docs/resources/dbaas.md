@@ -1,13 +1,17 @@
 ---
-page_title: "arubacloud_dbaas"
+page_title: "arubacloud_dbaas Resource - ArubaCloud"
 subcategory: "Database"
 description: |-
-  Manages an ArubaCloud DBaaS.
+  Manages an ArubaCloud DBaaS cluster — a managed database cluster with automated backups and high availability.
 ---
 
 # arubacloud_dbaas
 
-Manages an ArubaCloud DBaaS.
+Manages an ArubaCloud DBaaS cluster — a managed, highly available database cluster with automated backups. The cluster engine and version are set at creation time and cannot be changed without destroying and re-creating the cluster. A DBaaS cluster is the parent resource for `arubacloud_database`, `arubacloud_dbaasuser`, and `arubacloud_databasebackup`.
+
+## Example Usage
+
+### Basic DBaaS cluster
 
 ```terraform
 resource "arubacloud_dbaas" "basic" {
@@ -52,19 +56,19 @@ The following arguments are supported:
 
 #### Required
 
-- `engine_id` (String) Database engine ID. Available engines are described in the [ArubaCloud API documentation](https://api.arubacloud.com/docs/metadata/#dbaas-engines). For example, `mysql-8.0` for MySQL version 8.0.
-- `flavor` (String) DBaaS flavor name. Available flavors are described in the [ArubaCloud API documentation](https://api.arubacloud.com/docs/metadata/#dbaas-flavors). For example, `DBO2A4` means 2 CPU and 4GB RAM.
-- `location` (String) DBaaS location
-- `name` (String) DBaaS name
-- `network` (Attributes) Network configuration for the DBaaS instance (see [below for nested schema](#nestedatt--network))
-- `project_id` (String) ID of the project this DBaaS belongs to
-- `storage` (Attributes) Storage configuration for the DBaaS instance (see [below for nested schema](#nestedatt--storage))
-- `zone` (String) Zone
+- `engine_id` (String) Database engine type and version identifier (e.g., `mysql-8.0` for MySQL 8.0, `postgresql-15` for PostgreSQL 15). See the [available engines](https://api.arubacloud.com/docs/metadata/#dbaas-engines).
+- `flavor` (String) Compute flavour for the DBaaS cluster nodes. See [available flavours](https://api.arubacloud.com/docs/metadata/#dbaas-flavors). For example, `DBO2A4` means 2 vCPU and 4 GB RAM.
+- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
+- `name` (String) Display name for the DBaaS cluster.
+- `network` (Attributes) Network configuration for the DBaaS instance. All URI references are immutable after creation. (see [below for nested schema](#nestedatt--network))
+- `project_id` (String) ID of the project that owns this resource.
+- `storage` (Attributes) Storage configuration for the DBaaS instance. (see [below for nested schema](#nestedatt--storage))
+- `zone` (String) Availability zone within the region where the DBaaS cluster is deployed.
 
 #### Optional
 
-- `billing_period` (String) Billing period (Hour, Month, Year)
-- `tags` (List of String) List of tags for the DBaaS resource
+- `billing_period` (String) Billing cycle. Accepted values: `Hour`, `Month`, `Year`.
+- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
 
 ### Attributes Reference
 
@@ -72,21 +76,21 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `id` (String) DBaaS identifier
-- `uri` (String) DBaaS URI
+- `id` (String) Computed by the API. Unique identifier for the resource.
+- `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources.
 
 <a id="nestedatt--network"></a>
 ### Nested Schema for `network`
 
 Required:
 
-- `security_group_uri_ref` (String) URI reference to the Security Group resource (e.g., `arubacloud_securitygroup.example.uri`)
-- `subnet_uri_ref` (String) URI reference to the Subnet resource (e.g., `arubacloud_subnet.example.uri`)
-- `vpc_uri_ref` (String) URI reference to the VPC resource (e.g., `arubacloud_vpc.example.uri`)
+- `security_group_uri_ref` (String) URI reference to the Security Group resource. References the `uri` attribute of an `arubacloud_securitygroup` resource (e.g., `arubacloud_securitygroup.example.uri`).
+- `subnet_uri_ref` (String) URI reference to the Subnet resource. References the `uri` attribute of an `arubacloud_subnet` resource (e.g., `arubacloud_subnet.example.uri`).
+- `vpc_uri_ref` (String) URI reference to the VPC resource. References the `uri` attribute of an `arubacloud_vpc` resource (e.g., `arubacloud_vpc.example.uri`).
 
 Optional:
 
-- `elastic_ip_uri_ref` (String) URI reference to the Elastic IP resource (e.g., `arubacloud_elasticip.example.uri`)
+- `elastic_ip_uri_ref` (String) Optional URI reference to an Elastic IP resource. References the `uri` attribute of an `arubacloud_elasticip` resource (e.g., `arubacloud_elasticip.example.uri`).
 
 
 <a id="nestedatt--storage"></a>
@@ -94,29 +98,43 @@ Optional:
 
 Required:
 
-- `size_gb` (Number) Storage size in GB for the DBaaS instance
+- `size_gb` (Number) Storage size in GB for the DBaaS instance.
 
 Optional:
 
-- `autoscaling` (Attributes) Autoscaling configuration for the DBaaS instance (see [below for nested schema](#nestedatt--storage--autoscaling))
+- `autoscaling` (Attributes) Optional autoscaling configuration for the DBaaS storage. (see [below for nested schema](#nestedatt--storage--autoscaling))
 
 <a id="nestedatt--storage--autoscaling"></a>
 ### Nested Schema for `storage.autoscaling`
 
 Required:
 
-- `available_space` (Number) Minimum available space threshold in GB. When the available storage falls below this value, autoscaling will increase the storage by the step_size amount.
-- `enabled` (Boolean) Enable autoscaling
-- `step_size` (Number) Step size for autoscaling (in GB)
+- `available_space` (Number) Minimum available space threshold in GB. When the available storage falls below this value, autoscaling increases storage by the `step_size` amount.
+- `enabled` (Boolean) Whether storage autoscaling is enabled.
+- `step_size` (Number) Amount of storage (in GB) added on each autoscaling event.
 
 
 
 
+
+## Notes
+
+- **Dependencies:** Requires `arubacloud_project`, `arubacloud_vpc`, `arubacloud_subnet`, and `arubacloud_securitygroup` to exist before creating a DBaaS cluster.
+- **Immutable fields:** `engine_id`, `location`, `zone`, and all `network` URI references cannot be changed after creation without destroying and re-creating the cluster.
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
 
 ## Import
 
-Aruba Cloud DBaaS can be imported using the `dbaas_id`.
+Aruba Cloud DBaaS can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_dbaas.example <dbaas_id>
+terraform import arubacloud_dbaas.example <dbaas-id>
 ```

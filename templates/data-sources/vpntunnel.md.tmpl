@@ -1,13 +1,15 @@
 ---
-page_title: "arubacloud_vpntunnel"
+page_title: "arubacloud_vpntunnel Data Source - ArubaCloud"
 subcategory: "Network"
 description: |-
-  Reads an existing ArubaCloud VPN Tunnel.
+  Retrieves information about an existing ArubaCloud VPN Tunnel.
 ---
 
-# arubacloud_vpntunnel
+# arubacloud_vpntunnel (Data Source)
 
-Reads an existing ArubaCloud VPN Tunnel.
+Retrieves read-only information about an existing `arubacloud_vpntunnel`. Use this data source to reference VPN tunnel metadata in other configurations without managing the lifecycle via Terraform.
+
+## Example Usage
 
 {{ tffile "examples/data-sources/arubacloud_vpn_tunnel/data-source-basic.tf" }}
 

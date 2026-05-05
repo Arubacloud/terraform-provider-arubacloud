@@ -1,22 +1,39 @@
 ---
-page_title: "arubacloud_backup"
+page_title: "arubacloud_backup Resource - ArubaCloud"
 subcategory: "Storage"
 description: |-
-  Manages an ArubaCloud Storage Backup.
+  Manages an ArubaCloud Block Storage Backup.
 ---
 
 # arubacloud_backup
 
-Manages an ArubaCloud Storage Backup.
+Manages a scheduled backup of an `arubacloud_blockstorage` volume. Backups are stored in ArubaCloud Object Storage and billed independently from the source volume. They survive volume deletion until the retention period expires or the backup resource is destroyed explicitly. Requires a pre-existing `arubacloud_blockstorage` volume and `arubacloud_project`.
+
+## Example Usage
+
+### Create a full backup of a block storage volume
 
 {{ tffile "examples/resources/arubacloud_backup/resource-basic.tf" }}
 
 {{ .SchemaMarkdown }}
 
+## Notes
+
+- **Dependencies:** requires an [`arubacloud_blockstorage`](../resources/blockstorage.md) volume and an [`arubacloud_project`](../resources/project.md).
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
+
 ## Import
 
-Aruba Cloud Backup can be imported using the `backup_id`.
+Aruba Cloud Backup can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_backup.example <backup_id>
+terraform import arubacloud_backup.example <backup-id>
 ```

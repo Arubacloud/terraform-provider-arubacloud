@@ -1,15 +1,16 @@
 ---
-page_title: "arubacloud_elasticip"
+page_title: "arubacloud_elasticip Data Source - ArubaCloud"
 subcategory: "Network"
 description: |-
-  Retrieves an ArubaCloud ElasticIP.
+  Retrieves information about an existing ArubaCloud Elastic IP.
 ---
 
-# arubacloud_elasticip
+# arubacloud_elasticip (Data Source)
 
-Reads an existing ArubaCloud Elastic IP.
+Retrieves read-only information about an existing `arubacloud_elasticip`. Use this data source to look up an Elastic IP's address and URI when the IP is managed in a separate Terraform configuration or provisioned outside Terraform.
+
+## Example Usage
 
 {{ tffile "examples/data-sources/arubacloud_elasticip/data-source-basic.tf" }}
-
 
 {{ .SchemaMarkdown }}

@@ -1,13 +1,17 @@
 ---
-page_title: "arubacloud_database"
+page_title: "arubacloud_database Resource - ArubaCloud"
 subcategory: "Database"
 description: |-
-  Manages an ArubaCloud Database.
+  Manages a logical database within an ArubaCloud DBaaS cluster.
 ---
 
 # arubacloud_database
 
-Manages an ArubaCloud Database.
+Manages a logical database within an `arubacloud_dbaas` cluster. The database is created inside the cluster and can be granted to one or more `arubacloud_dbaasuser` users via `arubacloud_databasegrant`. Requires a running `arubacloud_dbaas` cluster.
+
+## Example Usage
+
+### Basic database
 
 ```terraform
 resource "arubacloud_database" "basic" {
@@ -24,9 +28,9 @@ The following arguments are supported:
 
 #### Required
 
-- `dbaas_id` (String) DBaaS ID this database belongs to
-- `name` (String) Database name
-- `project_id` (String) ID of the project this database belongs to
+- `dbaas_id` (String) ID of the parent DBaaS cluster this database belongs to.
+- `name` (String) Display name for the database.
+- `project_id` (String) ID of the project that owns this resource.
 
 ### Attributes Reference
 
@@ -34,15 +38,28 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `id` (String) Database identifier (same as name)
-- `uri` (String) Database URI
+- `id` (String) Computed by the API. Unique identifier for the resource (same as the database name).
+- `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources.
 
 
+
+## Notes
+
+- **Dependencies:** Requires a running `arubacloud_dbaas` cluster referenced by `dbaas_id`.
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
 
 ## Import
 
-Aruba Cloud Database can be imported using the `database_id`.
+Aruba Cloud Database can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_database.example <database_id>
+terraform import arubacloud_database.example <database-id>
 ```

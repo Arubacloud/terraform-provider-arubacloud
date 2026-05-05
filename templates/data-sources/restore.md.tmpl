@@ -1,15 +1,16 @@
 ---
-page_title: "arubacloud_restore"
+page_title: "arubacloud_restore Data Source - ArubaCloud"
 subcategory: "Storage"
 description: |-
-  Reads an existing ArubaCloud restore.
+  Retrieves information about an existing ArubaCloud Block Storage Restore operation.
 ---
 
-# arubacloud_restore
+# arubacloud_restore (Data Source)
 
-Reads an existing ArubaCloud restore.
+Retrieves read-only information about an existing `arubacloud_restore` operation record. Use this data source to reference restore operation metadata in other configurations without managing the lifecycle via Terraform.
+
+## Example Usage
 
 {{ tffile "examples/data-sources/arubacloud_restore/data-source-basic.tf" }}
-
 
 {{ .SchemaMarkdown }}

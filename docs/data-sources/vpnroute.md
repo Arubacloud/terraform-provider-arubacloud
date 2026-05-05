@@ -1,13 +1,15 @@
 ---
-page_title: "arubacloud_vpnroute"
+page_title: "arubacloud_vpnroute Data Source - ArubaCloud"
 subcategory: "Network"
 description: |-
-  Reads an existing ArubaCloud VPN Route.
+  Retrieves information about an existing ArubaCloud VPN Route.
 ---
 
-# arubacloud_vpnroute
+# arubacloud_vpnroute (Data Source)
 
-Reads an existing ArubaCloud VPN Route.
+Retrieves read-only information about an existing `arubacloud_vpnroute`. Use this data source to reference VPN route metadata in other configurations without managing the lifecycle via Terraform.
+
+## Example Usage
 
 ```terraform
 data "arubacloud_vpnroute" "basic" {
@@ -36,9 +38,9 @@ The following arguments are supported:
 
 #### Required
 
-- `id` (String) VPN Route identifier
-- `project_id` (String) ID of the project this VPN Route belongs to
-- `vpn_tunnel_id` (String) ID of the VPN Tunnel this route belongs to
+- `id` (String) Unique identifier of the VPN route to look up.
+- `project_id` (String) ID of the project that owns this resource.
+- `vpn_tunnel_id` (String) ID of the VPN tunnel this route is associated with.
 
 ### Attributes Reference
 
@@ -46,8 +48,8 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `destination` (String) Destination network for the VPN route (CloudSubnet)
-- `gateway` (String) Gateway for the VPN route (OnPremSubnet)
-- `name` (String) VPN Route name
+- `destination` (String) CIDR of the ArubaCloud-side subnet routed over this tunnel (maps to `cloud_subnet`).
+- `gateway` (String) CIDR of the on-premises subnet reachable through this tunnel (maps to `on_prem_subnet`).
+- `name` (String) Display name for the VPN route.
 
 

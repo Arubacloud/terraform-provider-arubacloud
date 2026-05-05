@@ -1,22 +1,39 @@
 ---
-page_title: "arubacloud_database"
+page_title: "arubacloud_database Resource - ArubaCloud"
 subcategory: "Database"
 description: |-
-  Manages an ArubaCloud Database.
+  Manages a logical database within an ArubaCloud DBaaS cluster.
 ---
 
 # arubacloud_database
 
-Manages an ArubaCloud Database.
+Manages a logical database within an `arubacloud_dbaas` cluster. The database is created inside the cluster and can be granted to one or more `arubacloud_dbaasuser` users via `arubacloud_databasegrant`. Requires a running `arubacloud_dbaas` cluster.
+
+## Example Usage
+
+### Basic database
 
 {{ tffile "examples/resources/arubacloud_database/resource-basic.tf" }}
 
 {{ .SchemaMarkdown }}
 
+## Notes
+
+- **Dependencies:** Requires a running `arubacloud_dbaas` cluster referenced by `dbaas_id`.
+
+## Timeouts
+
+All asynchronous operations are bounded by the provider-level `resource_timeout` setting (default `10m`).
+
+| Operation | Behaviour on expiry |
+|-----------|---------------------|
+| Create    | Returns a warning; the resource stays in state so the next `apply` can reconcile it. |
+| Delete    | Returns an error and leaves the resource in state. |
+
 ## Import
 
-Aruba Cloud Database can be imported using the `database_id`.
+Aruba Cloud Database can be imported using the resource ID:
 
 ```shell
-terraform import arubacloud_database.example <database_id>
+terraform import arubacloud_database.example <database-id>
 ```

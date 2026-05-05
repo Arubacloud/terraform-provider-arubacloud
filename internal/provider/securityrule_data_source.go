@@ -46,59 +46,59 @@ func (d *SecurityRuleDataSource) Metadata(ctx context.Context, req datasource.Me
 
 func (d *SecurityRuleDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Security Rule data source",
+		MarkdownDescription: "Retrieves read-only information about an existing `arubacloud_securityrule`.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Security Rule identifier",
+				MarkdownDescription: "Unique identifier of the security rule to look up.",
 				Required:            true,
 			},
 			"uri": schema.StringAttribute{
-				MarkdownDescription: "Security Rule URI",
+				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).",
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Security Rule name",
+				MarkdownDescription: "Display name for the security rule.",
 				Computed:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "Security Rule location",
+				MarkdownDescription: "Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).",
 				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this Security Rule belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"vpc_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the VPC this Security Rule belongs to",
+				MarkdownDescription: "ID of the VPC this security rule belongs to.",
 				Required:            true,
 			},
 			"security_group_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the Security Group this rule belongs to",
+				MarkdownDescription: "ID of the security group this rule belongs to.",
 				Required:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of tags for the Security Rule",
+				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
 				Computed:            true,
 			},
 			"direction": schema.StringAttribute{
-				MarkdownDescription: "Direction of the rule (Ingress/Egress)",
+				MarkdownDescription: "Traffic direction the rule applies to. Accepted values: `Inbound`, `Outbound`.",
 				Computed:            true,
 			},
 			"protocol": schema.StringAttribute{
-				MarkdownDescription: "Protocol (ANY, TCP, UDP, ICMP)",
+				MarkdownDescription: "IP protocol. Accepted values: `TCP`, `UDP`, `ICMP`, `ANY`.",
 				Computed:            true,
 			},
 			"port": schema.StringAttribute{
-				MarkdownDescription: "Port or port range (for TCP/UDP)",
+				MarkdownDescription: "Port or port range for TCP/UDP (e.g., `80` or `8080-8090`). Use `0` for ICMP or ANY.",
 				Computed:            true,
 			},
 			"target_kind": schema.StringAttribute{
-				MarkdownDescription: "Type of the target (IP/SecurityGroup)",
+				MarkdownDescription: "Type of the target endpoint. Accepted values: `IP`, `SecurityGroup`.",
 				Computed:            true,
 			},
 			"target_value": schema.StringAttribute{
-				MarkdownDescription: "Value of the target (CIDR or SecurityGroup URI)",
+				MarkdownDescription: "Source (inbound) or destination (outbound) CIDR in notation like `0.0.0.0/0`, or SecurityGroup URI.",
 				Computed:            true,
 			},
 		},

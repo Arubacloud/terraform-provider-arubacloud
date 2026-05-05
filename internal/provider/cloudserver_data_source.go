@@ -48,69 +48,69 @@ func (d *CloudServerDataSource) Metadata(ctx context.Context, req datasource.Met
 
 func (d *CloudServerDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "CloudServer data source",
+		MarkdownDescription: "Retrieves read-only information about an existing ArubaCloud CloudServer virtual machine.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "CloudServer identifier",
+				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
 				Required:            true,
 			},
 			"uri": schema.StringAttribute{
-				MarkdownDescription: "CloudServer URI",
+				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).",
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "CloudServer name",
+				MarkdownDescription: "Display name for the CloudServer.",
 				Computed:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "CloudServer location",
+				MarkdownDescription: "Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).",
 				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "Project ID",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"zone": schema.StringAttribute{
-				MarkdownDescription: "Zone",
+				MarkdownDescription: "Availability zone within the region (e.g., `ITBG-1`). See [available zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).",
 				Computed:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of tags for the Cloud Server",
+				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
 				Computed:            true,
 			},
 			"vpc_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "VPC URI reference",
+				MarkdownDescription: "URI of the VPC attached to this CloudServer.",
 				Computed:            true,
 			},
 			"elastic_ip_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "Elastic IP URI reference",
+				MarkdownDescription: "URI of the Elastic IP associated with this CloudServer, if any.",
 				Computed:            true,
 			},
 			"subnet_uri_refs": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of subnet URI references",
+				MarkdownDescription: "List of subnet URIs attached to this CloudServer.",
 				Computed:            true,
 			},
 			"securitygroup_uri_refs": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of security group URI references",
+				MarkdownDescription: "List of security group URIs applied to this CloudServer.",
 				Computed:            true,
 			},
 			"flavor_name": schema.StringAttribute{
-				MarkdownDescription: "Flavor name (e.g., CSO4A8 for 4 CPU, 8GB RAM)",
+				MarkdownDescription: "Compute flavour name (e.g., `CSO4A8` for 4 vCPU / 8 GB RAM). See [available flavours](https://api.arubacloud.com/docs/metadata/#cloudserver-flavors).",
 				Computed:            true,
 			},
 			"key_pair_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "Key Pair URI reference",
+				MarkdownDescription: "URI of the SSH key pair injected at boot.",
 				Computed:            true,
 			},
 			"user_data": schema.StringAttribute{
-				MarkdownDescription: "Cloud-Init user data",
+				MarkdownDescription: "Cloud-Init configuration passed to the instance at first boot.",
 				Computed:            true,
 			},
 			"boot_volume_uri_ref": schema.StringAttribute{
-				MarkdownDescription: "Boot volume URI reference",
+				MarkdownDescription: "URI of the bootable block storage volume.",
 				Computed:            true,
 			},
 		},

@@ -51,68 +51,68 @@ func (d *SubnetDataSource) Metadata(ctx context.Context, req datasource.Metadata
 
 func (d *SubnetDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Subnet data source",
+		MarkdownDescription: "Retrieves read-only information about an existing `arubacloud_subnet`. Use this data source to reference a subnet's URI when attaching a CloudServer to a subnet managed in a separate configuration.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Subnet identifier",
+				MarkdownDescription: "Unique identifier of the subnet to look up.",
 				Required:            true,
 			},
 			"uri": schema.StringAttribute{
-				MarkdownDescription: "Subnet URI",
+				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).",
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Subnet name",
+				MarkdownDescription: "Display name for the subnet.",
 				Computed:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "Subnet location",
+				MarkdownDescription: "Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).",
 				Computed:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of tags for the subnet",
+				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
 				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this subnet belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"vpc_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the VPC this subnet belongs to",
+				MarkdownDescription: "ID of the parent VPC this subnet belongs to.",
 				Required:            true,
 			},
 			"type": schema.StringAttribute{
-				MarkdownDescription: "Subnet type (Basic or Advanced)",
+				MarkdownDescription: "Subnet type. Accepted values: `Basic` (no custom CIDR), `Advanced` (requires the `network` block).",
 				Computed:            true,
 			},
 			"address": schema.StringAttribute{
-				MarkdownDescription: "Address of the network in CIDR notation (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)",
+				MarkdownDescription: "Subnet CIDR in RFC-1918 notation (e.g., `10.0.1.0/24`). Must fall within the parent VPC CIDR.",
 				Computed:            true,
 			},
 			"dhcp_enabled": schema.BoolAttribute{
-				MarkdownDescription: "Enable DHCP",
+				MarkdownDescription: "Whether DHCP is enabled on this subnet.",
 				Computed:            true,
 			},
 			"dhcp_range_start": schema.StringAttribute{
-				MarkdownDescription: "Starting IP address for DHCP range",
+				MarkdownDescription: "First IP address in the DHCP allocation range.",
 				Computed:            true,
 			},
 			"dhcp_range_count": schema.Int64Attribute{
-				MarkdownDescription: "Number of available IP addresses in DHCP range",
+				MarkdownDescription: "Number of consecutive IP addresses in the DHCP pool.",
 				Computed:            true,
 			},
 			"dhcp_routes": schema.ListNestedAttribute{
-				MarkdownDescription: "DHCP routes configuration",
+				MarkdownDescription: "Static routes distributed to DHCP clients.",
 				Computed:            true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"address": schema.StringAttribute{
-							MarkdownDescription: "Destination network address in CIDR notation",
+							MarkdownDescription: "Destination network in CIDR notation (e.g., `0.0.0.0/0` for a default route).",
 							Computed:            true,
 						},
 						"gateway": schema.StringAttribute{
-							MarkdownDescription: "Gateway IP address",
+							MarkdownDescription: "Gateway IP address for this route.",
 							Computed:            true,
 						},
 					},
@@ -120,7 +120,7 @@ func (d *SubnetDataSource) Schema(ctx context.Context, req datasource.SchemaRequ
 			},
 			"dns": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of DNS IP addresses",
+				MarkdownDescription: "List of DNS server IP addresses distributed to DHCP clients.",
 				Computed:            true,
 			},
 		},

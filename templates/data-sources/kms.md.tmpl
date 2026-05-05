@@ -1,15 +1,16 @@
 ---
-page_title: "arubacloud_kms"
+page_title: "arubacloud_kms Data Source - ArubaCloud"
 subcategory: "Security"
 description: |-
-  Reads an existing ArubaCloud KMS instance.
+  Retrieves information about an existing ArubaCloud KMS instance.
 ---
 
-# arubacloud_kms
+# arubacloud_kms (Data Source)
 
-Reads an existing ArubaCloud KMS instance.
+Retrieves read-only information about an existing `arubacloud_kms` instance. Use this data source to reference KMS metadata in other configurations without managing the lifecycle via Terraform.
+
+## Example Usage
 
 {{ tffile "examples/data-sources/arubacloud_kms/data-source-basic.tf" }}
-
 
 {{ .SchemaMarkdown }}

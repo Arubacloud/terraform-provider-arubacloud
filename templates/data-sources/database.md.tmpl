@@ -1,15 +1,16 @@
 ---
-page_title: "arubacloud_database"
+page_title: "arubacloud_database Data Source - ArubaCloud"
 subcategory: "Database"
 description: |-
-  Retrieves an ArubaCloud Database.
+  Retrieves information about an existing ArubaCloud database within a DBaaS cluster.
 ---
 
-# arubacloud_database
+# arubacloud_database (Data Source)
 
-Reads an existing ArubaCloud database.
+Retrieves read-only information about an existing `arubacloud_database`. Use this data source to reference database metadata in other configurations without managing the lifecycle via Terraform.
+
+## Example Usage
 
 {{ tffile "examples/data-sources/arubacloud_database/data-source-basic.tf" }}
-
 
 {{ .SchemaMarkdown }}

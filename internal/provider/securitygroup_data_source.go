@@ -36,31 +36,31 @@ func (d *SecurityGroupDataSource) Metadata(ctx context.Context, req datasource.M
 
 func (d *SecurityGroupDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Security Group data source",
+		MarkdownDescription: "Retrieves read-only information about an existing `arubacloud_securitygroup`. Use this data source to look up a security group's URI for use in CloudServer network configurations.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Security Group identifier",
+				MarkdownDescription: "Unique identifier of the security group to look up.",
 				Required:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Security Group name",
+				MarkdownDescription: "Display name for the security group.",
 				Computed:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "Security Group location",
+				MarkdownDescription: "Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).",
 				Computed:            true,
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of tags for the Security Group",
+				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
 				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project this Security Group belongs to",
+				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
 			},
 			"vpc_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the VPC this Security Group belongs to",
+				MarkdownDescription: "ID of the VPC this security group is scoped to.",
 				Required:            true,
 			},
 		},
