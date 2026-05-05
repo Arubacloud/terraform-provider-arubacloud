@@ -70,10 +70,8 @@ jobs:
       - run: go mod download
       - name: Run unit tests with coverage
         run: go test -v -coverprofile=coverage.out -timeout=120s ./...
-      - name: Generate coverage report
-        run: |
-          go tool cover -html=coverage.out -o coverage.html
-          go tool cover -func=coverage.out
+      - name: Print coverage summary
+        run: go tool cover -func=coverage.out
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
@@ -81,14 +79,6 @@ jobs:
           files: coverage.out
           flags: unittests
           fail_ci_if_error: false
-      - name: Upload coverage
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report-unit
-          path: |
-            coverage.html
-            coverage.out
-          retention-days: 7
 
   # Acceptance tests (optional, only on main branch)
   acceptance:
