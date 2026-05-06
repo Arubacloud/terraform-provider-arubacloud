@@ -8,7 +8,6 @@ import (
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -954,8 +953,7 @@ func (r *KaaSResource) Update(ctx context.Context, req resource.UpdateRequest, r
 
 	// Extract Settings configuration
 	var settingsModel KaaSSettingsModel
-	var diags diag.Diagnostics
-	diags = data.Settings.As(ctx, &settingsModel, basetypes.ObjectAsOptions{})
+	diags := data.Settings.As(ctx, &settingsModel, basetypes.ObjectAsOptions{})
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
