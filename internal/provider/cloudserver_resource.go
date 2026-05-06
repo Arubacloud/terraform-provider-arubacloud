@@ -590,7 +590,13 @@ func (r *CloudServerResource) Read(ctx context.Context, req resource.ReadRequest
 	}
 
 	data.ProjectID = originalState.ProjectID
-	data.Zone = originalState.Zone
+
+	// Zone is returned by the API as Properties.Zone (JSON: dataCenter).
+	if server.Properties.Zone != "" {
+		data.Zone = types.StringValue(server.Properties.Zone)
+	} else {
+		data.Zone = originalState.Zone
+	}
 
 	// Update tags from response
 	if len(server.Metadata.Tags) > 0 {
@@ -611,9 +617,21 @@ func (r *CloudServerResource) Read(ctx context.Context, req resource.ReadRequest
 		}
 	}
 
-	// Build network object (preserve fields not returned by API)
+	// VPC URI is returned by the API; map it directly to detect drift.
+	vpcUriRef := originalNetworkModel.VpcUriRef
+	if server.Properties.VPC.URI != "" {
+		vpcUriRef = types.StringValue(server.Properties.VPC.URI)
+	}
+
+	// Build network object.
+	// vpc_uri_ref:            mapped from API (Properties.VPC.URI)
+	// elastic_ip_uri_ref:     preserved — not present in CloudServerPropertiesResult
+	// subnet_uri_refs:        preserved — only available via NetworkInterfaces[].Subnet
+	//                         which uses a different URI format; mapping is unsafe without
+	//                         live API verification
+	// securitygroup_uri_refs: preserved — not present in CloudServerPropertiesResult
 	networkAttrs := map[string]attr.Value{
-		"vpc_uri_ref":            originalNetworkModel.VpcUriRef,
+		"vpc_uri_ref":            vpcUriRef,
 		"elastic_ip_uri_ref":     originalNetworkModel.ElasticIpUriRef,
 		"subnet_uri_refs":        originalNetworkModel.SubnetUriRefs,
 		"securitygroup_uri_refs": originalNetworkModel.SecurityGroupUriRefs,
@@ -633,10 +651,22 @@ func (r *CloudServerResource) Read(ctx context.Context, req resource.ReadRequest
 	}
 	data.Network = networkObj
 
-	// Build settings object
+	// KeyPair URI is returned by the API; map it directly to detect drift.
+	keyPairUriRef := originalSettingsModel.KeyPairUriRef
+	if server.Properties.KeyPair.URI != "" {
+		keyPairUriRef = types.StringValue(server.Properties.KeyPair.URI)
+	} else if server.Properties.KeyPair.URI == "" && !originalSettingsModel.KeyPairUriRef.IsNull() {
+		// API returned no keypair — resource was detached outside Terraform.
+		keyPairUriRef = types.StringNull()
+	}
+
+	// Build settings object.
+	// flavor_name:      mapped from API
+	// key_pair_uri_ref: mapped from API (Properties.KeyPair.URI)
+	// user_data:        preserved — write-only, never returned by the API
 	settingsAttrs := map[string]attr.Value{
 		"flavor_name":      types.StringValue(server.Properties.Flavor.Name),
-		"key_pair_uri_ref": originalSettingsModel.KeyPairUriRef,
+		"key_pair_uri_ref": keyPairUriRef,
 		"user_data":        originalSettingsModel.UserData,
 	}
 	settingsObj, diags := types.ObjectValue(
@@ -653,9 +683,16 @@ func (r *CloudServerResource) Read(ctx context.Context, req resource.ReadRequest
 	}
 	data.Settings = settingsObj
 
-	// Build storage object (preserve from state)
+	// BootVolume URI is returned by the API; map it directly to detect drift.
+	bootVolumeUriRef := originalStorageModel.BootVolumeUriRef
+	if server.Properties.BootVolume.URI != "" {
+		bootVolumeUriRef = types.StringValue(server.Properties.BootVolume.URI)
+	}
+
+	// Build storage object.
+	// boot_volume_uri_ref: mapped from API (Properties.BootVolume.URI)
 	storageAttrs := map[string]attr.Value{
-		"boot_volume_uri_ref": originalStorageModel.BootVolumeUriRef,
+		"boot_volume_uri_ref": bootVolumeUriRef,
 	}
 	storageObj, diags := types.ObjectValue(
 		map[string]attr.Type{
