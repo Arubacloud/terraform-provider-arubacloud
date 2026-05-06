@@ -590,7 +590,8 @@ func (r *CloudServerResource) Read(ctx context.Context, req resource.ReadRequest
 	}
 
 	data.ProjectID = originalState.ProjectID
-	data.Zone = originalState.Zone
+
+	data.Zone = resolveAPIStringRef(server.Properties.Zone, originalState.Zone)
 
 	// Update tags from response
 	if len(server.Metadata.Tags) > 0 {
@@ -611,9 +612,18 @@ func (r *CloudServerResource) Read(ctx context.Context, req resource.ReadRequest
 		}
 	}
 
-	// Build network object (preserve fields not returned by API)
+	// VPC URI is returned by the API; map it directly to detect drift.
+	vpcUriRef := resolveAPIStringRef(server.Properties.VPC.URI, originalNetworkModel.VpcUriRef)
+
+	// Build network object.
+	// vpc_uri_ref:            mapped from API (Properties.VPC.URI)
+	// elastic_ip_uri_ref:     preserved — not present in CloudServerPropertiesResult
+	// subnet_uri_refs:        preserved — only available via NetworkInterfaces[].Subnet
+	//                         which uses a different URI format; mapping is unsafe without
+	//                         live API verification
+	// securitygroup_uri_refs: preserved — not present in CloudServerPropertiesResult
 	networkAttrs := map[string]attr.Value{
-		"vpc_uri_ref":            originalNetworkModel.VpcUriRef,
+		"vpc_uri_ref":            vpcUriRef,
 		"elastic_ip_uri_ref":     originalNetworkModel.ElasticIpUriRef,
 		"subnet_uri_refs":        originalNetworkModel.SubnetUriRefs,
 		"securitygroup_uri_refs": originalNetworkModel.SecurityGroupUriRefs,
@@ -633,10 +643,16 @@ func (r *CloudServerResource) Read(ctx context.Context, req resource.ReadRequest
 	}
 	data.Network = networkObj
 
-	// Build settings object
+	// KeyPair URI is returned by the API; map it directly to detect drift.
+	keyPairUriRef := resolveKeyPairUriRef(server.Properties.KeyPair.URI, originalSettingsModel.KeyPairUriRef)
+
+	// Build settings object.
+	// flavor_name:      mapped from API
+	// key_pair_uri_ref: mapped from API (Properties.KeyPair.URI)
+	// user_data:        preserved — write-only, never returned by the API
 	settingsAttrs := map[string]attr.Value{
 		"flavor_name":      types.StringValue(server.Properties.Flavor.Name),
-		"key_pair_uri_ref": originalSettingsModel.KeyPairUriRef,
+		"key_pair_uri_ref": keyPairUriRef,
 		"user_data":        originalSettingsModel.UserData,
 	}
 	settingsObj, diags := types.ObjectValue(
@@ -653,9 +669,13 @@ func (r *CloudServerResource) Read(ctx context.Context, req resource.ReadRequest
 	}
 	data.Settings = settingsObj
 
-	// Build storage object (preserve from state)
+	// BootVolume URI is returned by the API; map it directly to detect drift.
+	bootVolumeUriRef := resolveAPIStringRef(server.Properties.BootVolume.URI, originalStorageModel.BootVolumeUriRef)
+
+	// Build storage object.
+	// boot_volume_uri_ref: mapped from API (Properties.BootVolume.URI)
 	storageAttrs := map[string]attr.Value{
-		"boot_volume_uri_ref": originalStorageModel.BootVolumeUriRef,
+		"boot_volume_uri_ref": bootVolumeUriRef,
 	}
 	storageObj, diags := types.ObjectValue(
 		map[string]attr.Type{
@@ -972,4 +992,29 @@ func (r *CloudServerResource) Delete(ctx context.Context, req resource.DeleteReq
 
 func (r *CloudServerResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+// resolveAPIStringRef returns a StringValue from the API-provided string when
+// non-empty, falling back to the value preserved from state otherwise. Used to
+// map API-returned URI references so that out-of-band changes are detected.
+func resolveAPIStringRef(apiValue string, stateValue types.String) types.String {
+	if apiValue != "" {
+		return types.StringValue(apiValue)
+	}
+	return stateValue
+}
+
+// resolveKeyPairUriRef resolves the key_pair_uri_ref for Read state.
+// Three cases:
+//   - API returned a URI  → use it (current value, drift visible to Terraform)
+//   - API returned empty, state had a URI → null (keypair detached outside Terraform)
+//   - API returned empty, state had no URI → preserve state (keypair never configured)
+func resolveKeyPairUriRef(apiURI string, stateRef types.String) types.String {
+	if apiURI != "" {
+		return types.StringValue(apiURI)
+	}
+	if !stateRef.IsNull() {
+		return types.StringNull()
+	}
+	return stateRef
 }
