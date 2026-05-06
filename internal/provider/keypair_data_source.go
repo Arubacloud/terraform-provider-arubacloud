@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -139,15 +138,7 @@ func (d *KeypairDataSource) Read(ctx context.Context, req datasource.ReadRequest
 		data.Value = types.StringNull()
 	}
 
-	if len(keypair.Metadata.Tags) > 0 {
-		tagValues := make([]attr.Value, len(keypair.Metadata.Tags))
-		for i, tag := range keypair.Metadata.Tags {
-			tagValues[i] = types.StringValue(tag)
-		}
-		data.Tags = types.ListValueMust(types.StringType, tagValues)
-	} else {
-		data.Tags = types.ListValueMust(types.StringType, []attr.Value{})
-	}
+	data.Tags = TagsToList(keypair.Metadata.Tags)
 
 	tflog.Trace(ctx, "read a Keypair data source", map[string]interface{}{"keypair_id": keypairID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

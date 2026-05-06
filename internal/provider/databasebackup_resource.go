@@ -147,13 +147,9 @@ func (r *DatabaseBackupResource) Create(ctx context.Context, req resource.Create
 	// Construct database URI
 	databaseURI := fmt.Sprintf("%s/databases/%s", dbaasURI, databaseName)
 
-	var tags []string
-	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
-		diags := data.Tags.ElementsAs(ctx, &tags, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
+	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
 	// Build the create request

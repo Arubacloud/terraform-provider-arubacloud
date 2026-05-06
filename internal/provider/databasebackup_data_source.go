@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -153,15 +152,7 @@ func (d *DatabaseBackupDataSource) Read(ctx context.Context, req datasource.Read
 	data.DBaaSID = types.StringNull()
 	data.Database = types.StringNull()
 
-	if len(backup.Metadata.Tags) > 0 {
-		tagValues := make([]attr.Value, len(backup.Metadata.Tags))
-		for i, tag := range backup.Metadata.Tags {
-			tagValues[i] = types.StringValue(tag)
-		}
-		data.Tags = types.ListValueMust(types.StringType, tagValues)
-	} else {
-		data.Tags = types.ListValueMust(types.StringType, []attr.Value{})
-	}
+	data.Tags = TagsToList(backup.Metadata.Tags)
 
 	tflog.Trace(ctx, "read a Database Backup data source", map[string]interface{}{"backup_id": backupID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

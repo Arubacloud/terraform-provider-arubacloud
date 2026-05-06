@@ -7,7 +7,6 @@ import (
 	"time"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -242,14 +241,9 @@ func (r *VPNTunnelResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 
-	// Extract tags
-	var tags []string
-	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
-		diags := data.Tags.ElementsAs(ctx, &tags, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
+	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
 	// Extract properties from Terraform object
@@ -719,24 +713,7 @@ func (r *VPNTunnelResource) Read(ctx context.Context, req resource.ReadRequest, 
 			data.Location = types.StringValue(tunnel.Metadata.LocationResponse.Value)
 		}
 
-		// Update tags
-		if len(tunnel.Metadata.Tags) > 0 {
-			tagValues := make([]types.String, len(tunnel.Metadata.Tags))
-			for i, tag := range tunnel.Metadata.Tags {
-				tagValues[i] = types.StringValue(tag)
-			}
-			tagsList, diags := types.ListValueFrom(ctx, types.StringType, tagValues)
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = tagsList
-			}
-		} else {
-			emptyList, diags := types.ListValue(types.StringType, []attr.Value{})
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = emptyList
-			}
-		}
+		data.Tags = TagsToList(tunnel.Metadata.Tags)
 
 		// Note: Properties are complex nested structures - for now, we preserve the existing state
 		// A full implementation would reconstruct the properties object from the API response
@@ -816,15 +793,11 @@ func (r *VPNTunnelResource) Update(ctx context.Context, req resource.UpdateReque
 		return
 	}
 
-	// Extract tags
-	var tags []string
-	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
-		diags := data.Tags.ElementsAs(ctx, &tags, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-	} else {
+	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if tags == nil {
 		tags = current.Metadata.Tags
 	}
 

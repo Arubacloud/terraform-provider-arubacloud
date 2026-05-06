@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -194,15 +193,7 @@ func (d *ContainerRegistryDataSource) Read(ctx context.Context, req datasource.R
 		data.ConcurrentUsersFlavor = types.StringNull()
 	}
 
-	if len(registry.Metadata.Tags) > 0 {
-		tagValues := make([]attr.Value, len(registry.Metadata.Tags))
-		for i, tag := range registry.Metadata.Tags {
-			tagValues[i] = types.StringValue(tag)
-		}
-		data.Tags = types.ListValueMust(types.StringType, tagValues)
-	} else {
-		data.Tags = types.ListValueMust(types.StringType, []attr.Value{})
-	}
+	data.Tags = TagsToList(registry.Metadata.Tags)
 
 	tflog.Trace(ctx, "read a Container Registry data source", map[string]interface{}{"registry_id": registryID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

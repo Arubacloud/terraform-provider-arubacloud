@@ -216,14 +216,9 @@ func (r *SubnetResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
-	// Extract tags from Terraform list
-	var tags []string
-	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
-		diags := data.Tags.ElementsAs(ctx, &tags, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
+	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
 	subnetType := data.Type.ValueString()
@@ -482,24 +477,7 @@ func (r *SubnetResource) Create(ctx context.Context, req resource.CreateRequest,
 		if getResp.Data.Metadata.LocationResponse != nil {
 			data.Location = types.StringValue(getResp.Data.Metadata.LocationResponse.Value)
 		}
-		// Update tags from response
-		if len(getResp.Data.Metadata.Tags) > 0 {
-			tagValues := make([]types.String, len(getResp.Data.Metadata.Tags))
-			for i, tag := range getResp.Data.Metadata.Tags {
-				tagValues[i] = types.StringValue(tag)
-			}
-			tagsList, diags := types.ListValueFrom(ctx, types.StringType, tagValues)
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = tagsList
-			}
-		} else {
-			emptyList, diags := types.ListValue(types.StringType, []attr.Value{})
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = emptyList
-			}
-		}
+		data.Tags = TagsToList(getResp.Data.Metadata.Tags)
 	} else if err != nil {
 		// If Get fails, log but don't fail - we already have the ID from create response
 		tflog.Warn(ctx, fmt.Sprintf("Failed to refresh Subnet after creation: %v", err))
@@ -791,24 +769,7 @@ func (r *SubnetResource) Read(ctx context.Context, req resource.ReadRequest, res
 			data.Network = types.ObjectNull(networkAttrTypes)
 		}
 
-		// Update tags from response
-		if len(subnet.Metadata.Tags) > 0 {
-			tagValues := make([]types.String, len(subnet.Metadata.Tags))
-			for i, tag := range subnet.Metadata.Tags {
-				tagValues[i] = types.StringValue(tag)
-			}
-			tagsList, diags := types.ListValueFrom(ctx, types.StringType, tagValues)
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = tagsList
-			}
-		} else {
-			emptyList, diags := types.ListValue(types.StringType, []attr.Value{})
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = emptyList
-			}
-		}
+		data.Tags = TagsToList(subnet.Metadata.Tags)
 	} else {
 		resp.State.RemoveResource(ctx)
 		return
@@ -877,15 +838,11 @@ func (r *SubnetResource) Update(ctx context.Context, req resource.UpdateRequest,
 		return
 	}
 
-	// Extract tags from Terraform list
-	var tags []string
-	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
-		diags := data.Tags.ElementsAs(ctx, &tags, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-	} else {
+	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if tags == nil {
 		tags = current.Metadata.Tags
 	}
 

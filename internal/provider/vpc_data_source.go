@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -119,15 +118,7 @@ func (d *VPCDataSource) Read(ctx context.Context, req datasource.ReadRequest, re
 	}
 	data.ProjectId = types.StringValue(projectID)
 
-	if len(vpc.Metadata.Tags) > 0 {
-		tagValues := make([]attr.Value, len(vpc.Metadata.Tags))
-		for i, tag := range vpc.Metadata.Tags {
-			tagValues[i] = types.StringValue(tag)
-		}
-		data.Tags = types.ListValueMust(types.StringType, tagValues)
-	} else {
-		data.Tags = types.ListValueMust(types.StringType, []attr.Value{})
-	}
+	data.Tags = TagsToList(vpc.Metadata.Tags)
 
 	tflog.Trace(ctx, "read a VPC data source", map[string]interface{}{"vpc_id": vpcID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

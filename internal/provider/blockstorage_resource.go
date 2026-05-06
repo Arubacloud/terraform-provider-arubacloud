@@ -6,7 +6,6 @@ import (
 	"time"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -154,14 +153,9 @@ func (r *BlockStorageResource) Create(ctx context.Context, req resource.CreateRe
 		}
 	}
 
-	// Extract tags from Terraform list
-	var tags []string
-	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
-		diags := data.Tags.ElementsAs(ctx, &tags, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
+	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
 	// Build the create request
@@ -456,24 +450,7 @@ func (r *BlockStorageResource) Read(ctx context.Context, req resource.ReadReques
 			data.Image = types.StringNull()
 		}
 
-		// Update tags from response
-		if len(volume.Metadata.Tags) > 0 {
-			tagValues := make([]types.String, len(volume.Metadata.Tags))
-			for i, tag := range volume.Metadata.Tags {
-				tagValues[i] = types.StringValue(tag)
-			}
-			tagsList, diags := types.ListValueFrom(ctx, types.StringType, tagValues)
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = tagsList
-			}
-		} else {
-			emptyList, diags := types.ListValue(types.StringType, []attr.Value{})
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = emptyList
-			}
-		}
+		data.Tags = TagsToList(volume.Metadata.Tags)
 	} else {
 		resp.State.RemoveResource(ctx)
 		return
@@ -553,15 +530,11 @@ func (r *BlockStorageResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
-	// Extract tags from Terraform list
-	var tags []string
-	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
-		diags := data.Tags.ElementsAs(ctx, &tags, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-	} else {
+	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if tags == nil {
 		tags = current.Metadata.Tags
 	}
 

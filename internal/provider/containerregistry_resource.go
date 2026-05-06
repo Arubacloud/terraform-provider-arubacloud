@@ -194,14 +194,9 @@ func (r *ContainerRegistryResource) Create(ctx context.Context, req resource.Cre
 		return
 	}
 
-	// Extract tags
-	var tags []string
-	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
-		diags := data.Tags.ElementsAs(ctx, &tags, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
+	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
 	// Extract network configuration
@@ -555,24 +550,7 @@ func (r *ContainerRegistryResource) Read(ctx context.Context, req resource.ReadR
 			data.BillingPeriod = types.StringNull()
 		}
 
-		// Update tags
-		if len(registry.Metadata.Tags) > 0 {
-			tagValues := make([]types.String, len(registry.Metadata.Tags))
-			for i, tag := range registry.Metadata.Tags {
-				tagValues[i] = types.StringValue(tag)
-			}
-			tagsList, diags := types.ListValueFrom(ctx, types.StringType, tagValues)
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = tagsList
-			}
-		} else {
-			emptyList, diags := types.ListValue(types.StringType, []attr.Value{})
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = emptyList
-			}
-		}
+		data.Tags = TagsToList(registry.Metadata.Tags)
 	} else {
 		resp.State.RemoveResource(ctx)
 		return
@@ -658,15 +636,11 @@ func (r *ContainerRegistryResource) Update(ctx context.Context, req resource.Upd
 		return
 	}
 
-	// Extract tags
-	var tags []string
-	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
-		diags := data.Tags.ElementsAs(ctx, &tags, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-	} else {
+	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if tags == nil {
 		tags = current.Metadata.Tags
 	}
 
@@ -904,24 +878,7 @@ func (r *ContainerRegistryResource) Update(ctx context.Context, req resource.Upd
 			data.BillingPeriod = types.StringNull()
 		}
 
-		// Update tags from re-read
-		if len(registry.Metadata.Tags) > 0 {
-			tagValues := make([]types.String, len(registry.Metadata.Tags))
-			for i, tag := range registry.Metadata.Tags {
-				tagValues[i] = types.StringValue(tag)
-			}
-			tagsList, diagsTags := types.ListValueFrom(ctx, types.StringType, tagValues)
-			resp.Diagnostics.Append(diagsTags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = tagsList
-			}
-		} else {
-			emptyList, diagsTags := types.ListValue(types.StringType, []attr.Value{})
-			resp.Diagnostics.Append(diagsTags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = emptyList
-			}
-		}
+		data.Tags = TagsToList(registry.Metadata.Tags)
 	} else {
 		// If re-read fails, preserve immutable fields from state
 		data.Uri = state.Uri

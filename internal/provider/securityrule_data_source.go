@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -183,15 +182,7 @@ func (d *SecurityRuleDataSource) Read(ctx context.Context, req datasource.ReadRe
 		data.TargetValue = types.StringNull()
 	}
 
-	if len(rule.Metadata.Tags) > 0 {
-		tagValues := make([]attr.Value, len(rule.Metadata.Tags))
-		for i, tag := range rule.Metadata.Tags {
-			tagValues[i] = types.StringValue(tag)
-		}
-		data.Tags = types.ListValueMust(types.StringType, tagValues)
-	} else {
-		data.Tags = types.ListValueMust(types.StringType, []attr.Value{})
-	}
+	data.Tags = TagsToList(rule.Metadata.Tags)
 
 	tflog.Trace(ctx, "read a Security Rule data source", map[string]interface{}{"rule_id": ruleID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

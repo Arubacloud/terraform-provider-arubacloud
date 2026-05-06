@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -149,15 +148,7 @@ func (d *ElasticIPDataSource) Read(ctx context.Context, req datasource.ReadReque
 		data.BillingPeriod = types.StringNull()
 	}
 
-	if len(eip.Metadata.Tags) > 0 {
-		tagValues := make([]attr.Value, len(eip.Metadata.Tags))
-		for i, tag := range eip.Metadata.Tags {
-			tagValues[i] = types.StringValue(tag)
-		}
-		data.Tags = types.ListValueMust(types.StringType, tagValues)
-	} else {
-		data.Tags = types.ListValueMust(types.StringType, []attr.Value{})
-	}
+	data.Tags = TagsToList(eip.Metadata.Tags)
 
 	tflog.Trace(ctx, "read an Elastic IP data source", map[string]interface{}{"eip_id": eipID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

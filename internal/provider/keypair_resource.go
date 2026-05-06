@@ -115,14 +115,9 @@ func (r *KeypairResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
-	// Extract tags from Terraform list
-	var tags []string
-	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
-		diags := data.Tags.ElementsAs(ctx, &tags, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
+	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
 	// Build the create request

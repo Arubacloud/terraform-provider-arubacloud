@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -126,15 +125,7 @@ func (d *SecurityGroupDataSource) Read(ctx context.Context, req datasource.ReadR
 	data.ProjectId = types.StringValue(projectID)
 	data.VpcId = types.StringValue(vpcID)
 
-	if len(sg.Metadata.Tags) > 0 {
-		tagValues := make([]attr.Value, len(sg.Metadata.Tags))
-		for i, tag := range sg.Metadata.Tags {
-			tagValues[i] = types.StringValue(tag)
-		}
-		data.Tags = types.ListValueMust(types.StringType, tagValues)
-	} else {
-		data.Tags = types.ListValueMust(types.StringType, []attr.Value{})
-	}
+	data.Tags = TagsToList(sg.Metadata.Tags)
 
 	tflog.Trace(ctx, "read a Security Group data source", map[string]interface{}{"security_group_id": sgID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

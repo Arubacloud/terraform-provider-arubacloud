@@ -278,18 +278,10 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
-	// Extract tags - only include if actually provided
-	// CLI doesn't include tags in JSON if not provided (SDK omits empty slices with omitempty)
-	var tags []string
-	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
-		diags := data.Tags.ElementsAs(ctx, &tags, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
+	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
 	}
-	// Don't set tags to empty slice - let SDK handle it (will be omitted with omitempty)
-	// This matches CLI behavior where tags are only included if provided
 
 	// Extract properties from Terraform object
 	propertiesObj, diags := data.Properties.ToObjectValue(ctx)
@@ -984,15 +976,11 @@ func (r *SecurityRuleResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
-	// Extract tags
-	var tags []string
-	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
-		diags := data.Tags.ElementsAs(ctx, &tags, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-	} else {
+	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if tags == nil {
 		tags = current.Metadata.Tags
 	}
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -225,15 +224,7 @@ func (d *DBaaSDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 	data.SecurityGroupUriRef = types.StringNull()
 	data.ElasticIpUriRef = types.StringNull()
 
-	if len(dbaas.Metadata.Tags) > 0 {
-		tagValues := make([]attr.Value, len(dbaas.Metadata.Tags))
-		for i, tag := range dbaas.Metadata.Tags {
-			tagValues[i] = types.StringValue(tag)
-		}
-		data.Tags = types.ListValueMust(types.StringType, tagValues)
-	} else {
-		data.Tags = types.ListValueMust(types.StringType, []attr.Value{})
-	}
+	data.Tags = TagsToList(dbaas.Metadata.Tags)
 
 	tflog.Trace(ctx, "read a DBaaS data source", map[string]interface{}{"dbaas_id": dbaasID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

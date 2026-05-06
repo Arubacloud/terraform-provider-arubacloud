@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -112,15 +111,7 @@ func (d *ProjectDataSource) Read(ctx context.Context, req datasource.ReadRequest
 		data.Description = types.StringNull()
 	}
 
-	if len(project.Metadata.Tags) > 0 {
-		tagValues := make([]attr.Value, len(project.Metadata.Tags))
-		for i, tag := range project.Metadata.Tags {
-			tagValues[i] = types.StringValue(tag)
-		}
-		data.Tags = types.ListValueMust(types.StringType, tagValues)
-	} else {
-		data.Tags = types.ListValueMust(types.StringType, []attr.Value{})
-	}
+	data.Tags = TagsToList(project.Metadata.Tags)
 
 	tflog.Trace(ctx, "read project data source", map[string]interface{}{"project_id": projectID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
