@@ -31,9 +31,9 @@ func TestBillingPeriodFromAPI(t *testing.T) {
 		{"hourly", "Hour"},
 		{"monthly", "Month"},
 		{"yearly", "Year"},
-		{"Hour", "Hour"},     // already canonical
-		{"Month", "Month"},   // already canonical
-		{"Year", "Year"},     // already canonical
+		{"Hour", "Hour"},       // already canonical
+		{"Month", "Month"},     // already canonical
+		{"Year", "Year"},       // already canonical
 		{"unknown", "unknown"}, // passthrough
 		{"", ""},               // empty passthrough
 	}
