@@ -591,12 +591,7 @@ func (r *CloudServerResource) Read(ctx context.Context, req resource.ReadRequest
 
 	data.ProjectID = originalState.ProjectID
 
-	// Zone is returned by the API as Properties.Zone (JSON: dataCenter).
-	if server.Properties.Zone != "" {
-		data.Zone = types.StringValue(server.Properties.Zone)
-	} else {
-		data.Zone = originalState.Zone
-	}
+	data.Zone = resolveAPIStringRef(server.Properties.Zone, originalState.Zone)
 
 	// Update tags from response
 	if len(server.Metadata.Tags) > 0 {
@@ -618,10 +613,7 @@ func (r *CloudServerResource) Read(ctx context.Context, req resource.ReadRequest
 	}
 
 	// VPC URI is returned by the API; map it directly to detect drift.
-	vpcUriRef := originalNetworkModel.VpcUriRef
-	if server.Properties.VPC.URI != "" {
-		vpcUriRef = types.StringValue(server.Properties.VPC.URI)
-	}
+	vpcUriRef := resolveAPIStringRef(server.Properties.VPC.URI, originalNetworkModel.VpcUriRef)
 
 	// Build network object.
 	// vpc_uri_ref:            mapped from API (Properties.VPC.URI)
@@ -652,13 +644,7 @@ func (r *CloudServerResource) Read(ctx context.Context, req resource.ReadRequest
 	data.Network = networkObj
 
 	// KeyPair URI is returned by the API; map it directly to detect drift.
-	keyPairUriRef := originalSettingsModel.KeyPairUriRef
-	if server.Properties.KeyPair.URI != "" {
-		keyPairUriRef = types.StringValue(server.Properties.KeyPair.URI)
-	} else if server.Properties.KeyPair.URI == "" && !originalSettingsModel.KeyPairUriRef.IsNull() {
-		// API returned no keypair — resource was detached outside Terraform.
-		keyPairUriRef = types.StringNull()
-	}
+	keyPairUriRef := resolveKeyPairUriRef(server.Properties.KeyPair.URI, originalSettingsModel.KeyPairUriRef)
 
 	// Build settings object.
 	// flavor_name:      mapped from API
@@ -684,10 +670,7 @@ func (r *CloudServerResource) Read(ctx context.Context, req resource.ReadRequest
 	data.Settings = settingsObj
 
 	// BootVolume URI is returned by the API; map it directly to detect drift.
-	bootVolumeUriRef := originalStorageModel.BootVolumeUriRef
-	if server.Properties.BootVolume.URI != "" {
-		bootVolumeUriRef = types.StringValue(server.Properties.BootVolume.URI)
-	}
+	bootVolumeUriRef := resolveAPIStringRef(server.Properties.BootVolume.URI, originalStorageModel.BootVolumeUriRef)
 
 	// Build storage object.
 	// boot_volume_uri_ref: mapped from API (Properties.BootVolume.URI)
@@ -1009,4 +992,29 @@ func (r *CloudServerResource) Delete(ctx context.Context, req resource.DeleteReq
 
 func (r *CloudServerResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+// resolveAPIStringRef returns a StringValue from the API-provided string when
+// non-empty, falling back to the value preserved from state otherwise. Used to
+// map API-returned URI references so that out-of-band changes are detected.
+func resolveAPIStringRef(apiValue string, stateValue types.String) types.String {
+	if apiValue != "" {
+		return types.StringValue(apiValue)
+	}
+	return stateValue
+}
+
+// resolveKeyPairUriRef resolves the key_pair_uri_ref for Read state.
+// Three cases:
+//   - API returned a URI  → use it (current value, drift visible to Terraform)
+//   - API returned empty, state had a URI → null (keypair detached outside Terraform)
+//   - API returned empty, state had no URI → preserve state (keypair never configured)
+func resolveKeyPairUriRef(apiURI string, stateRef types.String) types.String {
+	if apiURI != "" {
+		return types.StringValue(apiURI)
+	}
+	if !stateRef.IsNull() {
+		return types.StringNull()
+	}
+	return stateRef
 }
