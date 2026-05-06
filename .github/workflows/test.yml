@@ -73,7 +73,7 @@ jobs:
       - name: Print coverage summary
         run: go tool cover -func=coverage.out
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238 # v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.out
@@ -111,7 +111,7 @@ jobs:
           echo "## Test Coverage Summary" >> $GITHUB_STEP_SUMMARY
           go tool cover -func=coverage-acceptance.out | tail -1 >> $GITHUB_STEP_SUMMARY
       - name: Upload acceptance coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: coverage-report-acceptance
           path: |
