@@ -1,6 +1,0 @@
-provider_installation {
-  dev_overrides {
-    "arubacloud/arubacloud" = "C:/Users/amedeo.palopoli/go/bin"
-  }
-  direct {}
-}
