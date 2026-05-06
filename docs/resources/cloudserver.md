@@ -50,13 +50,13 @@ The following arguments are supported:
 
 #### Required
 
-- `location` (String) Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
+- `location` (String) Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). Changing this value forces a new resource.
 - `name` (String) Display name for the CloudServer.
 - `network` (Attributes) Network configuration for the CloudServer. (see [below for nested schema](#nestedatt--network))
-- `project_id` (String) ID of the project that owns this resource.
+- `project_id` (String) ID of the project that owns this resource. Changing this value forces a new resource.
 - `settings` (Attributes) Compute and access settings for the CloudServer. (see [below for nested schema](#nestedatt--settings))
 - `storage` (Attributes) Storage configuration for the CloudServer. (see [below for nested schema](#nestedatt--storage))
-- `zone` (String) Availability zone within the region (e.g., `ITBG-1`). See [available zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
+- `zone` (String) Availability zone within the region (e.g., `ITBG-1`). See [available zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). Changing this value forces a new resource.
 
 #### Optional
 
@@ -76,13 +76,13 @@ In addition to all arguments above, the following attributes are exported:
 
 Required:
 
-- `securitygroup_uri_refs` (List of String) List of security group URIs to apply to this CloudServer. Reference the `uri` attribute of each `arubacloud_securitygroup` resource.
-- `subnet_uri_refs` (List of String) List of subnet URIs to attach this CloudServer to. Reference the `uri` attribute of each `arubacloud_subnet` resource.
-- `vpc_uri_ref` (String) URI of the VPC to attach this CloudServer to. Reference the `uri` attribute of an `arubacloud_vpc` resource.
+- `securitygroup_uri_refs` (List of String) List of security group URIs to apply to this CloudServer. Reference the `uri` attribute of each `arubacloud_securitygroup` resource. Changing this value forces a new resource.
+- `subnet_uri_refs` (List of String) List of subnet URIs to attach this CloudServer to. Reference the `uri` attribute of each `arubacloud_subnet` resource. Changing this value forces a new resource.
+- `vpc_uri_ref` (String) URI of the VPC to attach this CloudServer to. Reference the `uri` attribute of an `arubacloud_vpc` resource. Changing this value forces a new resource.
 
 Optional:
 
-- `elastic_ip_uri_ref` (String) URI of an Elastic IP to associate with this CloudServer. Reference the `uri` attribute of an `arubacloud_elasticip` resource. Optional — omit to use a dynamic IP.
+- `elastic_ip_uri_ref` (String) URI of an Elastic IP to associate with this CloudServer. Reference the `uri` attribute of an `arubacloud_elasticip` resource. Optional — omit to use a dynamic IP. Changing this value forces a new resource.
 
 
 <a id="nestedatt--settings"></a>
@@ -95,7 +95,7 @@ Required:
 Optional:
 
 - `key_pair_uri_ref` (String) URI of the SSH key pair to inject at boot. Reference the `uri` attribute of an `arubacloud_keypair` resource.
-- `user_data` (String, Sensitive) Cloud-Init configuration passed verbatim to the instance at first boot (raw YAML or shell-script). Write-only — this value is sent to the API but is not returned in subsequent read responses.
+- `user_data` (String, Sensitive) Cloud-Init configuration passed verbatim to the instance at first boot (raw YAML or shell-script). Write-only — this value is sent to the API but is not returned in subsequent read responses. Changing this value forces a new resource.
 
 
 <a id="nestedatt--storage"></a>
@@ -103,7 +103,7 @@ Optional:
 
 Required:
 
-- `boot_volume_uri_ref` (String) URI of the bootable block storage volume. Reference the `uri` attribute of an `arubacloud_blockstorage` resource (must be bootable).
+- `boot_volume_uri_ref` (String) URI of the bootable block storage volume. Reference the `uri` attribute of an `arubacloud_blockstorage` resource (must be bootable). Changing this value forces a new resource.
 
 
 

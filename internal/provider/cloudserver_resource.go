@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -85,16 +86,25 @@ func (r *CloudServerResource) Schema(ctx context.Context, req resource.SchemaReq
 				Required:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).",
+				MarkdownDescription: "Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). Changing this value forces a new resource.",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project that owns this resource.",
+				MarkdownDescription: "ID of the project that owns this resource. Changing this value forces a new resource.",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"zone": schema.StringAttribute{
-				MarkdownDescription: "Availability zone within the region (e.g., `ITBG-1`). See [available zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).",
+				MarkdownDescription: "Availability zone within the region (e.g., `ITBG-1`). See [available zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). Changing this value forces a new resource.",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
@@ -106,28 +116,36 @@ func (r *CloudServerResource) Schema(ctx context.Context, req resource.SchemaReq
 				Required:            true,
 				Attributes: map[string]schema.Attribute{
 					"vpc_uri_ref": schema.StringAttribute{
-						MarkdownDescription: "URI of the VPC to attach this CloudServer to. Reference the `uri` attribute of an `arubacloud_vpc` resource.",
+						MarkdownDescription: "URI of the VPC to attach this CloudServer to. Reference the `uri` attribute of an `arubacloud_vpc` resource. Changing this value forces a new resource.",
 						Required:            true,
 						PlanModifiers: []planmodifier.String{
 							stringplanmodifier.UseStateForUnknown(),
+							stringplanmodifier.RequiresReplace(),
 						},
 					},
 					"elastic_ip_uri_ref": schema.StringAttribute{
-						MarkdownDescription: "URI of an Elastic IP to associate with this CloudServer. Reference the `uri` attribute of an `arubacloud_elasticip` resource. Optional — omit to use a dynamic IP.",
+						MarkdownDescription: "URI of an Elastic IP to associate with this CloudServer. Reference the `uri` attribute of an `arubacloud_elasticip` resource. Optional — omit to use a dynamic IP. Changing this value forces a new resource.",
 						Optional:            true,
 						PlanModifiers: []planmodifier.String{
 							stringplanmodifier.UseStateForUnknown(),
+							stringplanmodifier.RequiresReplace(),
 						},
 					},
 					"subnet_uri_refs": schema.ListAttribute{
 						ElementType:         types.StringType,
-						MarkdownDescription: "List of subnet URIs to attach this CloudServer to. Reference the `uri` attribute of each `arubacloud_subnet` resource.",
+						MarkdownDescription: "List of subnet URIs to attach this CloudServer to. Reference the `uri` attribute of each `arubacloud_subnet` resource. Changing this value forces a new resource.",
 						Required:            true,
+						PlanModifiers: []planmodifier.List{
+							listplanmodifier.RequiresReplace(),
+						},
 					},
 					"securitygroup_uri_refs": schema.ListAttribute{
 						ElementType:         types.StringType,
-						MarkdownDescription: "List of security group URIs to apply to this CloudServer. Reference the `uri` attribute of each `arubacloud_securitygroup` resource.",
+						MarkdownDescription: "List of security group URIs to apply to this CloudServer. Reference the `uri` attribute of each `arubacloud_securitygroup` resource. Changing this value forces a new resource.",
 						Required:            true,
+						PlanModifiers: []planmodifier.List{
+							listplanmodifier.RequiresReplace(),
+						},
 					},
 				},
 			},
@@ -147,9 +165,12 @@ func (r *CloudServerResource) Schema(ctx context.Context, req resource.SchemaReq
 						},
 					},
 					"user_data": schema.StringAttribute{
-						MarkdownDescription: "Cloud-Init configuration passed verbatim to the instance at first boot (raw YAML or shell-script). Write-only — this value is sent to the API but is not returned in subsequent read responses.",
+						MarkdownDescription: "Cloud-Init configuration passed verbatim to the instance at first boot (raw YAML or shell-script). Write-only — this value is sent to the API but is not returned in subsequent read responses. Changing this value forces a new resource.",
 						Optional:            true,
 						Sensitive:           true,
+						PlanModifiers: []planmodifier.String{
+							stringplanmodifier.RequiresReplace(),
+						},
 					},
 				},
 			},
@@ -158,10 +179,11 @@ func (r *CloudServerResource) Schema(ctx context.Context, req resource.SchemaReq
 				Required:            true,
 				Attributes: map[string]schema.Attribute{
 					"boot_volume_uri_ref": schema.StringAttribute{
-						MarkdownDescription: "URI of the bootable block storage volume. Reference the `uri` attribute of an `arubacloud_blockstorage` resource (must be bootable).",
+						MarkdownDescription: "URI of the bootable block storage volume. Reference the `uri` attribute of an `arubacloud_blockstorage` resource (must be bootable). Changing this value forces a new resource.",
 						Required:            true,
 						PlanModifiers: []planmodifier.String{
 							stringplanmodifier.UseStateForUnknown(),
+							stringplanmodifier.RequiresReplace(),
 						},
 					},
 				},
