@@ -6,12 +6,14 @@ import (
 	"time"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -90,7 +92,6 @@ func (r *SubnetResource) Schema(ctx context.Context, req resource.SchemaRequest,
 			"location": schema.StringAttribute{
 				MarkdownDescription: "Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
-				// Validators removed for v1.16.1 compatibility
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
@@ -117,7 +118,9 @@ func (r *SubnetResource) Schema(ctx context.Context, req resource.SchemaRequest,
 			"type": schema.StringAttribute{
 				MarkdownDescription: "Subnet type. Accepted values: `Basic` (no custom CIDR), `Advanced` (requires the `network` block). (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
-				// Validators removed for v1.16.1 compatibility
+				Validators: []validator.String{
+					stringvalidator.OneOf("Basic", "Advanced"),
+				},
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
