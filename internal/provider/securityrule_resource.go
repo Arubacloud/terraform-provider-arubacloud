@@ -8,12 +8,14 @@ import (
 	"time"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -170,7 +172,6 @@ func (r *SecurityRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 			"location": schema.StringAttribute{
 				MarkdownDescription: "Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
-				// Validators removed for v1.16.1 compatibility
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
@@ -208,15 +209,14 @@ func (r *SecurityRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 					"direction": schema.StringAttribute{
 						MarkdownDescription: "Traffic direction the rule applies to. Accepted values: `Inbound`, `Outbound`. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 						Required:            true,
-						// Validators removed for v1.16.1 compatibility
+						Validators: []validator.String{
+							stringvalidator.OneOf("Inbound", "Outbound"),
+						},
 					},
 					"protocol": schema.StringAttribute{
-						MarkdownDescription: "IP protocol. Accepted values: `TCP`, `UDP`, `ICMP`, `ANY`. (Immutable if marked.)",
+						MarkdownDescription: "IP protocol. Accepted values: `TCP`, `UDP`, `ICMP`, `ANY` (case-insensitive).",
 						Required:            true,
-						// Validators removed for v1.16.1 compatibility
 						PlanModifiers: []planmodifier.String{
-							// Custom plan modifier to normalize protocol values
-							// This prevents false positives when comparing state ("Any") with config ("ANY")
 							protocolNormalizePlanModifier{},
 						},
 					},
@@ -231,7 +231,6 @@ func (r *SecurityRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 							"kind": schema.StringAttribute{
 								MarkdownDescription: "Type of the target endpoint. Accepted values: `IP`, `SecurityGroup`.",
 								Required:            true,
-								// Validators removed for v1.16.1 compatibility
 							},
 							"value": schema.StringAttribute{
 								MarkdownDescription: "Source (inbound) or destination (outbound) CIDR in notation like `0.0.0.0/0`, or SecurityGroup URI.",
