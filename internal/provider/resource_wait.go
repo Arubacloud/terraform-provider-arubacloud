@@ -81,7 +81,7 @@ type ResourceStateChecker func(ctx context.Context) (string, error)
 // It polls the resource status until it's not in a transitional state.
 func WaitForResourceActive(ctx context.Context, checker ResourceStateChecker, resourceType, resourceID string, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
-	ticker := time.NewTicker(5 * time.Second) // Poll every 5 seconds
+	ticker := time.NewTicker(waitForActivePollInterval)
 	defer ticker.Stop()
 
 	tflog.Info(ctx, fmt.Sprintf("Waiting for %s %s to become active", resourceType, resourceID))
@@ -155,6 +155,14 @@ type ResourceDeletedChecker func(ctx context.Context) (deleted bool, err error)
 // waitForDeletedPollInterval is the interval between deletion checks.
 // Overridable in tests so the polling loop does not force 10s waits.
 var waitForDeletedPollInterval = 10 * time.Second
+
+// waitForActivePollInterval is the interval between active-state checks.
+// Overridable in tests so the polling loop does not force 5s waits.
+var waitForActivePollInterval = 5 * time.Second
+
+// deleteRetryBaseWait is the base per-attempt delay in DeleteResourceWithRetry.
+// Overridable in tests to avoid multi-second waits between retry attempts.
+var deleteRetryBaseWait = 5 * time.Second
 
 // WaitForResourceDeleted polls until the resource is confirmed deleted (checker returns true)
 // or the timeout elapses. Up to 3 consecutive checker errors are tolerated before giving up,
@@ -362,7 +370,7 @@ func DeleteResourceWithRetry(
 
 			tflog.Info(ctx, fmt.Sprintf("%s %s deletion failed: %s. Retrying (attempt %d)...", resourceType, resourceID, err, attempt))
 
-			waitTime := time.Duration(5*attempt) * time.Second
+			waitTime := deleteRetryBaseWait * time.Duration(attempt)
 			if waitTime > maxRetryInterval {
 				waitTime = maxRetryInterval
 			}
