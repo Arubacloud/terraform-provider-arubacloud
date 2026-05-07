@@ -63,11 +63,11 @@ func TestProtocolNormalizePlanModifier(t *testing.T) {
 	m := protocolNormalizePlanModifier{}
 
 	cases := []struct {
-		name      string
-		planValue types.String
+		name       string
+		planValue  types.String
 		stateValue types.String
-		wantValue string
-		wantNull  bool
+		wantValue  string
+		wantNull   bool
 	}{
 		{
 			name:       "known plan value is uppercased",
