@@ -1,0 +1,61 @@
+name: Acceptance Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_filter:
+        description: 'Go test -run filter (e.g. TestAccCloudserverResource). Leave empty to run all acceptance tests.'
+        required: false
+        default: ''
+      timeout:
+        description: 'Test timeout (e.g. 60m, 120m)'
+        required: false
+        default: '120m'
+
+permissions:
+  contents: read
+
+jobs:
+  acceptance:
+    name: Acceptance Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - run: go mod download
+
+      - name: Run acceptance tests
+        env:
+          TF_ACC: "1"
+          ARUBACLOUD_API_KEY: ${{ secrets.ARUBACLOUD_API_KEY }}
+          ARUBACLOUD_API_SECRET: ${{ secrets.ARUBACLOUD_API_SECRET }}
+        run: |
+          FILTER="${{ github.event.inputs.test_filter }}"
+          TIMEOUT="${{ github.event.inputs.timeout }}"
+          if [ -n "$FILTER" ]; then
+            go test -v -coverprofile=coverage-acceptance.out -timeout="${TIMEOUT}" ./internal/provider/... -run "${FILTER}"
+          else
+            go test -v -coverprofile=coverage-acceptance.out -timeout="${TIMEOUT}" ./internal/provider/... -run '^TestAcc'
+          fi
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          if [ -f coverage-acceptance.out ]; then
+            echo "## Acceptance Test Coverage" >> "$GITHUB_STEP_SUMMARY"
+            go tool cover -func=coverage-acceptance.out | tail -1 >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: coverage-acceptance-${{ github.run_id }}
+          path: coverage-acceptance.out
+          retention-days: 30
