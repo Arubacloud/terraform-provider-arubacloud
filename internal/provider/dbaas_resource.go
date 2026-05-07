@@ -704,7 +704,7 @@ func (r *DBaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp
 			data.Network = networkObj
 		}
 
-		data.Tags = TagsToList(dbaas.Metadata.Tags)
+		data.Tags = TagsToListPreserveNull(dbaas.Metadata.Tags, data.Tags)
 	} else {
 		resp.State.RemoveResource(ctx)
 		return

@@ -477,7 +477,7 @@ func (r *SubnetResource) Create(ctx context.Context, req resource.CreateRequest,
 		if getResp.Data.Metadata.LocationResponse != nil {
 			data.Location = types.StringValue(getResp.Data.Metadata.LocationResponse.Value)
 		}
-		data.Tags = TagsToList(getResp.Data.Metadata.Tags)
+		data.Tags = TagsToListPreserveNull(getResp.Data.Metadata.Tags, data.Tags)
 	} else if err != nil {
 		// If Get fails, log but don't fail - we already have the ID from create response
 		tflog.Warn(ctx, fmt.Sprintf("Failed to refresh Subnet after creation: %v", err))
@@ -769,7 +769,7 @@ func (r *SubnetResource) Read(ctx context.Context, req resource.ReadRequest, res
 			data.Network = types.ObjectNull(networkAttrTypes)
 		}
 
-		data.Tags = TagsToList(subnet.Metadata.Tags)
+		data.Tags = TagsToListPreserveNull(subnet.Metadata.Tags, data.Tags)
 	} else {
 		resp.State.RemoveResource(ctx)
 		return

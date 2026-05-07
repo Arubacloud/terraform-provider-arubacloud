@@ -138,7 +138,7 @@ func (d *KeypairDataSource) Read(ctx context.Context, req datasource.ReadRequest
 		data.Value = types.StringNull()
 	}
 
-	data.Tags = TagsToList(keypair.Metadata.Tags)
+	data.Tags = TagsToListPreserveNull(keypair.Metadata.Tags, data.Tags)
 
 	tflog.Trace(ctx, "read a Keypair data source", map[string]interface{}{"keypair_id": keypairID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

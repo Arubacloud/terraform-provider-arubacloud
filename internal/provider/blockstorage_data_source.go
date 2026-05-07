@@ -183,7 +183,7 @@ func (d *BlockStorageDataSource) Read(ctx context.Context, req datasource.ReadRe
 	data.BillingPeriod = types.StringNull()
 	data.SnapshotId = types.StringNull()
 
-	data.Tags = TagsToList(volume.Metadata.Tags)
+	data.Tags = TagsToListPreserveNull(volume.Metadata.Tags, data.Tags)
 
 	tflog.Trace(ctx, "read a Block Storage data source", map[string]interface{}{"volume_id": volumeID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

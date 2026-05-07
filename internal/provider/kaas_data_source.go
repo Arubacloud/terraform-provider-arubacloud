@@ -354,7 +354,7 @@ func (d *KaaSDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 		data.NodePools = types.ListValueMust(nodePoolType, []attr.Value{})
 	}
 
-	data.Tags = TagsToList(kaas.Metadata.Tags)
+	data.Tags = TagsToListPreserveNull(kaas.Metadata.Tags, data.Tags)
 
 	// Download kubeconfig (API returns base64-encoded content), when cluster has management IP
 	if kaas.Properties.ManagementIP != nil && *kaas.Properties.ManagementIP != "" {

@@ -550,7 +550,7 @@ func (r *ContainerRegistryResource) Read(ctx context.Context, req resource.ReadR
 			data.BillingPeriod = types.StringNull()
 		}
 
-		data.Tags = TagsToList(registry.Metadata.Tags)
+		data.Tags = TagsToListPreserveNull(registry.Metadata.Tags, data.Tags)
 	} else {
 		resp.State.RemoveResource(ctx)
 		return
@@ -878,7 +878,7 @@ func (r *ContainerRegistryResource) Update(ctx context.Context, req resource.Upd
 			data.BillingPeriod = types.StringNull()
 		}
 
-		data.Tags = TagsToList(registry.Metadata.Tags)
+		data.Tags = TagsToListPreserveNull(registry.Metadata.Tags, data.Tags)
 	} else {
 		// If re-read fails, preserve immutable fields from state
 		data.Uri = state.Uri

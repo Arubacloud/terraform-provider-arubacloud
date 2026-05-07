@@ -343,7 +343,7 @@ func (r *KMSResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 		if kms.Metadata.LocationResponse != nil {
 			data.Location = types.StringValue(kms.Metadata.LocationResponse.Value)
 		}
-		data.Tags = TagsToList(kms.Metadata.Tags)
+		data.Tags = TagsToListPreserveNull(kms.Metadata.Tags, data.Tags)
 		if kms.Properties.BillingPeriod != "" {
 			data.BillingPeriod = types.StringValue(kms.Properties.BillingPeriod)
 		}

@@ -450,7 +450,7 @@ func (r *BlockStorageResource) Read(ctx context.Context, req resource.ReadReques
 			data.Image = types.StringNull()
 		}
 
-		data.Tags = TagsToList(volume.Metadata.Tags)
+		data.Tags = TagsToListPreserveNull(volume.Metadata.Tags, data.Tags)
 	} else {
 		resp.State.RemoveResource(ctx)
 		return

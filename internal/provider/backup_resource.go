@@ -370,7 +370,7 @@ func (r *BackupResource) Read(ctx context.Context, req resource.ReadRequest, res
 			data.BillingPeriod = types.StringValue(*backup.Properties.BillingPeriod)
 		}
 
-		data.Tags = TagsToList(backup.Metadata.Tags)
+		data.Tags = TagsToListPreserveNull(backup.Metadata.Tags, data.Tags)
 	} else {
 		resp.State.RemoveResource(ctx)
 		return

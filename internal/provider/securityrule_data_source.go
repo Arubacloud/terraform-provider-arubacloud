@@ -182,7 +182,7 @@ func (d *SecurityRuleDataSource) Read(ctx context.Context, req datasource.ReadRe
 		data.TargetValue = types.StringNull()
 	}
 
-	data.Tags = TagsToList(rule.Metadata.Tags)
+	data.Tags = TagsToListPreserveNull(rule.Metadata.Tags, data.Tags)
 
 	tflog.Trace(ctx, "read a Security Rule data source", map[string]interface{}{"rule_id": ruleID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

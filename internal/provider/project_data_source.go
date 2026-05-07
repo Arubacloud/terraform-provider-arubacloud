@@ -111,7 +111,7 @@ func (d *ProjectDataSource) Read(ctx context.Context, req datasource.ReadRequest
 		data.Description = types.StringNull()
 	}
 
-	data.Tags = TagsToList(project.Metadata.Tags)
+	data.Tags = TagsToListPreserveNull(project.Metadata.Tags, data.Tags)
 
 	tflog.Trace(ctx, "read project data source", map[string]interface{}{"project_id": projectID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

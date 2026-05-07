@@ -317,7 +317,7 @@ func (r *VpcPeeringRouteResource) Read(ctx context.Context, req resource.ReadReq
 			data.BillingPeriod = types.StringValue(route.Properties.BillingPlan.BillingPeriod)
 		}
 
-		data.Tags = TagsToList(route.Metadata.Tags)
+		data.Tags = TagsToListPreserveNull(route.Metadata.Tags, data.Tags)
 	} else {
 		resp.State.RemoveResource(ctx)
 		return
