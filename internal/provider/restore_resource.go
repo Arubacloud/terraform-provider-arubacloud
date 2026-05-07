@@ -357,7 +357,7 @@ func (r *RestoreResource) Read(ctx context.Context, req resource.ReadRequest, re
 		// VolumeID is stored from the create request, preserve from state if needed
 		// If Target is needed, check SDK for correct field name
 
-		data.Tags = TagsToList(restore.Metadata.Tags)
+		data.Tags = TagsToListPreserveNull(restore.Metadata.Tags, data.Tags)
 	} else {
 		resp.State.RemoveResource(ctx)
 		return

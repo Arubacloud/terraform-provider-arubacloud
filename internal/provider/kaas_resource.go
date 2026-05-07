@@ -852,7 +852,7 @@ func (r *KaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		}
 		data.Settings = settingsObj
 
-		data.Tags = TagsToList(kaas.Metadata.Tags)
+		data.Tags = TagsToListPreserveNull(kaas.Metadata.Tags, data.Tags)
 
 		// Refresh kubeconfig when cluster is available (e.g. has management IP or is active). API returns base64-encoded content.
 		if kaas.Properties.ManagementIP != nil && *kaas.Properties.ManagementIP != "" {
@@ -1312,7 +1312,7 @@ func (r *KaaSResource) Update(ctx context.Context, req resource.UpdateRequest, r
 			data.Settings = state.Settings // Fallback to state on error
 		}
 
-		data.Tags = TagsToList(kaas.Metadata.Tags)
+		data.Tags = TagsToListPreserveNull(kaas.Metadata.Tags, data.Tags)
 	} else {
 		// If re-read fails, preserve fields from state
 		data.Uri = state.Uri

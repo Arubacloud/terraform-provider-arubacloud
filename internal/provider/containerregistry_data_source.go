@@ -193,7 +193,7 @@ func (d *ContainerRegistryDataSource) Read(ctx context.Context, req datasource.R
 		data.ConcurrentUsersFlavor = types.StringNull()
 	}
 
-	data.Tags = TagsToList(registry.Metadata.Tags)
+	data.Tags = TagsToListPreserveNull(registry.Metadata.Tags, data.Tags)
 
 	tflog.Trace(ctx, "read a Container Registry data source", map[string]interface{}{"registry_id": registryID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

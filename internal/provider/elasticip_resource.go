@@ -412,7 +412,7 @@ func (r *ElasticIPResource) Read(ctx context.Context, req resource.ReadRequest, 
 			data.BillingPeriod = types.StringValue("Hour")
 		}
 
-		data.Tags = TagsToList(eip.Metadata.Tags)
+		data.Tags = TagsToListPreserveNull(eip.Metadata.Tags, data.Tags)
 	} else {
 		resp.State.RemoveResource(ctx)
 		return

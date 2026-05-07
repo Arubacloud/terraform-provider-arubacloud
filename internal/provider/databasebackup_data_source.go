@@ -152,7 +152,7 @@ func (d *DatabaseBackupDataSource) Read(ctx context.Context, req datasource.Read
 	data.DBaaSID = types.StringNull()
 	data.Database = types.StringNull()
 
-	data.Tags = TagsToList(backup.Metadata.Tags)
+	data.Tags = TagsToListPreserveNull(backup.Metadata.Tags, data.Tags)
 
 	tflog.Trace(ctx, "read a Database Backup data source", map[string]interface{}{"backup_id": backupID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

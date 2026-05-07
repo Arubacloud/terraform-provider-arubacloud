@@ -118,7 +118,7 @@ func (d *VPCDataSource) Read(ctx context.Context, req datasource.ReadRequest, re
 	}
 	data.ProjectId = types.StringValue(projectID)
 
-	data.Tags = TagsToList(vpc.Metadata.Tags)
+	data.Tags = TagsToListPreserveNull(vpc.Metadata.Tags, data.Tags)
 
 	tflog.Trace(ctx, "read a VPC data source", map[string]interface{}{"vpc_id": vpcID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

@@ -713,7 +713,7 @@ func (r *VPNTunnelResource) Read(ctx context.Context, req resource.ReadRequest, 
 			data.Location = types.StringValue(tunnel.Metadata.LocationResponse.Value)
 		}
 
-		data.Tags = TagsToList(tunnel.Metadata.Tags)
+		data.Tags = TagsToListPreserveNull(tunnel.Metadata.Tags, data.Tags)
 
 		// Note: Properties are complex nested structures - for now, we preserve the existing state
 		// A full implementation would reconstruct the properties object from the API response

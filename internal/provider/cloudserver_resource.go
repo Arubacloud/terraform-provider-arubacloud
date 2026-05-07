@@ -588,7 +588,7 @@ func (r *CloudServerResource) Read(ctx context.Context, req resource.ReadRequest
 
 	data.Zone = resolveAPIStringRef(server.Properties.Zone, originalState.Zone)
 
-	data.Tags = TagsToList(server.Metadata.Tags)
+	data.Tags = TagsToListPreserveNull(server.Metadata.Tags, data.Tags)
 
 	// VPC URI is returned by the API; map it directly to detect drift.
 	vpcUriRef := resolveAPIStringRef(server.Properties.VPC.URI, originalNetworkModel.VpcUriRef)
@@ -790,7 +790,7 @@ func (r *CloudServerResource) Update(ctx context.Context, req resource.UpdateReq
 		if response.Data.Metadata.Name != nil && *response.Data.Metadata.Name != "" {
 			data.Name = types.StringValue(*response.Data.Metadata.Name)
 		}
-		data.Tags = TagsToList(response.Data.Metadata.Tags)
+		data.Tags = TagsToListPreserveNull(response.Data.Metadata.Tags, data.Tags)
 	}
 
 	// Ensure immutable fields are set from state/plan before saving

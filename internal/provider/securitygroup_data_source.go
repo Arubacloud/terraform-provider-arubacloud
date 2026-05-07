@@ -125,7 +125,7 @@ func (d *SecurityGroupDataSource) Read(ctx context.Context, req datasource.ReadR
 	data.ProjectId = types.StringValue(projectID)
 	data.VpcId = types.StringValue(vpcID)
 
-	data.Tags = TagsToList(sg.Metadata.Tags)
+	data.Tags = TagsToListPreserveNull(sg.Metadata.Tags, data.Tags)
 
 	tflog.Trace(ctx, "read a Security Group data source", map[string]interface{}{"security_group_id": sgID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

@@ -224,7 +224,7 @@ func (d *DBaaSDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 	data.SecurityGroupUriRef = types.StringNull()
 	data.ElasticIpUriRef = types.StringNull()
 
-	data.Tags = TagsToList(dbaas.Metadata.Tags)
+	data.Tags = TagsToListPreserveNull(dbaas.Metadata.Tags, data.Tags)
 
 	tflog.Trace(ctx, "read a DBaaS data source", map[string]interface{}{"dbaas_id": dbaasID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

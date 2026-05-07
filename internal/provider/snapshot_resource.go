@@ -246,7 +246,7 @@ func (r *SnapshotResource) Create(ctx context.Context, req resource.CreateReques
 		if getResp.Data.Metadata.LocationResponse != nil {
 			data.Location = types.StringValue(getResp.Data.Metadata.LocationResponse.Value)
 		}
-		data.Tags = TagsToList(getResp.Data.Metadata.Tags)
+		data.Tags = TagsToListPreserveNull(getResp.Data.Metadata.Tags, data.Tags)
 	} else if err != nil {
 		// If Get fails, log but don't fail - we already have the ID from create response
 		tflog.Warn(ctx, fmt.Sprintf("Failed to refresh Snapshot after creation: %v", err))
@@ -546,7 +546,7 @@ func (r *SnapshotResource) Update(ctx context.Context, req resource.UpdateReques
 		} else {
 			data.Uri = state.Uri
 		}
-		data.Tags = TagsToList(response.Data.Metadata.Tags)
+		data.Tags = TagsToListPreserveNull(response.Data.Metadata.Tags, data.Tags)
 	} else {
 		// If no response, preserve URI and tags from state
 		data.Uri = state.Uri

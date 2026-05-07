@@ -148,7 +148,7 @@ func (d *ElasticIPDataSource) Read(ctx context.Context, req datasource.ReadReque
 		data.BillingPeriod = types.StringNull()
 	}
 
-	data.Tags = TagsToList(eip.Metadata.Tags)
+	data.Tags = TagsToListPreserveNull(eip.Metadata.Tags, data.Tags)
 
 	tflog.Trace(ctx, "read an Elastic IP data source", map[string]interface{}{"eip_id": eipID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

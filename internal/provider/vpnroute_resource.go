@@ -350,7 +350,7 @@ func (r *VPNRouteResource) Read(ctx context.Context, req resource.ReadRequest, r
 			data.Properties = propertiesObj
 		}
 
-		data.Tags = TagsToList(route.Metadata.Tags)
+		data.Tags = TagsToListPreserveNull(route.Metadata.Tags, data.Tags)
 	} else {
 		resp.State.RemoveResource(ctx)
 		return

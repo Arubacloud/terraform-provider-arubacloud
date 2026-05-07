@@ -313,7 +313,7 @@ func (r *VpcPeeringResource) Read(ctx context.Context, req resource.ReadRequest,
 			data.PeerVpc = types.StringValue(peering.Properties.RemoteVPC.URI)
 		}
 
-		data.Tags = TagsToList(peering.Metadata.Tags)
+		data.Tags = TagsToListPreserveNull(peering.Metadata.Tags, data.Tags)
 	} else {
 		resp.State.RemoveResource(ctx)
 		return
