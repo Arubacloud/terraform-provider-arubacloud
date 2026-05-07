@@ -207,10 +207,10 @@ func (r *SecurityRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 				Required:            true,
 				Attributes: map[string]schema.Attribute{
 					"direction": schema.StringAttribute{
-						MarkdownDescription: "Traffic direction the rule applies to. Accepted values: `Inbound`, `Outbound`. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
+						MarkdownDescription: "Traffic direction the rule applies to. Accepted values: `Ingress`, `Egress`. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 						Required:            true,
 						Validators: []validator.String{
-							stringvalidator.OneOf("Inbound", "Outbound"),
+							stringvalidator.OneOf("Ingress", "Egress"),
 						},
 					},
 					"protocol": schema.StringAttribute{
