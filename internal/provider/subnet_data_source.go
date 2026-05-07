@@ -256,15 +256,7 @@ func (d *SubnetDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 		data.Dns = types.ListValueMust(types.StringType, []attr.Value{})
 	}
 
-	if len(subnet.Metadata.Tags) > 0 {
-		tagValues := make([]attr.Value, len(subnet.Metadata.Tags))
-		for i, tag := range subnet.Metadata.Tags {
-			tagValues[i] = types.StringValue(tag)
-		}
-		data.Tags = types.ListValueMust(types.StringType, tagValues)
-	} else {
-		data.Tags = types.ListValueMust(types.StringType, []attr.Value{})
-	}
+	data.Tags = TagsToList(subnet.Metadata.Tags)
 
 	tflog.Trace(ctx, "read a Subnet data source", map[string]interface{}{"subnet_id": subnetID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

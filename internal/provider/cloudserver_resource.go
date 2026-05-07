@@ -279,14 +279,9 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 		}
 	}
 
-	// Extract tags from Terraform list
-	var tags []string
-	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
-		diags := data.Tags.ElementsAs(ctx, &tags, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
+	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
 	// Build the create request
@@ -593,24 +588,7 @@ func (r *CloudServerResource) Read(ctx context.Context, req resource.ReadRequest
 
 	data.Zone = resolveAPIStringRef(server.Properties.Zone, originalState.Zone)
 
-	// Update tags from response
-	if len(server.Metadata.Tags) > 0 {
-		tagValues := make([]types.String, len(server.Metadata.Tags))
-		for i, tag := range server.Metadata.Tags {
-			tagValues[i] = types.StringValue(tag)
-		}
-		tagsList, diags := types.ListValueFrom(ctx, types.StringType, tagValues)
-		resp.Diagnostics.Append(diags...)
-		if !resp.Diagnostics.HasError() {
-			data.Tags = tagsList
-		}
-	} else {
-		emptyList, diags := types.ListValue(types.StringType, []attr.Value{})
-		resp.Diagnostics.Append(diags...)
-		if !resp.Diagnostics.HasError() {
-			data.Tags = emptyList
-		}
-	}
+	data.Tags = TagsToList(server.Metadata.Tags)
 
 	// VPC URI is returned by the API; map it directly to detect drift.
 	vpcUriRef := resolveAPIStringRef(server.Properties.VPC.URI, originalNetworkModel.VpcUriRef)
@@ -761,16 +739,11 @@ func (r *CloudServerResource) Update(ctx context.Context, req resource.UpdateReq
 
 	current := getResponse.Data
 
-	// Extract tags from Terraform list
-	var tags []string
-	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
-		diags := data.Tags.ElementsAs(ctx, &tags, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-	} else {
-		// Preserve existing tags if not provided
+	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if tags == nil {
 		tags = current.Metadata.Tags
 	}
 
@@ -817,24 +790,7 @@ func (r *CloudServerResource) Update(ctx context.Context, req resource.UpdateReq
 		if response.Data.Metadata.Name != nil && *response.Data.Metadata.Name != "" {
 			data.Name = types.StringValue(*response.Data.Metadata.Name)
 		}
-		// Update tags from response
-		if len(response.Data.Metadata.Tags) > 0 {
-			tagValues := make([]types.String, len(response.Data.Metadata.Tags))
-			for i, tag := range response.Data.Metadata.Tags {
-				tagValues[i] = types.StringValue(tag)
-			}
-			tagsList, diags := types.ListValueFrom(ctx, types.StringType, tagValues)
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = tagsList
-			}
-		} else {
-			emptyList, diags := types.ListValue(types.StringType, []attr.Value{})
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = emptyList
-			}
-		}
+		data.Tags = TagsToList(response.Data.Metadata.Tags)
 	}
 
 	// Ensure immutable fields are set from state/plan before saving

@@ -191,15 +191,7 @@ func (d *CloudServerDataSource) Read(ctx context.Context, req datasource.ReadReq
 	data.UserData = types.StringNull()
 	data.BootVolumeUriRef = types.StringNull()
 
-	if len(server.Metadata.Tags) > 0 {
-		tagValues := make([]attr.Value, len(server.Metadata.Tags))
-		for i, tag := range server.Metadata.Tags {
-			tagValues[i] = types.StringValue(tag)
-		}
-		data.Tags = types.ListValueMust(types.StringType, tagValues)
-	} else {
-		data.Tags = types.ListValueMust(types.StringType, []attr.Value{})
-	}
+	data.Tags = TagsToList(server.Metadata.Tags)
 
 	tflog.Trace(ctx, "read a CloudServer data source", map[string]interface{}{"server_id": serverID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

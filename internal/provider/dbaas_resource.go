@@ -191,14 +191,9 @@ func (r *DBaaSResource) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 
-	// Extract tags
-	var tags []string
-	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
-		diags := data.Tags.ElementsAs(ctx, &tags, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
+	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
 	engineID := data.EngineID.ValueString()
@@ -709,24 +704,7 @@ func (r *DBaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp
 			data.Network = networkObj
 		}
 
-		// Update tags
-		if len(dbaas.Metadata.Tags) > 0 {
-			tagValues := make([]types.String, len(dbaas.Metadata.Tags))
-			for i, tag := range dbaas.Metadata.Tags {
-				tagValues[i] = types.StringValue(tag)
-			}
-			tagsList, diags := types.ListValueFrom(ctx, types.StringType, tagValues)
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = tagsList
-			}
-		} else {
-			emptyList, diags := types.ListValue(types.StringType, []attr.Value{})
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = emptyList
-			}
-		}
+		data.Tags = TagsToList(dbaas.Metadata.Tags)
 	} else {
 		resp.State.RemoveResource(ctx)
 		return
@@ -794,15 +772,11 @@ func (r *DBaaSResource) Update(ctx context.Context, req resource.UpdateRequest, 
 		return
 	}
 
-	// Extract tags
-	var tags []string
-	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
-		diags := data.Tags.ElementsAs(ctx, &tags, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-	} else {
+	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if tags == nil {
 		tags = current.Metadata.Tags
 	}
 

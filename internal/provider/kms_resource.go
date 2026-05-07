@@ -6,7 +6,6 @@ import (
 	"time"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -124,13 +123,9 @@ func (r *KMSResource) Create(ctx context.Context, req resource.CreateRequest, re
 		return
 	}
 
-	var tags []string
-	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
-		diags := data.Tags.ElementsAs(ctx, &tags, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
+	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
 	// Build the create request
@@ -348,23 +343,7 @@ func (r *KMSResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 		if kms.Metadata.LocationResponse != nil {
 			data.Location = types.StringValue(kms.Metadata.LocationResponse.Value)
 		}
-		if len(kms.Metadata.Tags) > 0 {
-			tagValues := make([]attr.Value, len(kms.Metadata.Tags))
-			for i, tag := range kms.Metadata.Tags {
-				tagValues[i] = types.StringValue(tag)
-			}
-			tagsList, diags := types.ListValue(types.StringType, tagValues)
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = tagsList
-			}
-		} else {
-			emptyList, diags := types.ListValue(types.StringType, []attr.Value{})
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = emptyList
-			}
-		}
+		data.Tags = TagsToList(kms.Metadata.Tags)
 		if kms.Properties.BillingPeriod != "" {
 			data.BillingPeriod = types.StringValue(kms.Properties.BillingPeriod)
 		}
@@ -426,14 +405,11 @@ func (r *KMSResource) Update(ctx context.Context, req resource.UpdateRequest, re
 		regionValue = current.Metadata.LocationResponse.Value
 	}
 
-	var tags []string
-	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
-		diags := data.Tags.ElementsAs(ctx, &tags, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-	} else {
+	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if tags == nil {
 		tags = current.Metadata.Tags
 	}
 

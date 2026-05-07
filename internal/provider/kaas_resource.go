@@ -8,7 +8,6 @@ import (
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -252,14 +251,9 @@ func (r *KaaSResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
-	// Extract tags
-	var tags []string
-	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
-		diags := data.Tags.ElementsAs(ctx, &tags, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
+	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
 	// Extract Network configuration
@@ -858,24 +852,7 @@ func (r *KaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		}
 		data.Settings = settingsObj
 
-		// Update tags
-		if len(kaas.Metadata.Tags) > 0 {
-			tagValues := make([]types.String, len(kaas.Metadata.Tags))
-			for i, tag := range kaas.Metadata.Tags {
-				tagValues[i] = types.StringValue(tag)
-			}
-			tagsList, diags := types.ListValueFrom(ctx, types.StringType, tagValues)
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = tagsList
-			}
-		} else {
-			emptyList, diags := types.ListValue(types.StringType, []attr.Value{})
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = emptyList
-			}
-		}
+		data.Tags = TagsToList(kaas.Metadata.Tags)
 
 		// Refresh kubeconfig when cluster is available (e.g. has management IP or is active). API returns base64-encoded content.
 		if kaas.Properties.ManagementIP != nil && *kaas.Properties.ManagementIP != "" {
@@ -966,22 +943,17 @@ func (r *KaaSResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
-	// Extract tags
-	var tags []string
-	var diags diag.Diagnostics
-	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
-		diags = data.Tags.ElementsAs(ctx, &tags, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-	} else {
+	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if tags == nil {
 		tags = current.Metadata.Tags
 	}
 
 	// Extract Settings configuration
 	var settingsModel KaaSSettingsModel
-	diags = data.Settings.As(ctx, &settingsModel, basetypes.ObjectAsOptions{})
+	diags := data.Settings.As(ctx, &settingsModel, basetypes.ObjectAsOptions{})
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -1340,24 +1312,7 @@ func (r *KaaSResource) Update(ctx context.Context, req resource.UpdateRequest, r
 			data.Settings = state.Settings // Fallback to state on error
 		}
 
-		// Update tags from re-read
-		if len(kaas.Metadata.Tags) > 0 {
-			tagValues := make([]types.String, len(kaas.Metadata.Tags))
-			for i, tag := range kaas.Metadata.Tags {
-				tagValues[i] = types.StringValue(tag)
-			}
-			tagsList, diags := types.ListValueFrom(ctx, types.StringType, tagValues)
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = tagsList
-			}
-		} else {
-			emptyList, diags := types.ListValue(types.StringType, []attr.Value{})
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = emptyList
-			}
-		}
+		data.Tags = TagsToList(kaas.Metadata.Tags)
 	} else {
 		// If re-read fails, preserve fields from state
 		data.Uri = state.Uri

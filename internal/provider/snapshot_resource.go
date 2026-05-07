@@ -128,14 +128,9 @@ func (r *SnapshotResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
-	// Extract tags from Terraform list
-	var tags []string
-	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
-		diags := data.Tags.ElementsAs(ctx, &tags, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
+	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
 	// Get volume URI from the plan
@@ -251,24 +246,7 @@ func (r *SnapshotResource) Create(ctx context.Context, req resource.CreateReques
 		if getResp.Data.Metadata.LocationResponse != nil {
 			data.Location = types.StringValue(getResp.Data.Metadata.LocationResponse.Value)
 		}
-		// Update tags from response
-		if len(getResp.Data.Metadata.Tags) > 0 {
-			tagValues := make([]types.String, len(getResp.Data.Metadata.Tags))
-			for i, tag := range getResp.Data.Metadata.Tags {
-				tagValues[i] = types.StringValue(tag)
-			}
-			tagsList, diags := types.ListValueFrom(ctx, types.StringType, tagValues)
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = tagsList
-			}
-		} else {
-			emptyList, diags := types.ListValue(types.StringType, []attr.Value{})
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = emptyList
-			}
-		}
+		data.Tags = TagsToList(getResp.Data.Metadata.Tags)
 	} else if err != nil {
 		// If Get fails, log but don't fail - we already have the ID from create response
 		tflog.Warn(ctx, fmt.Sprintf("Failed to refresh Snapshot after creation: %v", err))
@@ -512,16 +490,11 @@ func (r *SnapshotResource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 
-	// Extract tags from Terraform list
-	var tags []string
-	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
-		diags := data.Tags.ElementsAs(ctx, &tags, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-	} else {
-		// Preserve existing tags if not provided
+	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if tags == nil {
 		tags = current.Metadata.Tags
 	}
 
@@ -573,24 +546,7 @@ func (r *SnapshotResource) Update(ctx context.Context, req resource.UpdateReques
 		} else {
 			data.Uri = state.Uri
 		}
-		// Update tags from response
-		if len(response.Data.Metadata.Tags) > 0 {
-			tagValues := make([]types.String, len(response.Data.Metadata.Tags))
-			for i, tag := range response.Data.Metadata.Tags {
-				tagValues[i] = types.StringValue(tag)
-			}
-			tagsList, diags := types.ListValueFrom(ctx, types.StringType, tagValues)
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = tagsList
-			}
-		} else {
-			emptyList, diags := types.ListValue(types.StringType, []attr.Value{})
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = emptyList
-			}
-		}
+		data.Tags = TagsToList(response.Data.Metadata.Tags)
 	} else {
 		// If no response, preserve URI and tags from state
 		data.Uri = state.Uri
