@@ -67,6 +67,9 @@ jobs:
         with:
           go-version-file: 'go.mod'
           cache: true
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_wrapper: false
       - run: go mod download
       - name: Run unit tests with coverage
         run: go test -v -coverprofile=coverage.out -timeout=120s ./...
@@ -94,6 +97,9 @@ jobs:
         with:
           go-version-file: 'go.mod'
           cache: true
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_wrapper: false
       - run: go mod download
       - name: Run acceptance tests with coverage
         env:
