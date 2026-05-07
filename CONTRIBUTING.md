@@ -43,6 +43,90 @@ Three jobs run on every PR:
 | `generate` | `make generate` then `git diff --exit-code` | Uncommitted doc changes after schema edit |
 | `test` | `go test ./...` with coverage | Failing unit test |
 
+A fourth job (`acceptance`) runs automatically on every push to `main` and can be triggered manually from any branch via **Actions → Acceptance Tests → Run workflow**. See [Acceptance Tests](#acceptance-tests) below.
+
+## Acceptance Tests
+
+Acceptance tests exercise the real ArubaCloud API — they create, read, update, and delete actual cloud resources. They are skipped unless `TF_ACC=1` is set.
+
+### Running locally
+
+```bash
+export TF_ACC=1
+export ARUBACLOUD_API_KEY=<your-api-key>
+export ARUBACLOUD_API_SECRET=<your-api-secret>
+export ARUBACLOUD_PROJECT_ID=<an-existing-project-id>
+
+# Run all acceptance tests (slow — provisions real infra)
+go test -v -timeout=120m ./internal/provider/... -run '^TestAcc'
+
+# Run a single resource
+go test -v -timeout=30m ./internal/provider/... -run '^TestAccKeypairResource$'
+
+# Convenience wrapper (loads credentials from examples/test/compute/terraform.tfvars)
+./run-acceptance-tests.sh TestAccKeypairResource
+```
+
+### CI — manual trigger
+
+Go to **Actions → Acceptance Tests → Run workflow** and optionally fill in:
+
+| Input | Default | Example |
+|---|---|---|
+| `test_filter` | _(all `^TestAcc`)_ | `TestAccVpcResource` |
+| `timeout` | `120m` | `30m` |
+
+### Required environment variables
+
+The following variables must be set as [repository secrets](https://docs.github.com/en/actions/security-guides/encrypted-secrets) for CI, or as shell exports when running locally.
+
+#### Always required
+
+| Variable | Purpose |
+|---|---|
+| `TF_ACC` | Must be `"1"` to activate acceptance tests |
+| `ARUBACLOUD_API_KEY` | API authentication |
+| `ARUBACLOUD_API_SECRET` | API authentication |
+
+#### Resource tests
+
+Resource tests (Create / Update / Delete lifecycle) only need the three variables above plus:
+
+| Variable | Purpose |
+|---|---|
+| `ARUBACLOUD_PROJECT_ID` | Project scope for every resource creation |
+
+#### Data source tests
+
+Data source tests look up an **existing** resource by ID. Each data source test skips (rather than fails) when its variable is absent — set only the ones you need.
+
+| Variable | Data source(s) |
+|---|---|
+| `ARUBACLOUD_PROJECT_ID` | All data sources |
+| `ARUBACLOUD_VPC_ID` | vpc, subnet, securitygroup, securityrule, vpcpeering, vpcpeeringroute |
+| `ARUBACLOUD_CLOUDSERVER_ID` | cloudserver |
+| `ARUBACLOUD_KEYPAIR_ID` | keypair |
+| `ARUBACLOUD_BLOCKSTORAGE_ID` | blockstorage |
+| `ARUBACLOUD_SNAPSHOT_ID` | snapshot |
+| `ARUBACLOUD_ELASTICIP_ID` | elasticip |
+| `ARUBACLOUD_BACKUP_ID` | backup, restore |
+| `ARUBACLOUD_RESTORE_ID` | restore |
+| `ARUBACLOUD_DBAAS_ID` | dbaas, dbaasuser, database, databasegrant |
+| `ARUBACLOUD_DATABASE_ID` | database, databasegrant |
+| `ARUBACLOUD_DATABASE_BACKUP_ID` | databasebackup |
+| `ARUBACLOUD_DBAAS_USERNAME` | dbaasuser |
+| `ARUBACLOUD_DBAAS_USER_ID` | databasegrant |
+| `ARUBACLOUD_KAAS_ID` | kaas |
+| `ARUBACLOUD_CONTAINERREGISTRY_ID` | containerregistry |
+| `ARUBACLOUD_SECURITYGROUP_ID` | securitygroup, securityrule |
+| `ARUBACLOUD_SECURITYRULE_ID` | securityrule |
+| `ARUBACLOUD_KMS_ID` | kms |
+| `ARUBACLOUD_SCHEDULEJOB_ID` | schedulejob |
+| `ARUBACLOUD_VPNTUNNEL_ID` | vpntunnel, vpnroute |
+| `ARUBACLOUD_VPNROUTE_ID` | vpnroute |
+| `ARUBACLOUD_VPCPEERING_ID` | vpcpeering, vpcpeeringroute |
+| `ARUBACLOUD_VPCPEERINGROUTE_ID` | vpcpeeringroute |
+
 ## When to regenerate docs
 
 Run `make generate` whenever you change:
