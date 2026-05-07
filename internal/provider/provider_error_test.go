@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"errors"
 	"testing"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
@@ -182,4 +183,115 @@ func TestNewResponseError_NilErrResp(t *testing.T) {
 		t.Errorf("expected technical, got %v", err.Category)
 	}
 	_ = err.Error()
+}
+
+func TestCheckResponse(t *testing.T) {
+	title404 := "Not Found"
+	title400 := "Validation failed"
+
+	cases := []struct {
+		name         string
+		resp         *sdktypes.Response[struct{}]
+		wantNil      bool
+		wantCategory ProviderErrorCategory
+	}{
+		{
+			name:         "nil response → technical error",
+			resp:         nil,
+			wantCategory: ProviderErrorCategoryTechnical,
+		},
+		{
+			name:    "200 OK → nil",
+			resp:    &sdktypes.Response[struct{}]{StatusCode: 200},
+			wantNil: true,
+		},
+		{
+			name:    "201 Created → nil",
+			resp:    &sdktypes.Response[struct{}]{StatusCode: 201},
+			wantNil: true,
+		},
+		{
+			name: "404 Not Found (no validation errors) → transient",
+			resp: &sdktypes.Response[struct{}]{
+				StatusCode: 404,
+				Error:      &sdktypes.ErrorResponse{Title: &title404},
+			},
+			wantCategory: ProviderErrorCategoryTransient,
+		},
+		{
+			name: "400 with validation errors → semantic",
+			resp: &sdktypes.Response[struct{}]{
+				StatusCode: 400,
+				Error: &sdktypes.ErrorResponse{
+					Title: &title400,
+					Errors: []sdktypes.ValidationError{
+						{Field: "name", Message: "is required"},
+					},
+				},
+			},
+			wantCategory: ProviderErrorCategorySemantic,
+		},
+		{
+			name:         "500 Internal Server Error → technical",
+			resp:         &sdktypes.Response[struct{}]{StatusCode: 500},
+			wantCategory: ProviderErrorCategoryTechnical,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := CheckResponse("create", "Resource", tc.resp)
+			if tc.wantNil {
+				if err != nil {
+					t.Errorf("expected nil error, got %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatal("expected non-nil error, got nil")
+			}
+			var provErr *ProviderError
+			if !errors.As(err, &provErr) {
+				t.Fatalf("expected *ProviderError, got %T", err)
+			}
+			if provErr.Category != tc.wantCategory {
+				t.Errorf("category: got %v, want %v", provErr.Category, tc.wantCategory)
+			}
+		})
+	}
+}
+
+func TestIsNotFound(t *testing.T) {
+	if IsNotFound(nil) {
+		t.Error("nil error should not be not-found")
+	}
+	notFound := &ProviderError{StatusCode: 404, Category: ProviderErrorCategoryTransient}
+	if !IsNotFound(notFound) {
+		t.Error("404 error should be not-found")
+	}
+	other := &ProviderError{StatusCode: 500, Category: ProviderErrorCategoryTechnical}
+	if IsNotFound(other) {
+		t.Error("500 error should not be not-found")
+	}
+}
+
+func TestErrorCategoryHelpers(t *testing.T) {
+	semantic := &ProviderError{Category: ProviderErrorCategorySemantic}
+	transient := &ProviderError{Category: ProviderErrorCategoryTransient}
+	technical := &ProviderError{Category: ProviderErrorCategoryTechnical}
+
+	if !ErrorIsSemantic(semantic) {
+		t.Error("expected semantic")
+	}
+	if ErrorIsSemantic(transient) {
+		t.Error("transient should not be semantic")
+	}
+	if !ErrorIsTransient(transient) {
+		t.Error("expected transient")
+	}
+	if !ErrorIsTechnical(technical) {
+		t.Error("expected technical")
+	}
+	if ErrorIsTechnical(nil) {
+		t.Error("nil should not be technical")
+	}
 }
