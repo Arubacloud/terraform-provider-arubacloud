@@ -1,6 +1,6 @@
 ---
 page_title: "arubacloud_keypair Resource - ArubaCloud"
-subcategory: "Security"
+subcategory: "Compute"
 description: |-
   Manages an ArubaCloud SSH KeyPair.
 ---

@@ -87,7 +87,7 @@ In addition to all arguments above, the following attributes are exported:
 
 Required:
 
-- `direction` (String) Traffic direction the rule applies to. Accepted values: `Inbound`, `Outbound`. (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `direction` (String) Traffic direction the rule applies to. Accepted values: `Ingress`, `Egress`. (Immutable — changing this value forces the resource to be destroyed and re-created.)
 - `protocol` (String) IP protocol. Accepted values: `TCP`, `UDP`, `ICMP`, `ANY` (case-insensitive).
 - `target` (Attributes) Source (inbound) or destination (outbound) endpoint for this rule. (see [below for nested schema](#nestedatt--properties--target))
 

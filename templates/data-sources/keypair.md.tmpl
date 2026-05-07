@@ -1,6 +1,6 @@
 ---
 page_title: "arubacloud_keypair Data Source - ArubaCloud"
-subcategory: "Security"
+subcategory: "Compute"
 description: |-
   Retrieves information about an existing ArubaCloud SSH KeyPair.
 ---

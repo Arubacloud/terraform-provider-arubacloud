@@ -81,7 +81,7 @@ func (d *SecurityRuleDataSource) Schema(ctx context.Context, req datasource.Sche
 				Computed:            true,
 			},
 			"direction": schema.StringAttribute{
-				MarkdownDescription: "Traffic direction the rule applies to. Accepted values: `Inbound`, `Outbound`.",
+				MarkdownDescription: "Traffic direction the rule applies to. Accepted values: `Ingress`, `Egress`.",
 				Computed:            true,
 			},
 			"protocol": schema.StringAttribute{
