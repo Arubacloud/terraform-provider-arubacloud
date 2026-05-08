@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/pre-flight.sh",
+            "timeout": 180,
+            "statusMessage": "Running pre-flight checks (lint, build, generate)..."
+          }
+        ]
+      }
+    ]
+  }
+}
