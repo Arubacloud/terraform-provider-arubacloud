@@ -68,6 +68,7 @@ resource "arubacloud_securitygroup" "test" {
   location   = "ITBG-Bergamo"
   project_id = %[1]q
   vpc_id     = arubacloud_vpc.test.id
+  tags       = ["acceptance-test"]
 }
 
 data "arubacloud_securitygroup" "test" {

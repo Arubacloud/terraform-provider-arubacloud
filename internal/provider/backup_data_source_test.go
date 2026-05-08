@@ -85,6 +85,7 @@ resource "arubacloud_backup" "test" {
   volume_id      = arubacloud_blockstorage.test.id
   billing_period = "Hour"
   retention_days = 7
+  tags           = ["acceptance-test"]
 }
 
 data "arubacloud_backup" "test" {

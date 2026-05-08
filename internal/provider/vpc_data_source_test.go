@@ -61,6 +61,7 @@ resource "arubacloud_vpc" "test" {
   name       = "test-ds-vpc"
   location   = "ITBG-Bergamo"
   project_id = %[1]q
+  tags       = ["acceptance-test"]
 }
 
 data "arubacloud_vpc" "test" {

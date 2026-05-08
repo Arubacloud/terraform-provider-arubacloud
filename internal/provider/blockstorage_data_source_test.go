@@ -75,6 +75,7 @@ resource "arubacloud_blockstorage" "test" {
   billing_period = "Hour"
   zone           = "ITBG-1"
   type           = "Standard"
+  tags           = ["acceptance-test"]
 }
 
 data "arubacloud_blockstorage" "test" {

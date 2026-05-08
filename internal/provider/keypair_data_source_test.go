@@ -84,6 +84,7 @@ resource "arubacloud_keypair" "test" {
   location   = "ITBG-Bergamo"
   project_id = %[1]q
   value      = %[2]q
+  tags       = ["acceptance-test"]
 }
 
 data "arubacloud_keypair" "test" {

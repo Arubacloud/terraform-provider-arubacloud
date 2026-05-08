@@ -66,6 +66,7 @@ resource "arubacloud_elasticip" "test" {
   name       = "test-ds-elasticip"
   location   = "ITBG-Bergamo"
   project_id = %[1]q
+  tags       = ["acceptance-test"]
 }
 
 data "arubacloud_elasticip" "test" {
