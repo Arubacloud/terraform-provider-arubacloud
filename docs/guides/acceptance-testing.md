@@ -33,10 +33,26 @@ go test -v -timeout=120m ./internal/provider/... -run '^TestAcc'
 go test -v -timeout=30m ./internal/provider/... -run '^TestAccKeypairResource$'
 ```
 
-A convenience wrapper is available that loads credentials from `examples/test/compute/terraform.tfvars`:
+A convenience wrapper is available that accepts credentials and fixture IDs as flags:
 
 ```bash
-./run-acceptance-tests.sh TestAccKeypairResource
+# Minimal: run a single test
+./run-acceptance-tests.sh \
+  --api-key "$ARUBACLOUD_API_KEY" \
+  --api-secret "$ARUBACLOUD_API_SECRET" \
+  --project-id "$ARUBACLOUD_PROJECT_ID" \
+  -t '^TestAccKeypairResource$'
+
+# With an optional fixture for DBaaS-dependent tests
+./run-acceptance-tests.sh \
+  --api-key "$ARUBACLOUD_API_KEY" \
+  --api-secret "$ARUBACLOUD_API_SECRET" \
+  --project-id "$ARUBACLOUD_PROJECT_ID" \
+  --dbaas-id "$ARUBACLOUD_DBAAS_ID" \
+  -t '^TestAccDatabaseDataSource$'
+
+# Full flag reference
+./run-acceptance-tests.sh --help
 ```
 
 ## CI — Manual Trigger
