@@ -16,13 +16,17 @@ func TestAccSchedulejobDataSource(t *testing.T) {
 	if projectID == "" {
 		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
 	}
+	cloudserverID := os.Getenv("ARUBACLOUD_CLOUDSERVER_ID")
+	if cloudserverID == "" {
+		t.Skip("ARUBACLOUD_CLOUDSERVER_ID must be set for schedulejob acceptance tests (step resource_uri requires an existing cloud server)")
+	}
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccSchedulejobDataSourceConfig(projectID),
+				Config: testAccSchedulejobDataSourceConfig(projectID, cloudserverID),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_schedulejob.test",
@@ -45,7 +49,7 @@ func TestAccSchedulejobDataSource(t *testing.T) {
 	})
 }
 
-func testAccSchedulejobDataSourceConfig(projectID string) string {
+func testAccSchedulejobDataSourceConfig(projectID, cloudserverID string) string {
 	return fmt.Sprintf(`
 resource "arubacloud_schedulejob" "test" {
   name       = "test-ds-schedulejob"
@@ -55,7 +59,15 @@ resource "arubacloud_schedulejob" "test" {
   properties = {
     schedule_job_type = "OneShot"
     schedule_at       = "2099-12-31T23:59:59Z"
-    steps             = []
+    steps = [
+      {
+        name         = "Power Off Server"
+        resource_uri = "/projects/%[1]s/providers/Aruba.Compute/cloudServers/%[2]s"
+        action_uri   = "poweroff"
+        http_verb    = "POST"
+        body         = null
+      }
+    ]
   }
 }
 
