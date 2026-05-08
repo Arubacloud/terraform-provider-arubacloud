@@ -16,13 +16,17 @@ func TestAccVpntunnelDataSource(t *testing.T) {
 	if projectID == "" {
 		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
 	}
+	vpntunnelID := os.Getenv("ARUBACLOUD_VPNTUNNEL_ID")
+	if vpntunnelID == "" {
+		t.Skip("ARUBACLOUD_VPNTUNNEL_ID must be set for acceptance tests (VPN tunnel requires public IP, subnet CIDR and full vpnClientSettings — use a pre-provisioned fixture)")
+	}
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccVpntunnelDataSourceConfig(projectID),
+				Config: testAccVpntunnelDataSourceConfig(projectID, vpntunnelID),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_vpntunnel.test",
@@ -45,32 +49,11 @@ func TestAccVpntunnelDataSource(t *testing.T) {
 	})
 }
 
-func testAccVpntunnelDataSourceConfig(projectID string) string {
+func testAccVpntunnelDataSourceConfig(projectID, vpntunnelID string) string {
 	return fmt.Sprintf(`
-resource "arubacloud_vpc" "test" {
-  name       = "test-ds-vpc"
-  location   = "ITBG-Bergamo"
-  project_id = %[1]q
-}
-
-resource "arubacloud_vpntunnel" "test" {
-  name       = "test-ds-vpntunnel"
-  location   = "ITBG-Bergamo"
-  project_id = %[1]q
-
-  properties = {
-    vpn_type = "Site-To-Site"
-    ip_configurations = {
-      vpc = {
-        id = arubacloud_vpc.test.id
-      }
-    }
-  }
-}
-
 data "arubacloud_vpntunnel" "test" {
-  id         = arubacloud_vpntunnel.test.id
+  id         = %[2]q
   project_id = %[1]q
 }
-`, projectID)
+`, projectID, vpntunnelID)
 }

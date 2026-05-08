@@ -16,13 +16,21 @@ func TestAccVpnrouteDataSource(t *testing.T) {
 	if projectID == "" {
 		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
 	}
+	vpntunnelID := os.Getenv("ARUBACLOUD_VPNTUNNEL_ID")
+	if vpntunnelID == "" {
+		t.Skip("ARUBACLOUD_VPNTUNNEL_ID must be set for acceptance tests")
+	}
+	vpnrouteID := os.Getenv("ARUBACLOUD_VPNROUTE_ID")
+	if vpnrouteID == "" {
+		t.Skip("ARUBACLOUD_VPNROUTE_ID must be set for acceptance tests")
+	}
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccVpnrouteDataSourceConfig(projectID),
+				Config: testAccVpnrouteDataSourceConfig(projectID, vpntunnelID, vpnrouteID),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_vpnroute.test",
@@ -55,45 +63,12 @@ func TestAccVpnrouteDataSource(t *testing.T) {
 	})
 }
 
-func testAccVpnrouteDataSourceConfig(projectID string) string {
+func testAccVpnrouteDataSourceConfig(projectID, vpntunnelID, vpnrouteID string) string {
 	return fmt.Sprintf(`
-resource "arubacloud_vpc" "test" {
-  name       = "test-ds-vpc"
-  location   = "ITBG-Bergamo"
-  project_id = %[1]q
-}
-
-resource "arubacloud_vpntunnel" "test" {
-  name       = "test-ds-vpntunnel"
-  location   = "ITBG-Bergamo"
-  project_id = %[1]q
-
-  properties = {
-    vpn_type = "Site-To-Site"
-    ip_configurations = {
-      vpc = {
-        id = arubacloud_vpc.test.id
-      }
-    }
-  }
-}
-
-resource "arubacloud_vpnroute" "test" {
-  name          = "test-ds-vpnroute"
-  location      = "ITBG-Bergamo"
-  project_id    = %[1]q
-  vpn_tunnel_id = arubacloud_vpntunnel.test.id
-
-  properties = {
-    cloud_subnet   = "10.0.0.0/24"
-    on_prem_subnet = "192.168.0.0/24"
-  }
-}
-
 data "arubacloud_vpnroute" "test" {
-  id            = arubacloud_vpnroute.test.id
+  id            = %[3]q
   project_id    = %[1]q
-  vpn_tunnel_id = arubacloud_vpntunnel.test.id
+  vpn_tunnel_id = %[2]q
 }
-`, projectID)
+`, projectID, vpntunnelID, vpnrouteID)
 }

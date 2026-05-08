@@ -73,12 +73,8 @@ resource "arubacloud_subnet" "test" {
   location   = "ITBG-Bergamo"
   project_id = %[1]q
   vpc_id     = arubacloud_vpc.test.id
-  type       = "Advanced"
+  type       = "Basic"
   tags       = ["acceptance-test"]
-
-  network = {
-    address = "10.0.0.0/24"
-  }
 }
 
 data "arubacloud_subnet" "test" {

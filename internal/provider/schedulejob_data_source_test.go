@@ -55,15 +55,17 @@ resource "arubacloud_schedulejob" "test" {
   name       = "test-ds-schedulejob"
   project_id = %[1]q
   location   = "ITBG-Bergamo"
+  tags       = []
 
   properties = {
     schedule_job_type = "OneShot"
-    schedule_at       = "2099-12-31T23:59:59Z"
+    schedule_at       = "2099-12-31T23:59:59+00:00"
+    enabled           = true
     steps = [
       {
         name         = "Power Off Server"
         resource_uri = "/projects/%[1]s/providers/Aruba.Compute/cloudServers/%[2]s"
-        action_uri   = "poweroff"
+        action_uri   = "/poweroff"
         http_verb    = "POST"
         body         = null
       }
