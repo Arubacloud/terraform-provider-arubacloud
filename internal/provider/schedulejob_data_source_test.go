@@ -13,9 +13,8 @@ import (
 
 func TestAccSchedulejobDataSource(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
-	jobID := os.Getenv("ARUBACLOUD_SCHEDULEJOB_ID")
-	if projectID == "" || jobID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_SCHEDULEJOB_ID must be set for acceptance tests")
+	if projectID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
 	}
 
 	resource.Test(t, resource.TestCase{
@@ -23,7 +22,7 @@ func TestAccSchedulejobDataSource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccSchedulejobDataSourceConfig(projectID, jobID),
+				Config: testAccSchedulejobDataSourceConfig(projectID),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_schedulejob.test",
@@ -46,11 +45,23 @@ func TestAccSchedulejobDataSource(t *testing.T) {
 	})
 }
 
-func testAccSchedulejobDataSourceConfig(projectID, jobID string) string {
+func testAccSchedulejobDataSourceConfig(projectID string) string {
 	return fmt.Sprintf(`
-data "arubacloud_schedulejob" "test" {
-  id         = %[1]q
-  project_id = %[2]q
+resource "arubacloud_schedulejob" "test" {
+  name       = "test-ds-schedulejob"
+  project_id = %[1]q
+  location   = "ITBG-Bergamo"
+
+  properties = {
+    schedule_job_type = "OneShot"
+    schedule_at       = "2099-12-31T23:59:59Z"
+    steps             = []
+  }
 }
-`, jobID, projectID)
+
+data "arubacloud_schedulejob" "test" {
+  id         = arubacloud_schedulejob.test.id
+  project_id = %[1]q
+}
+`, projectID)
 }

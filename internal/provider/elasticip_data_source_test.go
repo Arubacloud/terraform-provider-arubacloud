@@ -13,9 +13,8 @@ import (
 
 func TestAccElasticipDataSource(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
-	eipID := os.Getenv("ARUBACLOUD_ELASTICIP_ID")
-	if projectID == "" || eipID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_ELASTICIP_ID must be set for acceptance tests")
+	if projectID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
 	}
 
 	resource.Test(t, resource.TestCase{
@@ -23,7 +22,7 @@ func TestAccElasticipDataSource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccElasticipDataSourceConfig(projectID, eipID),
+				Config: testAccElasticipDataSourceConfig(projectID),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_elasticip.test",
@@ -61,11 +60,17 @@ func TestAccElasticipDataSource(t *testing.T) {
 	})
 }
 
-func testAccElasticipDataSourceConfig(projectID, eipID string) string {
+func testAccElasticipDataSourceConfig(projectID string) string {
 	return fmt.Sprintf(`
-data "arubacloud_elasticip" "test" {
-  id         = %[1]q
-  project_id = %[2]q
+resource "arubacloud_elasticip" "test" {
+  name       = "test-ds-elasticip"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
 }
-`, eipID, projectID)
+
+data "arubacloud_elasticip" "test" {
+  id         = arubacloud_elasticip.test.id
+  project_id = %[1]q
+}
+`, projectID)
 }

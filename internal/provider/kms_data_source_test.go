@@ -13,9 +13,8 @@ import (
 
 func TestAccKmsDataSource(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
-	kmsID := os.Getenv("ARUBACLOUD_KMS_ID")
-	if projectID == "" || kmsID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_KMS_ID must be set for acceptance tests")
+	if projectID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
 	}
 
 	resource.Test(t, resource.TestCase{
@@ -23,7 +22,7 @@ func TestAccKmsDataSource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccKmsDataSourceConfig(projectID, kmsID),
+				Config: testAccKmsDataSourceConfig(projectID),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_kms.test",
@@ -46,11 +45,18 @@ func TestAccKmsDataSource(t *testing.T) {
 	})
 }
 
-func testAccKmsDataSourceConfig(projectID, kmsID string) string {
+func testAccKmsDataSourceConfig(projectID string) string {
 	return fmt.Sprintf(`
-data "arubacloud_kms" "test" {
-  id         = %[1]q
-  project_id = %[2]q
+resource "arubacloud_kms" "test" {
+  name           = "test-ds-kms"
+  project_id     = %[1]q
+  location       = "ITBG-Bergamo"
+  billing_period = "Hour"
 }
-`, kmsID, projectID)
+
+data "arubacloud_kms" "test" {
+  id         = arubacloud_kms.test.id
+  project_id = %[1]q
+}
+`, projectID)
 }

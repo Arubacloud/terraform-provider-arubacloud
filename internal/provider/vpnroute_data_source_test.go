@@ -13,10 +13,8 @@ import (
 
 func TestAccVpnrouteDataSource(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
-	tunnelID := os.Getenv("ARUBACLOUD_VPNTUNNEL_ID")
-	routeID := os.Getenv("ARUBACLOUD_VPNROUTE_ID")
-	if projectID == "" || tunnelID == "" || routeID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID, ARUBACLOUD_VPNTUNNEL_ID and ARUBACLOUD_VPNROUTE_ID must be set for acceptance tests")
+	if projectID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
 	}
 
 	resource.Test(t, resource.TestCase{
@@ -24,7 +22,7 @@ func TestAccVpnrouteDataSource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccVpnrouteDataSourceConfig(projectID, tunnelID, routeID),
+				Config: testAccVpnrouteDataSourceConfig(projectID),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_vpnroute.test",
@@ -39,7 +37,7 @@ func TestAccVpnrouteDataSource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_vpnroute.test",
 						tfjsonpath.New("vpn_tunnel_id"),
-						knownvalue.StringExact(tunnelID),
+						knownvalue.NotNull(),
 					),
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_vpnroute.test",
@@ -57,12 +55,34 @@ func TestAccVpnrouteDataSource(t *testing.T) {
 	})
 }
 
-func testAccVpnrouteDataSourceConfig(projectID, tunnelID, routeID string) string {
+func testAccVpnrouteDataSourceConfig(projectID string) string {
 	return fmt.Sprintf(`
-data "arubacloud_vpnroute" "test" {
-  id             = %[1]q
-  project_id     = %[2]q
-  vpn_tunnel_id  = %[3]q
+resource "arubacloud_vpntunnel" "test" {
+  name       = "test-ds-vpntunnel"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+
+  properties = {
+    vpn_type = "Site-To-Site"
+  }
 }
-`, routeID, projectID, tunnelID)
+
+resource "arubacloud_vpnroute" "test" {
+  name          = "test-ds-vpnroute"
+  location      = "ITBG-Bergamo"
+  project_id    = %[1]q
+  vpn_tunnel_id = arubacloud_vpntunnel.test.id
+
+  properties = {
+    cloud_subnet   = "10.0.0.0/24"
+    on_prem_subnet = "192.168.0.0/24"
+  }
+}
+
+data "arubacloud_vpnroute" "test" {
+  id            = arubacloud_vpnroute.test.id
+  project_id    = %[1]q
+  vpn_tunnel_id = arubacloud_vpntunnel.test.id
+}
+`, projectID)
 }

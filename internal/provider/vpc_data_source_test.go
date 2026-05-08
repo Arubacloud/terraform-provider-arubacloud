@@ -13,9 +13,8 @@ import (
 
 func TestAccVpcDataSource(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
-	vpcID := os.Getenv("ARUBACLOUD_VPC_ID")
-	if projectID == "" || vpcID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_VPC_ID must be set for acceptance tests")
+	if projectID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
 	}
 
 	resource.Test(t, resource.TestCase{
@@ -23,7 +22,7 @@ func TestAccVpcDataSource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccVpcDataSourceConfig(projectID, vpcID),
+				Config: testAccVpcDataSourceConfig(projectID),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_vpc.test",
@@ -56,11 +55,17 @@ func TestAccVpcDataSource(t *testing.T) {
 	})
 }
 
-func testAccVpcDataSourceConfig(projectID, vpcID string) string {
+func testAccVpcDataSourceConfig(projectID string) string {
 	return fmt.Sprintf(`
-data "arubacloud_vpc" "test" {
-  id         = %[1]q
-  project_id = %[2]q
+resource "arubacloud_vpc" "test" {
+  name       = "test-ds-vpc"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
 }
-`, vpcID, projectID)
+
+data "arubacloud_vpc" "test" {
+  id         = arubacloud_vpc.test.id
+  project_id = %[1]q
+}
+`, projectID)
 }

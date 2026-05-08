@@ -14,10 +14,8 @@ import (
 func TestAccDatabasegrantDataSource(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
 	dbaasID := os.Getenv("ARUBACLOUD_DBAAS_ID")
-	database := os.Getenv("ARUBACLOUD_DATABASE_ID")
-	userID := os.Getenv("ARUBACLOUD_DBAAS_USER_ID")
-	if projectID == "" || dbaasID == "" || database == "" || userID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID, ARUBACLOUD_DBAAS_ID, ARUBACLOUD_DATABASE_ID and ARUBACLOUD_DBAAS_USER_ID must be set for acceptance tests")
+	if projectID == "" || dbaasID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_DBAAS_ID must be set for acceptance tests")
 	}
 
 	resource.Test(t, resource.TestCase{
@@ -25,7 +23,7 @@ func TestAccDatabasegrantDataSource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccDatabasegrantDataSourceConfig(projectID, dbaasID, database, userID),
+				Config: testAccDatabasegrantDataSourceConfig(projectID, dbaasID),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_databasegrant.test",
@@ -45,12 +43,12 @@ func TestAccDatabasegrantDataSource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_databasegrant.test",
 						tfjsonpath.New("database"),
-						knownvalue.StringExact(database),
+						knownvalue.NotNull(),
 					),
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_databasegrant.test",
 						tfjsonpath.New("user_id"),
-						knownvalue.StringExact(userID),
+						knownvalue.NotNull(),
 					),
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_databasegrant.test",
@@ -63,13 +61,34 @@ func TestAccDatabasegrantDataSource(t *testing.T) {
 	})
 }
 
-func testAccDatabasegrantDataSourceConfig(projectID, dbaasID, database, userID string) string {
+func testAccDatabasegrantDataSourceConfig(projectID, dbaasID string) string {
 	return fmt.Sprintf(`
+resource "arubacloud_dbaasuser" "test" {
+  project_id = %[1]q
+  dbaas_id   = %[2]q
+  username   = "test-ds-grantuser"
+  password   = "TestPassword123!"
+}
+
+resource "arubacloud_database" "test" {
+  name       = "testdsgrantdb"
+  project_id = %[1]q
+  dbaas_id   = %[2]q
+}
+
+resource "arubacloud_databasegrant" "test" {
+  project_id = %[1]q
+  dbaas_id   = %[2]q
+  database   = arubacloud_database.test.name
+  user_id    = arubacloud_dbaasuser.test.username
+  role       = "read"
+}
+
 data "arubacloud_databasegrant" "test" {
   project_id = %[1]q
   dbaas_id   = %[2]q
-  database   = %[3]q
-  user_id    = %[4]q
+  database   = arubacloud_database.test.name
+  user_id    = arubacloud_dbaasuser.test.username
 }
-`, projectID, dbaasID, database, userID)
+`, projectID, dbaasID)
 }

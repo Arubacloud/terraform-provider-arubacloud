@@ -14,9 +14,8 @@ import (
 func TestAccDbaasuserDataSource(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
 	dbaasID := os.Getenv("ARUBACLOUD_DBAAS_ID")
-	username := os.Getenv("ARUBACLOUD_DBAAS_USERNAME")
-	if projectID == "" || dbaasID == "" || username == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID, ARUBACLOUD_DBAAS_ID and ARUBACLOUD_DBAAS_USERNAME must be set for acceptance tests")
+	if projectID == "" || dbaasID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_DBAAS_ID must be set for acceptance tests")
 	}
 
 	resource.Test(t, resource.TestCase{
@@ -24,17 +23,17 @@ func TestAccDbaasuserDataSource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccDbaasuserDataSourceConfig(projectID, dbaasID, username),
+				Config: testAccDbaasuserDataSourceConfig(projectID, dbaasID),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_dbaasuser.test",
 						tfjsonpath.New("id"),
-						knownvalue.StringExact(username),
+						knownvalue.NotNull(),
 					),
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_dbaasuser.test",
 						tfjsonpath.New("username"),
-						knownvalue.StringExact(username),
+						knownvalue.NotNull(),
 					),
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_dbaasuser.test",
@@ -52,12 +51,19 @@ func TestAccDbaasuserDataSource(t *testing.T) {
 	})
 }
 
-func testAccDbaasuserDataSourceConfig(projectID, dbaasID, username string) string {
+func testAccDbaasuserDataSourceConfig(projectID, dbaasID string) string {
 	return fmt.Sprintf(`
-data "arubacloud_dbaasuser" "test" {
-  username   = %[1]q
-  project_id = %[2]q
-  dbaas_id   = %[3]q
+resource "arubacloud_dbaasuser" "test" {
+  project_id = %[1]q
+  dbaas_id   = %[2]q
+  username   = "test-ds-user"
+  password   = "TestPassword123!"
 }
-`, username, projectID, dbaasID)
+
+data "arubacloud_dbaasuser" "test" {
+  username   = arubacloud_dbaasuser.test.username
+  project_id = %[1]q
+  dbaas_id   = %[2]q
+}
+`, projectID, dbaasID)
 }
