@@ -75,5 +75,5 @@ data "arubacloud_schedulejob" "test" {
   id         = arubacloud_schedulejob.test.id
   project_id = %[1]q
 }
-`, projectID)
+`, projectID, cloudserverID)
 }

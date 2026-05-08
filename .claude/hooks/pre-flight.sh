@@ -27,11 +27,11 @@ else
 fi
 
 # 2. go build
-printf "\n--- go build ---\n"
-if go build ./... 2>&1; then
-  echo "OK: go build"
+printf "\n--- go build + vet (incl. test files) ---\n"
+if go vet ./... 2>&1; then
+  echo "OK: go vet (covers build + test files)"
 else
-  echo "FAIL: go build"
+  echo "FAIL: go vet"
   FAILED=1
 fi
 
@@ -46,14 +46,6 @@ else
   FAILED=1
 fi
 
-# 4. go vet
-printf "\n--- go vet ---\n"
-if go vet ./... 2>&1; then
-  echo "OK: go vet"
-else
-  echo "FAIL: go vet"
-  FAILED=1
-fi
 
 # 5. golangci-lint (skip if not installed)
 printf "\n--- golangci-lint ---\n"
