@@ -55,9 +55,6 @@ func TestAccSnapshotDataSource(t *testing.T) {
 	})
 }
 
-// The snapshot resource requires volume_uri in the format:
-// /projects/{project_id}/providers/Aruba.Storage/volumes/{volume_id}
-// This is constructed from the blockstorage resource's computed attributes.
 func testAccSnapshotDataSourceConfig(projectID string) string {
 	return fmt.Sprintf(`
 resource "arubacloud_blockstorage" "test" {
@@ -75,7 +72,7 @@ resource "arubacloud_snapshot" "test" {
   project_id     = %[1]q
   location       = "ITBG-Bergamo"
   billing_period = "Hour"
-  volume_uri     = "/projects/${arubacloud_blockstorage.test.project_id}/providers/Aruba.Storage/volumes/${arubacloud_blockstorage.test.id}"
+  volume_uri     = arubacloud_blockstorage.test.uri
 }
 
 data "arubacloud_snapshot" "test" {

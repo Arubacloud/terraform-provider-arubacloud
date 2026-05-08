@@ -47,6 +47,12 @@ func TestAccVpntunnelDataSource(t *testing.T) {
 
 func testAccVpntunnelDataSourceConfig(projectID string) string {
 	return fmt.Sprintf(`
+resource "arubacloud_vpc" "test" {
+  name       = "test-ds-vpc"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+}
+
 resource "arubacloud_vpntunnel" "test" {
   name       = "test-ds-vpntunnel"
   location   = "ITBG-Bergamo"
@@ -54,6 +60,11 @@ resource "arubacloud_vpntunnel" "test" {
 
   properties = {
     vpn_type = "Site-To-Site"
+    ip_configurations = {
+      vpc = {
+        id = arubacloud_vpc.test.id
+      }
+    }
   }
 }
 
