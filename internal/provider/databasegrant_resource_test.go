@@ -1,12 +1,14 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 )
 
@@ -14,6 +16,7 @@ func TestAccDatabasegrantResource(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testCheckDatabasegrantDestroyed,
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
@@ -55,6 +58,34 @@ func TestAccDatabasegrantResource(t *testing.T) {
 			},
 		},
 	})
+}
+
+func testCheckDatabasegrantDestroyed(s *terraform.State) error {
+	client, err := testAccClient()
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	for _, rs := range s.RootModule().Resources {
+		if rs.Type != "arubacloud_databasegrant" {
+			continue
+		}
+		dbaasID := rs.Primary.Attributes["dbaas_id"]
+		database := rs.Primary.Attributes["database"]
+		userID := rs.Primary.Attributes["user_id"]
+		resp, err := client.Client.FromDatabase().Grants().Get(ctx, rs.Primary.Attributes["project_id"], dbaasID, database, userID, nil)
+		if err != nil {
+			return err
+		}
+		if apiErr := CheckResponse("get", "Databasegrant", resp); apiErr != nil {
+			if IsNotFound(apiErr) {
+				continue
+			}
+			return apiErr
+		}
+		return fmt.Errorf("DatabaseGrant %s still exists", rs.Primary.ID)
+	}
+	return nil
 }
 
 func testAccDatabasegrantResourceConfig(name string) string {

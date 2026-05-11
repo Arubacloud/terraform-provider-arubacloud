@@ -1,12 +1,14 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 )
 
@@ -14,6 +16,7 @@ func TestAccBlockStorageResource(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testCheckBlockstorageDestroyed,
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
@@ -78,7 +81,6 @@ func TestAccBlockStorageResource(t *testing.T) {
 					),
 				},
 			},
-			// Delete testing automatically occurs in TestCase
 		},
 	})
 }
@@ -87,6 +89,7 @@ func TestAccBlockStorageResource_Bootable(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testCheckBlockstorageDestroyed,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccBlockStorageResourceConfigBootable("test-bootable", 50),
@@ -110,6 +113,31 @@ func TestAccBlockStorageResource_Bootable(t *testing.T) {
 			},
 		},
 	})
+}
+
+func testCheckBlockstorageDestroyed(s *terraform.State) error {
+	client, err := testAccClient()
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	for _, rs := range s.RootModule().Resources {
+		if rs.Type != "arubacloud_blockstorage" {
+			continue
+		}
+		resp, err := client.Client.FromStorage().Volumes().Get(ctx, rs.Primary.Attributes["project_id"], rs.Primary.ID, nil)
+		if err != nil {
+			return err
+		}
+		if apiErr := CheckResponse("get", "Blockstorage", resp); apiErr != nil {
+			if IsNotFound(apiErr) {
+				continue
+			}
+			return apiErr
+		}
+		return fmt.Errorf("BlockStorage volume %s still exists", rs.Primary.ID)
+	}
+	return nil
 }
 
 func testAccBlockStorageResourceConfig(name string, sizeGB int, storageType string) string {
