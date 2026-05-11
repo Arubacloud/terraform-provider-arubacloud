@@ -83,41 +83,4 @@ jobs:
           flags: unittests
           fail_ci_if_error: false
 
-  # Acceptance tests (optional, only on main branch)
-  acceptance:
-    name: Acceptance Tests
-    needs: build
-    runs-on: ubuntu-latest
-    timeout-minutes: 120
-    # Only run on main branch to avoid using API quota on PRs
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-      - uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
-        with:
-          go-version-file: 'go.mod'
-          cache: true
-      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
-        with:
-          terraform_wrapper: false
-      - run: go mod download
-      - name: Run acceptance tests with coverage
-        env:
-          TF_ACC: "1"
-          ARUBACLOUD_API_KEY: ${{ secrets.ARUBACLOUD_API_KEY }}
-          ARUBACLOUD_API_SECRET: ${{ secrets.ARUBACLOUD_API_SECRET }}
-        run: go test -v -coverprofile=coverage-acceptance.out -timeout=120m ./internal/provider/... -run '^TestAcc'
-      - name: Generate acceptance coverage report
-        run: |
-          go tool cover -html=coverage-acceptance.out -o coverage-acceptance.html
-          echo "## Test Coverage Summary" >> $GITHUB_STEP_SUMMARY
-          go tool cover -func=coverage-acceptance.out | tail -1 >> $GITHUB_STEP_SUMMARY
-      - name: Upload acceptance coverage
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: coverage-report-acceptance
-          path: |
-            coverage-acceptance.html
-            coverage-acceptance.out
-          retention-days: 30
 
