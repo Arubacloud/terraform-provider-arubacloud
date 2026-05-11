@@ -2,7 +2,7 @@ terraform {
   required_providers {
     arubacloud = {
       source  = "arubacloud/arubacloud"
-      version = "~> 0.0.1"
+      version = "~> 0.1.0"
     }
   }
 }
