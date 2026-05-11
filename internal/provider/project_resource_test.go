@@ -1,12 +1,14 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 )
 
@@ -16,6 +18,7 @@ func TestAccProjectResource(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testCheckProjectDestroyed,
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
@@ -52,6 +55,31 @@ func TestAccProjectResource(t *testing.T) {
 			},
 		},
 	})
+}
+
+func testCheckProjectDestroyed(s *terraform.State) error {
+	client, err := testAccClient()
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	for _, rs := range s.RootModule().Resources {
+		if rs.Type != "arubacloud_project" {
+			continue
+		}
+		resp, err := client.Client.FromProject().Get(ctx, rs.Primary.ID, nil)
+		if err != nil {
+			return nil
+		}
+		if apiErr := CheckResponse("get", "Project", resp); apiErr != nil {
+			if IsNotFound(apiErr) {
+				continue
+			}
+			return apiErr
+		}
+		return fmt.Errorf("Project %s still exists", rs.Primary.ID)
+	}
+	return nil
 }
 
 func testAccProjectResourceConfig(name string) string {

@@ -1,9 +1,12 @@
 package provider
 
 import (
+	"fmt"
 	"os"
 	"testing"
+	"time"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 )
@@ -22,4 +25,21 @@ func testAccPreCheck(t *testing.T) {
 			t.Fatalf("acceptance tests require %s to be set", env)
 		}
 	}
+}
+
+// testAccClient builds an ArubaCloudClient from env vars for use in CheckDestroy functions.
+func testAccClient() (*ArubaCloudClient, error) {
+	apiKey := os.Getenv("ARUBACLOUD_API_KEY")
+	apiSecret := os.Getenv("ARUBACLOUD_API_SECRET")
+	if apiKey == "" || apiSecret == "" {
+		return nil, fmt.Errorf("ARUBACLOUD_API_KEY and ARUBACLOUD_API_SECRET must be set")
+	}
+	sdkClient, err := aruba.NewClient(aruba.DefaultOptions(apiKey, apiSecret))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create test client: %w", err)
+	}
+	return &ArubaCloudClient{
+		Client:          sdkClient,
+		ResourceTimeout: 10 * time.Minute,
+	}, nil
 }

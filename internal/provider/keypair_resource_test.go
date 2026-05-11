@@ -1,12 +1,14 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 )
 
@@ -14,6 +16,7 @@ func TestAccKeypairResource(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testCheckKeypairDestroyed,
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
@@ -50,6 +53,31 @@ func TestAccKeypairResource(t *testing.T) {
 			},
 		},
 	})
+}
+
+func testCheckKeypairDestroyed(s *terraform.State) error {
+	client, err := testAccClient()
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	for _, rs := range s.RootModule().Resources {
+		if rs.Type != "arubacloud_keypair" {
+			continue
+		}
+		resp, err := client.Client.FromCompute().KeyPairs().Get(ctx, rs.Primary.Attributes["project_id"], rs.Primary.ID, nil)
+		if err != nil {
+			return nil
+		}
+		if apiErr := CheckResponse("get", "Keypair", resp); apiErr != nil {
+			if IsNotFound(apiErr) {
+				continue
+			}
+			return apiErr
+		}
+		return fmt.Errorf("Keypair %s still exists", rs.Primary.ID)
+	}
+	return nil
 }
 
 func testAccKeypairResourceConfig(name string) string {

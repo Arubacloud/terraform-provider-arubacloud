@@ -1,12 +1,14 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 )
 
@@ -14,6 +16,7 @@ func TestAccBackupResource(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testCheckBackupDestroyed,
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
@@ -82,6 +85,7 @@ func TestAccBackupResource_WithTags(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testCheckBackupDestroyed,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccBackupResourceConfigWithTags("test-backup-tags", "ITBG-Bergamo"),
@@ -100,6 +104,31 @@ func TestAccBackupResource_WithTags(t *testing.T) {
 			},
 		},
 	})
+}
+
+func testCheckBackupDestroyed(s *terraform.State) error {
+	client, err := testAccClient()
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	for _, rs := range s.RootModule().Resources {
+		if rs.Type != "arubacloud_backup" {
+			continue
+		}
+		resp, err := client.Client.FromStorage().Backups().Get(ctx, rs.Primary.Attributes["project_id"], rs.Primary.ID, nil)
+		if err != nil {
+			return nil
+		}
+		if apiErr := CheckResponse("get", "Backup", resp); apiErr != nil {
+			if IsNotFound(apiErr) {
+				continue
+			}
+			return apiErr
+		}
+		return fmt.Errorf("Backup %s still exists", rs.Primary.ID)
+	}
+	return nil
 }
 
 func testAccBackupResourceConfig(name, location, backupType string, retentionDays int) string {

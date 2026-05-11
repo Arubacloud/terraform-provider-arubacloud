@@ -1,12 +1,14 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 )
 
@@ -14,6 +16,7 @@ func TestAccSubnetResource(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testCheckSubnetDestroyed,
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
@@ -62,6 +65,32 @@ func TestAccSubnetResource(t *testing.T) {
 	})
 }
 
+func testCheckSubnetDestroyed(s *terraform.State) error {
+	client, err := testAccClient()
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	for _, rs := range s.RootModule().Resources {
+		if rs.Type != "arubacloud_subnet" {
+			continue
+		}
+		vpcID := rs.Primary.Attributes["vpc_id"]
+		resp, err := client.Client.FromNetwork().Subnets().Get(ctx, rs.Primary.Attributes["project_id"], vpcID, rs.Primary.ID, nil)
+		if err != nil {
+			return nil
+		}
+		if apiErr := CheckResponse("get", "Subnet", resp); apiErr != nil {
+			if IsNotFound(apiErr) {
+				continue
+			}
+			return apiErr
+		}
+		return fmt.Errorf("Subnet %s still exists", rs.Primary.ID)
+	}
+	return nil
+}
+
 func testAccSubnetResourceConfig(name string) string {
 	return fmt.Sprintf(`
 resource "arubacloud_subnet" "test" {
@@ -70,7 +99,7 @@ resource "arubacloud_subnet" "test" {
   project_id = "test-project-id"
   vpc_id     = "test-vpc-id"
   type       = "Basic"
-  
+
   network = {
     address = "10.0.0.0/24"
   }

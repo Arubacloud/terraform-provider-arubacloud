@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 )
 
@@ -125,6 +126,7 @@ func TestAccSecurityruleResource(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testCheckSecurityruleDestroyed,
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
@@ -171,6 +173,33 @@ func TestAccSecurityruleResource(t *testing.T) {
 			},
 		},
 	})
+}
+
+func testCheckSecurityruleDestroyed(s *terraform.State) error {
+	client, err := testAccClient()
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	for _, rs := range s.RootModule().Resources {
+		if rs.Type != "arubacloud_securityrule" {
+			continue
+		}
+		vpcID := rs.Primary.Attributes["vpc_id"]
+		sgID := rs.Primary.Attributes["security_group_id"]
+		resp, err := client.Client.FromNetwork().SecurityGroupRules().Get(ctx, rs.Primary.Attributes["project_id"], vpcID, sgID, rs.Primary.ID, nil)
+		if err != nil {
+			return nil
+		}
+		if apiErr := CheckResponse("get", "Securityrule", resp); apiErr != nil {
+			if IsNotFound(apiErr) {
+				continue
+			}
+			return apiErr
+		}
+		return fmt.Errorf("SecurityRule %s still exists", rs.Primary.ID)
+	}
+	return nil
 }
 
 func testAccSecurityruleResourceConfig(name string) string {
