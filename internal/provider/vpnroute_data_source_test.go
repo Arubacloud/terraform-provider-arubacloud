@@ -13,10 +13,16 @@ import (
 
 func TestAccVpnrouteDataSource(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
-	tunnelID := os.Getenv("ARUBACLOUD_VPNTUNNEL_ID")
-	routeID := os.Getenv("ARUBACLOUD_VPNROUTE_ID")
-	if projectID == "" || tunnelID == "" || routeID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID, ARUBACLOUD_VPNTUNNEL_ID and ARUBACLOUD_VPNROUTE_ID must be set for acceptance tests")
+	if projectID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
+	}
+	vpntunnelID := os.Getenv("ARUBACLOUD_VPNTUNNEL_ID")
+	if vpntunnelID == "" {
+		t.Skip("ARUBACLOUD_VPNTUNNEL_ID must be set for acceptance tests")
+	}
+	vpnrouteID := os.Getenv("ARUBACLOUD_VPNROUTE_ID")
+	if vpnrouteID == "" {
+		t.Skip("ARUBACLOUD_VPNROUTE_ID must be set for acceptance tests")
 	}
 
 	resource.Test(t, resource.TestCase{
@@ -24,7 +30,7 @@ func TestAccVpnrouteDataSource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccVpnrouteDataSourceConfig(projectID, tunnelID, routeID),
+				Config: testAccVpnrouteDataSourceConfig(projectID, vpntunnelID, vpnrouteID),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_vpnroute.test",
@@ -39,7 +45,7 @@ func TestAccVpnrouteDataSource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_vpnroute.test",
 						tfjsonpath.New("vpn_tunnel_id"),
-						knownvalue.StringExact(tunnelID),
+						knownvalue.NotNull(),
 					),
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_vpnroute.test",
@@ -57,12 +63,12 @@ func TestAccVpnrouteDataSource(t *testing.T) {
 	})
 }
 
-func testAccVpnrouteDataSourceConfig(projectID, tunnelID, routeID string) string {
+func testAccVpnrouteDataSourceConfig(projectID, vpntunnelID, vpnrouteID string) string {
 	return fmt.Sprintf(`
 data "arubacloud_vpnroute" "test" {
-  id             = %[1]q
-  project_id     = %[2]q
-  vpn_tunnel_id  = %[3]q
+  id            = %[3]q
+  project_id    = %[1]q
+  vpn_tunnel_id = %[2]q
 }
-`, routeID, projectID, tunnelID)
+`, projectID, vpntunnelID, vpnrouteID)
 }

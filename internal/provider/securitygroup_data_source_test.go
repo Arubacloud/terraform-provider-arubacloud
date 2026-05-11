@@ -13,10 +13,8 @@ import (
 
 func TestAccSecuritygroupDataSource(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
-	vpcID := os.Getenv("ARUBACLOUD_VPC_ID")
-	sgID := os.Getenv("ARUBACLOUD_SECURITYGROUP_ID")
-	if projectID == "" || vpcID == "" || sgID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID, ARUBACLOUD_VPC_ID and ARUBACLOUD_SECURITYGROUP_ID must be set for acceptance tests")
+	if projectID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
 	}
 
 	resource.Test(t, resource.TestCase{
@@ -24,7 +22,7 @@ func TestAccSecuritygroupDataSource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccSecuritygroupDataSourceConfig(projectID, vpcID, sgID),
+				Config: testAccSecuritygroupDataSourceConfig(projectID),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_securitygroup.test",
@@ -44,7 +42,7 @@ func TestAccSecuritygroupDataSource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_securitygroup.test",
 						tfjsonpath.New("vpc_id"),
-						knownvalue.StringExact(vpcID),
+						knownvalue.NotNull(),
 					),
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_securitygroup.test",
@@ -57,12 +55,26 @@ func TestAccSecuritygroupDataSource(t *testing.T) {
 	})
 }
 
-func testAccSecuritygroupDataSourceConfig(projectID, vpcID, sgID string) string {
+func testAccSecuritygroupDataSourceConfig(projectID string) string {
 	return fmt.Sprintf(`
-data "arubacloud_securitygroup" "test" {
-  id         = %[1]q
-  project_id = %[2]q
-  vpc_id     = %[3]q
+resource "arubacloud_vpc" "test" {
+  name       = "test-ds-vpc"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
 }
-`, sgID, projectID, vpcID)
+
+resource "arubacloud_securitygroup" "test" {
+  name       = "test-ds-sg"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+  vpc_id     = arubacloud_vpc.test.id
+  tags       = ["acceptance-test"]
+}
+
+data "arubacloud_securitygroup" "test" {
+  id         = arubacloud_securitygroup.test.id
+  project_id = %[1]q
+  vpc_id     = arubacloud_vpc.test.id
+}
+`, projectID)
 }

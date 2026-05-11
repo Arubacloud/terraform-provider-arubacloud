@@ -13,9 +13,8 @@ import (
 
 func TestAccSnapshotDataSource(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
-	snapshotID := os.Getenv("ARUBACLOUD_SNAPSHOT_ID")
-	if projectID == "" || snapshotID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_SNAPSHOT_ID must be set for acceptance tests")
+	if projectID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
 	}
 
 	resource.Test(t, resource.TestCase{
@@ -23,7 +22,7 @@ func TestAccSnapshotDataSource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccSnapshotDataSourceConfig(projectID, snapshotID),
+				Config: testAccSnapshotDataSourceConfig(projectID),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_snapshot.test",
@@ -56,11 +55,29 @@ func TestAccSnapshotDataSource(t *testing.T) {
 	})
 }
 
-func testAccSnapshotDataSourceConfig(projectID, snapshotID string) string {
+func testAccSnapshotDataSourceConfig(projectID string) string {
 	return fmt.Sprintf(`
-data "arubacloud_snapshot" "test" {
-  id         = %[1]q
-  project_id = %[2]q
+resource "arubacloud_blockstorage" "test" {
+  name           = "test-ds-blockstorage"
+  project_id     = %[1]q
+  location       = "ITBG-Bergamo"
+  size_gb        = 10
+  billing_period = "Hour"
+  zone           = "ITBG-1"
+  type           = "Standard"
 }
-`, snapshotID, projectID)
+
+resource "arubacloud_snapshot" "test" {
+  name           = "test-ds-snapshot"
+  project_id     = %[1]q
+  location       = "ITBG-Bergamo"
+  billing_period = "Hour"
+  volume_uri     = arubacloud_blockstorage.test.uri
+}
+
+data "arubacloud_snapshot" "test" {
+  id         = arubacloud_snapshot.test.id
+  project_id = %[1]q
+}
+`, projectID)
 }

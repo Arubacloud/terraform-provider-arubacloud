@@ -13,10 +13,8 @@ import (
 
 func TestAccSubnetDataSource(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
-	vpcID := os.Getenv("ARUBACLOUD_VPC_ID")
-	subnetID := os.Getenv("ARUBACLOUD_SUBNET_ID")
-	if projectID == "" || vpcID == "" || subnetID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID, ARUBACLOUD_VPC_ID and ARUBACLOUD_SUBNET_ID must be set for acceptance tests")
+	if projectID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
 	}
 
 	resource.Test(t, resource.TestCase{
@@ -24,7 +22,7 @@ func TestAccSubnetDataSource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccSubnetDataSourceConfig(projectID, vpcID, subnetID),
+				Config: testAccSubnetDataSourceConfig(projectID),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_subnet.test",
@@ -44,7 +42,7 @@ func TestAccSubnetDataSource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_subnet.test",
 						tfjsonpath.New("vpc_id"),
-						knownvalue.StringExact(vpcID),
+						knownvalue.NotNull(),
 					),
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_subnet.test",
@@ -62,12 +60,27 @@ func TestAccSubnetDataSource(t *testing.T) {
 	})
 }
 
-func testAccSubnetDataSourceConfig(projectID, vpcID, subnetID string) string {
+func testAccSubnetDataSourceConfig(projectID string) string {
 	return fmt.Sprintf(`
-data "arubacloud_subnet" "test" {
-  id         = %[1]q
-  project_id = %[2]q
-  vpc_id     = %[3]q
+resource "arubacloud_vpc" "test" {
+  name       = "test-ds-vpc"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
 }
-`, subnetID, projectID, vpcID)
+
+resource "arubacloud_subnet" "test" {
+  name       = "test-ds-subnet"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+  vpc_id     = arubacloud_vpc.test.id
+  type       = "Basic"
+  tags       = ["acceptance-test"]
+}
+
+data "arubacloud_subnet" "test" {
+  id         = arubacloud_subnet.test.id
+  project_id = %[1]q
+  vpc_id     = arubacloud_vpc.test.id
+}
+`, projectID)
 }

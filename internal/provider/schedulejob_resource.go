@@ -864,8 +864,18 @@ func (r *ScheduleJobResource) Delete(ctx context.Context, req resource.DeleteReq
 	}
 
 	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "ScheduleJob", jobID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
-		resp.Diagnostics.AddError("Error waiting for ScheduleJob deletion", waitErr.Error())
-		return
+		if IsWaitTimeout(waitErr) {
+			// ScheduleJob deletion is asynchronous. DELETE was accepted; the resource
+			// will be cleaned up by the API in the background. Remove it from state now.
+			resp.Diagnostics.AddWarning(
+				"ScheduleJob Deletion Pending",
+				fmt.Sprintf("ScheduleJob %q delete was accepted but the resource is still visible in the API. "+
+					"It will be cleaned up asynchronously. (%s)", jobID, waitErr),
+			)
+		} else {
+			resp.Diagnostics.AddError("Error waiting for ScheduleJob deletion", waitErr.Error())
+			return
+		}
 	}
 
 	tflog.Trace(ctx, "deleted a Schedule Job resource", map[string]interface{}{

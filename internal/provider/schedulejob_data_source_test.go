@@ -13,9 +13,12 @@ import (
 
 func TestAccSchedulejobDataSource(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
-	jobID := os.Getenv("ARUBACLOUD_SCHEDULEJOB_ID")
-	if projectID == "" || jobID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_SCHEDULEJOB_ID must be set for acceptance tests")
+	if projectID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
+	}
+	cloudserverID := os.Getenv("ARUBACLOUD_CLOUDSERVER_ID")
+	if cloudserverID == "" {
+		t.Skip("ARUBACLOUD_CLOUDSERVER_ID must be set for schedulejob acceptance tests (step resource_uri requires an existing cloud server)")
 	}
 
 	resource.Test(t, resource.TestCase{
@@ -23,7 +26,7 @@ func TestAccSchedulejobDataSource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccSchedulejobDataSourceConfig(projectID, jobID),
+				Config: testAccSchedulejobDataSourceConfig(projectID, cloudserverID),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_schedulejob.test",
@@ -46,11 +49,33 @@ func TestAccSchedulejobDataSource(t *testing.T) {
 	})
 }
 
-func testAccSchedulejobDataSourceConfig(projectID, jobID string) string {
+func testAccSchedulejobDataSourceConfig(projectID, cloudserverID string) string {
 	return fmt.Sprintf(`
-data "arubacloud_schedulejob" "test" {
-  id         = %[1]q
-  project_id = %[2]q
+resource "arubacloud_schedulejob" "test" {
+  name       = "test-ds-schedulejob"
+  project_id = %[1]q
+  location   = "ITBG-Bergamo"
+  tags       = []
+
+  properties = {
+    schedule_job_type = "OneShot"
+    schedule_at       = "2099-12-31T23:59:59+00:00"
+    enabled           = true
+    steps = [
+      {
+        name         = "Power Off Server"
+        resource_uri = "/projects/%[1]s/providers/Aruba.Compute/cloudServers/%[2]s"
+        action_uri   = "/poweroff"
+        http_verb    = "POST"
+        body         = null
+      }
+    ]
+  }
 }
-`, jobID, projectID)
+
+data "arubacloud_schedulejob" "test" {
+  id         = arubacloud_schedulejob.test.id
+  project_id = %[1]q
+}
+`, projectID, cloudserverID)
 }

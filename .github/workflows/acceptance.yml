@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       test_filter:
-        description: 'Go test -run filter (e.g. TestAccCloudserverResource). Leave empty to run all acceptance tests.'
+        description: 'Go test -run filter. Defaults to the self-contained data source suite.'
         required: false
-        default: ''
+        default: '^TestAcc(Vpc|Subnet|Keypair|Securitygroup|Securityrule|Blockstorage|Snapshot|Backup|Elasticip|Kms|Schedulejob)DataSource$'
       timeout:
         description: 'Test timeout (e.g. 60m, 120m)'
         required: false
@@ -28,6 +28,10 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
 
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_wrapper: false
+
       - run: go mod download
 
       - name: Run acceptance tests
@@ -35,6 +39,8 @@ jobs:
           TF_ACC: "1"
           ARUBACLOUD_API_KEY: ${{ secrets.ARUBACLOUD_API_KEY }}
           ARUBACLOUD_API_SECRET: ${{ secrets.ARUBACLOUD_API_SECRET }}
+          ARUBACLOUD_PROJECT_ID: ${{ secrets.ARUBACLOUD_PROJECT_ID }}
+          ARUBACLOUD_CLOUDSERVER_ID: ${{ secrets.ARUBACLOUD_CLOUDSERVER_ID }}
         run: |
           FILTER="${{ github.event.inputs.test_filter }}"
           TIMEOUT="${{ github.event.inputs.timeout }}"

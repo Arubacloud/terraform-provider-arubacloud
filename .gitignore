@@ -48,4 +48,4 @@ coverage.html
 **/terraform.tfvars
 
 # Claude Code
-.claude/
+.claude/worktrees/

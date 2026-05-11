@@ -13,9 +13,8 @@ import (
 
 func TestAccBlockStorageDataSource(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
-	blockStorageID := os.Getenv("ARUBACLOUD_BLOCKSTORAGE_ID")
-	if projectID == "" || blockStorageID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_BLOCKSTORAGE_ID must be set for acceptance tests")
+	if projectID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
 	}
 
 	resource.Test(t, resource.TestCase{
@@ -23,7 +22,7 @@ func TestAccBlockStorageDataSource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccBlockStorageDataSourceConfig(projectID, blockStorageID),
+				Config: testAccBlockStorageDataSourceConfig(projectID),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_blockstorage.test",
@@ -66,11 +65,22 @@ func TestAccBlockStorageDataSource(t *testing.T) {
 	})
 }
 
-func testAccBlockStorageDataSourceConfig(projectID, blockStorageID string) string {
+func testAccBlockStorageDataSourceConfig(projectID string) string {
 	return fmt.Sprintf(`
-data "arubacloud_blockstorage" "test" {
-  id         = %[1]q
-  project_id = %[2]q
+resource "arubacloud_blockstorage" "test" {
+  name           = "test-ds-blockstorage"
+  project_id     = %[1]q
+  location       = "ITBG-Bergamo"
+  size_gb        = 10
+  billing_period = "Hour"
+  zone           = "ITBG-1"
+  type           = "Standard"
+  tags           = ["acceptance-test"]
 }
-`, blockStorageID, projectID)
+
+data "arubacloud_blockstorage" "test" {
+  id         = arubacloud_blockstorage.test.id
+  project_id = %[1]q
+}
+`, projectID)
 }

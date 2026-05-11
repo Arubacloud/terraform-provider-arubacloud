@@ -13,9 +13,12 @@ import (
 
 func TestAccVpntunnelDataSource(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
-	tunnelID := os.Getenv("ARUBACLOUD_VPNTUNNEL_ID")
-	if projectID == "" || tunnelID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_VPNTUNNEL_ID must be set for acceptance tests")
+	if projectID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
+	}
+	vpntunnelID := os.Getenv("ARUBACLOUD_VPNTUNNEL_ID")
+	if vpntunnelID == "" {
+		t.Skip("ARUBACLOUD_VPNTUNNEL_ID must be set for acceptance tests (VPN tunnel requires public IP, subnet CIDR and full vpnClientSettings — use a pre-provisioned fixture)")
 	}
 
 	resource.Test(t, resource.TestCase{
@@ -23,7 +26,7 @@ func TestAccVpntunnelDataSource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccVpntunnelDataSourceConfig(projectID, tunnelID),
+				Config: testAccVpntunnelDataSourceConfig(projectID, vpntunnelID),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_vpntunnel.test",
@@ -46,11 +49,11 @@ func TestAccVpntunnelDataSource(t *testing.T) {
 	})
 }
 
-func testAccVpntunnelDataSourceConfig(projectID, tunnelID string) string {
+func testAccVpntunnelDataSourceConfig(projectID, vpntunnelID string) string {
 	return fmt.Sprintf(`
 data "arubacloud_vpntunnel" "test" {
-  id         = %[1]q
-  project_id = %[2]q
+  id         = %[2]q
+  project_id = %[1]q
 }
-`, tunnelID, projectID)
+`, projectID, vpntunnelID)
 }

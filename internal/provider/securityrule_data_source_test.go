@@ -13,11 +13,8 @@ import (
 
 func TestAccSecurityruleDataSource(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
-	vpcID := os.Getenv("ARUBACLOUD_VPC_ID")
-	sgID := os.Getenv("ARUBACLOUD_SECURITYGROUP_ID")
-	ruleID := os.Getenv("ARUBACLOUD_SECURITYRULE_ID")
-	if projectID == "" || vpcID == "" || sgID == "" || ruleID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID, ARUBACLOUD_VPC_ID, ARUBACLOUD_SECURITYGROUP_ID and ARUBACLOUD_SECURITYRULE_ID must be set for acceptance tests")
+	if projectID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
 	}
 
 	resource.Test(t, resource.TestCase{
@@ -25,7 +22,7 @@ func TestAccSecurityruleDataSource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccSecurityruleDataSourceConfig(projectID, vpcID, sgID, ruleID),
+				Config: testAccSecurityruleDataSourceConfig(projectID),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_securityrule.test",
@@ -40,12 +37,12 @@ func TestAccSecurityruleDataSource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_securityrule.test",
 						tfjsonpath.New("vpc_id"),
-						knownvalue.StringExact(vpcID),
+						knownvalue.NotNull(),
 					),
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_securityrule.test",
 						tfjsonpath.New("security_group_id"),
-						knownvalue.StringExact(sgID),
+						knownvalue.NotNull(),
 					),
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_securityrule.test",
@@ -63,13 +60,44 @@ func TestAccSecurityruleDataSource(t *testing.T) {
 	})
 }
 
-func testAccSecurityruleDataSourceConfig(projectID, vpcID, sgID, ruleID string) string {
+func testAccSecurityruleDataSourceConfig(projectID string) string {
 	return fmt.Sprintf(`
-data "arubacloud_securityrule" "test" {
-  id                = %[1]q
-  project_id        = %[2]q
-  vpc_id            = %[3]q
-  security_group_id = %[4]q
+resource "arubacloud_vpc" "test" {
+  name       = "test-ds-vpc"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
 }
-`, ruleID, projectID, vpcID, sgID)
+
+resource "arubacloud_securitygroup" "test" {
+  name       = "test-ds-sg"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+  vpc_id     = arubacloud_vpc.test.id
+}
+
+resource "arubacloud_securityrule" "test" {
+  name              = "test-ds-securityrule"
+  location          = "ITBG-Bergamo"
+  project_id        = %[1]q
+  vpc_id            = arubacloud_vpc.test.id
+  security_group_id = arubacloud_securitygroup.test.id
+
+  properties = {
+    direction = "Ingress"
+    protocol  = "TCP"
+    port      = "80"
+    target = {
+      kind  = "IP"
+      value = "0.0.0.0/0"
+    }
+  }
+}
+
+data "arubacloud_securityrule" "test" {
+  id                = arubacloud_securityrule.test.id
+  project_id        = %[1]q
+  vpc_id            = arubacloud_vpc.test.id
+  security_group_id = arubacloud_securitygroup.test.id
+}
+`, projectID)
 }

@@ -14,9 +14,8 @@ import (
 func TestAccDatabaseDataSource(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
 	dbaasID := os.Getenv("ARUBACLOUD_DBAAS_ID")
-	databaseID := os.Getenv("ARUBACLOUD_DATABASE_ID")
-	if projectID == "" || dbaasID == "" || databaseID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID, ARUBACLOUD_DBAAS_ID and ARUBACLOUD_DATABASE_ID must be set for acceptance tests")
+	if projectID == "" || dbaasID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_DBAAS_ID must be set for acceptance tests")
 	}
 
 	resource.Test(t, resource.TestCase{
@@ -24,7 +23,7 @@ func TestAccDatabaseDataSource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccDatabaseDataSourceConfig(projectID, dbaasID, databaseID),
+				Config: testAccDatabaseDataSourceConfig(projectID, dbaasID),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_database.test",
@@ -52,12 +51,18 @@ func TestAccDatabaseDataSource(t *testing.T) {
 	})
 }
 
-func testAccDatabaseDataSourceConfig(projectID, dbaasID, databaseID string) string {
+func testAccDatabaseDataSourceConfig(projectID, dbaasID string) string {
 	return fmt.Sprintf(`
-data "arubacloud_database" "test" {
-  id         = %[1]q
-  project_id = %[2]q
-  dbaas_id   = %[3]q
+resource "arubacloud_database" "test" {
+  name       = "testdsdb"
+  project_id = %[1]q
+  dbaas_id   = %[2]q
 }
-`, databaseID, projectID, dbaasID)
+
+data "arubacloud_database" "test" {
+  id         = arubacloud_database.test.id
+  project_id = %[1]q
+  dbaas_id   = %[2]q
+}
+`, projectID, dbaasID)
 }

@@ -1,7 +1,10 @@
 # Terraform Provider for ArubaCloud
 
 [![GitHub release](https://img.shields.io/github/tag/arubacloud/terraform-provider-arubacloud.svg?label=release)](https://github.com/arubacloud/terraform-provider-arubacloud/releases/latest)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/arubacloud/terraform-provider-arubacloud?logo=go)](https://go.dev/doc/install)
+[![Build](https://github.com/arubacloud/terraform-provider-arubacloud/actions/workflows/build.yml/badge.svg)](https://github.com/arubacloud/terraform-provider-arubacloud/actions/workflows/build.yml)
 [![Tests](https://github.com/arubacloud/terraform-provider-arubacloud/actions/workflows/test.yml/badge.svg)](https://github.com/arubacloud/terraform-provider-arubacloud/actions/workflows/test.yml)
+[![Acceptance Tests](https://github.com/arubacloud/terraform-provider-arubacloud/actions/workflows/acceptance.yml/badge.svg)](https://github.com/arubacloud/terraform-provider-arubacloud/actions/workflows/acceptance.yml)
 [![Release](https://github.com/arubacloud/terraform-provider-arubacloud/actions/workflows/release.yml/badge.svg)](https://github.com/arubacloud/terraform-provider-arubacloud/actions/workflows/release.yml)
 [![codecov](https://codecov.io/gh/Arubacloud/terraform-provider-arubacloud/graph/badge.svg)](https://codecov.io/gh/Arubacloud/terraform-provider-arubacloud)
 

@@ -762,7 +762,7 @@ func (r *SecurityRuleResource) Read(ctx context.Context, req resource.ReadReques
 		// Update target
 		if rule.Properties.Target != nil {
 			targetMap := map[string]attr.Value{
-				"kind":  types.StringValue(string(rule.Properties.Target.Kind)),
+				"kind":  types.StringValue(normalizeTargetKind(string(rule.Properties.Target.Kind))),
 				"value": types.StringValue(rule.Properties.Target.Value),
 			}
 			targetObj, diags := types.ObjectValue(map[string]attr.Type{
