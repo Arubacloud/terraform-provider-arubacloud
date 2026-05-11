@@ -76,6 +76,7 @@ jobs:
       - name: Print coverage summary
         run: go tool cover -func=coverage.out
       - name: Upload coverage to Codecov
+        if: ${{ secrets.CODECOV_TOKEN != '' }}
         uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238 # v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
