@@ -73,7 +73,7 @@ func testCheckRestoreDestroyed(s *terraform.State) error {
 		backupID := rs.Primary.Attributes["backup_id"]
 		resp, err := client.Client.FromStorage().Restores().Get(ctx, rs.Primary.Attributes["project_id"], backupID, rs.Primary.ID, nil)
 		if err != nil {
-			return nil
+			return err
 		}
 		if apiErr := CheckResponse("get", "Restore", resp); apiErr != nil {
 			if IsNotFound(apiErr) {

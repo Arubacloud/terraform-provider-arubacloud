@@ -72,7 +72,7 @@ func testCheckSchedulejobDestroyed(s *terraform.State) error {
 		}
 		resp, err := client.Client.FromSchedule().Jobs().Get(ctx, rs.Primary.Attributes["project_id"], rs.Primary.ID, nil)
 		if err != nil {
-			return nil
+			return err
 		}
 		if apiErr := CheckResponse("get", "Schedulejob", resp); apiErr != nil {
 			if IsNotFound(apiErr) {

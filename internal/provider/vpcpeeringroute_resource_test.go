@@ -74,7 +74,7 @@ func testCheckVpcpeeringrouteDestroyed(s *terraform.State) error {
 		peeringID := rs.Primary.Attributes["vpc_peering_id"]
 		resp, err := client.Client.FromNetwork().VPCPeeringRoutes().Get(ctx, rs.Primary.Attributes["project_id"], vpcID, peeringID, rs.Primary.ID, nil)
 		if err != nil {
-			return nil
+			return err
 		}
 		if apiErr := CheckResponse("get", "Vpcpeeringroute", resp); apiErr != nil {
 			if IsNotFound(apiErr) {

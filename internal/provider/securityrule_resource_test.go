@@ -189,7 +189,7 @@ func testCheckSecurityruleDestroyed(s *terraform.State) error {
 		sgID := rs.Primary.Attributes["security_group_id"]
 		resp, err := client.Client.FromNetwork().SecurityGroupRules().Get(ctx, rs.Primary.Attributes["project_id"], vpcID, sgID, rs.Primary.ID, nil)
 		if err != nil {
-			return nil
+			return err
 		}
 		if apiErr := CheckResponse("get", "Securityrule", resp); apiErr != nil {
 			if IsNotFound(apiErr) {

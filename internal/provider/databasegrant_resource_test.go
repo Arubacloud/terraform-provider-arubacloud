@@ -75,7 +75,7 @@ func testCheckDatabasegrantDestroyed(s *terraform.State) error {
 		userID := rs.Primary.Attributes["user_id"]
 		resp, err := client.Client.FromDatabase().Grants().Get(ctx, rs.Primary.Attributes["project_id"], dbaasID, database, userID, nil)
 		if err != nil {
-			return nil
+			return err
 		}
 		if apiErr := CheckResponse("get", "Databasegrant", resp); apiErr != nil {
 			if IsNotFound(apiErr) {

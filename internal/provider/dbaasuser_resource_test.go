@@ -73,7 +73,7 @@ func testCheckDbaasuserDestroyed(s *terraform.State) error {
 		dbaasID := rs.Primary.Attributes["dbaas_id"]
 		resp, err := client.Client.FromDatabase().Users().Get(ctx, rs.Primary.Attributes["project_id"], dbaasID, rs.Primary.ID, nil)
 		if err != nil {
-			return nil
+			return err
 		}
 		if apiErr := CheckResponse("get", "Dbaasuser", resp); apiErr != nil {
 			if IsNotFound(apiErr) {

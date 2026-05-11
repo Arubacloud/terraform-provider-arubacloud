@@ -73,7 +73,7 @@ func testCheckVpnrouteDestroyed(s *terraform.State) error {
 		tunnelID := rs.Primary.Attributes["vpn_tunnel_id"]
 		resp, err := client.Client.FromNetwork().VPNRoutes().Get(ctx, rs.Primary.Attributes["project_id"], tunnelID, rs.Primary.ID, nil)
 		if err != nil {
-			return nil
+			return err
 		}
 		if apiErr := CheckResponse("get", "Vpnroute", resp); apiErr != nil {
 			if IsNotFound(apiErr) {

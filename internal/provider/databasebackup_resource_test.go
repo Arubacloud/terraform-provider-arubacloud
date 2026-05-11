@@ -72,7 +72,7 @@ func testCheckDatabasebackupDestroyed(s *terraform.State) error {
 		}
 		resp, err := client.Client.FromDatabase().Backups().Get(ctx, rs.Primary.Attributes["project_id"], rs.Primary.ID, nil)
 		if err != nil {
-			return nil
+			return err
 		}
 		if apiErr := CheckResponse("get", "Databasebackup", resp); apiErr != nil {
 			if IsNotFound(apiErr) {
