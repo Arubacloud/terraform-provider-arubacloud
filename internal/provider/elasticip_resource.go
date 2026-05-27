@@ -157,9 +157,9 @@ func (r *ElasticIPResource) Create(ctx context.Context, req resource.CreateReque
 			BillingPlan: sdktypes.BillingPeriodResource{
 				BillingPeriod: func() string {
 					if !data.BillingPeriod.IsNull() && !data.BillingPeriod.IsUnknown() {
-						return billingPeriodToAPI(data.BillingPeriod.ValueString())
+						return data.BillingPeriod.ValueString()
 					}
-					return "hourly"
+					return "Hour"
 				}(),
 			},
 		},
