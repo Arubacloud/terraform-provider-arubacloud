@@ -1,3 +1,9 @@
+## 0.1.6 (May 27, 2026)
+
+BUG FIXES:
+
+* `arubacloud_elasticip`: Fix `billing_period` value sent to the API after backend breaking change — the ElasticIP API now uses `Hour`/`Month`/`Year` (same canonical form as all other resources) instead of the legacy `hourly`/`monthly`/`yearly` lowercase values. The create request was incorrectly sending the old lowercase form, causing API rejections.
+
 ## 0.0.1 (January 26, 2026)
 
 FEATURES:
