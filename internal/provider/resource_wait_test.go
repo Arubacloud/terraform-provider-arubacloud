@@ -7,6 +7,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	tfdiag "github.com/hashicorp/terraform-plugin-framework/diag"
 )
 
 // withFastPoll reduces the WaitForResourceDeleted poll interval so tests
@@ -384,6 +386,79 @@ func TestDeleteResourceWithRetry_ExistsCheckerShortCircuitsAfterFailedDelete(t *
 	}
 	if atomic.LoadInt32(&checkerCalls) < 1 {
 		t.Fatal("expected existsChecker to be called at least once")
+	}
+}
+
+// ── isFailedState ────────────────────────────────────────────────────────────
+
+func TestIsFailedState(t *testing.T) {
+	for _, state := range []string{"Failed", "Error", "Errored", "Faulted"} {
+		if !isFailedState(state) {
+			t.Errorf("isFailedState(%q) = false, want true", state)
+		}
+	}
+	for _, state := range []string{"Active", "InCreation", "Creating", "Pending", "Provisioning", "Running", "", "unknown"} {
+		if isFailedState(state) {
+			t.Errorf("isFailedState(%q) = true, want false", state)
+		}
+	}
+}
+
+// ── IsCreatingState ───────────────────────────────────────────────────────────
+
+func TestIsCreatingState(t *testing.T) {
+	for _, state := range []string{"InCreation", "Creating", "Pending", "Provisioning"} {
+		if !IsCreatingState(state) {
+			t.Errorf("IsCreatingState(%q) = false, want true", state)
+		}
+	}
+	for _, state := range []string{"Active", "Failed", "Running", "Stopped", "", "Updating", "Deleting"} {
+		if IsCreatingState(state) {
+			t.Errorf("IsCreatingState(%q) = true, want false", state)
+		}
+	}
+}
+
+// ── ErrWaitTimeout ───────────────────────────────────────────────────────────
+
+func TestErrWaitTimeout_Error_DefaultsOperationToBeActive(t *testing.T) {
+	err := &ErrWaitTimeout{ResourceType: "vpc", ResourceID: "v1", Timeout: 5 * time.Minute}
+	msg := err.Error()
+	if msg == "" {
+		t.Fatal("Error() returned empty string")
+	}
+	// Default operation should be "become active"
+	if got, want := err.Operation, ""; got != want {
+		t.Errorf("Operation = %q, want %q", got, want)
+	}
+}
+
+func TestErrWaitTimeout_Error_UsesExplicitOperation(t *testing.T) {
+	err := &ErrWaitTimeout{ResourceType: "vpc", ResourceID: "v1", Timeout: time.Minute, Operation: "be deleted"}
+	msg := err.Error()
+	if msg == "" {
+		t.Fatal("Error() returned empty string")
+	}
+}
+
+// ── ReportWaitResult ─────────────────────────────────────────────────────────
+
+func TestReportWaitResult_TimeoutAddsWarning(t *testing.T) {
+	var diags tfdiag.Diagnostics
+	ReportWaitResult(&diags, &ErrWaitTimeout{ResourceType: "vpc", ResourceID: "v1", Timeout: time.Minute}, "vpc", "v1")
+	if diags.HasError() {
+		t.Fatalf("expected no error, got error diagnostic")
+	}
+	if len(diags) == 0 {
+		t.Fatalf("expected at least one warning diagnostic, got none")
+	}
+}
+
+func TestReportWaitResult_OtherErrorAddsError(t *testing.T) {
+	var diags tfdiag.Diagnostics
+	ReportWaitResult(&diags, fmt.Errorf("boom"), "vpc", "v1")
+	if !diags.HasError() {
+		t.Fatalf("expected error diagnostic, got none")
 	}
 }
 
