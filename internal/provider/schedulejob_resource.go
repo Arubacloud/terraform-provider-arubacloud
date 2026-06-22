@@ -405,12 +405,11 @@ func (r *ScheduleJobResource) Read(ctx context.Context, req resource.ReadRequest
 	if response.Data.Status.State != nil {
 		switch st := *response.Data.Status.State; {
 		case isFailedState(st):
-			resp.Diagnostics.AddError(
+			resp.Diagnostics.AddWarning(
 				"Resource in Failed State",
-				fmt.Sprintf("ScheduleJob %q reached a terminal failure state (%s) and will not recover on its own. "+
-					"Use `terraform apply -replace=<address>` to recreate it.", jobID, st),
+				fmt.Sprintf("ScheduleJob %q is in a terminal failure state (%s). "+
+					"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", jobID, st),
 			)
-			return
 		case IsCreatingState(st):
 			checker := func(ctx context.Context) (string, error) {
 				getResp, err := r.client.Client.FromSchedule().Jobs().Get(ctx, projectID, jobID, nil)

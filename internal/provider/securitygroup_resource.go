@@ -274,12 +274,11 @@ func (r *SecurityGroupResource) Read(ctx context.Context, req resource.ReadReque
 	if response.Data.Status.State != nil {
 		switch st := *response.Data.Status.State; {
 		case isFailedState(st):
-			resp.Diagnostics.AddError(
+			resp.Diagnostics.AddWarning(
 				"Resource in Failed State",
-				fmt.Sprintf("SecurityGroup %q reached a terminal failure state (%s) and will not recover on its own. "+
-					"Use `terraform apply -replace=<address>` to recreate it.", sgID, st),
+				fmt.Sprintf("SecurityGroup %q is in a terminal failure state (%s). "+
+					"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", sgID, st),
 			)
-			return
 		case IsCreatingState(st):
 			checker := func(ctx context.Context) (string, error) {
 				getResp, err := r.client.Client.FromNetwork().SecurityGroups().Get(ctx, projectID, vpcID, sgID, nil)

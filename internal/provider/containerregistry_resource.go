@@ -418,12 +418,11 @@ func (r *ContainerRegistryResource) Read(ctx context.Context, req resource.ReadR
 	if response.Data.Status.State != nil {
 		switch st := *response.Data.Status.State; {
 		case isFailedState(st):
-			resp.Diagnostics.AddError(
+			resp.Diagnostics.AddWarning(
 				"Resource in Failed State",
-				fmt.Sprintf("ContainerRegistry %q reached a terminal failure state (%s) and will not recover on its own. "+
-					"Use `terraform apply -replace=<address>` to recreate it.", registryID, st),
+				fmt.Sprintf("ContainerRegistry %q is in a terminal failure state (%s). "+
+					"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", registryID, st),
 			)
-			return
 		case IsCreatingState(st):
 			checker := func(ctx context.Context) (string, error) {
 				getResp, err := registryClient.Get(ctx, projectID, registryID, nil)

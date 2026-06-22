@@ -264,12 +264,11 @@ func (r *VpcPeeringRouteResource) Read(ctx context.Context, req resource.ReadReq
 	if response != nil && response.Data != nil && response.Data.Status.State != nil {
 		switch st := *response.Data.Status.State; {
 		case isFailedState(st):
-			resp.Diagnostics.AddError(
+			resp.Diagnostics.AddWarning(
 				"Resource in Failed State",
-				fmt.Sprintf("VpcPeeringRoute %q reached a terminal failure state (%s) and will not recover on its own. "+
-					"Use `terraform apply -replace=<address>` to recreate it.", routeID, st),
+				fmt.Sprintf("VpcPeeringRoute %q is in a terminal failure state (%s). "+
+					"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", routeID, st),
 			)
-			return
 		case IsCreatingState(st):
 			checker := func(ctx context.Context) (string, error) {
 				getResp, err := r.client.Client.FromNetwork().VPCPeeringRoutes().Get(ctx, projectID, vpcID, peeringID, routeID, nil)

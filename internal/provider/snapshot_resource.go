@@ -308,12 +308,11 @@ func (r *SnapshotResource) Read(ctx context.Context, req resource.ReadRequest, r
 	if response.Data.Status.State != nil {
 		switch st := *response.Data.Status.State; {
 		case isFailedState(st):
-			resp.Diagnostics.AddError(
+			resp.Diagnostics.AddWarning(
 				"Resource in Failed State",
-				fmt.Sprintf("Snapshot %q reached a terminal failure state (%s) and will not recover on its own. "+
-					"Use `terraform apply -replace=<address>` to recreate it.", snapshotID, st),
+				fmt.Sprintf("Snapshot %q is in a terminal failure state (%s). "+
+					"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", snapshotID, st),
 			)
-			return
 		case IsCreatingState(st):
 			checker := func(ctx context.Context) (string, error) {
 				getResp, err := r.client.Client.FromStorage().Snapshots().Get(ctx, projectID, snapshotID, nil)
