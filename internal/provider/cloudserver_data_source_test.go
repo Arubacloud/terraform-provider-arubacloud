@@ -13,9 +13,9 @@ import (
 
 func TestAccCloudserverDataSource(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
-	serverID := os.Getenv("ARUBACLOUD_CLOUDSERVER_ID")
-	if projectID == "" || serverID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_CLOUDSERVER_ID must be set for acceptance tests")
+	osImageID := os.Getenv("ARUBACLOUD_OS_IMAGE_ID")
+	if projectID == "" || osImageID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_OS_IMAGE_ID must be set for acceptance tests")
 	}
 
 	resource.Test(t, resource.TestCase{
@@ -23,7 +23,7 @@ func TestAccCloudserverDataSource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccCloudserverDataSourceConfig(projectID, serverID),
+				Config: testAccCloudserverDataSourceConfig(projectID, osImageID),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_cloudserver.test",
@@ -61,11 +61,66 @@ func TestAccCloudserverDataSource(t *testing.T) {
 	})
 }
 
-func testAccCloudserverDataSourceConfig(projectID, serverID string) string {
+func testAccCloudserverDataSourceConfig(projectID, osImageID string) string {
 	return fmt.Sprintf(`
-data "arubacloud_cloudserver" "test" {
-  id         = %[1]q
-  project_id = %[2]q
+resource "arubacloud_vpc" "test" {
+  name       = "test-ds-cs-vpc"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
 }
-`, serverID, projectID)
+
+resource "arubacloud_subnet" "test" {
+  name       = "test-ds-cs-subnet"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+  vpc_id     = arubacloud_vpc.test.id
+  type       = "Basic"
+}
+
+resource "arubacloud_securitygroup" "test" {
+  name       = "test-ds-cs-sg"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+  vpc_id     = arubacloud_vpc.test.id
+}
+
+resource "arubacloud_blockstorage" "boot" {
+  name           = "test-ds-cs-boot"
+  project_id     = %[1]q
+  location       = "ITBG-Bergamo"
+  size_gb        = 30
+  billing_period = "Hour"
+  zone           = "ITBG-1"
+  type           = "Standard"
+  bootable       = true
+  image          = %[2]q
+}
+
+resource "arubacloud_cloudserver" "test" {
+  name       = "test-ds-cloudserver"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+  zone       = "ITBG-1"
+  tags       = ["acceptance-test"]
+
+  network = {
+    vpc_uri_ref            = arubacloud_vpc.test.uri
+    subnet_uri_refs        = [arubacloud_subnet.test.uri]
+    securitygroup_uri_refs = [arubacloud_securitygroup.test.uri]
+  }
+
+  settings = {
+    flavor_name = "CSO4A8"
+  }
+
+  storage = {
+    boot_volume_uri_ref = arubacloud_blockstorage.boot.uri
+  }
+}
+
+data "arubacloud_cloudserver" "test" {
+  id         = arubacloud_cloudserver.test.id
+  project_id = %[1]q
+}
+`, projectID, osImageID)
 }
