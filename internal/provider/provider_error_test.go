@@ -2,6 +2,7 @@ package provider
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
@@ -293,5 +294,138 @@ func TestErrorCategoryHelpers(t *testing.T) {
 	}
 	if ErrorIsTechnical(nil) {
 		t.Error("nil should not be technical")
+	}
+}
+
+// ── sanitizeAPIString ─────────────────────────────────────────────────────────
+
+func TestSanitizeAPIString(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"", ""},
+		{"hello", "hello"},
+		{"tab\there", "tab here"},
+		{"new\nline", "new line"},
+		{"multiple  spaces", "multiple spaces"},
+		{"\t\n  \t", ""},
+		{"  leading and trailing  ", "leading and trailing"},
+		{"multiple   spaces   here", "multiple spaces here"},
+	}
+	for _, tc := range cases {
+		if got := sanitizeAPIString(tc.in); got != tc.want {
+			t.Errorf("sanitizeAPIString(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+// ── ProviderErrorCategory.String ─────────────────────────────────────────────
+
+func TestProviderErrorCategory_String(t *testing.T) {
+	cases := []struct {
+		cat  ProviderErrorCategory
+		want string
+	}{
+		{ProviderErrorCategorySemantic, "semantic"},
+		{ProviderErrorCategoryTransient, "transient"},
+		{ProviderErrorCategoryTechnical, "technical"},
+		{ProviderErrorCategory(99), "unknown"},
+	}
+	for _, tc := range cases {
+		if got := tc.cat.String(); got != tc.want {
+			t.Errorf("ProviderErrorCategory(%d).String() = %q, want %q", tc.cat, got, tc.want)
+		}
+	}
+}
+
+// ── ProviderError.Error ───────────────────────────────────────────────────────
+
+func TestProviderError_Error(t *testing.T) {
+	// With Cause: message should mention operation, resource, and cause text.
+	cause := errors.New("network failure")
+	e1 := &ProviderError{
+		Category:  ProviderErrorCategoryTechnical,
+		Operation: "create",
+		Resource:  "vpc",
+		Cause:     cause,
+	}
+	msg1 := e1.Error()
+	for _, sub := range []string{"create", "vpc", "network failure"} {
+		if !strings.Contains(msg1, sub) {
+			t.Errorf("ProviderError.Error() with Cause = %q, missing %q", msg1, sub)
+		}
+	}
+
+	// Without Cause, full fields: message should contain status code, category,
+	// title, detail, and instance.
+	e2 := &ProviderError{
+		Category:   ProviderErrorCategorySemantic,
+		StatusCode: 400,
+		Title:      "Bad Request",
+		Detail:     "name is required",
+		Instance:   "/api/v1/vpc",
+		Operation:  "create",
+		Resource:   "vpc",
+	}
+	msg2 := e2.Error()
+	for _, sub := range []string{"400", "Bad Request", "name is required", "/api/v1/vpc"} {
+		if !strings.Contains(msg2, sub) {
+			t.Errorf("ProviderError.Error() without Cause = %q, missing %q", msg2, sub)
+		}
+	}
+
+	// Without Cause, empty optional fields: no panic.
+	e3 := &ProviderError{
+		Category:   ProviderErrorCategoryTechnical,
+		StatusCode: 500,
+		Operation:  "delete",
+		Resource:   "vpc",
+	}
+	msg3 := e3.Error()
+	if !strings.Contains(msg3, "500") || !strings.Contains(msg3, "delete") {
+		t.Errorf("ProviderError.Error() minimal = %q, expected status+operation", msg3)
+	}
+}
+
+// ── ProviderError.Unwrap ──────────────────────────────────────────────────────
+
+func TestProviderError_Unwrap(t *testing.T) {
+	cause := errors.New("root cause")
+	e := &ProviderError{Cause: cause, Operation: "create", Resource: "vpc"}
+	if !errors.Is(e, cause) {
+		t.Error("errors.Is should find cause via Unwrap")
+	}
+
+	// No Cause → Unwrap returns nil.
+	e2 := &ProviderError{StatusCode: 400, Operation: "create", Resource: "vpc"}
+	if errors.Unwrap(e2) != nil {
+		t.Error("Unwrap should return nil when Cause is not set")
+	}
+}
+
+// ── NewTransportError ─────────────────────────────────────────────────────────
+
+func TestNewTransportError(t *testing.T) {
+	cause := errors.New("dial error")
+	err := NewTransportError("create", "vpc", cause)
+
+	if err.Category != ProviderErrorCategoryTechnical {
+		t.Errorf("expected Technical category, got %v", err.Category)
+	}
+	if err.Operation != "create" {
+		t.Errorf("expected operation 'create', got %q", err.Operation)
+	}
+	if err.Resource != "vpc" {
+		t.Errorf("expected resource 'vpc', got %q", err.Resource)
+	}
+	if !errors.Is(err, cause) {
+		t.Error("expected errors.Is to find cause via Unwrap")
+	}
+	if !ErrorIsTechnical(err) {
+		t.Error("ErrorIsTechnical should return true for transport error")
+	}
+	if ErrorIsTransient(err) || ErrorIsSemantic(err) {
+		t.Error("transport error should not be transient or semantic")
 	}
 }
