@@ -14,7 +14,7 @@ resource "arubacloud_subnet" "basic" {
       }
       routes = [
         {
-          address = "0.0.0.0/0"
+          address = "10.0.1.128/25"
           gateway = "10.0.1.1"
         }
       ]
