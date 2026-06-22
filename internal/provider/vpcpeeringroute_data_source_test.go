@@ -13,11 +13,8 @@ import (
 
 func TestAccVpcpeeringrouteDataSource(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
-	vpcID := os.Getenv("ARUBACLOUD_VPC_ID")
-	peeringID := os.Getenv("ARUBACLOUD_VPCPEERING_ID")
-	routeID := os.Getenv("ARUBACLOUD_VPCPEERINGROUTE_ID")
-	if projectID == "" || vpcID == "" || peeringID == "" || routeID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID, ARUBACLOUD_VPC_ID, ARUBACLOUD_VPCPEERING_ID and ARUBACLOUD_VPCPEERINGROUTE_ID must be set for acceptance tests")
+	if projectID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
 	}
 
 	resource.Test(t, resource.TestCase{
@@ -25,7 +22,7 @@ func TestAccVpcpeeringrouteDataSource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccVpcpeeringrouteDataSourceConfig(projectID, vpcID, peeringID, routeID),
+				Config: testAccVpcpeeringrouteDataSourceConfig(projectID),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_vpcpeeringroute.test",
@@ -45,12 +42,12 @@ func TestAccVpcpeeringrouteDataSource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_vpcpeeringroute.test",
 						tfjsonpath.New("vpc_id"),
-						knownvalue.StringExact(vpcID),
+						knownvalue.NotNull(),
 					),
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_vpcpeeringroute.test",
 						tfjsonpath.New("vpc_peering_id"),
-						knownvalue.StringExact(peeringID),
+						knownvalue.NotNull(),
 					),
 				},
 			},
@@ -58,13 +55,44 @@ func TestAccVpcpeeringrouteDataSource(t *testing.T) {
 	})
 }
 
-func testAccVpcpeeringrouteDataSourceConfig(projectID, vpcID, peeringID, routeID string) string {
+func testAccVpcpeeringrouteDataSourceConfig(projectID string) string {
 	return fmt.Sprintf(`
-data "arubacloud_vpcpeeringroute" "test" {
-  id             = %[1]q
-  project_id     = %[2]q
-  vpc_id         = %[3]q
-  vpc_peering_id = %[4]q
+resource "arubacloud_vpc" "local" {
+  name       = "test-ds-route-vpc-local"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
 }
-`, routeID, projectID, vpcID, peeringID)
+
+resource "arubacloud_vpc" "peer" {
+  name       = "test-ds-route-vpc-peer"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+}
+
+resource "arubacloud_vpcpeering" "test" {
+  name       = "test-ds-route-vpcpeering"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+  vpc_id     = arubacloud_vpc.local.id
+  peer_vpc   = arubacloud_vpc.peer.id
+}
+
+resource "arubacloud_vpcpeeringroute" "test" {
+  name                   = "test-ds-vpcpeeringroute"
+  location               = "ITBG-Bergamo"
+  project_id             = %[1]q
+  vpc_id                 = arubacloud_vpc.local.id
+  vpc_peering_id         = arubacloud_vpcpeering.test.id
+  local_network_address  = "10.0.0.0/24"
+  remote_network_address = "10.1.0.0/24"
+  billing_period         = "Hour"
+}
+
+data "arubacloud_vpcpeeringroute" "test" {
+  id             = arubacloud_vpcpeeringroute.test.id
+  project_id     = %[1]q
+  vpc_id         = arubacloud_vpc.local.id
+  vpc_peering_id = arubacloud_vpcpeering.test.id
+}
+`, projectID)
 }
