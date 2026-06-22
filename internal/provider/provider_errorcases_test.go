@@ -341,3 +341,141 @@ resource "arubacloud_containerregistry" "test" {
 		},
 	})
 }
+
+// --- Compute (additional) ---
+
+func TestUnitCloudserverResource_MissingProjectID(t *testing.T) {
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: `
+resource "arubacloud_cloudserver" "test" {
+  name     = "test-cs"
+  location = "ITBG-Bergamo"
+  zone     = "ITBG-1"
+}
+`,
+				ExpectError: regexp.MustCompile(`project_id`),
+			},
+		},
+	})
+}
+
+// --- Security (additional) ---
+
+func TestUnitSecurityruleResource_MissingSecurityGroupID(t *testing.T) {
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: `
+resource "arubacloud_securityrule" "test" {
+  name       = "test-rule"
+  location   = "ITBG-Bergamo"
+  project_id = "test-project"
+  vpc_id     = "test-vpc"
+}
+`,
+				ExpectError: regexp.MustCompile(`security_group_id`),
+			},
+		},
+	})
+}
+
+// --- Network (additional) ---
+
+func TestUnitVpcpeeringResource_MissingVpcID(t *testing.T) {
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: `
+resource "arubacloud_vpcpeering" "test" {
+  name       = "test-peering"
+  location   = "ITBG-Bergamo"
+  project_id = "test-project"
+  peer_vpc   = "peer-vpc-id"
+}
+`,
+				ExpectError: regexp.MustCompile(`vpc_id`),
+			},
+		},
+	})
+}
+
+func TestUnitVpcpeeringrouteResource_MissingVpcPeeringID(t *testing.T) {
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: `
+resource "arubacloud_vpcpeeringroute" "test" {
+  name       = "test-route"
+  project_id = "test-project"
+  vpc_id     = "test-vpc"
+}
+`,
+				ExpectError: regexp.MustCompile(`vpc_peering_id`),
+			},
+		},
+	})
+}
+
+func TestUnitVpnrouteResource_MissingVpnTunnelID(t *testing.T) {
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: `
+resource "arubacloud_vpnroute" "test" {
+  name       = "test-vpnroute"
+  location   = "ITBG-Bergamo"
+  project_id = "test-project"
+}
+`,
+				ExpectError: regexp.MustCompile(`vpn_tunnel_id`),
+			},
+		},
+	})
+}
+
+// --- Database (additional) ---
+
+func TestUnitDatabasegrantResource_MissingDbaasID(t *testing.T) {
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: `
+resource "arubacloud_databasegrant" "test" {
+  project_id = "test-project"
+  database   = "testdb"
+  user_id    = "testuser"
+}
+`,
+				ExpectError: regexp.MustCompile(`dbaas_id`),
+			},
+		},
+	})
+}
+
+func TestUnitDatabasebackupResource_MissingDbaasID(t *testing.T) {
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: `
+resource "arubacloud_databasebackup" "test" {
+  project_id = "test-project"
+  name       = "test-dbbackup"
+  location   = "ITBG-Bergamo"
+  zone       = "ITBG-1"
+  database   = "testdb"
+}
+`,
+				ExpectError: regexp.MustCompile(`dbaas_id`),
+			},
+		},
+	})
+}
