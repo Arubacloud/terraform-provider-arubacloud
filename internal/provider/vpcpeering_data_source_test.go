@@ -13,10 +13,8 @@ import (
 
 func TestAccVpcpeeringDataSource(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
-	vpcID := os.Getenv("ARUBACLOUD_VPC_ID")
-	peeringID := os.Getenv("ARUBACLOUD_VPCPEERING_ID")
-	if projectID == "" || vpcID == "" || peeringID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID, ARUBACLOUD_VPC_ID and ARUBACLOUD_VPCPEERING_ID must be set for acceptance tests")
+	if projectID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
 	}
 
 	resource.Test(t, resource.TestCase{
@@ -24,7 +22,7 @@ func TestAccVpcpeeringDataSource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccVpcpeeringDataSourceConfig(projectID, vpcID, peeringID),
+				Config: testAccVpcpeeringDataSourceConfig(projectID),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_vpcpeering.test",
@@ -44,7 +42,7 @@ func TestAccVpcpeeringDataSource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_vpcpeering.test",
 						tfjsonpath.New("vpc_id"),
-						knownvalue.StringExact(vpcID),
+						knownvalue.NotNull(),
 					),
 				},
 			},
@@ -52,12 +50,32 @@ func TestAccVpcpeeringDataSource(t *testing.T) {
 	})
 }
 
-func testAccVpcpeeringDataSourceConfig(projectID, vpcID, peeringID string) string {
+func testAccVpcpeeringDataSourceConfig(projectID string) string {
 	return fmt.Sprintf(`
-data "arubacloud_vpcpeering" "test" {
-  id         = %[1]q
-  project_id = %[2]q
-  vpc_id     = %[3]q
+resource "arubacloud_vpc" "local" {
+  name       = "test-ds-vpc-local"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
 }
-`, peeringID, projectID, vpcID)
+
+resource "arubacloud_vpc" "peer" {
+  name       = "test-ds-vpc-peer"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+}
+
+resource "arubacloud_vpcpeering" "test" {
+  name       = "test-ds-vpcpeering"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+  vpc_id     = arubacloud_vpc.local.id
+  peer_vpc   = arubacloud_vpc.peer.id
+}
+
+data "arubacloud_vpcpeering" "test" {
+  id         = arubacloud_vpcpeering.test.id
+  project_id = %[1]q
+  vpc_id     = arubacloud_vpc.local.id
+}
+`, projectID)
 }
