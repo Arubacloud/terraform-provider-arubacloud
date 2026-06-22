@@ -13,10 +13,8 @@ import (
 
 func TestAccRestoreDataSource(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
-	backupID := os.Getenv("ARUBACLOUD_BACKUP_ID")
-	restoreID := os.Getenv("ARUBACLOUD_RESTORE_ID")
-	if projectID == "" || backupID == "" || restoreID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID, ARUBACLOUD_BACKUP_ID and ARUBACLOUD_RESTORE_ID must be set for acceptance tests")
+	if projectID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
 	}
 
 	resource.Test(t, resource.TestCase{
@@ -24,7 +22,7 @@ func TestAccRestoreDataSource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccRestoreDataSourceConfig(projectID, backupID, restoreID),
+				Config: testAccRestoreDataSourceConfig(projectID),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_restore.test",
@@ -44,7 +42,7 @@ func TestAccRestoreDataSource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_restore.test",
 						tfjsonpath.New("backup_id"),
-						knownvalue.StringExact(backupID),
+						knownvalue.NotNull(),
 					),
 				},
 			},
@@ -52,12 +50,51 @@ func TestAccRestoreDataSource(t *testing.T) {
 	})
 }
 
-func testAccRestoreDataSourceConfig(projectID, backupID, restoreID string) string {
+func testAccRestoreDataSourceConfig(projectID string) string {
 	return fmt.Sprintf(`
-data "arubacloud_restore" "test" {
-  id         = %[1]q
-  project_id = %[2]q
-  backup_id  = %[3]q
+resource "arubacloud_blockstorage" "source" {
+  name           = "test-ds-restore-source"
+  project_id     = %[1]q
+  location       = "ITBG-Bergamo"
+  size_gb        = 10
+  billing_period = "Hour"
+  zone           = "ITBG-1"
+  type           = "Standard"
 }
-`, restoreID, projectID, backupID)
+
+resource "arubacloud_blockstorage" "target" {
+  name           = "test-ds-restore-target"
+  project_id     = %[1]q
+  location       = "ITBG-Bergamo"
+  size_gb        = 10
+  billing_period = "Hour"
+  zone           = "ITBG-1"
+  type           = "Standard"
+}
+
+resource "arubacloud_backup" "test" {
+  name           = "test-ds-restore-backup"
+  location       = "ITBG-Bergamo"
+  project_id     = %[1]q
+  type           = "full"
+  volume_id      = arubacloud_blockstorage.source.id
+  billing_period = "Hour"
+  retention_days = 7
+  tags           = ["acceptance-test"]
+}
+
+resource "arubacloud_restore" "test" {
+  name       = "test-ds-restore"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+  backup_id  = arubacloud_backup.test.id
+  volume_id  = arubacloud_blockstorage.target.id
+}
+
+data "arubacloud_restore" "test" {
+  id         = arubacloud_restore.test.id
+  project_id = %[1]q
+  backup_id  = arubacloud_backup.test.id
+}
+`, projectID)
 }
