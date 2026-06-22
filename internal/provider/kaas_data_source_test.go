@@ -13,9 +13,8 @@ import (
 
 func TestAccKaasDataSource(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
-	kaasID := os.Getenv("ARUBACLOUD_KAAS_ID")
-	if projectID == "" || kaasID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_KAAS_ID must be set for acceptance tests")
+	if projectID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
 	}
 
 	resource.Test(t, resource.TestCase{
@@ -23,7 +22,7 @@ func TestAccKaasDataSource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccKaasDataSourceConfig(projectID, kaasID),
+				Config: testAccKaasDataSourceConfig(projectID),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_kaas.test",
@@ -46,11 +45,55 @@ func TestAccKaasDataSource(t *testing.T) {
 	})
 }
 
-func testAccKaasDataSourceConfig(projectID, kaasID string) string {
+func testAccKaasDataSourceConfig(projectID string) string {
 	return fmt.Sprintf(`
-data "arubacloud_kaas" "test" {
-  id         = %[1]q
-  project_id = %[2]q
+resource "arubacloud_vpc" "test" {
+  name       = "test-ds-kaas-vpc"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
 }
-`, kaasID, projectID)
+
+resource "arubacloud_subnet" "test" {
+  name       = "test-ds-kaas-subnet"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+  vpc_id     = arubacloud_vpc.test.id
+  type       = "Basic"
+}
+
+resource "arubacloud_securitygroup" "test" {
+  name       = "test-ds-kaas-sg"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+  vpc_id     = arubacloud_vpc.test.id
+}
+
+resource "arubacloud_kaas" "test" {
+  name           = "test-ds-kaas"
+  location       = "ITBG-Bergamo"
+  project_id     = %[1]q
+  billing_period = "Hour"
+
+  network = {
+    vpc_uri_ref         = arubacloud_vpc.test.uri
+    subnet_uri_ref      = arubacloud_subnet.test.uri
+    security_group_name = arubacloud_securitygroup.test.name
+    node_cidr = {
+      address = "10.0.1.0/24"
+      name    = "node-cidr"
+    }
+  }
+
+  settings = {
+    kubernetes_version = "1.28"
+    ha                 = false
+    node_pools         = []
+  }
+}
+
+data "arubacloud_kaas" "test" {
+  id         = arubacloud_kaas.test.id
+  project_id = %[1]q
+}
+`, projectID)
 }
