@@ -30,7 +30,7 @@ resource "arubacloud_subnet" "basic" {
       }
       routes = [
         {
-          address = "0.0.0.0/0"
+          address = "10.0.1.128/25"
           gateway = "10.0.1.1"
         }
       ]
@@ -115,7 +115,7 @@ Optional:
 
 Optional:
 
-- `address` (String) Destination network in CIDR notation (e.g., `0.0.0.0/0` for a default route).
+- `address` (String) Destination network in CIDR notation. Must be within the subnet's `network.address` CIDR block (e.g., `10.0.1.128/25` when the subnet is `10.0.1.0/24`).
 - `gateway` (String) Gateway IP address for this route.
 
 

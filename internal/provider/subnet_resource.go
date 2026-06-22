@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"net"
 	"time"
 
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
@@ -15,11 +16,13 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 var _ resource.Resource = &SubnetResource{}
 var _ resource.ResourceWithImportState = &SubnetResource{}
+var _ resource.ResourceWithConfigValidators = &SubnetResource{}
 
 func NewSubnetResource() resource.Resource {
 	return &SubnetResource{}
@@ -157,7 +160,7 @@ func (r *SubnetResource) Schema(ctx context.Context, req resource.SchemaRequest,
 								NestedObject: schema.NestedAttributeObject{
 									Attributes: map[string]schema.Attribute{
 										"address": schema.StringAttribute{
-											MarkdownDescription: "Destination network in CIDR notation (e.g., `0.0.0.0/0` for a default route).",
+											MarkdownDescription: "Destination network in CIDR notation. Must be within the subnet's `network.address` CIDR block (e.g., `10.0.1.128/25` when the subnet is `10.0.1.0/24`).",
 											Optional:            true,
 										},
 										"gateway": schema.StringAttribute{
@@ -1085,4 +1088,115 @@ func (r *SubnetResource) Delete(ctx context.Context, req resource.DeleteRequest,
 
 func (r *SubnetResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+func (r *SubnetResource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
+	return []resource.ConfigValidator{
+		subnetRouteAddressValidator{},
+	}
+}
+
+type subnetRouteAddressValidator struct{}
+
+func (v subnetRouteAddressValidator) Description(_ context.Context) string {
+	return "Route addresses must be within the subnet's network CIDR block."
+}
+
+func (v subnetRouteAddressValidator) MarkdownDescription(_ context.Context) string {
+	return "Route addresses must be within the subnet's network CIDR block."
+}
+
+func (v subnetRouteAddressValidator) ValidateResource(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var data SubnetResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if data.Type.IsNull() || data.Type.IsUnknown() || data.Type.ValueString() != "Advanced" {
+		return
+	}
+	if data.Network.IsNull() || data.Network.IsUnknown() {
+		return
+	}
+
+	var networkModel NetworkModel
+	resp.Diagnostics.Append(data.Network.As(ctx, &networkModel, basetypes.ObjectAsOptions{})...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if networkModel.Address.IsNull() || networkModel.Address.IsUnknown() {
+		return
+	}
+	networkAddr := networkModel.Address.ValueString()
+	if networkAddr == "" {
+		return
+	}
+	_, subnetNet, err := net.ParseCIDR(networkAddr)
+	if err != nil {
+		return
+	}
+
+	if networkModel.Dhcp.IsNull() || networkModel.Dhcp.IsUnknown() {
+		return
+	}
+
+	var dhcpModel DhcpModel
+	resp.Diagnostics.Append(networkModel.Dhcp.As(ctx, &dhcpModel, basetypes.ObjectAsOptions{})...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if dhcpModel.Routes.IsNull() || dhcpModel.Routes.IsUnknown() {
+		return
+	}
+
+	var routeObjs []types.Object
+	resp.Diagnostics.Append(dhcpModel.Routes.ElementsAs(ctx, &routeObjs, false)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	for i, routeObj := range routeObjs {
+		addrAttr, ok := routeObj.Attributes()["address"]
+		if !ok {
+			continue
+		}
+		addrStr, ok := addrAttr.(types.String)
+		if !ok || addrStr.IsNull() || addrStr.IsUnknown() {
+			continue
+		}
+		routeAddr := addrStr.ValueString()
+		if routeAddr == "" {
+			continue
+		}
+		_, routeNet, err := net.ParseCIDR(routeAddr)
+		if err != nil {
+			resp.Diagnostics.AddAttributeError(
+				path.Root("network").AtName("dhcp").AtName("routes").AtListIndex(i).AtName("address"),
+				"Invalid Route Address",
+				fmt.Sprintf("Route address %q is not valid CIDR notation.", routeAddr),
+			)
+			continue
+		}
+		if !cidrContains(subnetNet, routeNet) {
+			resp.Diagnostics.AddAttributeError(
+				path.Root("network").AtName("dhcp").AtName("routes").AtListIndex(i).AtName("address"),
+				"Route Address Outside Subnet CIDR",
+				fmt.Sprintf("Route address %q must be within the subnet CIDR %q. "+
+					"ArubaCloud requires all route addresses to be covered by the subnet's address block.", routeAddr, networkAddr),
+			)
+		}
+	}
+}
+
+// cidrContains reports whether child is a subnet of (or equal to) parent.
+func cidrContains(parent, child *net.IPNet) bool {
+	parentOnes, parentBits := parent.Mask.Size()
+	childOnes, childBits := child.Mask.Size()
+	if parentBits != childBits {
+		return false
+	}
+	return childOnes >= parentOnes && parent.Contains(child.IP)
 }
