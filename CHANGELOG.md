@@ -1,3 +1,9 @@
+## 0.1.7 (June 22, 2026)
+
+BUG FIXES:
+
+* **All stateful resources**: Resources that reach a terminal `Failed` state no longer block `terraform destroy` ([#116](https://github.com/Arubacloud/terraform-provider-arubacloud/issues/116)). Previously, `Read()` returned a hard error for `Failed`-state resources, which prevented every subsequent Terraform operation — including `destroy` — from running and left CI pipelines stuck with no automated recovery path. `Read()` now emits a warning instead, populates state normally (the API returns valid metadata for failed resources), and allows Terraform to build a full destroy plan so that `Delete()` is invoked in the correct reverse-dependency order.
+
 ## 0.1.6 (May 27, 2026)
 
 BUG FIXES:
