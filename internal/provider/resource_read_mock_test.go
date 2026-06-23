@@ -63,8 +63,8 @@ func TestResourceRead_API404(t *testing.T) {
 	ctx := context.Background()
 
 	resources := []struct {
-		name  string
-		newR  func() resource.Resource
+		name string
+		newR func() resource.Resource
 	}{
 		{"vpc", NewVPCResource},
 		{"subnet", NewSubnetResource},

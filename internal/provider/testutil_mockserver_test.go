@@ -23,7 +23,7 @@ func newMockArubaClient(t *testing.T, apiHandler http.HandlerFunc) (*httptest.Se
 		if r.URL.Path == "/token" {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"access_token": "mock-token",
 				"token_type":   "Bearer",
 				"expires_in":   3600,
@@ -66,7 +66,7 @@ func newMockArubaClientFast(t *testing.T, apiHandler http.HandlerFunc) (*httptes
 func apiError(w http.ResponseWriter, statusCode int) {
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"title":  http.StatusText(statusCode),
 		"status": statusCode,
 	})

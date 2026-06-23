@@ -17,7 +17,6 @@ func TestResourceImportState_Success(t *testing.T) {
 	ctx := context.Background()
 
 	for _, tc := range allResources25 {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			res := tc.newR()
 			importable, ok := res.(resource.ResourceWithImportState)

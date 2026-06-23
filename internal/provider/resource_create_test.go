@@ -145,7 +145,6 @@ func TestResourceCreate_Success(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			_, mockClient := newMockArubaClient(t, tc.handler)
 

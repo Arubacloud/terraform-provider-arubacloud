@@ -136,7 +136,6 @@ func TestResourceUpdate_Success(t *testing.T) {
 		if skip[tc.name] {
 			continue
 		}
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			_, mockClient := newMockArubaClient(t, updateSuccessHandler)
 
