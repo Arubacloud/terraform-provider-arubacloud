@@ -51,6 +51,15 @@ func newMockArubaClient(t *testing.T, apiHandler http.HandlerFunc) (*httptest.Se
 	}
 }
 
+// newMockArubaClientFast is like newMockArubaClient but uses a 50ms
+// ResourceTimeout so that retry/polling loops fail-fast in error-path tests.
+func newMockArubaClientFast(t *testing.T, apiHandler http.HandlerFunc) (*httptest.Server, *ArubaCloudClient) {
+	t.Helper()
+	srv, client := newMockArubaClient(t, apiHandler)
+	client.ResourceTimeout = 50 * time.Millisecond
+	return srv, client
+}
+
 // apiError writes an RFC-7807 problem-details JSON body with the given HTTP
 // status code.  Pass statusCode 404 or 500 to exercise the two most common
 // API error branches in Read() methods.
