@@ -85,7 +85,6 @@ func TestDBaaSUserCreate_Success(t *testing.T) {
 	}
 }
 
-
 // TestDBaaSUserUpdate_APIError verifies that DBaaS user Update() adds an error
 // when the initial GET returns 500.  This increases Update coverage beyond the
 // basic APIError test which may share the same code path.

@@ -69,8 +69,8 @@ func buildKaaSCreateReqWithNodePool(ctx context.Context, t *testing.T) resource.
 		t.Fatalf("buildKaaSCreateReqWithNodePool: node_cidr is not a tftypes.Object")
 	}
 	network := tftypes.NewValue(networkType, map[string]tftypes.Value{
-		"vpc_uri_ref":         tftypes.NewValue(tftypes.String, "test-vpc-uri"),
-		"subnet_uri_ref":      tftypes.NewValue(tftypes.String, "test-subnet-uri"),
+		"vpc_uri_ref":    tftypes.NewValue(tftypes.String, "test-vpc-uri"),
+		"subnet_uri_ref": tftypes.NewValue(tftypes.String, "test-subnet-uri"),
 		"node_cidr": tftypes.NewValue(nodeCIDRType, map[string]tftypes.Value{
 			"address": tftypes.NewValue(tftypes.String, "10.0.0.0/24"),
 			"name":    tftypes.NewValue(tftypes.String, "test-cidr"),

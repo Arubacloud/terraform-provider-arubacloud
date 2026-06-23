@@ -9,6 +9,16 @@ import (
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
 )
 
+// newTestProvider instantiates ArubaCloudProvider for unit tests.
+func newTestProvider(t *testing.T) *ArubaCloudProvider {
+	t.Helper()
+	p, ok := New("test")().(*ArubaCloudProvider)
+	if !ok {
+		t.Fatal("New() did not return *ArubaCloudProvider")
+	}
+	return p
+}
+
 // buildProviderConfig constructs a tfsdk.Config for the ArubaCloud provider
 // from a map of attribute name → tftypes.Value overrides.  Attributes not
 // mentioned in overrides are set to null (all provider attributes are Optional).
@@ -43,7 +53,7 @@ func buildProviderConfig(t *testing.T, p *ArubaCloudProvider, overrides map[stri
 // attribute-level error diagnostic when api_key is absent.
 func TestProviderConfigure_MissingAPIKey(t *testing.T) {
 	ctx := context.Background()
-	p := New("test")().(*ArubaCloudProvider)
+	p := newTestProvider(t)
 
 	// Provide api_secret but NOT api_key.
 	config := buildProviderConfig(t, p, map[string]tftypes.Value{
@@ -62,7 +72,7 @@ func TestProviderConfigure_MissingAPIKey(t *testing.T) {
 // attribute-level error diagnostic when api_secret is absent.
 func TestProviderConfigure_MissingAPISecret(t *testing.T) {
 	ctx := context.Background()
-	p := New("test")().(*ArubaCloudProvider)
+	p := newTestProvider(t)
 
 	config := buildProviderConfig(t, p, map[string]tftypes.Value{
 		"api_key": tftypes.NewValue(tftypes.String, "test-key"),
@@ -80,7 +90,7 @@ func TestProviderConfigure_MissingAPISecret(t *testing.T) {
 // two error diagnostics when both api_key and api_secret are absent.
 func TestProviderConfigure_MissingBothCredentials(t *testing.T) {
 	ctx := context.Background()
-	p := New("test")().(*ArubaCloudProvider)
+	p := newTestProvider(t)
 
 	config := buildProviderConfig(t, p, nil) // all null
 	req := providerframe.ConfigureRequest{Config: config}
@@ -108,7 +118,7 @@ func TestProviderConfigure_MissingBothCredentials(t *testing.T) {
 // live server is required.
 func TestProviderConfigure_Success(t *testing.T) {
 	ctx := context.Background()
-	p := New("test")().(*ArubaCloudProvider)
+	p := newTestProvider(t)
 
 	config := buildProviderConfig(t, p, map[string]tftypes.Value{
 		"api_key":    tftypes.NewValue(tftypes.String, "test-key"),
@@ -143,7 +153,7 @@ func TestProviderConfigure_Success(t *testing.T) {
 // explicit base_url and token_issuer_url and still succeeds.
 func TestProviderConfigure_WithBaseURL(t *testing.T) {
 	ctx := context.Background()
-	p := New("test")().(*ArubaCloudProvider)
+	p := newTestProvider(t)
 
 	config := buildProviderConfig(t, p, map[string]tftypes.Value{
 		"api_key":          tftypes.NewValue(tftypes.String, "test-key"),
@@ -165,7 +175,7 @@ func TestProviderConfigure_WithBaseURL(t *testing.T) {
 // is supplied.
 func TestProviderConfigure_InvalidLogLevel(t *testing.T) {
 	ctx := context.Background()
-	p := New("test")().(*ArubaCloudProvider)
+	p := newTestProvider(t)
 
 	config := buildProviderConfig(t, p, map[string]tftypes.Value{
 		"api_key":    tftypes.NewValue(tftypes.String, "test-key"),
@@ -195,7 +205,7 @@ func TestProviderConfigure_InvalidLogLevel(t *testing.T) {
 // accepts a valid resource_timeout string.
 func TestProviderConfigure_ValidResourceTimeout(t *testing.T) {
 	ctx := context.Background()
-	p := New("test")().(*ArubaCloudProvider)
+	p := newTestProvider(t)
 
 	config := buildProviderConfig(t, p, map[string]tftypes.Value{
 		"api_key":          tftypes.NewValue(tftypes.String, "test-key"),
