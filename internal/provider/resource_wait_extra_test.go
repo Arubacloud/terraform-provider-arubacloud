@@ -145,13 +145,13 @@ func TestDeleteResourceWithRetry_ContextCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	var calls int
-	deleteFunc := func() (interface{}, error) {
+	deleteFunc := func() error {
 		calls++
 		cancel() // cancel immediately
-		return nil, errors.New("some error")
+		return errors.New("some error")
 	}
 
-	err := DeleteResourceWithRetry(ctx, deleteFunc, ExtractSDKError, "vpc", "abc", time.Minute)
+	err := DeleteResourceWithRetry(ctx, deleteFunc, "vpc", "abc", time.Minute)
 	// Should return some error (either from deleteFunc or context cancel)
 	if err == nil {
 		t.Fatal("expected error after context cancel, got nil")
