@@ -68,7 +68,6 @@ func TestResourceRead_RichMetadata(t *testing.T) {
 	ctx := context.Background()
 
 	for _, tc := range resourcesForReadSuccess {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			handler := richMetadataHandler
 			if tc.name == "snapshot" {
@@ -144,7 +143,6 @@ func TestDataSourceRead_RichMetadata(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			_, mockClient := newMockArubaClient(t, tc.handler)
 
@@ -184,7 +182,7 @@ func TestResourceRead_RichMetadata_ComplexResources(t *testing.T) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			// Add tags to cloudserverFullJSON
-			w.Write([]byte(`{"metadata":{"id":"test-id","name":"test-name",` +
+			body := `{"metadata":{"id":"test-id","name":"test-name",` +
 				`"uri":"/cloudservers/test-id",` +
 				`"location":{"value":"test-location"},` +
 				`"tags":["env:test"]},` +
@@ -192,7 +190,8 @@ func TestResourceRead_RichMetadata_ComplexResources(t *testing.T) {
 				`"properties":{"vpc":{"uri":"test-vpc-uri"},` +
 				`"bootVolume":{"uri":"test-boot-uri"},` +
 				`"flavor":{"name":"test-flavor"},` +
-				`"keyPair":{"uri":""},"zone":"test-zone"}}`)) //nolint:errcheck
+				`"keyPair":{"uri":""},"zone":"test-zone"}}`
+			w.Write([]byte(body)) //nolint:errcheck
 		})
 		res := NewCloudServerResource()
 		configureResource(ctx, t, res, mockClient)

@@ -54,7 +54,6 @@ func TestResourceUpdate_RichMetadata(t *testing.T) {
 		if skipRich[tc.name] {
 			continue
 		}
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			_, mockClient := newMockArubaClient(t, richUpdateHandler)
 
