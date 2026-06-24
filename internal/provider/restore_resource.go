@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -95,6 +95,15 @@ func (r *RestoreResource) Configure(ctx context.Context, req resource.ConfigureR
 	r.client = client
 }
 
+func restoreRef(data *RestoreResourceModel) aruba.Ref {
+	if !data.Uri.IsNull() && data.Uri.ValueString() != "" {
+		return aruba.URI(data.Uri.ValueString())
+	}
+	return aruba.URI("/projects/" + data.ProjectID.ValueString() +
+		"/providers/Aruba.Storage/backups/" + data.BackupID.ValueString() +
+		"/restores/" + data.Id.ValueString())
+}
+
 func (r *RestoreResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data RestoreResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
@@ -106,136 +115,47 @@ func (r *RestoreResource) Create(ctx context.Context, req resource.CreateRequest
 	backupID := data.BackupID.ValueString()
 	volumeID := data.VolumeID.ValueString()
 
-	if projectID == "" || backupID == "" || volumeID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID, Backup ID, and Volume ID are required to create a restore",
-		)
-		return
-	}
-
 	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Get the backup details to get the full URI
-	backupResponse, err := r.client.Client.FromStorage().Backups().Get(ctx, projectID, backupID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error getting backup details",
-			NewTransportError("read", "Restore", err).Error(),
-		)
+	// Get volume URI from the volume ID.
+	vol, err := r.client.Client.FromStorage().Volumes().Get(ctx,
+		aruba.URI("/projects/"+projectID+"/providers/Aruba.Storage/volumes/"+volumeID))
+	if provErr := CheckResponseErr("read", "Volume", err); provErr != nil {
+		resp.Diagnostics.AddError("Error getting volume details", provErr.Error())
+		return
+	}
+	if vol.URI() == "" {
+		resp.Diagnostics.AddError("Invalid Volume Response", "Volume URI not found in response")
 		return
 	}
 
-	if backupResponse == nil || backupResponse.Data == nil {
-		resp.Diagnostics.AddError(
-			"Backup Not Found",
-			"Backup not found",
-		)
+	backupRef := aruba.URI("/projects/" + projectID + "/providers/Aruba.Storage/backups/" + backupID)
+	restore, err := r.client.Client.FromStorage().Restores().Create(ctx,
+		aruba.NewStorageRestore().
+			Named(data.Name.ValueString()).
+			InRegion(aruba.Region(data.Location.ValueString())).
+			FromBackup(backupRef).
+			ToVolume(aruba.URI(vol.URI())).
+			Tagged(tags...),
+	)
+	if provErr := CheckResponseErr("create", "Restore", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	// backupURI is not used - removed unused variable
+	data.Id = types.StringValue(restore.ID())
+	data.Uri = strVal(restore.URI())
 
-	// Get the volume details to get the full URI
-	volumeResponse, err := r.client.Client.FromStorage().Volumes().Get(ctx, projectID, volumeID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error getting volume details",
-			NewTransportError("read", "Restore", err).Error(),
-		)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	if volumeResponse == nil || volumeResponse.Data == nil {
-		resp.Diagnostics.AddError(
-			"Volume Not Found",
-			"Volume not found",
-		)
-		return
-	}
-
-	volumeURI := ""
-	if volumeResponse.Data.Metadata.URI != nil {
-		volumeURI = *volumeResponse.Data.Metadata.URI
-	} else {
-		resp.Diagnostics.AddError(
-			"Invalid Volume Response",
-			"Volume URI not found in response",
-		)
-		return
-	}
-
-	// Build the restore request
-	createRequest := sdktypes.RestoreRequest{
-		Metadata: sdktypes.RegionalResourceMetadataRequest{
-			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
-				Name: data.Name.ValueString(),
-				Tags: tags,
-			},
-			Location: sdktypes.LocationRequest{
-				Value: data.Location.ValueString(),
-			},
-		},
-		Properties: sdktypes.RestorePropertiesRequest{
-			Target: sdktypes.ReferenceResource{
-				URI: volumeURI,
-			},
-		},
-	}
-
-	// Create the restore using the SDK
-	response, err := r.client.Client.FromStorage().Restores().Create(ctx, projectID, backupID, createRequest, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error creating restore",
-			NewTransportError("create", "Restore", err).Error(),
-		)
-		return
-	}
-
-	if apiErr := CheckResponse("create", "Restore", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-
-	if response != nil && response.Data != nil {
-		if response.Data.Metadata.ID != nil {
-			data.Id = types.StringValue(*response.Data.Metadata.ID)
-		}
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-	} else {
-		resp.Diagnostics.AddError(
-			"Invalid API Response",
-			"Restore created but no data returned from API",
-		)
-		return
-	}
-
-	// Wait for Restore to be active before returning
-	// This ensures Terraform doesn't proceed until Restore is ready
-	restoreID := data.Id.ValueString()
-	checker := func(ctx context.Context) (string, error) {
-		getResp, err := r.client.Client.FromStorage().Restores().Get(ctx, projectID, backupID, restoreID, nil)
-		if err != nil {
-			return "", err
-		}
-		if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
-			return *getResp.Data.Status.State, nil
-		}
-		return "Unknown", nil
-	}
-
-	// Wait for Restore to be active - block until ready (using configured timeout)
-	if err := WaitForResourceActive(ctx, checker, "Restore", restoreID, r.client.ResourceTimeout); err != nil {
-		ReportWaitResult(&resp.Diagnostics, err, "Restore", restoreID)
-		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	if waitErr := restore.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+		ReportWaitResult(&resp.Diagnostics, waitErr, "Restore", data.Id.ValueString())
 		return
 	}
 
@@ -243,7 +163,6 @@ func (r *RestoreResource) Create(ctx context.Context, req resource.CreateRequest
 		"restore_id":   data.Id.ValueString(),
 		"restore_name": data.Name.ValueString(),
 	})
-
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -253,114 +172,47 @@ func (r *RestoreResource) Read(ctx context.Context, req resource.ReadRequest, re
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	projectID := data.ProjectID.ValueString()
-	backupID := data.BackupID.ValueString()
-	restoreID := data.Id.ValueString()
-
-	if data.Id.IsUnknown() || data.Id.IsNull() || restoreID == "" {
-		tflog.Debug(ctx, "Restore ID is empty, removing resource from state", map[string]interface{}{"restore_id": restoreID})
+	if data.Id.IsNull() || data.Id.ValueString() == "" {
 		resp.State.RemoveResource(ctx)
 		return
 	}
 
-	if projectID == "" || backupID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID and Backup ID are required to read the restore",
-		)
-		return
-	}
-
-	// Get restore details using the SDK
-	response, err := r.client.Client.FromStorage().Restores().Get(ctx, projectID, backupID, restoreID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading restore",
-			NewTransportError("read", "Restore", err).Error(),
-		)
-		return
-	}
-
-	if apiErr := CheckResponse("read", "Restore", response); apiErr != nil {
-		if IsNotFound(apiErr) {
+	restore, err := r.client.Client.FromStorage().Restores().Get(ctx, restoreRef(&data))
+	if provErr := CheckResponseErr("read", "Restore", err); provErr != nil {
+		if IsNotFound(provErr) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	// If the resource is still provisioning (e.g. after a Create timeout that saved
-	// partial state), resume the wait so the next terraform apply reconciles correctly.
-	if response.Data.Status.State != nil {
-		switch st := *response.Data.Status.State; {
-		case isFailedState(st):
-			resp.Diagnostics.AddWarning(
-				"Resource in Failed State",
-				fmt.Sprintf("Restore %q is in a terminal failure state (%s). "+
-					"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", restoreID, st),
-			)
-		case IsCreatingState(st):
-			checker := func(ctx context.Context) (string, error) {
-				getResp, err := r.client.Client.FromStorage().Restores().Get(ctx, projectID, backupID, restoreID, nil)
-				if err != nil {
-					return "", err
-				}
-				if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
-					return *getResp.Data.Status.State, nil
-				}
-				return "Unknown", nil
-			}
-			if err := WaitForResourceActive(ctx, checker, "Restore", restoreID, r.client.ResourceTimeout); err != nil {
-				ReportWaitResult(&resp.Diagnostics, err, "Restore", restoreID)
-				resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-				return
-			}
-			// Re-read to get the final active state.
-			response, err = r.client.Client.FromStorage().Restores().Get(ctx, projectID, backupID, restoreID, nil)
-			if err != nil {
-				resp.Diagnostics.AddError("Error reading Restore after provisioning wait",
-					NewTransportError("read", "Restore", err).Error())
-				return
-			}
-			if apiErr := CheckResponse("read", "Restore", response); apiErr != nil {
-				if IsNotFound(apiErr) {
-					resp.State.RemoveResource(ctx)
-					return
-				}
-				resp.Diagnostics.AddError("API Error", apiErr.Error())
-				return
-			}
+	st := string(restore.State())
+	switch {
+	case isFailedState(st):
+		resp.Diagnostics.AddWarning("Resource in Failed State",
+			fmt.Sprintf("Restore %q is in a terminal failure state (%s). "+
+				"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", data.Id.ValueString(), st))
+	case IsCreatingState(st):
+		if waitErr := restore.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+			ReportWaitResult(&resp.Diagnostics, waitErr, "Restore", data.Id.ValueString())
+			return
+		}
+		restore, err = r.client.Client.FromStorage().Restores().Get(ctx, restoreRef(&data))
+		if provErr := CheckResponseErr("read", "Restore", err); provErr != nil {
+			resp.Diagnostics.AddError("API Error", provErr.Error())
+			return
 		}
 	}
 
-	if response != nil && response.Data != nil {
-		restore := response.Data
-
-		if restore.Metadata.ID != nil {
-			data.Id = types.StringValue(*restore.Metadata.ID)
-		}
-		if restore.Metadata.URI != nil {
-			data.Uri = types.StringValue(*restore.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-		if restore.Metadata.Name != nil {
-			data.Name = types.StringValue(*restore.Metadata.Name)
-		}
-		if restore.Metadata.LocationResponse != nil {
-			data.Location = types.StringValue(restore.Metadata.LocationResponse.Value)
-		}
-		// Note: Target field may not be available in RestorePropertiesResult
-		// VolumeID is stored from the create request, preserve from state if needed
-		// If Target is needed, check SDK for correct field name
-
-		data.Tags = TagsToListPreserveNull(restore.Metadata.Tags, data.Tags)
-	} else {
-		resp.State.RemoveResource(ctx)
-		return
+	data.Id = types.StringValue(restore.ID())
+	data.Uri = strVal(restore.URI())
+	data.Name = types.StringValue(restore.Name())
+	data.Tags = TagsToListPreserveNull(restore.Tags(), data.Tags)
+	if restore.Region() != "" {
+		data.Location = types.StringValue(string(restore.Region()))
 	}
+	// VolumeID is preserved from state (not returned by API).
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -370,58 +222,8 @@ func (r *RestoreResource) Update(ctx context.Context, req resource.UpdateRequest
 	var state RestoreResourceModel
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	// Get IDs from state (not plan) - IDs are immutable and should always be in state
-	projectID := state.ProjectID.ValueString()
-	backupID := state.BackupID.ValueString()
-	restoreID := state.Id.ValueString()
-
-	if projectID == "" || backupID == "" || restoreID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID, Backup ID, and Restore ID are required to update the restore",
-		)
-		return
-	}
-
-	// Get current restore details
-	getResponse, err := r.client.Client.FromStorage().Restores().Get(ctx, projectID, backupID, restoreID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error fetching current restore",
-			NewTransportError("read", "Restore", err).Error(),
-		)
-		return
-	}
-
-	if getResponse == nil || getResponse.Data == nil {
-		resp.Diagnostics.AddError(
-			"Restore Not Found",
-			"Restore not found or no data returned",
-		)
-		return
-	}
-
-	current := getResponse.Data
-
-	// Get region value
-	regionValue := ""
-	if current.Metadata.LocationResponse != nil {
-		regionValue = current.Metadata.LocationResponse.Value
-	}
-	if regionValue == "" {
-		resp.Diagnostics.AddError(
-			"Missing Region",
-			"Unable to determine region value for restore",
-		)
 		return
 	}
 
@@ -429,72 +231,34 @@ func (r *RestoreResource) Update(ctx context.Context, req resource.UpdateRequest
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if tags == nil {
-		tags = current.Metadata.Tags
-	}
 
-	// Build update request - only name and tags can be updated
-	updateRequest := sdktypes.RestoreRequest{
-		Metadata: sdktypes.RegionalResourceMetadataRequest{
-			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
-				Name: data.Name.ValueString(),
-				Tags: tags,
-			},
-			Location: sdktypes.LocationRequest{
-				Value: regionValue,
-			},
-		},
-		Properties: sdktypes.RestorePropertiesRequest{
-			// Properties cannot be updated
-			// Note: Target field may not be available in RestorePropertiesResult
-			// Preserve from state or use original create request values
-		},
-	}
-
-	// Update the restore using the SDK
-	response, err := r.client.Client.FromStorage().Restores().Update(ctx, projectID, backupID, restoreID, updateRequest, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error updating restore",
-			NewTransportError("update", "Restore", err).Error(),
-		)
+	restore, err := r.client.Client.FromStorage().Restores().Get(ctx, restoreRef(&state))
+	if provErr := CheckResponseErr("read", "Restore", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	if apiErr := CheckResponse("update", "Restore", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
+	restore.Named(data.Name.ValueString())
+	if tags != nil {
+		restore.RetaggedAs(tags...)
+	} else {
+		restore.RetaggedAs(restore.Tags()...)
+	}
+
+	updated, err := r.client.Client.FromStorage().Restores().Update(ctx, restore)
+	if provErr := CheckResponseErr("update", "Restore", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	// Ensure immutable fields are set from state before saving
 	data.Id = state.Id
 	data.ProjectID = state.ProjectID
 	data.BackupID = state.BackupID
-	data.Uri = state.Uri           // Preserve URI from state
-	data.VolumeID = state.VolumeID // Immutable
-
-	if response != nil && response.Data != nil {
-		// Update from response if available (should match state)
-		if response.Data.Metadata.ID != nil {
-			data.Id = types.StringValue(*response.Data.Metadata.ID)
-		}
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		}
-	} else {
-		// If no response, re-read the restore to get the latest state including URI
-		getResp, err := r.client.Client.FromStorage().Restores().Get(ctx, projectID, backupID, restoreID, nil)
-		if err == nil && getResp != nil && getResp.Data != nil {
-			if getResp.Data.Metadata.URI != nil {
-				data.Uri = types.StringValue(*getResp.Data.Metadata.URI)
-			} else {
-				data.Uri = state.Uri // Fallback to state if not in response
-			}
-		} else {
-			// If re-read fails, preserve from state
-			data.Uri = state.Uri
-		}
-	}
+	data.VolumeID = state.VolumeID
+	data.Uri = state.Uri
+	data.Location = state.Location
+	data.Name = types.StringValue(updated.Name())
+	data.Tags = TagsToListPreserveNull(updated.Tags(), data.Tags)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -506,26 +270,12 @@ func (r *RestoreResource) Delete(ctx context.Context, req resource.DeleteRequest
 		return
 	}
 
-	projectID := data.ProjectID.ValueString()
-	backupID := data.BackupID.ValueString()
+	ref := restoreRef(&data)
 	restoreID := data.Id.ValueString()
 
-	if projectID == "" || backupID == "" || restoreID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID, Backup ID, and Restore ID are required to delete the restore",
-		)
-		return
-	}
-
-	// Delete the restore using the SDK with retry mechanism
-	// Retry on any error except 404 (Resource Not Found)
 	deletionChecker := func(ctx context.Context) (bool, error) {
-		getResp, getErr := r.client.Client.FromStorage().Restores().Get(ctx, projectID, backupID, restoreID, nil)
-		if getErr != nil {
-			return false, NewTransportError("get", "Restore", getErr)
-		}
-		if provErr := CheckResponse("get", "Restore", getResp); provErr != nil {
+		_, getErr := r.client.Client.FromStorage().Restores().Get(ctx, ref)
+		if provErr := CheckResponseErr("get", "Restore", getErr); provErr != nil {
 			if IsNotFound(provErr) {
 				return true, nil
 			}
@@ -535,37 +285,19 @@ func (r *RestoreResource) Delete(ctx context.Context, req resource.DeleteRequest
 	}
 
 	deleteStart := time.Now()
-	err := DeleteResourceWithRetry(
-		ctx,
-		func() error {
-			resp, err := r.client.Client.FromStorage().Restores().Delete(ctx, projectID, backupID, restoreID, nil)
-			if err != nil {
-				return NewTransportError("delete", "Restore", err)
-			}
-			return CheckResponse("delete", "Restore", resp)
-		},
-		"Restore",
-		restoreID,
-		r.client.ResourceTimeout,
-		deletionChecker,
-	)
-
+	err := DeleteResourceWithRetry(ctx, func() error {
+		return CheckResponseErr("delete", "Restore",
+			r.client.Client.FromStorage().Restores().Delete(ctx, ref))
+	}, "Restore", restoreID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error deleting restore",
-			NewTransportError("delete", "Restore", err).Error(),
-		)
+		resp.Diagnostics.AddError("Error deleting Restore", err.Error())
 		return
 	}
-
 	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "Restore", restoreID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for Restore deletion", waitErr.Error())
 		return
 	}
-
-	tflog.Trace(ctx, "deleted a Restore resource", map[string]interface{}{
-		"restore_id": restoreID,
-	})
+	tflog.Trace(ctx, "deleted a Restore resource", map[string]interface{}{"restore_id": restoreID})
 }
 
 func (r *RestoreResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

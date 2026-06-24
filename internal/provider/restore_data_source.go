@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -101,41 +102,30 @@ func (d *RestoreDataSource) Read(ctx context.Context, req datasource.ReadRequest
 		return
 	}
 
-	response, err := d.client.Client.FromStorage().Restores().Get(ctx, projectID, backupID, restoreID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError("Error reading restore", NewTransportError("read", "Restore", err).Error())
-		return
-	}
-	if apiErr := CheckResponse("read", "Restore", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-	if response == nil || response.Data == nil {
-		resp.Diagnostics.AddError("No data returned", "Restore Get returned no data")
+	restore, err := d.client.Client.FromStorage().Restores().Get(ctx,
+		aruba.URI("/projects/"+projectID+"/providers/Aruba.Storage/backups/"+backupID+"/restores/"+restoreID))
+	if provErr := CheckResponseErr("read", "Restore", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	restore := response.Data
-	if restore.Metadata.ID != nil {
-		data.Id = types.StringValue(*restore.Metadata.ID)
-	}
-	if restore.Metadata.Name != nil {
-		data.Name = types.StringValue(*restore.Metadata.Name)
-	}
-	if restore.Metadata.LocationResponse != nil {
-		data.Location = types.StringValue(restore.Metadata.LocationResponse.Value)
+	data.Id = types.StringValue(restore.ID())
+	data.Name = types.StringValue(restore.Name())
+	data.ProjectId = types.StringValue(projectID)
+	data.BackupId = types.StringValue(backupID)
+	if restore.Region() != "" {
+		data.Location = types.StringValue(string(restore.Region()))
 	} else {
 		data.Location = types.StringNull()
 	}
-	data.ProjectId = types.StringValue(projectID)
-	data.BackupId = types.StringValue(backupID)
-	// VolumeId is not directly available in the restore response
+	// VolumeId is not directly available in the restore response.
 	data.VolumeId = types.StringNull()
 
-	if len(restore.Metadata.Tags) > 0 {
-		tagValues := make([]types.String, len(restore.Metadata.Tags))
-		for i, tag := range restore.Metadata.Tags {
-			tagValues[i] = types.StringValue(tag)
+	tags := restore.Tags()
+	if len(tags) > 0 {
+		tagValues := make([]types.String, len(tags))
+		for i, t := range tags {
+			tagValues[i] = types.StringValue(t)
 		}
 		data.Tags = tagValues
 	} else {
