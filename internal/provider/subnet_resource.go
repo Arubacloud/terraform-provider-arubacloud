@@ -6,9 +6,10 @@ import (
 	"net"
 	"time"
 
-	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -195,11 +196,213 @@ func (r *SubnetResource) Configure(ctx context.Context, req resource.ConfigureRe
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected *ArubaCloudClient, got: %T. Please report this issue to the provider developers. Please report this issue to the provider developers.", req.ProviderData),
+			fmt.Sprintf("Expected *ArubaCloudClient, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
 		return
 	}
 	r.client = client
+}
+
+func subnetRef(data *SubnetResourceModel) aruba.Ref {
+	if !data.Uri.IsNull() && data.Uri.ValueString() != "" {
+		return aruba.URI(data.Uri.ValueString())
+	}
+	return aruba.SubnetRef(data.ProjectId.ValueString(), data.VpcId.ValueString(), data.Id.ValueString())
+}
+
+// buildSubnetDHCP builds a *aruba.SubnetDHCPCommon from a dhcp Object attribute.
+func buildSubnetDHCP(ctx context.Context, dhcpAttr types.Object, diags *diag.Diagnostics) *aruba.SubnetDHCPCommon {
+	if dhcpAttr.IsNull() || dhcpAttr.IsUnknown() {
+		return nil
+	}
+	dhcpAttrs := dhcpAttr.Attributes()
+	dhcp := aruba.NewSubnetDHCP()
+
+	if v, ok := dhcpAttrs["enabled"]; ok && v != nil {
+		if b, ok := v.(types.Bool); ok && !b.IsNull() && b.ValueBool() {
+			dhcp.Enabled()
+		}
+	}
+
+	if v, ok := dhcpAttrs["range"]; ok && v != nil {
+		if rangeObj, ok := v.(types.Object); ok && !rangeObj.IsNull() {
+			rangeAttrs := rangeObj.Attributes()
+			start := ""
+			count := 0
+			if sv, ok := rangeAttrs["start"]; ok && sv != nil {
+				if s, ok := sv.(types.String); ok && !s.IsNull() {
+					start = s.ValueString()
+				}
+			}
+			if cv, ok := rangeAttrs["count"]; ok && cv != nil {
+				if c, ok := cv.(types.Int64); ok && !c.IsNull() {
+					count = int(c.ValueInt64())
+				}
+			}
+			if start != "" || count > 0 {
+				dhcp.WithRange(start, count)
+			}
+		}
+	}
+
+	if v, ok := dhcpAttrs["routes"]; ok && v != nil {
+		if routesList, ok := v.(types.List); ok && !routesList.IsNull() {
+			var routeObjs []types.Object
+			d := routesList.ElementsAs(ctx, &routeObjs, false)
+			diags.Append(d...)
+			if !diags.HasError() {
+				for _, routeObj := range routeObjs {
+					routeAttrs := routeObj.Attributes()
+					addr, gw := "", ""
+					if av, ok := routeAttrs["address"]; ok && av != nil {
+						if s, ok := av.(types.String); ok && !s.IsNull() {
+							addr = s.ValueString()
+						}
+					}
+					if gv, ok := routeAttrs["gateway"]; ok && gv != nil {
+						if s, ok := gv.(types.String); ok && !s.IsNull() {
+							gw = s.ValueString()
+						}
+					}
+					if addr != "" || gw != "" {
+						dhcp.WithRoutes(aruba.SubnetDHCPRouteCommon{Address: addr, Gateway: gw})
+					}
+				}
+			}
+		}
+	}
+
+	if v, ok := dhcpAttrs["dns"]; ok && v != nil {
+		if dnsList, ok := v.(types.List); ok && !dnsList.IsNull() {
+			var dnsServers []string
+			d := dnsList.ElementsAs(ctx, &dnsServers, false)
+			diags.Append(d...)
+			if !diags.HasError() && len(dnsServers) > 0 {
+				dhcp.WithDNSServers(dnsServers...)
+			}
+		}
+	}
+
+	return dhcp
+}
+
+// applySubnetToModel hydrates data from the wrapper response.
+// It preserves project_id and vpc_id from the caller (those aren't in the API response).
+func applySubnetToModel(ctx context.Context, subnet *aruba.Subnet, data *SubnetResourceModel, diags *diag.Diagnostics) {
+	data.Id = types.StringValue(subnet.ID())
+	data.Uri = strVal(subnet.URI())
+	data.Name = types.StringValue(subnet.Name())
+	data.Tags = TagsToListPreserveNull(subnet.Tags(), data.Tags)
+	if subnet.Region() != "" {
+		data.Location = types.StringValue(string(subnet.Region()))
+	}
+	data.Type = types.StringValue(string(subnet.Type()))
+
+	networkAttrTypes := subnetNetworkAttrTypes()
+	networkWasInState := !data.Network.IsNull() && !data.Network.IsUnknown()
+	shouldSetNetwork := string(subnet.Type()) == "Advanced" || networkWasInState
+
+	if !shouldSetNetwork {
+		data.Network = types.ObjectNull(networkAttrTypes)
+		return
+	}
+
+	networkAttrs := make(map[string]attr.Value)
+	if cidr := subnet.CIDR(); cidr != "" {
+		networkAttrs["address"] = types.StringValue(cidr)
+	} else {
+		networkAttrs["address"] = types.StringNull()
+	}
+
+	dhcpAttrTypes := subnetDHCPAttrTypes()
+	dhcp := subnet.DHCP()
+	if dhcp != nil {
+		dhcpAttrs := map[string]attr.Value{
+			"enabled": types.BoolValue(dhcp.IsEnabled()),
+		}
+
+		if dhcp.RangeStart() != "" || dhcp.RangeCount() > 0 {
+			rangeObj, d := types.ObjectValue(
+				map[string]attr.Type{"start": types.StringType, "count": types.Int64Type},
+				map[string]attr.Value{
+					"start": types.StringValue(dhcp.RangeStart()),
+					"count": types.Int64Value(int64(dhcp.RangeCount())),
+				},
+			)
+			diags.Append(d...)
+			dhcpAttrs["range"] = rangeObj
+		} else {
+			dhcpAttrs["range"] = types.ObjectNull(map[string]attr.Type{
+				"start": types.StringType, "count": types.Int64Type,
+			})
+		}
+
+		routes := dhcp.Routes()
+		if len(routes) > 0 {
+			routeObjType := routeObjectType()
+			routeObjs := make([]attr.Value, 0, len(routes))
+			for _, route := range routes {
+				routeObj, d := types.ObjectValue(routeObjType.AttrTypes, map[string]attr.Value{
+					"address": types.StringValue(route.Address),
+					"gateway": types.StringValue(route.Gateway),
+				})
+				diags.Append(d...)
+				routeObjs = append(routeObjs, routeObj)
+			}
+			routesList, d := types.ListValue(routeObjType, routeObjs)
+			diags.Append(d...)
+			dhcpAttrs["routes"] = routesList
+		} else {
+			dhcpAttrs["routes"] = types.ListNull(routeObjectType())
+		}
+
+		dns := dhcp.DNS()
+		if len(dns) > 0 {
+			dnsVals := make([]attr.Value, len(dns))
+			for i, s := range dns {
+				dnsVals[i] = types.StringValue(s)
+			}
+			dnsList, d := types.ListValue(types.StringType, dnsVals)
+			diags.Append(d...)
+			dhcpAttrs["dns"] = dnsList
+		} else {
+			dhcpAttrs["dns"] = types.ListNull(types.StringType)
+		}
+
+		dhcpObj, d := types.ObjectValue(dhcpAttrTypes, dhcpAttrs)
+		diags.Append(d...)
+		networkAttrs["dhcp"] = dhcpObj
+	} else {
+		networkAttrs["dhcp"] = types.ObjectNull(dhcpAttrTypes)
+	}
+
+	networkObj, d := types.ObjectValue(networkAttrTypes, networkAttrs)
+	diags.Append(d...)
+	data.Network = networkObj
+}
+
+func subnetNetworkAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"address": types.StringType,
+		"dhcp":    types.ObjectType{AttrTypes: subnetDHCPAttrTypes()},
+	}
+}
+
+func subnetDHCPAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"enabled": types.BoolType,
+		"range": types.ObjectType{
+			AttrTypes: map[string]attr.Type{"start": types.StringType, "count": types.Int64Type},
+		},
+		"routes": types.ListType{ElemType: routeObjectType()},
+		"dns":    types.ListType{ElemType: types.StringType},
+	}
+}
+
+func routeObjectType() types.ObjectType {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{"address": types.StringType, "gateway": types.StringType},
+	}
 }
 
 func (r *SubnetResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -211,286 +414,146 @@ func (r *SubnetResource) Create(ctx context.Context, req resource.CreateRequest,
 
 	projectID := data.ProjectId.ValueString()
 	vpcID := data.VpcId.ValueString()
-	if projectID == "" || vpcID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID and VPC ID are required to create a subnet",
-		)
-		return
-	}
+	subnetTypeStr := data.Type.ValueString()
 
 	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	subnetType := data.Type.ValueString()
-
-	// Validation: If type is Advanced, network block is mandatory
-	if subnetType == "Advanced" {
+	// Validate Advanced subnet requirements.
+	if subnetTypeStr == "Advanced" {
 		if data.Network.IsNull() || data.Network.IsUnknown() {
-			resp.Diagnostics.AddError(
-				"Missing Required Field",
-				"The 'network' block is required when subnet type is 'Advanced'",
-			)
+			resp.Diagnostics.AddError("Missing Required Field",
+				"The 'network' block is required when subnet type is 'Advanced'")
 			return
 		}
 	}
 
-	// Extract network CIDR and DHCP if provided
-	var network *sdktypes.SubnetNetwork
-	var dhcp *sdktypes.SubnetDHCP
-	if !data.Network.IsNull() && !data.Network.IsUnknown() {
-		networkObj, diags := data.Network.ToObjectValue(ctx)
-		resp.Diagnostics.Append(diags...)
-		if !resp.Diagnostics.HasError() {
-			attrs := networkObj.Attributes()
+	vpcURI := aruba.URI("/projects/" + projectID + "/network/vpcs/" + vpcID)
+	subnetType := aruba.SubnetTypeBasic
+	if subnetTypeStr == "Advanced" {
+		subnetType = aruba.SubnetTypeAdvanced
+	}
 
-			// Extract network address
-			var addressValue string
-			if addressAttr, ok := attrs["address"]; ok && addressAttr != nil {
-				if addressStr, ok := addressAttr.(types.String); ok && !addressStr.IsNull() {
-					addressValue = addressStr.ValueString()
-					if addressValue != "" {
-						network = &sdktypes.SubnetNetwork{
-							Address: addressValue,
+	builder := aruba.NewSubnet().
+		Named(data.Name.ValueString()).
+		InVPC(vpcURI).
+		InRegion(aruba.Region(data.Location.ValueString())).
+		OfType(subnetType).
+		Tagged(tags...)
+
+	if !data.Network.IsNull() && !data.Network.IsUnknown() {
+		networkObj, d := data.Network.ToObjectValue(ctx)
+		resp.Diagnostics.Append(d...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		attrs := networkObj.Attributes()
+
+		addressValue := ""
+		if av, ok := attrs["address"]; ok && av != nil {
+			if s, ok := av.(types.String); ok && !s.IsNull() {
+				addressValue = s.ValueString()
+			}
+		}
+
+		if subnetTypeStr == "Advanced" && addressValue == "" {
+			resp.Diagnostics.AddError("Missing Required Field",
+				"The 'network.address' field is required when subnet type is 'Advanced'")
+			return
+		}
+
+		if addressValue != "" {
+			builder = builder.WithCIDR(addressValue)
+		}
+
+		if dhcpAttrVal, ok := attrs["dhcp"]; ok && dhcpAttrVal != nil {
+			if dhcpObj, ok := dhcpAttrVal.(types.Object); ok && !dhcpObj.IsNull() {
+				// Validate Advanced DHCP requirements.
+				if subnetTypeStr == "Advanced" {
+					dhcpAttrs := dhcpObj.Attributes()
+					dhcpEnabledSet := false
+					rangeStart, rangeCount := "", 0
+					if ev, ok := dhcpAttrs["enabled"]; ok && ev != nil {
+						if b, ok := ev.(types.Bool); ok && !b.IsNull() {
+							dhcpEnabledSet = true
+							_ = dhcpEnabledSet
 						}
 					}
+					if rv, ok := dhcpAttrs["range"]; ok && rv != nil {
+						if rangeObj, ok := rv.(types.Object); ok && !rangeObj.IsNull() {
+							if sv, ok := rangeObj.Attributes()["start"]; ok {
+								if s, ok := sv.(types.String); ok && !s.IsNull() {
+									rangeStart = s.ValueString()
+								}
+							}
+							if cv, ok := rangeObj.Attributes()["count"]; ok {
+								if c, ok := cv.(types.Int64); ok && !c.IsNull() {
+									rangeCount = int(c.ValueInt64())
+								}
+							}
+						}
+					}
+					if rangeStart == "" || rangeCount == 0 {
+						resp.Diagnostics.AddError("Missing Required Fields",
+							"The 'network.dhcp.range' block with 'start' and 'count' fields is required when subnet type is 'Advanced'")
+						return
+					}
 				}
-			}
-
-			// Validation: If type is Advanced, address is mandatory
-			if subnetType == "Advanced" && addressValue == "" {
-				resp.Diagnostics.AddError(
-					"Missing Required Field",
-					"The 'network.address' field is required when subnet type is 'Advanced'",
-				)
+				dhcp := buildSubnetDHCP(ctx, dhcpObj, &resp.Diagnostics)
+				if resp.Diagnostics.HasError() {
+					return
+				}
+				if dhcp != nil {
+					builder = builder.WithDHCP(dhcp)
+				}
+			} else if subnetTypeStr == "Advanced" {
+				resp.Diagnostics.AddError("Missing Required Field",
+					"The 'network.dhcp' block is required when subnet type is 'Advanced'")
 				return
 			}
-
-			// Extract DHCP configuration from network.dhcp
-			var dhcpEnabledSet bool
-			var dhcpRangeStart string
-			var dhcpRangeCount int
-
-			if dhcpAttr, ok := attrs["dhcp"]; ok && dhcpAttr != nil {
-				if dhcpObj, ok := dhcpAttr.(types.Object); ok && !dhcpObj.IsNull() {
-					dhcpAttrs := dhcpObj.Attributes()
-					dhcp = &sdktypes.SubnetDHCP{}
-
-					// Extract enabled
-					if enabledAttr, ok := dhcpAttrs["enabled"]; ok && enabledAttr != nil {
-						if enabledBool, ok := enabledAttr.(types.Bool); ok && !enabledBool.IsNull() {
-							dhcp.Enabled = enabledBool.ValueBool()
-							dhcpEnabledSet = true
-						}
-					}
-
-					// Extract range
-					if rangeAttr, ok := dhcpAttrs["range"]; ok && rangeAttr != nil {
-						if rangeObj, ok := rangeAttr.(types.Object); ok && !rangeObj.IsNull() {
-							rangeAttrs := rangeObj.Attributes()
-							dhcpRange := &sdktypes.SubnetDHCPRange{}
-							if startAttr, ok := rangeAttrs["start"]; ok && startAttr != nil {
-								if startStr, ok := startAttr.(types.String); ok && !startStr.IsNull() {
-									dhcpRange.Start = startStr.ValueString()
-									dhcpRangeStart = dhcpRange.Start
-								}
-							}
-							if countAttr, ok := rangeAttrs["count"]; ok && countAttr != nil {
-								if countInt, ok := countAttr.(types.Int64); ok && !countInt.IsNull() {
-									dhcpRange.Count = int(countInt.ValueInt64())
-									dhcpRangeCount = dhcpRange.Count
-								}
-							}
-							if dhcpRange.Start != "" || dhcpRange.Count > 0 {
-								dhcp.Range = dhcpRange
-							}
-						}
-					}
-
-					// Extract routes
-					if routesAttr, ok := dhcpAttrs["routes"]; ok && routesAttr != nil {
-						if routesList, ok := routesAttr.(types.List); ok && !routesList.IsNull() {
-							var routesData []types.Object
-							diags := routesList.ElementsAs(ctx, &routesData, false)
-							resp.Diagnostics.Append(diags...)
-							if !resp.Diagnostics.HasError() {
-								dhcpRoutes := make([]sdktypes.SubnetDHCPRoute, 0, len(routesData))
-								for _, routeObj := range routesData {
-									routeAttrs := routeObj.Attributes()
-									route := sdktypes.SubnetDHCPRoute{}
-									if addrAttr, ok := routeAttrs["address"]; ok && addrAttr != nil {
-										if addrStr, ok := addrAttr.(types.String); ok && !addrStr.IsNull() {
-											route.Address = addrStr.ValueString()
-										}
-									}
-									if gwAttr, ok := routeAttrs["gateway"]; ok && gwAttr != nil {
-										if gwStr, ok := gwAttr.(types.String); ok && !gwStr.IsNull() {
-											route.Gateway = gwStr.ValueString()
-										}
-									}
-									if route.Address != "" || route.Gateway != "" {
-										dhcpRoutes = append(dhcpRoutes, route)
-									}
-								}
-								if len(dhcpRoutes) > 0 {
-									dhcp.Routes = dhcpRoutes
-								}
-							}
-						}
-					}
-
-					// Extract DNS
-					if dnsAttr, ok := dhcpAttrs["dns"]; ok && dnsAttr != nil {
-						if dnsList, ok := dnsAttr.(types.List); ok && !dnsList.IsNull() {
-							var dnsServers []string
-							diags := dnsList.ElementsAs(ctx, &dnsServers, false)
-							resp.Diagnostics.Append(diags...)
-							if !resp.Diagnostics.HasError() && len(dnsServers) > 0 {
-								dhcp.DNS = dnsServers
-							}
-						}
-					}
-				}
-			}
-
-			// Validation: If type is Advanced, dhcp block with enabled, range.start and range.count are mandatory
-			if subnetType == "Advanced" {
-				if dhcp == nil {
-					resp.Diagnostics.AddError(
-						"Missing Required Field",
-						"The 'network.dhcp' block is required when subnet type is 'Advanced'",
-					)
-					return
-				}
-				if !dhcpEnabledSet {
-					resp.Diagnostics.AddError(
-						"Missing Required Field",
-						"The 'network.dhcp.enabled' field is required when subnet type is 'Advanced'",
-					)
-					return
-				}
-				if dhcp.Range == nil || dhcpRangeStart == "" || dhcpRangeCount == 0 {
-					resp.Diagnostics.AddError(
-						"Missing Required Fields",
-						"The 'network.dhcp.range' block with 'start' and 'count' fields is required when subnet type is 'Advanced'",
-					)
-					return
-				}
-			}
+		} else if subnetTypeStr == "Advanced" {
+			resp.Diagnostics.AddError("Missing Required Field",
+				"The 'network.dhcp' block is required when subnet type is 'Advanced'")
+			return
 		}
 	}
 
-	// Determine SubnetType for SDK: Advanced if CIDR is provided, Basic otherwise
-	sdkSubnetType := sdktypes.SubnetTypeBasic
-	if network != nil && network.Address != "" {
-		sdkSubnetType = sdktypes.SubnetTypeAdvanced
-	} else if data.Type.ValueString() == "Advanced" {
-		sdkSubnetType = sdktypes.SubnetTypeAdvanced
-	}
-
-	// Build the create request
-	createRequest := sdktypes.SubnetRequest{
-		Metadata: sdktypes.RegionalResourceMetadataRequest{
-			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
-				Name: data.Name.ValueString(),
-				Tags: tags,
-			},
-			Location: sdktypes.LocationRequest{
-				Value: data.Location.ValueString(),
-			},
-		},
-		Properties: sdktypes.SubnetPropertiesRequest{
-			Type:    sdkSubnetType,
-			Network: network,
-			DHCP:    dhcp,
-		},
-	}
-
-	// Create the subnet using the SDK
-	response, err := r.client.Client.FromNetwork().Subnets().Create(ctx, projectID, vpcID, createRequest, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error creating subnet",
-			NewTransportError("create", "Subnet", err).Error(),
-		)
+	subnet, err := r.client.Client.FromNetwork().Subnets().Create(ctx, builder)
+	if provErr := CheckResponseErr("create", "Subnet", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	if apiErr := CheckResponse("create", "Subnet", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
+	data.Id = types.StringValue(subnet.ID())
+	data.Uri = strVal(subnet.URI())
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	if response != nil && response.Data != nil {
-		if response.Data.Metadata.ID != nil {
-			data.Id = types.StringValue(*response.Data.Metadata.ID)
-		}
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
+	if waitErr := subnet.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+		ReportWaitResult(&resp.Diagnostics, waitErr, "Subnet", data.Id.ValueString())
+		return
+	}
+
+	fresh, freshErr := r.client.Client.FromNetwork().Subnets().Get(ctx, subnetRef(&data))
+	if freshErr == nil {
+		projectID := data.ProjectId
+		vpcID := data.VpcId
+		applySubnetToModel(ctx, fresh, &data, &resp.Diagnostics)
+		data.ProjectId = projectID
+		data.VpcId = vpcID
 	} else {
-		resp.Diagnostics.AddError(
-			"Invalid API Response",
-			"Subnet created but no data returned from API",
-		)
-		return
-	}
-
-	// Wait for Subnet to be active before returning (Subnet is referenced by CloudServer)
-	// This ensures Terraform doesn't proceed to create dependent resources until Subnet is ready
-	subnetID := data.Id.ValueString()
-	checker := func(ctx context.Context) (string, error) {
-		getResp, err := r.client.Client.FromNetwork().Subnets().Get(ctx, projectID, vpcID, subnetID, nil)
-		if err != nil {
-			return "", err
-		}
-		if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
-			return *getResp.Data.Status.State, nil
-		}
-		return "Unknown", nil
-	}
-
-	// Wait for Subnet to be active - block until ready (using configured timeout)
-	if err := WaitForResourceActive(ctx, checker, "Subnet", subnetID, r.client.ResourceTimeout); err != nil {
-		ReportWaitResult(&resp.Diagnostics, err, "Subnet", subnetID)
-		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-		return
-	}
-
-	// Re-read the Subnet to get the URI and ensure all fields are properly set
-	getResp, err := r.client.Client.FromNetwork().Subnets().Get(ctx, projectID, vpcID, subnetID, nil)
-	if err == nil && getResp != nil && getResp.Data != nil {
-		// Ensure ID is set from metadata (should already be set, but double-check)
-		if getResp.Data.Metadata.ID != nil {
-			data.Id = types.StringValue(*getResp.Data.Metadata.ID)
-		}
-		if getResp.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*getResp.Data.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-		// Also update other fields that might have changed
-		if getResp.Data.Metadata.Name != nil {
-			data.Name = types.StringValue(*getResp.Data.Metadata.Name)
-		}
-		if getResp.Data.Metadata.LocationResponse != nil {
-			data.Location = types.StringValue(getResp.Data.Metadata.LocationResponse.Value)
-		}
-		data.Tags = TagsToListPreserveNull(getResp.Data.Metadata.Tags, data.Tags)
-	} else if err != nil {
-		// If Get fails, log but don't fail - we already have the ID from create response
-		tflog.Warn(ctx, fmt.Sprintf("Failed to refresh Subnet after creation: %v", err))
+		tflog.Warn(ctx, fmt.Sprintf("Failed to refresh Subnet after creation: %v", freshErr))
 	}
 
 	tflog.Trace(ctx, "created a Subnet resource", map[string]interface{}{
 		"subnet_id":   data.Id.ValueString(),
 		"subnet_name": data.Name.ValueString(),
 	})
-
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -500,283 +563,47 @@ func (r *SubnetResource) Read(ctx context.Context, req resource.ReadRequest, res
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	projectID := data.ProjectId.ValueString()
-	vpcID := data.VpcId.ValueString()
-	subnetID := data.Id.ValueString()
-
-	if data.Id.IsUnknown() || data.Id.IsNull() || subnetID == "" {
-		tflog.Debug(ctx, "Subnet ID is empty, removing resource from state", map[string]interface{}{"subnet_id": subnetID})
+	if data.Id.IsNull() || data.Id.ValueString() == "" {
 		resp.State.RemoveResource(ctx)
 		return
 	}
-	if projectID == "" || vpcID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID and VPC ID are required to read the subnet",
-		)
-		return
-	}
 
-	// Get subnet details using the SDK
-	response, err := r.client.Client.FromNetwork().Subnets().Get(ctx, projectID, vpcID, subnetID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading subnet",
-			NewTransportError("read", "Subnet", err).Error(),
-		)
-		return
-	}
-
-	if apiErr := CheckResponse("read", "Subnet", response); apiErr != nil {
-		if IsNotFound(apiErr) {
+	subnet, err := r.client.Client.FromNetwork().Subnets().Get(ctx, subnetRef(&data))
+	if provErr := CheckResponseErr("read", "Subnet", err); provErr != nil {
+		if IsNotFound(provErr) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	// If the resource is still provisioning (e.g. after a Create timeout that saved
-	// partial state), resume the wait so the next terraform apply reconciles correctly.
-	if response.Data.Status.State != nil {
-		switch st := *response.Data.Status.State; {
-		case isFailedState(st):
-			resp.Diagnostics.AddWarning(
-				"Resource in Failed State",
-				fmt.Sprintf("Subnet %q is in a terminal failure state (%s). "+
-					"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", subnetID, st),
-			)
-		case IsCreatingState(st):
-			checker := func(ctx context.Context) (string, error) {
-				getResp, err := r.client.Client.FromNetwork().Subnets().Get(ctx, projectID, vpcID, subnetID, nil)
-				if err != nil {
-					return "", err
-				}
-				if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
-					return *getResp.Data.Status.State, nil
-				}
-				return "Unknown", nil
-			}
-			if err := WaitForResourceActive(ctx, checker, "Subnet", subnetID, r.client.ResourceTimeout); err != nil {
-				ReportWaitResult(&resp.Diagnostics, err, "Subnet", subnetID)
-				resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-				return
-			}
-			// Re-read to get the final active state.
-			response, err = r.client.Client.FromNetwork().Subnets().Get(ctx, projectID, vpcID, subnetID, nil)
-			if err != nil {
-				resp.Diagnostics.AddError("Error reading Subnet after provisioning wait",
-					NewTransportError("read", "Subnet", err).Error())
-				return
-			}
-			if apiErr := CheckResponse("read", "Subnet", response); apiErr != nil {
-				if IsNotFound(apiErr) {
-					resp.State.RemoveResource(ctx)
-					return
-				}
-				resp.Diagnostics.AddError("API Error", apiErr.Error())
-				return
-			}
+	st := string(subnet.State())
+	switch {
+	case isFailedState(st):
+		resp.Diagnostics.AddWarning("Resource in Failed State",
+			fmt.Sprintf("Subnet %q is in a terminal failure state (%s). "+
+				"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", data.Id.ValueString(), st))
+	case IsCreatingState(st):
+		if waitErr := subnet.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+			ReportWaitResult(&resp.Diagnostics, waitErr, "Subnet", data.Id.ValueString())
+			return
+		}
+		subnet, err = r.client.Client.FromNetwork().Subnets().Get(ctx, subnetRef(&data))
+		if provErr := CheckResponseErr("read", "Subnet", err); provErr != nil {
+			resp.Diagnostics.AddError("API Error", provErr.Error())
+			return
 		}
 	}
 
-	if response != nil && response.Data != nil {
-		subnet := response.Data
-
-		if subnet.Metadata.ID != nil {
-			data.Id = types.StringValue(*subnet.Metadata.ID)
-		}
-		if subnet.Metadata.URI != nil {
-			data.Uri = types.StringValue(*subnet.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-		if subnet.Metadata.Name != nil {
-			data.Name = types.StringValue(*subnet.Metadata.Name)
-		}
-		if subnet.Metadata.LocationResponse != nil {
-			data.Location = types.StringValue(subnet.Metadata.LocationResponse.Value)
-		}
-		data.Type = types.StringValue(string(subnet.Properties.Type))
-		subnetType := string(subnet.Properties.Type)
-
-		// Update network and DHCP if available
-		networkAttrs := make(map[string]attr.Value)
-		networkAttrTypes := map[string]attr.Type{
-			"address": types.StringType,
-			"dhcp": types.ObjectType{
-				AttrTypes: map[string]attr.Type{
-					"enabled": types.BoolType,
-					"range": types.ObjectType{
-						AttrTypes: map[string]attr.Type{
-							"start": types.StringType,
-							"count": types.Int64Type,
-						},
-					},
-					"routes": types.ListType{
-						ElemType: types.ObjectType{
-							AttrTypes: map[string]attr.Type{
-								"address": types.StringType,
-								"gateway": types.StringType,
-							},
-						},
-					},
-					"dns": types.ListType{ElemType: types.StringType},
-				},
-			},
-		}
-
-		// Set network address
-		// For Basic subnets, only set network if it was in the original state (to avoid drift)
-		// For Advanced subnets, always set network if available from API
-		networkWasInState := !data.Network.IsNull() && !data.Network.IsUnknown()
-		shouldSetNetwork := subnetType == "Advanced" || networkWasInState
-
-		if shouldSetNetwork {
-			// Set network address
-			if subnet.Properties.Network != nil && subnet.Properties.Network.Address != "" {
-				networkAttrs["address"] = types.StringValue(subnet.Properties.Network.Address)
-			} else {
-				networkAttrs["address"] = types.StringNull()
-			}
-
-			// Set DHCP if available
-			if subnet.Properties.DHCP != nil {
-				dhcpAttrs := make(map[string]attr.Value)
-				dhcpAttrs["enabled"] = types.BoolValue(subnet.Properties.DHCP.Enabled)
-
-				// Handle DHCP range
-				if subnet.Properties.DHCP.Range != nil {
-					rangeObj, diags := types.ObjectValue(map[string]attr.Type{
-						"start": types.StringType,
-						"count": types.Int64Type,
-					}, map[string]attr.Value{
-						"start": types.StringValue(subnet.Properties.DHCP.Range.Start),
-						"count": types.Int64Value(int64(subnet.Properties.DHCP.Range.Count)),
-					})
-					resp.Diagnostics.Append(diags...)
-					if !resp.Diagnostics.HasError() {
-						dhcpAttrs["range"] = rangeObj
-					}
-				} else {
-					dhcpAttrs["range"] = types.ObjectNull(map[string]attr.Type{
-						"start": types.StringType,
-						"count": types.Int64Type,
-					})
-				}
-
-				// Handle DHCP routes
-				if len(subnet.Properties.DHCP.Routes) > 0 {
-					routeObjs := make([]attr.Value, 0, len(subnet.Properties.DHCP.Routes))
-					for _, route := range subnet.Properties.DHCP.Routes {
-						routeObj, diags := types.ObjectValue(map[string]attr.Type{
-							"address": types.StringType,
-							"gateway": types.StringType,
-						}, map[string]attr.Value{
-							"address": types.StringValue(route.Address),
-							"gateway": types.StringValue(route.Gateway),
-						})
-						resp.Diagnostics.Append(diags...)
-						if !resp.Diagnostics.HasError() {
-							routeObjs = append(routeObjs, routeObj)
-						}
-					}
-					routesList, diags := types.ListValue(types.ObjectType{
-						AttrTypes: map[string]attr.Type{
-							"address": types.StringType,
-							"gateway": types.StringType,
-						},
-					}, routeObjs)
-					resp.Diagnostics.Append(diags...)
-					if !resp.Diagnostics.HasError() {
-						dhcpAttrs["routes"] = routesList
-					}
-				} else {
-					dhcpAttrs["routes"] = types.ListNull(types.ObjectType{
-						AttrTypes: map[string]attr.Type{
-							"address": types.StringType,
-							"gateway": types.StringType,
-						},
-					})
-				}
-
-				// Handle DNS
-				if len(subnet.Properties.DHCP.DNS) > 0 {
-					dnsValues := make([]attr.Value, 0, len(subnet.Properties.DHCP.DNS))
-					for _, dns := range subnet.Properties.DHCP.DNS {
-						dnsValues = append(dnsValues, types.StringValue(dns))
-					}
-					dnsList, diags := types.ListValue(types.StringType, dnsValues)
-					resp.Diagnostics.Append(diags...)
-					if !resp.Diagnostics.HasError() {
-						dhcpAttrs["dns"] = dnsList
-					}
-				} else {
-					dhcpAttrs["dns"] = types.ListNull(types.StringType)
-				}
-
-				dhcpObj, diags := types.ObjectValue(map[string]attr.Type{
-					"enabled": types.BoolType,
-					"range": types.ObjectType{
-						AttrTypes: map[string]attr.Type{
-							"start": types.StringType,
-							"count": types.Int64Type,
-						},
-					},
-					"routes": types.ListType{
-						ElemType: types.ObjectType{
-							AttrTypes: map[string]attr.Type{
-								"address": types.StringType,
-								"gateway": types.StringType,
-							},
-						},
-					},
-					"dns": types.ListType{ElemType: types.StringType},
-				}, dhcpAttrs)
-				resp.Diagnostics.Append(diags...)
-				if !resp.Diagnostics.HasError() {
-					networkAttrs["dhcp"] = dhcpObj
-				}
-			} else {
-				networkAttrs["dhcp"] = types.ObjectNull(map[string]attr.Type{
-					"enabled": types.BoolType,
-					"range": types.ObjectType{
-						AttrTypes: map[string]attr.Type{
-							"start": types.StringType,
-							"count": types.Int64Type,
-						},
-					},
-					"routes": types.ListType{
-						ElemType: types.ObjectType{
-							AttrTypes: map[string]attr.Type{
-								"address": types.StringType,
-								"gateway": types.StringType,
-							},
-						},
-					},
-					"dns": types.ListType{ElemType: types.StringType},
-				})
-			}
-
-			// Build network object with nested dhcp
-			networkObj, diags := types.ObjectValue(networkAttrTypes, networkAttrs)
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Network = networkObj
-			}
-		} else {
-			// Basic subnet without network in state - set entire network block to null
-			// This prevents drift when API returns network info but it wasn't configured
-			data.Network = types.ObjectNull(networkAttrTypes)
-		}
-
-		data.Tags = TagsToListPreserveNull(subnet.Metadata.Tags, data.Tags)
-	} else {
-		resp.State.RemoveResource(ctx)
+	projectID := data.ProjectId
+	vpcID := data.VpcId
+	applySubnetToModel(ctx, subnet, &data, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
 		return
 	}
-
+	data.ProjectId = projectID
+	data.VpcId = vpcID
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -785,58 +612,14 @@ func (r *SubnetResource) Update(ctx context.Context, req resource.UpdateRequest,
 	var state SubnetResourceModel
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Get IDs from state (not plan) - IDs are immutable and should always be in state
-	projectID := state.ProjectId.ValueString()
-	vpcID := state.VpcId.ValueString()
-	subnetID := state.Id.ValueString()
-
-	if projectID == "" || vpcID == "" || subnetID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID, VPC ID, and Subnet ID are required to update the subnet",
-		)
-		return
-	}
-
-	// Get current subnet details
-	getResponse, err := r.client.Client.FromNetwork().Subnets().Get(ctx, projectID, vpcID, subnetID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error fetching current subnet",
-			NewTransportError("read", "Subnet", err).Error(),
-		)
-		return
-	}
-
-	if getResponse == nil || getResponse.Data == nil {
-		resp.Diagnostics.AddError(
-			"Subnet Not Found",
-			"Subnet not found or no data returned",
-		)
-		return
-	}
-
-	current := getResponse.Data
-
-	// Get region value
-	regionValue := ""
-	if current.Metadata.LocationResponse != nil {
-		regionValue = current.Metadata.LocationResponse.Value
-	}
-	if regionValue == "" {
-		resp.Diagnostics.AddError(
-			"Missing Region",
-			"Unable to determine region value for subnet",
-		)
+	subnet, err := r.client.Client.FromNetwork().Subnets().Get(ctx, subnetRef(&state))
+	if provErr := CheckResponseErr("read", "Subnet", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
@@ -844,171 +627,56 @@ func (r *SubnetResource) Update(ctx context.Context, req resource.UpdateRequest,
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if tags == nil {
-		tags = current.Metadata.Tags
+
+	subnet.Named(data.Name.ValueString())
+	if tags != nil {
+		subnet.RetaggedAs(tags...)
+	} else {
+		subnet.RetaggedAs(subnet.Tags()...)
 	}
 
-	// Preserve network from current state
-	network := current.Properties.Network
-
-	// Extract DHCP configuration from network.dhcp if provided
-	var dhcp *sdktypes.SubnetDHCP
+	// Update DHCP if the plan provides a network block.
 	if !data.Network.IsNull() && !data.Network.IsUnknown() {
-		networkObj, diags := data.Network.ToObjectValue(ctx)
-		resp.Diagnostics.Append(diags...)
-		if !resp.Diagnostics.HasError() {
-			attrs := networkObj.Attributes()
-
-			// Extract DHCP configuration from network.dhcp
-			if dhcpAttr, ok := attrs["dhcp"]; ok && dhcpAttr != nil {
-				if dhcpObj, ok := dhcpAttr.(types.Object); ok && !dhcpObj.IsNull() {
-					dhcpAttrs := dhcpObj.Attributes()
-					dhcp = &sdktypes.SubnetDHCP{}
-
-					// Extract enabled
-					if enabledAttr, ok := dhcpAttrs["enabled"]; ok && enabledAttr != nil {
-						if enabledBool, ok := enabledAttr.(types.Bool); ok && !enabledBool.IsNull() {
-							dhcp.Enabled = enabledBool.ValueBool()
-						}
-					}
-
-					// Extract range
-					if rangeAttr, ok := dhcpAttrs["range"]; ok && rangeAttr != nil {
-						if rangeObj, ok := rangeAttr.(types.Object); ok && !rangeObj.IsNull() {
-							rangeAttrs := rangeObj.Attributes()
-							dhcpRange := &sdktypes.SubnetDHCPRange{}
-							if startAttr, ok := rangeAttrs["start"]; ok && startAttr != nil {
-								if startStr, ok := startAttr.(types.String); ok && !startStr.IsNull() {
-									dhcpRange.Start = startStr.ValueString()
-								}
-							}
-							if countAttr, ok := rangeAttrs["count"]; ok && countAttr != nil {
-								if countInt, ok := countAttr.(types.Int64); ok && !countInt.IsNull() {
-									dhcpRange.Count = int(countInt.ValueInt64())
-								}
-							}
-							if dhcpRange.Start != "" || dhcpRange.Count > 0 {
-								dhcp.Range = dhcpRange
-							}
-						}
-					}
-
-					// Extract routes
-					if routesAttr, ok := dhcpAttrs["routes"]; ok && routesAttr != nil {
-						if routesList, ok := routesAttr.(types.List); ok && !routesList.IsNull() {
-							var routesData []types.Object
-							diags := routesList.ElementsAs(ctx, &routesData, false)
-							resp.Diagnostics.Append(diags...)
-							if !resp.Diagnostics.HasError() {
-								dhcpRoutes := make([]sdktypes.SubnetDHCPRoute, 0, len(routesData))
-								for _, routeObj := range routesData {
-									routeAttrs := routeObj.Attributes()
-									route := sdktypes.SubnetDHCPRoute{}
-									if addrAttr, ok := routeAttrs["address"]; ok && addrAttr != nil {
-										if addrStr, ok := addrAttr.(types.String); ok && !addrStr.IsNull() {
-											route.Address = addrStr.ValueString()
-										}
-									}
-									if gwAttr, ok := routeAttrs["gateway"]; ok && gwAttr != nil {
-										if gwStr, ok := gwAttr.(types.String); ok && !gwStr.IsNull() {
-											route.Gateway = gwStr.ValueString()
-										}
-									}
-									if route.Address != "" || route.Gateway != "" {
-										dhcpRoutes = append(dhcpRoutes, route)
-									}
-								}
-								if len(dhcpRoutes) > 0 {
-									dhcp.Routes = dhcpRoutes
-								}
-							}
-						}
-					}
-
-					// Extract DNS
-					if dnsAttr, ok := dhcpAttrs["dns"]; ok && dnsAttr != nil {
-						if dnsList, ok := dnsAttr.(types.List); ok && !dnsList.IsNull() {
-							var dnsServers []string
-							diags := dnsList.ElementsAs(ctx, &dnsServers, false)
-							resp.Diagnostics.Append(diags...)
-							if !resp.Diagnostics.HasError() && len(dnsServers) > 0 {
-								dhcp.DNS = dnsServers
-							}
-						}
-					}
+		networkObj, d := data.Network.ToObjectValue(ctx)
+		resp.Diagnostics.Append(d...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		attrs := networkObj.Attributes()
+		if dhcpAttrVal, ok := attrs["dhcp"]; ok && dhcpAttrVal != nil {
+			if dhcpObj, ok := dhcpAttrVal.(types.Object); ok && !dhcpObj.IsNull() {
+				newDHCP := buildSubnetDHCP(ctx, dhcpObj, &resp.Diagnostics)
+				if resp.Diagnostics.HasError() {
+					return
+				}
+				if newDHCP != nil {
+					subnet.WithDHCP(newDHCP)
 				}
 			}
 		}
 	}
 
-	// If dhcp wasn't provided in the plan, preserve from current state
-	if dhcp == nil {
-		dhcp = current.Properties.DHCP
-	}
-
-	// Build the update request
-	updateRequest := sdktypes.SubnetRequest{
-		Metadata: sdktypes.RegionalResourceMetadataRequest{
-			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
-				Name: data.Name.ValueString(),
-				Tags: tags,
-			},
-			Location: sdktypes.LocationRequest{
-				Value: regionValue,
-			},
-		},
-		Properties: sdktypes.SubnetPropertiesRequest{
-			Type:    current.Properties.Type,
-			Network: network,
-			DHCP:    dhcp,
-		},
-	}
-
-	// Update the subnet using the SDK
-	response, err := r.client.Client.FromNetwork().Subnets().Update(ctx, projectID, vpcID, subnetID, updateRequest, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error updating subnet",
-			NewTransportError("update", "Subnet", err).Error(),
-		)
+	updated, err := r.client.Client.FromNetwork().Subnets().Update(ctx, subnet)
+	if provErr := CheckResponseErr("update", "Subnet", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	if apiErr := CheckResponse("update", "Subnet", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-
-	// Ensure immutable fields are set from state before saving
 	data.Id = state.Id
 	data.ProjectId = state.ProjectId
 	data.VpcId = state.VpcId
-	data.Uri = state.Uri // Preserve URI from state
+	data.Uri = state.Uri
 
-	if response != nil && response.Data != nil {
-		// Update from response if available (should match state)
-		if response.Data.Metadata.ID != nil {
-			data.Id = types.StringValue(*response.Data.Metadata.ID)
-		}
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		} else {
-			// If no URI in response, re-read the subnet to get the latest state
-			getResp, err := r.client.Client.FromNetwork().Subnets().Get(ctx, projectID, vpcID, subnetID, nil)
-			if err == nil && getResp != nil && getResp.Data != nil {
-				if getResp.Data.Metadata.URI != nil {
-					data.Uri = types.StringValue(*getResp.Data.Metadata.URI)
-				} else {
-					data.Uri = state.Uri // Fallback to state if not available
-				}
-			} else {
-				data.Uri = state.Uri // Fallback to state if re-read fails
-			}
-		}
-	} else {
-		// If no response, preserve URI from state
-		data.Uri = state.Uri
+	projectID := data.ProjectId
+	vpcID := data.VpcId
+	applySubnetToModel(ctx, updated, &data, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
 	}
+	data.ProjectId = projectID
+	data.VpcId = vpcID
+	data.Id = state.Id
+	data.Uri = state.Uri
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -1020,26 +688,12 @@ func (r *SubnetResource) Delete(ctx context.Context, req resource.DeleteRequest,
 		return
 	}
 
-	projectID := data.ProjectId.ValueString()
-	vpcID := data.VpcId.ValueString()
+	ref := subnetRef(&data)
 	subnetID := data.Id.ValueString()
 
-	if projectID == "" || vpcID == "" || subnetID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID, VPC ID, and Subnet ID are required to delete the subnet",
-		)
-		return
-	}
-
-	// Delete the subnet using the SDK with retry mechanism
-	// Retry on any error except 404 (Resource Not Found)
 	deletionChecker := func(ctx context.Context) (bool, error) {
-		getResp, getErr := r.client.Client.FromNetwork().Subnets().Get(ctx, projectID, vpcID, subnetID, nil)
-		if getErr != nil {
-			return false, NewTransportError("get", "Subnet", getErr)
-		}
-		if provErr := CheckResponse("get", "Subnet", getResp); provErr != nil {
+		_, getErr := r.client.Client.FromNetwork().Subnets().Get(ctx, ref)
+		if provErr := CheckResponseErr("get", "Subnet", getErr); provErr != nil {
 			if IsNotFound(provErr) {
 				return true, nil
 			}
@@ -1049,41 +703,19 @@ func (r *SubnetResource) Delete(ctx context.Context, req resource.DeleteRequest,
 	}
 
 	deleteStart := time.Now()
-	err := DeleteResourceWithRetry(
-		ctx,
-		func() error {
-			resp, err := r.client.Client.FromNetwork().Subnets().Delete(ctx, projectID, vpcID, subnetID, nil)
-			if err != nil {
-				return NewTransportError("delete", "Subnet", err)
-			}
-			return CheckResponse("delete", "Subnet", resp)
-		},
-		"Subnet",
-		subnetID,
-		r.client.ResourceTimeout,
-		deletionChecker,
-	)
-
+	err := DeleteResourceWithRetry(ctx, func() error {
+		return CheckResponseErr("delete", "Subnet",
+			r.client.Client.FromNetwork().Subnets().Delete(ctx, ref))
+	}, "Subnet", subnetID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error deleting subnet",
-			NewTransportError("delete", "Subnet", err).Error(),
-		)
+		resp.Diagnostics.AddError("Error deleting Subnet", err.Error())
 		return
 	}
-
-	// Poll until the subnet is confirmed deleted (async deletion)
 	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "Subnet", subnetID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
-		resp.Diagnostics.AddError(
-			"Error waiting for Subnet deletion",
-			waitErr.Error(),
-		)
+		resp.Diagnostics.AddError("Error waiting for Subnet deletion", waitErr.Error())
 		return
 	}
-
-	tflog.Trace(ctx, "deleted a Subnet resource", map[string]interface{}{
-		"subnet_id": subnetID,
-	})
+	tflog.Trace(ctx, "deleted a Subnet resource", map[string]interface{}{"subnet_id": subnetID})
 }
 
 func (r *SubnetResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

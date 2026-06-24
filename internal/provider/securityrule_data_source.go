@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -135,34 +136,18 @@ func (d *SecurityRuleDataSource) Read(ctx context.Context, req datasource.ReadRe
 		return
 	}
 
-	response, err := d.client.Client.FromNetwork().SecurityGroupRules().Get(ctx, projectID, vpcID, securityGroupID, ruleID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError("Error reading security rule", NewTransportError("read", "Securityrule", err).Error())
-		return
-	}
-	if apiErr := CheckResponse("read", "Securityrule", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-	if response == nil || response.Data == nil {
-		resp.Diagnostics.AddError("No data returned", "Security Rule Get returned no data")
+	rule, err := d.client.Client.FromNetwork().SecurityGroupRules().Get(ctx,
+		aruba.SecurityRuleRef(projectID, vpcID, securityGroupID, ruleID))
+	if provErr := CheckResponseErr("read", "SecurityRule", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	rule := response.Data
-	if rule.Metadata.ID != nil {
-		data.Id = types.StringValue(*rule.Metadata.ID)
-	}
-	if rule.Metadata.URI != nil {
-		data.Uri = types.StringValue(*rule.Metadata.URI)
-	} else {
-		data.Uri = types.StringNull()
-	}
-	if rule.Metadata.Name != nil {
-		data.Name = types.StringValue(*rule.Metadata.Name)
-	}
-	if rule.Metadata.LocationResponse != nil {
-		data.Location = types.StringValue(rule.Metadata.LocationResponse.Value)
+	data.Id = types.StringValue(rule.ID())
+	data.Uri = strVal(rule.URI())
+	data.Name = types.StringValue(rule.Name())
+	if rule.Region() != "" {
+		data.Location = types.StringValue(string(rule.Region()))
 	} else {
 		data.Location = types.StringNull()
 	}
@@ -170,19 +155,19 @@ func (d *SecurityRuleDataSource) Read(ctx context.Context, req datasource.ReadRe
 	data.VpcId = types.StringValue(vpcID)
 	data.SecurityGroupId = types.StringValue(securityGroupID)
 
-	data.Direction = types.StringValue(string(rule.Properties.Direction))
-	data.Protocol = types.StringValue(strings.ToUpper(rule.Properties.Protocol))
-	data.Port = types.StringValue(rule.Properties.Port)
+	data.Direction = types.StringValue(string(rule.Direction()))
+	data.Protocol = types.StringValue(strings.ToUpper(string(rule.Protocol())))
+	data.Port = types.StringValue(rule.Port())
 
-	if rule.Properties.Target != nil {
-		data.TargetKind = types.StringValue(string(rule.Properties.Target.Kind))
-		data.TargetValue = types.StringValue(rule.Properties.Target.Value)
+	if rule.TargetKind() != "" {
+		data.TargetKind = types.StringValue(normalizeTargetKind(string(rule.TargetKind())))
+		data.TargetValue = types.StringValue(rule.TargetValue())
 	} else {
 		data.TargetKind = types.StringNull()
 		data.TargetValue = types.StringNull()
 	}
 
-	data.Tags = TagsToListPreserveNull(rule.Metadata.Tags, data.Tags)
+	data.Tags = TagsToListPreserveNull(rule.Tags(), data.Tags)
 
 	tflog.Trace(ctx, "read a Security Rule data source", map[string]interface{}{"rule_id": ruleID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

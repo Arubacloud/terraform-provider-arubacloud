@@ -2,12 +2,11 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
-	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -20,51 +19,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-// RuleDirection represents the direction of a security rule.
-type RuleDirection string
-
-const (
-	RuleDirectionIngress RuleDirection = "Ingress"
-	RuleDirectionEgress  RuleDirection = "Egress"
-)
-
-type SecurityRuleResource struct {
-	client *ArubaCloudClient
-}
-
-// EndpointTypeDto represents the type of target endpoint
-// ...existing code...
-type EndpointTypeDto string
-
-const (
-	EndpointTypeIP EndpointTypeDto = "Ip"
-)
-
-// normalizeProtocol normalizes protocol values to match API expectations.
-// API expects: Any, TCP, UDP, ICMP (case-sensitive).
-func normalizeProtocol(protocol string) string {
-	protocolUpper := strings.ToUpper(protocol)
-	switch protocolUpper {
-	case "ANY":
-		return "Any"
-	case "TCP":
-		return "TCP"
-	case "UDP":
-		return "UDP"
-	case "ICMP":
-		return "ICMP"
-	default:
-		// If it's already in the correct format (e.g., "Any"), return as-is
-		// Otherwise, try to capitalize first letter
-		if len(protocol) > 0 {
-			return strings.ToUpper(protocol[:1]) + strings.ToLower(protocol[1:])
-		}
-		return protocol
-	}
-}
-
 // protocolNormalizePlanModifier normalizes protocol values during planning
-// to prevent false positives when comparing state ("Any") with config ("ANY").
+// to prevent case-sensitivity issues.
 type protocolNormalizePlanModifier struct{}
 
 func (m protocolNormalizePlanModifier) Description(ctx context.Context) string {
@@ -76,59 +32,26 @@ func (m protocolNormalizePlanModifier) MarkdownDescription(ctx context.Context) 
 }
 
 func (m protocolNormalizePlanModifier) PlanModifyString(ctx context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
-	// Normalize the plan value to uppercase to match state format
-	// State stores protocol in uppercase (e.g., "ANY") to match user input format
 	if !req.PlanValue.IsNull() && !req.PlanValue.IsUnknown() {
-		normalized := strings.ToUpper(req.PlanValue.ValueString())
-		resp.PlanValue = types.StringValue(normalized)
+		resp.PlanValue = types.StringValue(strings.ToUpper(req.PlanValue.ValueString()))
 		return
 	}
-
-	// If plan is null/unknown, use state value (already in uppercase)
 	if !req.StateValue.IsNull() && !req.StateValue.IsUnknown() {
 		resp.PlanValue = req.StateValue
 		return
 	}
 }
 
-// normalizeTargetKind normalizes target kind values to match API expectations
-// API expects: IP (not Ip, ip, etc.)
+// normalizeTargetKind maps the wire "Ip" value to the user-facing "IP".
 func normalizeTargetKind(kind string) string {
-	kindUpper := strings.ToUpper(kind)
-	switch kindUpper {
-	case "IP":
+	if strings.EqualFold(kind, "Ip") || strings.EqualFold(kind, "ip") {
 		return "IP"
-	case "SECURITYGROUP":
-		return "SecurityGroup"
-	default:
-		// If it's already in the correct format, return as-is
-		// For "Ip", convert to "IP"
-		if strings.EqualFold(kind, "Ip") {
-			return "IP"
-		}
-		return kind
 	}
+	return kind
 }
 
-// RuleTarget represents the target of the rule (source or destination according to the direction).
-type RuleTarget struct {
-	Kind  EndpointTypeDto `tfsdk:"kind"`
-	Value string          `tfsdk:"value"`
-}
-
-// SecurityRuleProperties contains the properties of a security rule.
-type SecurityRulePropertiesRequest struct {
-	Direction RuleDirection `tfsdk:"direction"`
-	Protocol  string        `tfsdk:"protocol"`
-	Port      string        `tfsdk:"port"`
-	Target    *RuleTarget   `tfsdk:"target"`
-}
-
-var _ resource.Resource = &SecurityRuleResource{}
-var _ resource.ResourceWithImportState = &SecurityRuleResource{}
-
-func NewSecurityRuleResource() resource.Resource {
-	return &SecurityRuleResource{}
+type SecurityRuleResource struct {
+	client *ArubaCloudClient
 }
 
 type SecurityRuleResourceModel struct {
@@ -141,6 +64,13 @@ type SecurityRuleResourceModel struct {
 	VpcId           types.String `tfsdk:"vpc_id"`
 	SecurityGroupId types.String `tfsdk:"security_group_id"`
 	Properties      types.Object `tfsdk:"properties"`
+}
+
+var _ resource.Resource = &SecurityRuleResource{}
+var _ resource.ResourceWithImportState = &SecurityRuleResource{}
+
+func NewSecurityRuleResource() resource.Resource {
+	return &SecurityRuleResource{}
 }
 
 func (r *SecurityRuleResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -252,11 +182,112 @@ func (r *SecurityRuleResource) Configure(ctx context.Context, req resource.Confi
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected *ArubaCloudClient, got: %T. Please report this issue to the provider developers. Please report this issue to the provider developers.", req.ProviderData),
+			fmt.Sprintf("Expected *ArubaCloudClient, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
 		return
 	}
 	r.client = client
+}
+
+func sgRuleRef(data *SecurityRuleResourceModel) aruba.Ref {
+	if !data.Uri.IsNull() && data.Uri.ValueString() != "" {
+		return aruba.URI(data.Uri.ValueString())
+	}
+	return aruba.SecurityRuleRef(
+		data.ProjectId.ValueString(),
+		data.VpcId.ValueString(),
+		data.SecurityGroupId.ValueString(),
+		data.Id.ValueString(),
+	)
+}
+
+func applySecurityRuleToModel(ctx context.Context, rule *aruba.SecurityRule, data *SecurityRuleResourceModel) {
+	data.Id = types.StringValue(rule.ID())
+	data.Uri = strVal(rule.URI())
+	data.Name = types.StringValue(rule.Name())
+	data.Tags = TagsToListPreserveNull(rule.Tags(), data.Tags)
+
+	if rule.Region() != "" {
+		data.Location = types.StringValue(string(rule.Region()))
+	}
+
+	targetKindStr := normalizeTargetKind(string(rule.TargetKind()))
+	targetObj, _ := types.ObjectValue(
+		map[string]attr.Type{
+			"kind":  types.StringType,
+			"value": types.StringType,
+		},
+		map[string]attr.Value{
+			"kind":  types.StringValue(targetKindStr),
+			"value": types.StringValue(rule.TargetValue()),
+		},
+	)
+
+	propertiesObj, _ := types.ObjectValue(
+		map[string]attr.Type{
+			"direction": types.StringType,
+			"protocol":  types.StringType,
+			"port":      types.StringType,
+			"target": types.ObjectType{
+				AttrTypes: map[string]attr.Type{
+					"kind":  types.StringType,
+					"value": types.StringType,
+				},
+			},
+		},
+		map[string]attr.Value{
+			"direction": types.StringValue(string(rule.Direction())),
+			"protocol":  types.StringValue(strings.ToUpper(string(rule.Protocol()))),
+			"port":      types.StringValue(rule.Port()),
+			"target":    targetObj,
+		},
+	)
+	data.Properties = propertiesObj
+}
+
+// extractRuleProperties pulls direction, protocol, port, targetKind, and targetValue
+// from the plan's Properties object attribute.
+func extractRuleProperties(ctx context.Context, data *SecurityRuleResourceModel) (direction, protocol, port, targetKind, targetValue string, ok bool) {
+	if data.Properties.IsNull() || data.Properties.IsUnknown() {
+		return
+	}
+	attrs := data.Properties.Attributes()
+
+	if v, exists := attrs["direction"]; exists {
+		if s, isStr := v.(types.String); isStr && !s.IsNull() {
+			direction = s.ValueString()
+		}
+	}
+	if v, exists := attrs["protocol"]; exists {
+		if s, isStr := v.(types.String); isStr && !s.IsNull() {
+			protocol = strings.ToUpper(s.ValueString())
+		}
+	}
+	if v, exists := attrs["port"]; exists {
+		if s, isStr := v.(types.String); isStr && !s.IsNull() {
+			port = s.ValueString()
+		}
+	}
+	if protocol == "ANY" || protocol == "ICMP" {
+		port = ""
+	}
+	if v, exists := attrs["target"]; exists {
+		if targetObjAttr, isObj := v.(types.Object); isObj && !targetObjAttr.IsNull() {
+			tAttrs := targetObjAttr.Attributes()
+			if k, exists := tAttrs["kind"]; exists {
+				if s, isStr := k.(types.String); isStr && !s.IsNull() {
+					targetKind = normalizeTargetKind(s.ValueString())
+				}
+			}
+			if val, exists := tAttrs["value"]; exists {
+				if s, isStr := val.(types.String); isStr && !s.IsNull() {
+					targetValue = s.ValueString()
+				}
+			}
+		}
+	}
+	ok = direction != "" && protocol != "" && targetKind != ""
+	return
 }
 
 func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -270,374 +301,66 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 	vpcID := data.VpcId.ValueString()
 	securityGroupID := data.SecurityGroupId.ValueString()
 
-	if projectID == "" || vpcID == "" || securityGroupID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID, VPC ID, and Security Group ID are required to create a security rule",
-		)
-		return
-	}
-
 	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Extract properties from Terraform object
-	propertiesObj, diags := data.Properties.ToObjectValue(ctx)
-	resp.Diagnostics.Append(diags...)
+	direction, protocol, port, targetKind, targetValue, ok := extractRuleProperties(ctx, &data)
+	if !ok {
+		resp.Diagnostics.AddError("Invalid Properties", "direction, protocol, and target are required")
+		return
+	}
+
+	sgURI := aruba.SecurityGroupRef(projectID, vpcID, securityGroupID)
+	builder := aruba.NewSecurityRule().
+		Named(data.Name.ValueString()).
+		InSecurityGroup(sgURI).
+		InRegion(aruba.Region(data.Location.ValueString())).
+		Tagged(tags...).
+		WithDirection(aruba.RuleDirection(direction)).
+		WithProtocol(aruba.RuleProtocol(protocol))
+
+	if port != "" {
+		builder = builder.WithPort(port)
+	}
+
+	if targetKind == "IP" {
+		builder = builder.TargetingCIDR(targetValue)
+	} else {
+		builder = builder.TargetingSecurityGroup(aruba.URI(targetValue))
+	}
+
+	rule, err := r.client.Client.FromNetwork().SecurityGroupRules().Create(ctx, builder)
+	if provErr := CheckResponseErr("create", "SecurityRule", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
+		return
+	}
+
+	data.Id = types.StringValue(rule.ID())
+	data.Uri = strVal(rule.URI())
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	propertiesAttrs := propertiesObj.Attributes()
-	directionAttr, ok := propertiesAttrs["direction"].(types.String)
-	if !ok {
-		resp.Diagnostics.AddError("Invalid Type", "direction must be a String")
-		return
-	}
-	direction := directionAttr.ValueString()
-
-	protocolAttr, ok := propertiesAttrs["protocol"].(types.String)
-	if !ok {
-		resp.Diagnostics.AddError("Invalid Type", "protocol must be a String")
-		return
-	}
-	protocol := protocolAttr.ValueString()
-
-	// Normalize protocol to match API expectations (case-sensitive)
-	// API expects: Any, TCP, UDP, ICMP (not ANY, tcp, etc.)
-	protocol = normalizeProtocol(protocol)
-
-	port := ""
-	if portAttr, ok := propertiesAttrs["port"]; ok && portAttr != nil {
-		if portStr, ok := portAttr.(types.String); ok && !portStr.IsNull() {
-			port = portStr.ValueString()
-		}
-	}
-
-	// Adapter: If protocol is Any or ICMP, port must be completely omitted (API requirement)
-	// The CLI omits the port field entirely for Any/ICMP protocols (see CLI request JSON)
-	// Clear port to empty string so it will be omitted in JSON
-	originalPort := port
-	if strings.EqualFold(protocol, "Any") || strings.EqualFold(protocol, "ICMP") {
-		port = ""
-		tflog.Info(ctx, "Clearing port field for Any/ICMP protocol (will be omitted from JSON)", map[string]interface{}{
-			"protocol":     protocol,
-			"originalPort": originalPort,
-			"clearedPort":  port,
-		})
-	}
-
-	// Extract target
-	targetObjAttr, ok := propertiesAttrs["target"].(types.Object)
-	if !ok {
-		resp.Diagnostics.AddError("Invalid Type", "target must be an Object")
-		return
-	}
-	targetObjValue, diags := targetObjAttr.ToObjectValue(ctx)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
+	if waitErr := rule.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+		ReportWaitResult(&resp.Diagnostics, waitErr, "SecurityRule", data.Id.ValueString())
 		return
 	}
 
-	targetAttrs := targetObjValue.Attributes()
-	targetKindAttr, ok := targetAttrs["kind"].(types.String)
-	if !ok {
-		resp.Diagnostics.AddError("Invalid Type", "target.kind must be a String")
-		return
-	}
-	targetKind := targetKindAttr.ValueString()
-
-	// Normalize target kind to match API expectations (case-sensitive)
-	// API expects: IP (not Ip, ip, etc.)
-	targetKind = normalizeTargetKind(targetKind)
-
-	targetValueAttr, ok := targetAttrs["value"].(types.String)
-	if !ok {
-		resp.Diagnostics.AddError("Invalid Type", "target.value must be a String")
-		return
-	}
-	targetValue := targetValueAttr.ValueString()
-
-	tflog.Debug(ctx, "Creating security rule request", map[string]interface{}{
-		"protocol":    protocol,
-		"port":        port,
-		"portEmpty":   port == "",
-		"direction":   direction,
-		"targetKind":  targetKind,
-		"targetValue": targetValue,
-	})
-
-	// Build the properties
-	// Note: The SDK should handle empty Port strings with omitempty JSON tag
-	// If that doesn't work, we'll need to use JSON manipulation
-	target := &sdktypes.RuleTarget{
-		Kind:  sdktypes.EndpointTypeDto(targetKind),
-		Value: targetValue,
-	}
-
-	// Build properties - match CLI behavior exactly
-	// CLI omits Port field entirely for Any/ICMP protocols (see CLI request JSON)
-	// IMPORTANT: For Any/ICMP, port MUST be empty string (cleared above) and Port field MUST be omitted
-	// Use JSON manipulation to ensure Port is completely omitted when empty
-	var properties sdktypes.SecurityRulePropertiesRequest
-
-	// Double-check: If protocol is Any/ICMP, ensure port is empty (safety check)
-	if strings.EqualFold(protocol, "Any") || strings.EqualFold(protocol, "ICMP") {
-		if port != "" {
-			tflog.Warn(ctx, "Port was not cleared for Any/ICMP protocol, forcing it now", map[string]interface{}{
-				"protocol": protocol,
-				"port":     port,
-			})
-			port = ""
-		}
-	}
-
-	if port == "" {
-		// For Any/ICMP protocols, omit Port field completely (match CLI behavior)
-		tflog.Debug(ctx, "Omitting Port field for Any/ICMP protocol (matching CLI behavior)", map[string]interface{}{
-			"protocol": protocol,
-		})
-		propertiesMap := map[string]interface{}{
-			"direction": string(sdktypes.RuleDirection(direction)),
-			"protocol":  protocol,
-			"target": map[string]interface{}{
-				"kind":  string(sdktypes.EndpointTypeDto(targetKind)),
-				"value": targetValue,
-			},
-		}
-		jsonData, err := json.Marshal(propertiesMap)
-		if err != nil {
-			resp.Diagnostics.AddError(
-				"Error building request",
-				fmt.Sprintf("Unable to build security rule properties: %s", err),
-			)
-			return
-		}
-		if err := json.Unmarshal(jsonData, &properties); err != nil {
-			resp.Diagnostics.AddError(
-				"Error building request",
-				fmt.Sprintf("Unable to parse security rule properties: %s", err),
-			)
-			return
-		}
-		// Ensure Target is set correctly after unmarshal
-		properties.Target = target
-		// Explicitly clear Port field in struct (double safety)
-		properties.Port = ""
+	fresh, freshErr := r.client.Client.FromNetwork().SecurityGroupRules().Get(ctx, sgRuleRef(&data))
+	if freshErr == nil {
+		applySecurityRuleToModel(ctx, fresh, &data)
 	} else {
-		// Normal case with Port field
-		properties = sdktypes.SecurityRulePropertiesRequest{
-			Direction: sdktypes.RuleDirection(direction),
-			Protocol:  protocol,
-			Port:      port,
-			Target:    target,
-		}
+		tflog.Warn(ctx, fmt.Sprintf("Failed to refresh SecurityRule after creation: %v", freshErr))
 	}
 
-	tflog.Debug(ctx, "Properties built", map[string]interface{}{
-		"direction":    properties.Direction,
-		"protocol":     properties.Protocol,
-		"port":         properties.Port,
-		"portEmpty":    properties.Port == "",
-		"hasTarget":    properties.Target != nil,
-		"originalPort": port,
-	})
-
-	// Verify properties JSON doesn't include port when it should be omitted
-	propsJSON, _ := json.Marshal(properties)
-	if port == "" && strings.Contains(string(propsJSON), `"port"`) {
-		tflog.Error(ctx, "Port field still present in properties JSON after omitting!", map[string]interface{}{
-			"propertiesJSON": string(propsJSON),
-		})
-	}
-
-	// Build the create request
-	// Match CLI behavior exactly - only include tags if they're actually provided
-	// CLI doesn't include tags in JSON if not provided (SDK omits empty slices with omitempty)
-	metadataRequest := sdktypes.ResourceMetadataRequest{
-		Name: data.Name.ValueString(),
-	}
-	// Only set Tags if we have actual tags (not empty slice)
-	// This ensures SDK omits tags field in JSON when empty (matches CLI behavior)
-	if len(tags) > 0 {
-		metadataRequest.Tags = tags
-	}
-
-	createRequest := sdktypes.SecurityRuleRequest{
-		Metadata: sdktypes.RegionalResourceMetadataRequest{
-			ResourceMetadataRequest: metadataRequest,
-			Location: sdktypes.LocationRequest{
-				Value: data.Location.ValueString(),
-			},
-		},
-		Properties: properties,
-	}
-
-	// Debug: Log the actual JSON that will be sent
-	requestJSON, _ := json.MarshalIndent(createRequest, "", "  ")
-	requestJSONStr := string(requestJSON)
-
-	// Verify Port field is not present in JSON when it should be omitted
-	// CRITICAL: If port should be omitted but is still in JSON, rebuild request without it
-	if port == "" || strings.EqualFold(protocol, "Any") || strings.EqualFold(protocol, "ICMP") {
-		if strings.Contains(requestJSONStr, `"port"`) {
-			tflog.Error(ctx, "CRITICAL: Port field found in final JSON when it should be omitted! Rebuilding request...", map[string]interface{}{
-				"json":           requestJSONStr,
-				"propertiesPort": properties.Port,
-				"port":           port,
-				"protocol":       protocol,
-			})
-			// Rebuild the entire request using JSON manipulation to ensure Port is omitted
-			requestMap := map[string]interface{}{
-				"metadata": map[string]interface{}{
-					"name": data.Name.ValueString(),
-					"location": map[string]interface{}{
-						"value": data.Location.ValueString(),
-					},
-				},
-				"properties": map[string]interface{}{
-					"direction": string(sdktypes.RuleDirection(direction)),
-					"protocol":  protocol,
-					"target": map[string]interface{}{
-						"kind":  string(sdktypes.EndpointTypeDto(targetKind)),
-						"value": targetValue,
-					},
-				},
-			}
-			// Only add tags if they exist
-			if len(tags) > 0 {
-				if metadata, ok := requestMap["metadata"].(map[string]interface{}); ok {
-					metadata["tags"] = tags
-				}
-			}
-			// Rebuild request from JSON to ensure Port is omitted
-			rebuildJSON, err := json.Marshal(requestMap)
-			if err == nil {
-				if err := json.Unmarshal(rebuildJSON, &createRequest); err == nil {
-					requestJSON, _ = json.MarshalIndent(createRequest, "", "  ")
-					requestJSONStr = string(requestJSON)
-					tflog.Info(ctx, "Rebuilt request without Port field", map[string]interface{}{
-						"newJSON": requestJSONStr,
-					})
-				}
-			}
-		} else {
-			tflog.Debug(ctx, "Port field correctly omitted from final JSON")
-		}
-	}
-
-	tflog.Info(ctx, "Creating security rule", map[string]interface{}{
-		"name":           data.Name.ValueString(),
-		"direction":      direction,
-		"protocol":       protocol,
-		"port":           port,
-		"targetKind":     targetKind,
-		"targetValue":    targetValue,
-		"portOmitted":    port == "",
-		"propertiesPort": properties.Port,
-	})
-
-	// Create the security rule using the SDK
-	response, err := r.client.Client.FromNetwork().SecurityGroupRules().Create(ctx, projectID, vpcID, securityGroupID, createRequest, nil)
-	if err != nil {
-		tflog.Error(ctx, "SDK error creating security rule", map[string]interface{}{
-			"error": err.Error(),
-		})
-		resp.Diagnostics.AddError(
-			"Error creating security rule",
-			NewTransportError("create", "Securityrule", err).Error(),
-		)
-		return
-	}
-
-	if response != nil && response.IsError() && response.Error != nil {
-		errorMsg := "Failed to create security rule"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
-		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
-		// Log detailed error information including full response
-		tflog.Error(ctx, "API error creating security rule", map[string]interface{}{
-			"statusCode":  response.StatusCode,
-			"title":       response.Error.Title,
-			"detail":      response.Error.Detail,
-			"requestJSON": string(requestJSON),
-			"fullError":   fmt.Sprintf("%+v", response.Error),
-		})
-		// Include request JSON in error message for debugging
-		errorMsg = fmt.Sprintf("%s\n\nRequest JSON:\n%s", errorMsg, string(requestJSON))
-		resp.Diagnostics.AddError("API Error", errorMsg)
-		return
-	}
-
-	if response != nil && response.Data != nil {
-		if response.Data.Metadata.ID != nil {
-			data.Id = types.StringValue(*response.Data.Metadata.ID)
-		}
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-	} else {
-		resp.Diagnostics.AddError(
-			"Invalid API Response",
-			"Security rule created but no data returned from API",
-		)
-		return
-	}
-
-	// Wait for Security Rule to be active before returning
-	// This ensures Terraform doesn't proceed to create dependent resources until Security Rule is ready
-	ruleID := data.Id.ValueString()
-	checker := func(ctx context.Context) (string, error) {
-		getResp, err := r.client.Client.FromNetwork().SecurityGroupRules().Get(ctx, projectID, vpcID, securityGroupID, ruleID, nil)
-		if err != nil {
-			return "", err
-		}
-		if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
-			return *getResp.Data.Status.State, nil
-		}
-		return "Unknown", nil
-	}
-
-	// Wait for Security Rule to be active - block until ready (using configured timeout)
-	if err := WaitForResourceActive(ctx, checker, "SecurityRule", ruleID, r.client.ResourceTimeout); err != nil {
-		ReportWaitResult(&resp.Diagnostics, err, "SecurityRule", ruleID)
-		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-		return
-	}
-
-	// Re-read the Security Rule to get the latest state including tags
-	getResp, err := r.client.Client.FromNetwork().SecurityGroupRules().Get(ctx, projectID, vpcID, securityGroupID, ruleID, nil)
-	if err == nil && getResp != nil && getResp.Data != nil {
-		rule := getResp.Data
-		// Update tags from re-read response only when the API returned tags.
-		// When the API returns 0 tags we keep data.Tags unchanged (the planned value),
-		// otherwise we would overwrite a non-null planned list with null and trigger
-		// "Provider produced inconsistent result after apply".
-		if len(rule.Metadata.Tags) > 0 {
-			tagValues := make([]types.String, len(rule.Metadata.Tags))
-			for i, tag := range rule.Metadata.Tags {
-				tagValues[i] = types.StringValue(tag)
-			}
-			tagsList, diags := types.ListValueFrom(ctx, types.StringType, tagValues)
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = tagsList
-			}
-		}
-	}
-
-	tflog.Trace(ctx, "created a Security Rule resource", map[string]interface{}{
+	tflog.Trace(ctx, "created a SecurityRule resource", map[string]interface{}{
 		"securityrule_id":   data.Id.ValueString(),
 		"securityrule_name": data.Name.ValueString(),
 	})
-
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -647,168 +370,46 @@ func (r *SecurityRuleResource) Read(ctx context.Context, req resource.ReadReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	projectID := data.ProjectId.ValueString()
-	vpcID := data.VpcId.ValueString()
-	securityGroupID := data.SecurityGroupId.ValueString()
-	ruleID := data.Id.ValueString()
-
-	if data.Id.IsUnknown() || data.Id.IsNull() || ruleID == "" {
-		tflog.Debug(ctx, "Security Rule ID is empty, removing resource from state", map[string]interface{}{"rule_id": ruleID})
+	if data.Id.IsNull() || data.Id.ValueString() == "" {
 		resp.State.RemoveResource(ctx)
 		return
 	}
-	if projectID == "" || vpcID == "" || securityGroupID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID, VPC ID, and Security Group ID are required to read the security rule",
-		)
-		return
-	}
 
-	// Get security rule details using the SDK
-	response, err := r.client.Client.FromNetwork().SecurityGroupRules().Get(ctx, projectID, vpcID, securityGroupID, ruleID, nil)
-	fields := map[string]any{"project_id": projectID, "vpc_id": vpcID, "security_group_id": securityGroupID, "rule_id": ruleID}
-	if err != nil {
-		LogAndAppendAPIError(ctx, &resp.Diagnostics, "Error reading security rule",
-			NewTransportError("read", "Securityrule", err), fields)
-		return
-	}
-	if apiErr := CheckResponse("read", "Securityrule", response); apiErr != nil {
-		if IsNotFound(apiErr) {
+	rule, err := r.client.Client.FromNetwork().SecurityGroupRules().Get(ctx, sgRuleRef(&data))
+	if provErr := CheckResponseErr("read", "SecurityRule", err); provErr != nil {
+		if IsNotFound(provErr) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		LogAndAppendAPIError(ctx, &resp.Diagnostics, "API Error", apiErr, fields)
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	// If the resource is still provisioning (e.g. after a Create timeout that saved
-	// partial state), resume the wait so the next terraform apply reconciles correctly.
-	if response.Data.Status.State != nil {
-		switch st := *response.Data.Status.State; {
-		case isFailedState(st):
-			resp.Diagnostics.AddWarning(
-				"Resource in Failed State",
-				fmt.Sprintf("SecurityRule %q is in a terminal failure state (%s). "+
-					"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", ruleID, st),
-			)
-		case IsCreatingState(st):
-			checker := func(ctx context.Context) (string, error) {
-				getResp, err := r.client.Client.FromNetwork().SecurityGroupRules().Get(ctx, projectID, vpcID, securityGroupID, ruleID, nil)
-				if err != nil {
-					return "", err
-				}
-				if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
-					return *getResp.Data.Status.State, nil
-				}
-				return "Unknown", nil
-			}
-			if err := WaitForResourceActive(ctx, checker, "SecurityRule", ruleID, r.client.ResourceTimeout); err != nil {
-				ReportWaitResult(&resp.Diagnostics, err, "SecurityRule", ruleID)
-				resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-				return
-			}
-			// Re-read to get the final active state.
-			response, err = r.client.Client.FromNetwork().SecurityGroupRules().Get(ctx, projectID, vpcID, securityGroupID, ruleID, nil)
-			if err != nil {
-				resp.Diagnostics.AddError("Error reading SecurityRule after provisioning wait",
-					NewTransportError("read", "Securityrule", err).Error())
-				return
-			}
-			if apiErr := CheckResponse("read", "Securityrule", response); apiErr != nil {
-				if IsNotFound(apiErr) {
-					resp.State.RemoveResource(ctx)
-					return
-				}
-				resp.Diagnostics.AddError("API Error", apiErr.Error())
-				return
-			}
+	st := string(rule.State())
+	switch {
+	case isFailedState(st):
+		resp.Diagnostics.AddWarning("Resource in Failed State",
+			fmt.Sprintf("SecurityRule %q is in a terminal failure state (%s). "+
+				"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", data.Id.ValueString(), st))
+	case IsCreatingState(st):
+		if waitErr := rule.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+			ReportWaitResult(&resp.Diagnostics, waitErr, "SecurityRule", data.Id.ValueString())
+			return
+		}
+		rule, err = r.client.Client.FromNetwork().SecurityGroupRules().Get(ctx, sgRuleRef(&data))
+		if provErr := CheckResponseErr("read", "SecurityRule", err); provErr != nil {
+			resp.Diagnostics.AddError("API Error", provErr.Error())
+			return
 		}
 	}
 
-	if response != nil && response.Data != nil {
-		rule := response.Data
-
-		if rule.Metadata.ID != nil {
-			data.Id = types.StringValue(*rule.Metadata.ID)
-		}
-		if rule.Metadata.URI != nil {
-			data.Uri = types.StringValue(*rule.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-		if rule.Metadata.Name != nil {
-			data.Name = types.StringValue(*rule.Metadata.Name)
-		}
-		if rule.Metadata.LocationResponse != nil {
-			data.Location = types.StringValue(rule.Metadata.LocationResponse.Value)
-		}
-
-		// Store protocol in user-friendly format (uppercase) to match typical user input
-		// API returns "Any" but users typically write "ANY", so store in uppercase format
-		// This prevents false positives when comparing state with config
-		protocolFromAPI := rule.Properties.Protocol
-		protocolForState := strings.ToUpper(protocolFromAPI) // Store as "ANY" instead of "Any"
-
-		// Update properties from response
-		propertiesMap := map[string]attr.Value{
-			"direction": types.StringValue(string(rule.Properties.Direction)),
-			"protocol":  types.StringValue(protocolForState),
-			"port":      types.StringValue(rule.Properties.Port),
-		}
-
-		// Update target
-		if rule.Properties.Target != nil {
-			targetMap := map[string]attr.Value{
-				"kind":  types.StringValue(normalizeTargetKind(string(rule.Properties.Target.Kind))),
-				"value": types.StringValue(rule.Properties.Target.Value),
-			}
-			targetObj, diags := types.ObjectValue(map[string]attr.Type{
-				"kind":  types.StringType,
-				"value": types.StringType,
-			}, targetMap)
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				propertiesMap["target"] = targetObj
-			}
-		}
-
-		propertiesObj, diags := types.ObjectValue(map[string]attr.Type{
-			"direction": types.StringType,
-			"protocol":  types.StringType,
-			"port":      types.StringType,
-			"target": types.ObjectType{
-				AttrTypes: map[string]attr.Type{
-					"kind":  types.StringType,
-					"value": types.StringType,
-				},
-			},
-		}, propertiesMap)
-		resp.Diagnostics.Append(diags...)
-		if !resp.Diagnostics.HasError() {
-			data.Properties = propertiesObj
-		}
-
-		// When the API returns 0 tags we keep data.Tags unchanged (the state value),
-		// to avoid turning a null (never configured) into [] and causing spurious diffs.
-		if len(rule.Metadata.Tags) > 0 {
-			tagValues := make([]types.String, len(rule.Metadata.Tags))
-			for i, tag := range rule.Metadata.Tags {
-				tagValues[i] = types.StringValue(tag)
-			}
-			tagsList, diags := types.ListValueFrom(ctx, types.StringType, tagValues)
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = tagsList
-			}
-		}
-
-	} else {
-		resp.State.RemoveResource(ctx)
-		return
-	}
-
+	projectID := data.ProjectId
+	vpcID := data.VpcId
+	sgID := data.SecurityGroupId
+	applySecurityRuleToModel(ctx, rule, &data)
+	data.ProjectId = projectID
+	data.VpcId = vpcID
+	data.SecurityGroupId = sgID
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -817,134 +418,35 @@ func (r *SecurityRuleResource) Update(ctx context.Context, req resource.UpdateRe
 	var state SecurityRuleResourceModel
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Use IDs from state (they are immutable)
-	projectID := state.ProjectId.ValueString()
-	vpcID := state.VpcId.ValueString()
-	securityGroupID := state.SecurityGroupId.ValueString()
-	ruleID := state.Id.ValueString()
-
-	if projectID == "" || vpcID == "" || securityGroupID == "" || ruleID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID, VPC ID, Security Group ID, and Rule ID are required to update the security rule",
-		)
+	rule, err := r.client.Client.FromNetwork().SecurityGroupRules().Get(ctx, sgRuleRef(&state))
+	if provErr := CheckResponseErr("read", "SecurityRule", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	// Get current security rule details
-	getResponse, err := r.client.Client.FromNetwork().SecurityGroupRules().Get(ctx, projectID, vpcID, securityGroupID, ruleID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error fetching current security rule",
-			NewTransportError("read", "Securityrule", err).Error(),
-		)
-		return
-	}
-
-	if getResponse == nil || getResponse.Data == nil {
-		resp.Diagnostics.AddError(
-			"Security Rule Not Found",
-			"Security rule not found or no data returned",
-		)
-		return
-	}
-
-	current := getResponse.Data
-
-	// Check if security rule is in InCreation state
-	if current.Status.State != nil && *current.Status.State == "InCreation" {
-		resp.Diagnostics.AddError(
-			"Cannot Update Security Rule",
-			"Cannot update security rule while it is in 'InCreation' state. Please wait until the security rule is fully created.",
-		)
-		return
-	}
-
-	// Check if properties have changed - if so, security rule must be recreated
-	// Extract properties from plan using the same method as Create
-	var planDirection, planProtocol, planPort, planTargetKind, planTargetValue string
-	if !data.Properties.IsNull() && !data.Properties.IsUnknown() {
-		propertiesObj, diags := data.Properties.ToObjectValue(ctx)
-		if !diags.HasError() {
-			propertiesAttrs := propertiesObj.Attributes()
-			if dir, ok := propertiesAttrs["direction"]; ok && dir != nil {
-				if dirStr, ok := dir.(types.String); ok {
-					planDirection = dirStr.ValueString()
-				}
-			}
-			if prot, ok := propertiesAttrs["protocol"]; ok && prot != nil {
-				if protStr, ok := prot.(types.String); ok {
-					// Keep protocol in uppercase format (matching state format)
-					// Will be normalized to API format ("Any") when sending to API
-					planProtocol = strings.ToUpper(protStr.ValueString())
-				}
-			}
-			if portAttr, ok := propertiesAttrs["port"]; ok && portAttr != nil {
-				if portStr, ok := portAttr.(types.String); ok && !portStr.IsNull() {
-					planPort = portStr.ValueString()
-				}
-			}
-
-			// Adapter: If protocol is ANY or ICMP, port must not be set (API requirement)
-			// planProtocol is now in uppercase format
-			if planProtocol == "ANY" || planProtocol == "ICMP" {
-				planPort = ""
-			}
-
-			if targetAttr, ok := propertiesAttrs["target"]; ok && targetAttr != nil {
-				if targetObj, ok := targetAttr.(types.Object); ok {
-					targetObjValue, targetDiags := targetObj.ToObjectValue(ctx)
-					if !targetDiags.HasError() {
-						targetAttrs := targetObjValue.Attributes()
-						if kind, ok := targetAttrs["kind"]; ok && kind != nil {
-							if kindStr, ok := kind.(types.String); ok {
-								planTargetKind = normalizeTargetKind(kindStr.ValueString())
-							}
-						}
-						if value, ok := targetAttrs["value"]; ok && value != nil {
-							if valueStr, ok := value.(types.String); ok {
-								planTargetValue = valueStr.ValueString()
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
-	// Compare with current properties
-	// Normalize both current and plan protocol values to uppercase before comparison
-	// State stores protocol in uppercase (e.g., "ANY"), plan is also normalized to uppercase by plan modifier
-	currentProtocolNormalized := strings.ToUpper(current.Properties.Protocol)
-	planProtocolNormalized := strings.ToUpper(planProtocol)
-
+	// Properties are immutable; reject if they differ from current.
+	planDirection, planProtocol, planPort, planTargetKind, planTargetValue, _ := extractRuleProperties(ctx, &data)
 	var propertiesChanged bool
-	if planDirection != "" && string(current.Properties.Direction) != planDirection {
+	if planDirection != "" && string(rule.Direction()) != planDirection {
 		propertiesChanged = true
 	}
-	if planProtocol != "" && currentProtocolNormalized != planProtocolNormalized {
+	if planProtocol != "" && strings.ToUpper(string(rule.Protocol())) != strings.ToUpper(planProtocol) {
 		propertiesChanged = true
 	}
-	currentPort := current.Properties.Port
-	if planPort != "" && currentPort != planPort {
+	if planPort != "" && rule.Port() != planPort {
 		propertiesChanged = true
 	}
-	if planTargetKind != "" && string(current.Properties.Target.Kind) != planTargetKind {
+	if planTargetKind != "" && normalizeTargetKind(string(rule.TargetKind())) != planTargetKind {
 		propertiesChanged = true
 	}
-	if planTargetValue != "" && current.Properties.Target.Value != planTargetValue {
+	if planTargetValue != "" && rule.TargetValue() != planTargetValue {
 		propertiesChanged = true
 	}
-
 	if propertiesChanged {
 		resp.Diagnostics.AddError(
 			"Cannot Update Security Rule Properties",
@@ -953,177 +455,33 @@ func (r *SecurityRuleResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
-	// Get region value
-	regionValue := ""
-	if current.Metadata.LocationResponse != nil {
-		regionValue = current.Metadata.LocationResponse.Value
-	}
-	if regionValue == "" {
-		// Try to get from VPC
-		vpcResp, err := r.client.Client.FromNetwork().VPCs().Get(ctx, projectID, vpcID, nil)
-		if err == nil && vpcResp != nil && !vpcResp.IsError() && vpcResp.Data != nil {
-			if vpcResp.Data.Metadata.LocationResponse != nil {
-				regionValue = vpcResp.Data.Metadata.LocationResponse.Value
-			}
-		}
-	}
-	if regionValue == "" {
-		resp.Diagnostics.AddError(
-			"Missing Region",
-			"Unable to determine region value for security rule",
-		)
-		return
-	}
-
 	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if tags == nil {
-		tags = current.Metadata.Tags
-	}
 
-	// Build update request - only name and tags can be updated, properties must remain unchanged
-	// Note: Properties must be included in the request but will use current values (they cannot be changed)
-
-	// Build properties conditionally - omit Port field if it's empty (for ANY/ICMP protocols)
-	var updateProperties sdktypes.SecurityRulePropertiesRequest
-	if current.Properties.Port == "" {
-		// Build without Port field by using JSON manipulation
-		propertiesMap := map[string]interface{}{
-			"direction": current.Properties.Direction,
-			"protocol":  current.Properties.Protocol,
-			"target": map[string]interface{}{
-				"kind":  current.Properties.Target.Kind,
-				"value": current.Properties.Target.Value,
-			},
-		}
-		// Marshal to JSON and back to ensure Port field is not present
-		jsonData, _ := json.Marshal(propertiesMap)
-		if err := json.Unmarshal(jsonData, &updateProperties); err != nil {
-			resp.Diagnostics.AddError("Failed to unmarshal properties", err.Error())
-			return
-		}
+	rule.Named(data.Name.ValueString())
+	if tags != nil {
+		rule.RetaggedAs(tags...)
 	} else {
-		// Normal case with Port field
-		updateProperties = sdktypes.SecurityRulePropertiesRequest{
-			Direction: current.Properties.Direction,
-			Protocol:  current.Properties.Protocol,
-			Port:      current.Properties.Port,
-			Target:    current.Properties.Target,
-		}
+		rule.RetaggedAs(rule.Tags()...)
 	}
 
-	updateRequest := sdktypes.SecurityRuleRequest{
-		Metadata: sdktypes.RegionalResourceMetadataRequest{
-			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
-				Name: data.Name.ValueString(),
-				Tags: tags,
-			},
-			Location: sdktypes.LocationRequest{
-				Value: regionValue,
-			},
-		},
-		Properties: updateProperties,
-	}
-
-	// Log the update request for debugging
-	tflog.Debug(ctx, "Updating security rule", map[string]interface{}{
-		"rule_id":    ruleID,
-		"name":       data.Name.ValueString(),
-		"tags":       tags,
-		"properties": fmt.Sprintf("Direction=%s, Protocol=%s, Port=%s", current.Properties.Direction, current.Properties.Protocol, current.Properties.Port),
-	})
-
-	// Update the security rule using the SDK
-	response, err := r.client.Client.FromNetwork().SecurityGroupRules().Update(ctx, projectID, vpcID, securityGroupID, ruleID, updateRequest, nil)
-	if err != nil {
-		tflog.Error(ctx, fmt.Sprintf("Error calling Update API: %v", err))
-		resp.Diagnostics.AddError(
-			"Error updating security rule",
-			NewTransportError("update", "Securityrule", err).Error(),
-		)
+	updated, err := r.client.Client.FromNetwork().SecurityGroupRules().Update(ctx, rule)
+	if provErr := CheckResponseErr("update", "SecurityRule", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	if response != nil && response.IsError() && response.Error != nil {
-		errorMsg := "Failed to update security rule"
-		if response.Error.Title != nil {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, *response.Error.Title)
-		}
-		if response.Error.Detail != nil {
-			errorMsg = fmt.Sprintf("%s - %s", errorMsg, *response.Error.Detail)
-		}
-		// Include status code if available
-		if response.StatusCode > 0 {
-			errorMsg = fmt.Sprintf("%s (HTTP %d)", errorMsg, response.StatusCode)
-		}
-
-		// Log full error response JSON only on errors for debugging
-		if errorJSON, jsonErr := json.MarshalIndent(response.Error, "", "  "); jsonErr == nil {
-			tflog.Debug(ctx, "Full API error response JSON", map[string]interface{}{
-				"error_json": string(errorJSON),
-			})
-		}
-
-		tflog.Error(ctx, "API error updating security rule", map[string]interface{}{
-			"error": fmt.Sprintf("%+v", response.Error),
-		})
-		resp.Diagnostics.AddError("API Error", errorMsg)
-		return
-	}
-
-	// Verify the update was successful
-	if response == nil || response.Data == nil {
-		resp.Diagnostics.AddError(
-			"Invalid API Response",
-			"Security rule updated but no data returned from API",
-		)
-		return
-	}
-
-	// Update the state with the response data
-	// At this point, we know response != nil && response.Data != nil from the check above
-	updated := response.Data
-	if updated.Metadata.ID != nil {
-		data.Id = types.StringValue(*updated.Metadata.ID)
-	}
-	if updated.Metadata.Name != nil {
-		data.Name = types.StringValue(*updated.Metadata.Name)
-	}
-	if updated.Metadata.LocationResponse != nil {
-		data.Location = types.StringValue(updated.Metadata.LocationResponse.Value)
-	}
-
-	// Update tags from response only when the API returned tags.
-	// When the API returns 0 tags we keep data.Tags unchanged (the planned value),
-	// otherwise we would overwrite a non-null planned list with null and trigger
-	// "Provider produced inconsistent result after apply".
-	if len(updated.Metadata.Tags) > 0 {
-		tagValues := make([]types.String, len(updated.Metadata.Tags))
-		for i, tag := range updated.Metadata.Tags {
-			tagValues[i] = types.StringValue(tag)
-		}
-		tagsList, diags := types.ListValueFrom(ctx, types.StringType, tagValues)
-		resp.Diagnostics.Append(diags...)
-		if !resp.Diagnostics.HasError() {
-			data.Tags = tagsList
-		}
-	}
-
-	// Properties remain unchanged - they are immutable
-	// Keep the existing state values to ensure Terraform state matches what the user configured
-
-	// Ensure immutable fields are set from state before saving
+	// Preserve immutable fields from state.
+	data.Id = state.Id
+	data.Uri = state.Uri
 	data.ProjectId = state.ProjectId
 	data.VpcId = state.VpcId
 	data.SecurityGroupId = state.SecurityGroupId
-
-	// Update ID from response (should match state)
-	// At this point, we know response != nil && response.Data != nil from the check above
-	if updated.Metadata.ID != nil {
-		data.Id = types.StringValue(*updated.Metadata.ID)
-	}
+	data.Name = types.StringValue(updated.Name())
+	data.Tags = TagsToListPreserveNull(updated.Tags(), data.Tags)
+	// Properties remain unchanged.
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -1135,27 +493,12 @@ func (r *SecurityRuleResource) Delete(ctx context.Context, req resource.DeleteRe
 		return
 	}
 
-	projectID := data.ProjectId.ValueString()
-	vpcID := data.VpcId.ValueString()
-	securityGroupID := data.SecurityGroupId.ValueString()
+	ref := sgRuleRef(&data)
 	ruleID := data.Id.ValueString()
 
-	if projectID == "" || vpcID == "" || securityGroupID == "" || ruleID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID, VPC ID, Security Group ID, and Rule ID are required to delete the security rule",
-		)
-		return
-	}
-
-	// Delete the security rule using the SDK with retry mechanism
-	// Retry on any error except 404 (Resource Not Found)
 	deletionChecker := func(ctx context.Context) (bool, error) {
-		getResp, getErr := r.client.Client.FromNetwork().SecurityGroupRules().Get(ctx, projectID, vpcID, securityGroupID, ruleID, nil)
-		if getErr != nil {
-			return false, NewTransportError("get", "SecurityRule", getErr)
-		}
-		if provErr := CheckResponse("get", "SecurityRule", getResp); provErr != nil {
+		_, getErr := r.client.Client.FromNetwork().SecurityGroupRules().Get(ctx, ref)
+		if provErr := CheckResponseErr("get", "SecurityRule", getErr); provErr != nil {
 			if IsNotFound(provErr) {
 				return true, nil
 			}
@@ -1165,41 +508,19 @@ func (r *SecurityRuleResource) Delete(ctx context.Context, req resource.DeleteRe
 	}
 
 	deleteStart := time.Now()
-	err := DeleteResourceWithRetry(
-		ctx,
-		func() error {
-			resp, err := r.client.Client.FromNetwork().SecurityGroupRules().Delete(ctx, projectID, vpcID, securityGroupID, ruleID, nil)
-			if err != nil {
-				return NewTransportError("delete", "SecurityRule", err)
-			}
-			return CheckResponse("delete", "SecurityRule", resp)
-		},
-		"SecurityRule",
-		ruleID,
-		r.client.ResourceTimeout,
-		deletionChecker,
-	)
-
+	err := DeleteResourceWithRetry(ctx, func() error {
+		return CheckResponseErr("delete", "SecurityRule",
+			r.client.Client.FromNetwork().SecurityGroupRules().Delete(ctx, ref))
+	}, "SecurityRule", ruleID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error deleting security rule",
-			NewTransportError("delete", "Securityrule", err).Error(),
-		)
+		resp.Diagnostics.AddError("Error deleting SecurityRule", err.Error())
 		return
 	}
-
-	// Poll until the security rule is confirmed deleted (async deletion)
 	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "SecurityRule", ruleID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
-		resp.Diagnostics.AddError(
-			"Error waiting for SecurityRule deletion",
-			waitErr.Error(),
-		)
+		resp.Diagnostics.AddError("Error waiting for SecurityRule deletion", waitErr.Error())
 		return
 	}
-
-	tflog.Trace(ctx, "deleted a Security Rule resource", map[string]interface{}{
-		"securityrule_id": ruleID,
-	})
+	tflog.Trace(ctx, "deleted a SecurityRule resource", map[string]interface{}{"securityrule_id": ruleID})
 }
 
 func (r *SecurityRuleResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
