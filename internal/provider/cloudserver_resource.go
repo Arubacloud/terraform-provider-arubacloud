@@ -411,9 +411,9 @@ func (r *CloudServerResource) applyServerToState(
 	raw := server.Raw()
 	if raw != nil {
 		if raw.Metadata.LocationResponse != nil && raw.Metadata.LocationResponse.Value != "" {
-			data.Location = types.StringValue(raw.Metadata.LocationResponse.Value)
+			data.Location = types.StringValue(string(raw.Metadata.LocationResponse.Value))
 		}
-		data.Zone = resolveAPIStringRef(raw.Properties.Zone, firstString(originalState, func(s *CloudServerResourceModel) types.String { return s.Zone }))
+		data.Zone = resolveAPIStringRef(string(raw.Properties.Zone), firstString(originalState, func(s *CloudServerResourceModel) types.String { return s.Zone }))
 	}
 
 	if originalState != nil {
@@ -447,7 +447,7 @@ func (r *CloudServerResource) applyServerToState(
 		}
 	}
 	settingsAttrs := map[string]attr.Value{
-		"flavor_name":      types.StringValue(server.Flavor()),
+		"flavor_name":      types.StringValue(string(server.Flavor())),
 		"key_pair_uri_ref": resolveKeyPairUriRef(server.KeyPair(), origSettings.KeyPairUriRef),
 		"user_data":        origSettings.UserData, // write-only; never returned by API
 	}
@@ -624,7 +624,7 @@ func (r *CloudServerResource) Delete(ctx context.Context, req resource.DeleteReq
 	err := DeleteResourceWithRetry(
 		ctx,
 		func() error {
-			_, delErr := r.client.Client.FromCompute().CloudServers().Delete(ctx, ref)
+			delErr := r.client.Client.FromCompute().CloudServers().Delete(ctx, ref)
 			return CheckResponseErr("delete", "CloudServer", delErr)
 		},
 		"CloudServer",

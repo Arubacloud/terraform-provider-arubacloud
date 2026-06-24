@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -105,30 +104,22 @@ func (r *ContainerRegistryResource) Schema(ctx context.Context, req resource.Sch
 					"public_ip_uri_ref": schema.StringAttribute{
 						MarkdownDescription: "URI of the Elastic IP that exposes the registry endpoint (e.g., `arubacloud_elasticip.example.uri`).",
 						Required:            true,
-						PlanModifiers: []planmodifier.String{
-							stringplanmodifier.UseStateForUnknown(),
-						},
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 					"vpc_uri_ref": schema.StringAttribute{
 						MarkdownDescription: "URI of the VPC that hosts the registry (e.g., `arubacloud_vpc.example.uri`).",
 						Required:            true,
-						PlanModifiers: []planmodifier.String{
-							stringplanmodifier.UseStateForUnknown(),
-						},
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 					"subnet_uri_ref": schema.StringAttribute{
 						MarkdownDescription: "URI of the subnet within the VPC (e.g., `arubacloud_subnet.example.uri`).",
 						Required:            true,
-						PlanModifiers: []planmodifier.String{
-							stringplanmodifier.UseStateForUnknown(),
-						},
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 					"security_group_uri_ref": schema.StringAttribute{
 						MarkdownDescription: "URI of the security group controlling registry traffic (e.g., `arubacloud_securitygroup.example.uri`).",
 						Required:            true,
-						PlanModifiers: []planmodifier.String{
-							stringplanmodifier.UseStateForUnknown(),
-						},
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 				},
 			},
@@ -139,9 +130,7 @@ func (r *ContainerRegistryResource) Schema(ctx context.Context, req resource.Sch
 					"block_storage_uri_ref": schema.StringAttribute{
 						MarkdownDescription: "URI of the block storage volume (e.g., `arubacloud_blockstorage.example.uri`).",
 						Required:            true,
-						PlanModifiers: []planmodifier.String{
-							stringplanmodifier.UseStateForUnknown(),
-						},
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 				},
 			},
@@ -178,19 +167,63 @@ func (r *ContainerRegistryResource) Configure(ctx context.Context, req resource.
 	r.client = client
 }
 
+func containerRegistryRef(data *ContainerRegistryResourceModel) aruba.Ref {
+	if !data.Uri.IsNull() && data.Uri.ValueString() != "" {
+		return aruba.URI(data.Uri.ValueString())
+	}
+	return aruba.URI("/projects/" + data.ProjectID.ValueString() +
+		"/providers/Aruba.Container/containerRegistries/" + data.Id.ValueString())
+}
+
+func applyContainerRegistryToModel(reg *aruba.ContainerRegistry, data *ContainerRegistryResourceModel) {
+	data.Id = types.StringValue(reg.ID())
+	data.Uri = strVal(reg.URI())
+	data.Name = types.StringValue(reg.Name())
+	data.Tags = TagsToListPreserveNull(reg.Tags(), data.Tags)
+	if reg.Region() != "" {
+		data.Location = types.StringValue(string(reg.Region()))
+	}
+	data.BillingPeriod = strVal(string(reg.BillingPeriod()))
+
+	networkObj, _ := types.ObjectValue(
+		map[string]attr.Type{
+			"public_ip_uri_ref":      types.StringType,
+			"vpc_uri_ref":            types.StringType,
+			"subnet_uri_ref":         types.StringType,
+			"security_group_uri_ref": types.StringType,
+		},
+		map[string]attr.Value{
+			"public_ip_uri_ref":      types.StringValue(reg.ElasticIP()),
+			"vpc_uri_ref":            types.StringValue(reg.VPC()),
+			"subnet_uri_ref":         types.StringValue(reg.Subnet()),
+			"security_group_uri_ref": types.StringValue(reg.SecurityGroup()),
+		},
+	)
+	data.Network = networkObj
+
+	storageObj, _ := types.ObjectValue(
+		map[string]attr.Type{"block_storage_uri_ref": types.StringType},
+		map[string]attr.Value{"block_storage_uri_ref": types.StringValue(reg.BlockStorage())},
+	)
+	data.Storage = storageObj
+
+	settingsObj, _ := types.ObjectValue(
+		map[string]attr.Type{
+			"admin_user":              types.StringType,
+			"concurrent_users_flavor": types.StringType,
+		},
+		map[string]attr.Value{
+			"admin_user":              strVal(reg.AdminUsername()),
+			"concurrent_users_flavor": strVal(string(reg.SizeFlavor())),
+		},
+	)
+	data.Settings = settingsObj
+}
+
 func (r *ContainerRegistryResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data ContainerRegistryResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	projectID := data.ProjectID.ValueString()
-	if projectID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Project ID",
-			"Project ID is required to create a container registry",
-		)
 		return
 	}
 
@@ -199,156 +232,81 @@ func (r *ContainerRegistryResource) Create(ctx context.Context, req resource.Cre
 		return
 	}
 
-	// Extract network configuration
 	var networkModel ContainerRegistryNetworkModel
-	diags := data.Network.As(ctx, &networkModel, basetypes.ObjectAsOptions{})
-	resp.Diagnostics.Append(diags...)
+	resp.Diagnostics.Append(data.Network.As(ctx, &networkModel, basetypes.ObjectAsOptions{})...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Extract storage configuration
 	var storageModel ContainerRegistryStorageModel
-	diags = data.Storage.As(ctx, &storageModel, basetypes.ObjectAsOptions{})
-	resp.Diagnostics.Append(diags...)
+	resp.Diagnostics.Append(data.Storage.As(ctx, &storageModel, basetypes.ObjectAsOptions{})...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Build the create request
-	createRequest := sdktypes.ContainerRegistryRequest{
-		Metadata: sdktypes.RegionalResourceMetadataRequest{
-			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
-				Name: data.Name.ValueString(),
-				Tags: tags,
-			},
-			Location: sdktypes.LocationRequest{
-				Value: data.Location.ValueString(),
-			},
-		},
-		Properties: sdktypes.ContainerRegistryPropertiesRequest{
-			PublicIp: sdktypes.ReferenceResource{
-				URI: networkModel.PublicIpUriRef.ValueString(),
-			},
-			VPC: sdktypes.ReferenceResource{
-				URI: networkModel.VpcUriRef.ValueString(),
-			},
-			Subnet: sdktypes.ReferenceResource{
-				URI: networkModel.SubnetUriRef.ValueString(),
-			},
-			SecurityGroup: sdktypes.ReferenceResource{
-				URI: networkModel.SecurityGroupUriRef.ValueString(),
-			},
-			BlockStorage: sdktypes.ReferenceResource{
-				URI: storageModel.BlockStorageUriRef.ValueString(),
-			},
-		},
-	}
+	projectID := data.ProjectID.ValueString()
+	builder := aruba.NewContainerRegistry().
+		Named(data.Name.ValueString()).
+		InProject(aruba.URI("/projects/"+projectID)).
+		InRegion(aruba.Region(data.Location.ValueString())).
+		Tagged(tags...).
+		WithElasticIP(aruba.URI(networkModel.PublicIpUriRef.ValueString())).
+		WithVPC(aruba.URI(networkModel.VpcUriRef.ValueString())).
+		WithSubnet(aruba.URI(networkModel.SubnetUriRef.ValueString())).
+		WithSecurityGroup(aruba.URI(networkModel.SecurityGroupUriRef.ValueString())).
+		WithBlockStorage(aruba.URI(storageModel.BlockStorageUriRef.ValueString()))
 
-	// Add optional fields
 	if !data.BillingPeriod.IsNull() && !data.BillingPeriod.IsUnknown() {
-		createRequest.Properties.BillingPlan = &sdktypes.BillingPeriodResource{
-			BillingPeriod: data.BillingPeriod.ValueString(),
-		}
+		builder = builder.BilledBy(aruba.BillingPeriod(data.BillingPeriod.ValueString()))
 	}
 
-	// Extract settings if provided
 	if !data.Settings.IsNull() && !data.Settings.IsUnknown() {
 		var settingsModel ContainerRegistrySettingsModel
-		diags = data.Settings.As(ctx, &settingsModel, basetypes.ObjectAsOptions{})
-		resp.Diagnostics.Append(diags...)
+		resp.Diagnostics.Append(data.Settings.As(ctx, &settingsModel, basetypes.ObjectAsOptions{})...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
-
 		if !settingsModel.AdminUser.IsNull() && !settingsModel.AdminUser.IsUnknown() {
-			createRequest.Properties.AdminUser = &sdktypes.UserCredential{
-				Username: settingsModel.AdminUser.ValueString(),
-			}
+			builder = builder.WithAdminUsername(settingsModel.AdminUser.ValueString())
 		}
-
 		if !settingsModel.ConcurrentUsersFlavor.IsNull() && !settingsModel.ConcurrentUsersFlavor.IsUnknown() {
-			concurrentUsersFlavor := settingsModel.ConcurrentUsersFlavor.ValueString()
-			createRequest.Properties.ConcurrentUsers = &concurrentUsersFlavor
+			builder = builder.OfSize(aruba.ContainerRegistrySizeFlavor(settingsModel.ConcurrentUsersFlavor.ValueString()))
 		}
 	}
 
-	// Create the container registry using the SDK
-	containerClient := r.client.Client.FromContainer()
-	if containerClient == nil {
-		resp.Diagnostics.AddError(
-			"Container Client Not Available",
-			"Container client is not available",
-		)
+	registry, err := r.client.Client.FromContainer().ContainerRegistry().Create(ctx, builder)
+	if provErr := CheckResponseErr("create", "ContainerRegistry", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	registryClient := containerClient.ContainerRegistry()
-	if registryClient == nil {
-		resp.Diagnostics.AddError(
-			"Container Registry Client Not Available",
-			"Container Registry client is not available",
-		)
+	data.Id = types.StringValue(registry.ID())
+	data.Uri = strVal(registry.URI())
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	response, err := registryClient.Create(ctx, projectID, createRequest, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error creating container registry",
-			NewTransportError("create", "Containerregistry", err).Error(),
-		)
+	// ContainerRegistry can take 20-40 minutes to converge.
+	if waitErr := registry.WaitUntilReady(ctx, aruba.WithTimeout(40*time.Minute)); waitErr != nil {
+		ReportWaitResult(&resp.Diagnostics, waitErr, "ContainerRegistry", data.Id.ValueString())
 		return
 	}
 
-	if apiErr := CheckResponse("create", "Containerregistry", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-
-	if response != nil && response.Data != nil {
-		if response.Data.Metadata.ID != nil {
-			data.Id = types.StringValue(*response.Data.Metadata.ID)
-		}
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
+	fresh, freshErr := r.client.Client.FromContainer().ContainerRegistry().Get(ctx, containerRegistryRef(&data))
+	if freshErr == nil {
+		projectID := data.ProjectID
+		applyContainerRegistryToModel(fresh, &data)
+		data.ProjectID = projectID
 	} else {
-		resp.Diagnostics.AddError(
-			"Invalid API Response",
-			"Container registry created but no data returned from API",
-		)
-		return
-	}
-
-	// Wait for Container Registry to be active before returning
-	// This ensures Terraform doesn't proceed until Container Registry is ready
-	registryID := data.Id.ValueString()
-	checker := func(ctx context.Context) (string, error) {
-		getResp, err := registryClient.Get(ctx, projectID, registryID, nil)
-		if err != nil {
-			return "", err
-		}
-		if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
-			return *getResp.Data.Status.State, nil
-		}
-		return "Unknown", nil
-	}
-
-	// Wait for Container Registry to be active - block until ready (using configured timeout)
-	if err := WaitForResourceActive(ctx, checker, "ContainerRegistry", registryID, r.client.ResourceTimeout); err != nil {
-		ReportWaitResult(&resp.Diagnostics, err, "ContainerRegistry", registryID)
-		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-		return
+		tflog.Warn(ctx, fmt.Sprintf("Failed to refresh ContainerRegistry after creation: %v", freshErr))
 	}
 
 	tflog.Trace(ctx, "created a Container Registry resource", map[string]interface{}{
 		"containerregistry_id":   data.Id.ValueString(),
 		"containerregistry_name": data.Name.ValueString(),
 	})
-
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -358,203 +316,42 @@ func (r *ContainerRegistryResource) Read(ctx context.Context, req resource.ReadR
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	projectID := data.ProjectID.ValueString()
-	registryID := data.Id.ValueString()
-
-	if data.Id.IsUnknown() || data.Id.IsNull() || registryID == "" {
-		tflog.Debug(ctx, "Container Registry ID is empty, removing resource from state", map[string]interface{}{"registry_id": registryID})
+	if data.Id.IsNull() || data.Id.ValueString() == "" {
 		resp.State.RemoveResource(ctx)
 		return
 	}
 
-	if projectID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID is required to read the container registry",
-		)
-		return
-	}
-
-	containerClient := r.client.Client.FromContainer()
-	if containerClient == nil {
-		resp.Diagnostics.AddError(
-			"Container Client Not Available",
-			"Container client is not available",
-		)
-		return
-	}
-
-	registryClient := containerClient.ContainerRegistry()
-	if registryClient == nil {
-		resp.Diagnostics.AddError(
-			"Container Registry Client Not Available",
-			"Container Registry client is not available",
-		)
-		return
-	}
-
-	// Get container registry details using the SDK
-	response, err := registryClient.Get(ctx, projectID, registryID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading container registry",
-			NewTransportError("read", "Containerregistry", err).Error(),
-		)
-		return
-	}
-
-	if apiErr := CheckResponse("read", "Containerregistry", response); apiErr != nil {
-		if IsNotFound(apiErr) {
+	registry, err := r.client.Client.FromContainer().ContainerRegistry().Get(ctx, containerRegistryRef(&data))
+	if provErr := CheckResponseErr("read", "ContainerRegistry", err); provErr != nil {
+		if IsNotFound(provErr) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	// If the resource is still provisioning (e.g. after a Create timeout that saved
-	// partial state), resume the wait so the next terraform apply reconciles correctly.
-	if response.Data.Status.State != nil {
-		switch st := *response.Data.Status.State; {
-		case isFailedState(st):
-			resp.Diagnostics.AddWarning(
-				"Resource in Failed State",
-				fmt.Sprintf("ContainerRegistry %q is in a terminal failure state (%s). "+
-					"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", registryID, st),
-			)
-		case IsCreatingState(st):
-			checker := func(ctx context.Context) (string, error) {
-				getResp, err := registryClient.Get(ctx, projectID, registryID, nil)
-				if err != nil {
-					return "", err
-				}
-				if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
-					return *getResp.Data.Status.State, nil
-				}
-				return "Unknown", nil
-			}
-			if err := WaitForResourceActive(ctx, checker, "ContainerRegistry", registryID, r.client.ResourceTimeout); err != nil {
-				ReportWaitResult(&resp.Diagnostics, err, "ContainerRegistry", registryID)
-				resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-				return
-			}
-			// Re-read to get the final active state.
-			response, err = registryClient.Get(ctx, projectID, registryID, nil)
-			if err != nil {
-				resp.Diagnostics.AddError("Error reading ContainerRegistry after provisioning wait",
-					NewTransportError("read", "Containerregistry", err).Error())
-				return
-			}
-			if apiErr := CheckResponse("read", "Containerregistry", response); apiErr != nil {
-				if IsNotFound(apiErr) {
-					resp.State.RemoveResource(ctx)
-					return
-				}
-				resp.Diagnostics.AddError("API Error", apiErr.Error())
-				return
-			}
+	st := string(registry.State())
+	switch {
+	case isFailedState(st):
+		resp.Diagnostics.AddWarning("Resource in Failed State",
+			fmt.Sprintf("ContainerRegistry %q is in a terminal failure state (%s). "+
+				"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", data.Id.ValueString(), st))
+	case IsCreatingState(st):
+		if waitErr := registry.WaitUntilReady(ctx, aruba.WithTimeout(40*time.Minute)); waitErr != nil {
+			ReportWaitResult(&resp.Diagnostics, waitErr, "ContainerRegistry", data.Id.ValueString())
+			return
+		}
+		registry, err = r.client.Client.FromContainer().ContainerRegistry().Get(ctx, containerRegistryRef(&data))
+		if provErr := CheckResponseErr("read", "ContainerRegistry", err); provErr != nil {
+			resp.Diagnostics.AddError("API Error", provErr.Error())
+			return
 		}
 	}
 
-	if response != nil && response.Data != nil {
-		registry := response.Data
-
-		if registry.Metadata.ID != nil {
-			data.Id = types.StringValue(*registry.Metadata.ID)
-		}
-		if registry.Metadata.URI != nil {
-			data.Uri = types.StringValue(*registry.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-		if registry.Metadata.Name != nil {
-			data.Name = types.StringValue(*registry.Metadata.Name)
-		}
-		if registry.Metadata.LocationResponse != nil {
-			data.Location = types.StringValue(registry.Metadata.LocationResponse.Value)
-		}
-
-		// Build network object
-		networkAttrs := map[string]attr.Value{
-			"public_ip_uri_ref":      types.StringValue(registry.Properties.PublicIp.URI),
-			"vpc_uri_ref":            types.StringValue(registry.Properties.VPC.URI),
-			"subnet_uri_ref":         types.StringValue(registry.Properties.Subnet.URI),
-			"security_group_uri_ref": types.StringValue(registry.Properties.SecurityGroup.URI),
-		}
-		networkObj, diags := types.ObjectValue(
-			map[string]attr.Type{
-				"public_ip_uri_ref":      types.StringType,
-				"vpc_uri_ref":            types.StringType,
-				"subnet_uri_ref":         types.StringType,
-				"security_group_uri_ref": types.StringType,
-			},
-			networkAttrs,
-		)
-		resp.Diagnostics.Append(diags...)
-		if !resp.Diagnostics.HasError() {
-			data.Network = networkObj
-		}
-
-		// Build storage object
-		storageAttrs := map[string]attr.Value{
-			"block_storage_uri_ref": types.StringValue(registry.Properties.BlockStorage.URI),
-		}
-		storageObj, diags := types.ObjectValue(
-			map[string]attr.Type{
-				"block_storage_uri_ref": types.StringType,
-			},
-			storageAttrs,
-		)
-		resp.Diagnostics.Append(diags...)
-		if !resp.Diagnostics.HasError() {
-			data.Storage = storageObj
-		}
-
-		// Build settings object if there are any settings
-		var settingsAdminUser types.String
-		var settingsConcurrentUsersFlavor types.String
-
-		if registry.Properties.AdminUser.Username != "" {
-			settingsAdminUser = types.StringValue(registry.Properties.AdminUser.Username)
-		} else {
-			settingsAdminUser = types.StringNull()
-		}
-
-		if registry.Properties.ConcurrentUsers != nil && *registry.Properties.ConcurrentUsers != "" {
-			settingsConcurrentUsersFlavor = types.StringValue(*registry.Properties.ConcurrentUsers)
-		} else {
-			settingsConcurrentUsersFlavor = types.StringNull()
-		}
-
-		settingsAttrs := map[string]attr.Value{
-			"admin_user":              settingsAdminUser,
-			"concurrent_users_flavor": settingsConcurrentUsersFlavor,
-		}
-		settingsObj, diags := types.ObjectValue(
-			map[string]attr.Type{
-				"admin_user":              types.StringType,
-				"concurrent_users_flavor": types.StringType,
-			},
-			settingsAttrs,
-		)
-		resp.Diagnostics.Append(diags...)
-		if !resp.Diagnostics.HasError() {
-			data.Settings = settingsObj
-		}
-
-		if registry.Properties.BillingPlan.BillingPeriod != "" {
-			data.BillingPeriod = types.StringValue(registry.Properties.BillingPlan.BillingPeriod)
-		} else {
-			data.BillingPeriod = types.StringNull()
-		}
-
-		data.Tags = TagsToListPreserveNull(registry.Metadata.Tags, data.Tags)
-	} else {
-		resp.State.RemoveResource(ctx)
-		return
-	}
-
+	projectID := data.ProjectID
+	applyContainerRegistryToModel(registry, &data)
+	data.ProjectID = projectID
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -563,75 +360,8 @@ func (r *ContainerRegistryResource) Update(ctx context.Context, req resource.Upd
 	var state ContainerRegistryResourceModel
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	// Get IDs from state (not plan) - IDs are immutable and should always be in state
-	projectID := state.ProjectID.ValueString()
-	registryID := state.Id.ValueString()
-
-	if projectID == "" || registryID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID and Registry ID are required to update the container registry",
-		)
-		return
-	}
-
-	containerClient := r.client.Client.FromContainer()
-	if containerClient == nil {
-		resp.Diagnostics.AddError(
-			"Container Client Not Available",
-			"Container client is not available",
-		)
-		return
-	}
-
-	registryClient := containerClient.ContainerRegistry()
-	if registryClient == nil {
-		resp.Diagnostics.AddError(
-			"Container Registry Client Not Available",
-			"Container Registry client is not available",
-		)
-		return
-	}
-
-	// Get current container registry details
-	getResponse, err := registryClient.Get(ctx, projectID, registryID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error fetching current container registry",
-			NewTransportError("read", "Containerregistry", err).Error(),
-		)
-		return
-	}
-
-	if getResponse == nil || getResponse.Data == nil {
-		resp.Diagnostics.AddError(
-			"Container Registry Not Found",
-			"Container registry not found or no data returned",
-		)
-		return
-	}
-
-	current := getResponse.Data
-
-	// Get region value
-	regionValue := ""
-	if current.Metadata.LocationResponse != nil {
-		regionValue = current.Metadata.LocationResponse.Value
-	}
-	if regionValue == "" {
-		resp.Diagnostics.AddError(
-			"Missing Region",
-			"Unable to determine region value for container registry",
-		)
 		return
 	}
 
@@ -639,252 +369,71 @@ func (r *ContainerRegistryResource) Update(ctx context.Context, req resource.Upd
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if tags == nil {
-		tags = current.Metadata.Tags
-	}
 
-	// Extract network configuration from plan
-	var networkModel ContainerRegistryNetworkModel
-	var diags diag.Diagnostics
-	diags = data.Network.As(ctx, &networkModel, basetypes.ObjectAsOptions{})
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
+	registry, err := r.client.Client.FromContainer().ContainerRegistry().Get(ctx, containerRegistryRef(&state))
+	if provErr := CheckResponseErr("read", "ContainerRegistry", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	// Extract storage configuration from plan
-	var storageModel ContainerRegistryStorageModel
-	diags = data.Storage.As(ctx, &storageModel, basetypes.ObjectAsOptions{})
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
+	registry.Named(data.Name.ValueString())
+	if tags != nil {
+		registry.RetaggedAs(tags...)
+	} else {
+		registry.RetaggedAs(registry.Tags()...)
 	}
 
-	// Build update request - use ContainerRegistryRequest for updates (same as create)
-	updateRequest := sdktypes.ContainerRegistryRequest{
-		Metadata: sdktypes.RegionalResourceMetadataRequest{
-			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
-				Name: data.Name.ValueString(),
-				Tags: tags,
-			},
-			Location: sdktypes.LocationRequest{
-				Value: regionValue,
-			},
-		},
-		Properties: sdktypes.ContainerRegistryPropertiesRequest{
-			// Use network configuration from plan
-			PublicIp: sdktypes.ReferenceResource{
-				URI: networkModel.PublicIpUriRef.ValueString(),
-			},
-			VPC: sdktypes.ReferenceResource{
-				URI: networkModel.VpcUriRef.ValueString(),
-			},
-			Subnet: sdktypes.ReferenceResource{
-				URI: networkModel.SubnetUriRef.ValueString(),
-			},
-			SecurityGroup: sdktypes.ReferenceResource{
-				URI: networkModel.SecurityGroupUriRef.ValueString(),
-			},
-			BlockStorage: sdktypes.ReferenceResource{
-				URI: storageModel.BlockStorageUriRef.ValueString(),
-			},
-		},
-	}
-
-	// Update billing period if provided, otherwise preserve current
 	if !data.BillingPeriod.IsNull() && !data.BillingPeriod.IsUnknown() {
-		updateRequest.Properties.BillingPlan = &sdktypes.BillingPeriodResource{
-			BillingPeriod: data.BillingPeriod.ValueString(),
-		}
-	} else if current.Properties.BillingPlan.BillingPeriod != "" {
-		updateRequest.Properties.BillingPlan = &sdktypes.BillingPeriodResource{
-			BillingPeriod: current.Properties.BillingPlan.BillingPeriod,
-		}
+		registry.BilledBy(aruba.BillingPeriod(data.BillingPeriod.ValueString()))
 	}
 
-	// Extract and update settings if provided
-	if !data.Settings.IsNull() && !data.Settings.IsUnknown() {
-		var settingsModel ContainerRegistrySettingsModel
-		diags = data.Settings.As(ctx, &settingsModel, basetypes.ObjectAsOptions{})
-		resp.Diagnostics.Append(diags...)
+	if !data.Network.IsNull() && !data.Network.IsUnknown() {
+		var networkModel ContainerRegistryNetworkModel
+		resp.Diagnostics.Append(data.Network.As(ctx, &networkModel, basetypes.ObjectAsOptions{})...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
+		registry.WithElasticIP(aruba.URI(networkModel.PublicIpUriRef.ValueString())).
+			WithVPC(aruba.URI(networkModel.VpcUriRef.ValueString())).
+			WithSubnet(aruba.URI(networkModel.SubnetUriRef.ValueString())).
+			WithSecurityGroup(aruba.URI(networkModel.SecurityGroupUriRef.ValueString()))
+	}
 
-		if !settingsModel.AdminUser.IsNull() && !settingsModel.AdminUser.IsUnknown() {
-			updateRequest.Properties.AdminUser = &sdktypes.UserCredential{
-				Username: settingsModel.AdminUser.ValueString(),
-			}
-		} else if current.Properties.AdminUser.Username != "" {
-			updateRequest.Properties.AdminUser = &sdktypes.UserCredential{
-				Username: current.Properties.AdminUser.Username,
-			}
+	if !data.Storage.IsNull() && !data.Storage.IsUnknown() {
+		var storageModel ContainerRegistryStorageModel
+		resp.Diagnostics.Append(data.Storage.As(ctx, &storageModel, basetypes.ObjectAsOptions{})...)
+		if resp.Diagnostics.HasError() {
+			return
 		}
+		registry.WithBlockStorage(aruba.URI(storageModel.BlockStorageUriRef.ValueString()))
+	}
 
-		if !settingsModel.ConcurrentUsersFlavor.IsNull() && !settingsModel.ConcurrentUsersFlavor.IsUnknown() {
-			concurrentUsersFlavor := settingsModel.ConcurrentUsersFlavor.ValueString()
-			updateRequest.Properties.ConcurrentUsers = &concurrentUsersFlavor
-		} else if current.Properties.ConcurrentUsers != nil {
-			updateRequest.Properties.ConcurrentUsers = current.Properties.ConcurrentUsers
+	if !data.Settings.IsNull() && !data.Settings.IsUnknown() {
+		var settingsModel ContainerRegistrySettingsModel
+		resp.Diagnostics.Append(data.Settings.As(ctx, &settingsModel, basetypes.ObjectAsOptions{})...)
+		if resp.Diagnostics.HasError() {
+			return
 		}
-	} else {
-		// Preserve current settings if not in plan
-		if current.Properties.AdminUser.Username != "" {
-			updateRequest.Properties.AdminUser = &sdktypes.UserCredential{
-				Username: current.Properties.AdminUser.Username,
-			}
+		if !settingsModel.AdminUser.IsNull() {
+			registry.WithAdminUsername(settingsModel.AdminUser.ValueString())
 		}
-		if current.Properties.ConcurrentUsers != nil {
-			updateRequest.Properties.ConcurrentUsers = current.Properties.ConcurrentUsers
+		if !settingsModel.ConcurrentUsersFlavor.IsNull() {
+			registry.OfSize(aruba.ContainerRegistrySizeFlavor(settingsModel.ConcurrentUsersFlavor.ValueString()))
 		}
 	}
 
-	// Update the container registry using the SDK
-	response, err := registryClient.Update(ctx, projectID, registryID, updateRequest, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error updating container registry",
-			NewTransportError("update", "Containerregistry", err).Error(),
-		)
+	updated, err := r.client.Client.FromContainer().ContainerRegistry().Update(ctx, registry)
+	if provErr := CheckResponseErr("update", "ContainerRegistry", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	if apiErr := CheckResponse("update", "Containerregistry", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-
-	// Ensure immutable fields are set from state before saving
 	data.Id = state.Id
-	data.Uri = state.Uri // Preserve URI from state
 	data.ProjectID = state.ProjectID
-	data.Network = state.Network
-	data.Storage = state.Storage
-	data.Settings = state.Settings
-
-	if response != nil && response.Data != nil {
-		// Update from response if available (should match state)
-		if response.Data.Metadata.ID != nil {
-			data.Id = types.StringValue(*response.Data.Metadata.ID)
-		}
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		}
-	} else {
-		// If no response, re-read the container registry to get the latest state including URI
-		getResp, err := registryClient.Get(ctx, projectID, registryID, nil)
-		if err == nil && getResp != nil && getResp.Data != nil {
-			if getResp.Data.Metadata.URI != nil {
-				data.Uri = types.StringValue(*getResp.Data.Metadata.URI)
-			} else {
-				data.Uri = state.Uri // Fallback to state if not in response
-			}
-		} else {
-			// If re-read fails, preserve from state
-			data.Uri = state.Uri
-		}
-	}
-
-	// Re-read to get the latest state and update all fields
-	getResp, err := registryClient.Get(ctx, projectID, registryID, nil)
-	if err == nil && getResp != nil && getResp.Data != nil {
-		registry := getResp.Data
-		// Update URI if available
-		if registry.Metadata.URI != nil {
-			data.Uri = types.StringValue(*registry.Metadata.URI)
-		} else {
-			data.Uri = state.Uri // Fallback to state if not available
-		}
-
-		// Build network object from response
-		networkAttrs := map[string]attr.Value{
-			"public_ip_uri_ref":      types.StringValue(registry.Properties.PublicIp.URI),
-			"vpc_uri_ref":            types.StringValue(registry.Properties.VPC.URI),
-			"subnet_uri_ref":         types.StringValue(registry.Properties.Subnet.URI),
-			"security_group_uri_ref": types.StringValue(registry.Properties.SecurityGroup.URI),
-		}
-		networkObj, diagsNetwork := types.ObjectValue(
-			map[string]attr.Type{
-				"public_ip_uri_ref":      types.StringType,
-				"vpc_uri_ref":            types.StringType,
-				"subnet_uri_ref":         types.StringType,
-				"security_group_uri_ref": types.StringType,
-			},
-			networkAttrs,
-		)
-		resp.Diagnostics.Append(diagsNetwork...)
-		if !resp.Diagnostics.HasError() {
-			data.Network = networkObj
-		}
-
-		// Build storage object from response
-		storageAttrs := map[string]attr.Value{
-			"block_storage_uri_ref": types.StringValue(registry.Properties.BlockStorage.URI),
-		}
-		storageObj, diagsStorage := types.ObjectValue(
-			map[string]attr.Type{
-				"block_storage_uri_ref": types.StringType,
-			},
-			storageAttrs,
-		)
-		resp.Diagnostics.Append(diagsStorage...)
-		if !resp.Diagnostics.HasError() {
-			data.Storage = storageObj
-		}
-
-		// Build settings object from response
-		var settingsAdminUser types.String
-		var settingsConcurrentUsersFlavor types.String
-
-		if registry.Properties.AdminUser != nil && registry.Properties.AdminUser.Username != "" {
-			settingsAdminUser = types.StringValue(registry.Properties.AdminUser.Username)
-		} else {
-			settingsAdminUser = types.StringNull()
-		}
-
-		if registry.Properties.ConcurrentUsers != nil && *registry.Properties.ConcurrentUsers != "" {
-			settingsConcurrentUsersFlavor = types.StringValue(*registry.Properties.ConcurrentUsers)
-		} else {
-			settingsConcurrentUsersFlavor = types.StringNull()
-		}
-
-		settingsAttrs := map[string]attr.Value{
-			"admin_user":              settingsAdminUser,
-			"concurrent_users_flavor": settingsConcurrentUsersFlavor,
-		}
-		settingsObj, diagsSettings := types.ObjectValue(
-			map[string]attr.Type{
-				"admin_user":              types.StringType,
-				"concurrent_users_flavor": types.StringType,
-			},
-			settingsAttrs,
-		)
-		resp.Diagnostics.Append(diagsSettings...)
-		if !resp.Diagnostics.HasError() {
-			data.Settings = settingsObj
-		}
-
-		// Update other fields from re-read to ensure consistency
-		if registry.Metadata.Name != nil {
-			data.Name = types.StringValue(*registry.Metadata.Name)
-		}
-		if registry.Metadata.LocationResponse != nil {
-			data.Location = types.StringValue(registry.Metadata.LocationResponse.Value)
-		}
-		if registry.Properties.BillingPlan != nil && registry.Properties.BillingPlan.BillingPeriod != "" {
-			data.BillingPeriod = types.StringValue(registry.Properties.BillingPlan.BillingPeriod)
-		} else {
-			data.BillingPeriod = types.StringNull()
-		}
-
-		data.Tags = TagsToListPreserveNull(registry.Metadata.Tags, data.Tags)
-	} else {
-		// If re-read fails, preserve immutable fields from state
-		data.Uri = state.Uri
-		data.Network = state.Network
-		data.Storage = state.Storage
-		data.Settings = state.Settings
-	}
+	projectID := data.ProjectID
+	applyContainerRegistryToModel(updated, &data)
+	data.ProjectID = projectID
+	data.Id = state.Id
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -896,43 +445,12 @@ func (r *ContainerRegistryResource) Delete(ctx context.Context, req resource.Del
 		return
 	}
 
-	projectID := data.ProjectID.ValueString()
+	ref := containerRegistryRef(&data)
 	registryID := data.Id.ValueString()
 
-	if projectID == "" || registryID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID and Registry ID are required to delete the container registry",
-		)
-		return
-	}
-
-	containerClient := r.client.Client.FromContainer()
-	if containerClient == nil {
-		resp.Diagnostics.AddError(
-			"Container Client Not Available",
-			"Container client is not available",
-		)
-		return
-	}
-
-	registryClient := containerClient.ContainerRegistry()
-	if registryClient == nil {
-		resp.Diagnostics.AddError(
-			"Container Registry Client Not Available",
-			"Container Registry client is not available",
-		)
-		return
-	}
-
-	// Delete the container registry using the SDK with retry mechanism
-	// Retry on any error except 404 (Resource Not Found)
 	deletionChecker := func(ctx context.Context) (bool, error) {
-		getResp, getErr := r.client.Client.FromContainer().ContainerRegistry().Get(ctx, projectID, registryID, nil)
-		if getErr != nil {
-			return false, NewTransportError("get", "ContainerRegistry", getErr)
-		}
-		if provErr := CheckResponse("get", "ContainerRegistry", getResp); provErr != nil {
+		_, getErr := r.client.Client.FromContainer().ContainerRegistry().Get(ctx, ref)
+		if provErr := CheckResponseErr("get", "ContainerRegistry", getErr); provErr != nil {
 			if IsNotFound(provErr) {
 				return true, nil
 			}
@@ -942,37 +460,19 @@ func (r *ContainerRegistryResource) Delete(ctx context.Context, req resource.Del
 	}
 
 	deleteStart := time.Now()
-	err := DeleteResourceWithRetry(
-		ctx,
-		func() error {
-			resp, err := registryClient.Delete(ctx, projectID, registryID, nil)
-			if err != nil {
-				return NewTransportError("delete", "ContainerRegistry", err)
-			}
-			return CheckResponse("delete", "ContainerRegistry", resp)
-		},
-		"ContainerRegistry",
-		registryID,
-		r.client.ResourceTimeout,
-		deletionChecker,
-	)
-
+	err := DeleteResourceWithRetry(ctx, func() error {
+		return CheckResponseErr("delete", "ContainerRegistry",
+			r.client.Client.FromContainer().ContainerRegistry().Delete(ctx, ref))
+	}, "ContainerRegistry", registryID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error deleting container registry",
-			NewTransportError("delete", "Containerregistry", err).Error(),
-		)
+		resp.Diagnostics.AddError("Error deleting ContainerRegistry", err.Error())
 		return
 	}
-
 	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "ContainerRegistry", registryID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for ContainerRegistry deletion", waitErr.Error())
 		return
 	}
-
-	tflog.Trace(ctx, "deleted a Container Registry resource", map[string]interface{}{
-		"containerregistry_id": registryID,
-	})
+	tflog.Trace(ctx, "deleted a Container Registry resource", map[string]interface{}{"containerregistry_id": registryID})
 }
 
 func (r *ContainerRegistryResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

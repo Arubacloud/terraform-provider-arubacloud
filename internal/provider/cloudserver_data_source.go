@@ -163,7 +163,7 @@ func (d *CloudServerDataSource) Read(ctx context.Context, req datasource.ReadReq
 	data.Name = types.StringValue(server.Name())
 	data.ProjectID = types.StringValue(projectID)
 	data.Tags = TagsToListPreserveNull(server.Tags(), data.Tags)
-	data.FlavorName = types.StringValue(server.Flavor())
+	data.FlavorName = types.StringValue(string(server.Flavor()))
 	data.VpcUriRef = types.StringValue(server.VPC())
 	data.BootVolumeUriRef = types.StringValue(server.BootVolume())
 	data.KeyPairUriRef = types.StringValue(server.KeyPair())
@@ -173,7 +173,7 @@ func (d *CloudServerDataSource) Read(ctx context.Context, req datasource.ReadReq
 	raw := server.Raw()
 	if raw != nil {
 		if raw.Metadata.LocationResponse != nil {
-			data.Location = types.StringValue(raw.Metadata.LocationResponse.Value)
+			data.Location = types.StringValue(string(raw.Metadata.LocationResponse.Value))
 		} else {
 			data.Location = types.StringNull()
 		}
