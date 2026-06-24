@@ -23,8 +23,8 @@ terraform {
 }
 
 provider "arubacloud" {
-  api_key    = "YOUR_API_KEY"
-  api_secret = "YOUR_API_SECRET"
+  client_id     = "YOUR_CLIENT_ID"
+  client_secret = "YOUR_CLIENT_SECRET"
 }
 ```
 
@@ -47,8 +47,8 @@ terraform {
 }
 
 provider "arubacloud" {
-  api_key    = var.api_key
-  api_secret = var.api_secret
+  client_id     = var.client_id
+  client_secret = var.client_secret
 }
 
 variable "api_key" {
@@ -209,8 +209,8 @@ output "cloudserver_id" {
 
 The following arguments are supported:
 
-- `api_key` - (Required, string) ArubaCloud API key. Can also be specified with the `ARUBACLOUD_API_KEY` environment variable.
-- `api_secret` - (Required, string) ArubaCloud API secret. Can also be specified with the `ARUBACLOUD_API_SECRET` environment variable.
+- `client_id` - (Required, string) ArubaCloud API key. Can also be specified with the `ARUBACLOUD_CLIENT_ID` environment variable.
+- `client_secret` - (Required, string) ArubaCloud API secret. Can also be specified with the `ARUBACLOUD_CLIENT_SECRET` environment variable.
 - `resource_timeout` - (Optional, string) Timeout for waiting for resources to become active after creation (e.g. `"5m"`, `"10m"`). Default: `"10m"`.
 - `base_url` - (Optional, string) Override the ArubaCloud API base URL. Advanced use only.
 - `token_issuer_url` - (Optional, string) Override the ArubaCloud token issuer URL. Advanced use only.
@@ -231,8 +231,8 @@ A message is visible only when **both** filters permit it. SDK messages are tagg
 
 ```hcl
 provider "arubacloud" {
-  api_key    = var.api_key
-  api_secret = var.api_secret
+  client_id     = var.client_id
+  client_secret = var.client_secret
   log_level  = "DEBUG"
 }
 ```

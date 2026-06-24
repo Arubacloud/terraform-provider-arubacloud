@@ -35,8 +35,8 @@ type ArubaCloudProvider struct {
 
 // ArubaCloudProviderModel describes the provider data model.
 type ArubaCloudProviderModel struct {
-	ApiKey          types.String `tfsdk:"api_key"`
-	ApiSecret       types.String `tfsdk:"api_secret"`
+	ClientID        types.String `tfsdk:"client_id"`
+	ClientSecret    types.String `tfsdk:"client_secret"`
 	ResourceTimeout types.String `tfsdk:"resource_timeout"`
 	BaseURL         types.String `tfsdk:"base_url"`
 	TokenIssuerURL  types.String `tfsdk:"token_issuer_url"`
@@ -51,12 +51,12 @@ func (p *ArubaCloudProvider) Metadata(ctx context.Context, req provider.Metadata
 func (p *ArubaCloudProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
-			"api_key": schema.StringAttribute{
-				MarkdownDescription: "API key for ArubaCloud. Can also be set via ARUBACLOUD_API_KEY environment variable.",
+			"client_id": schema.StringAttribute{
+				MarkdownDescription: "Client ID for ArubaCloud OAuth2 authentication. Can also be set via the `ARUBACLOUD_CLIENT_ID` environment variable.",
 				Optional:            true,
 			},
-			"api_secret": schema.StringAttribute{
-				MarkdownDescription: "API secret for ArubaCloud. Can also be set via ARUBACLOUD_API_SECRET environment variable.",
+			"client_secret": schema.StringAttribute{
+				MarkdownDescription: "Client secret for ArubaCloud OAuth2 authentication. Can also be set via the `ARUBACLOUD_CLIENT_SECRET` environment variable.",
 				Optional:            true,
 				Sensitive:           true,
 			},
@@ -91,8 +91,8 @@ func (p *ArubaCloudProvider) Schema(ctx context.Context, req provider.SchemaRequ
 func (p *ArubaCloudProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
 
 	// Default values to environment variables, but override with Terraform configuration value if set.
-	apiKey := os.Getenv("ARUBACLOUD_API_KEY")
-	apiSecret := os.Getenv("ARUBACLOUD_API_SECRET")
+	clientID := os.Getenv("ARUBACLOUD_CLIENT_ID")
+	clientSecret := os.Getenv("ARUBACLOUD_CLIENT_SECRET")
 	tokenIssuerURL := os.Getenv("ARUBACLOUD_TOKEN_ISSUER_URL")
 	logLevelStr := os.Getenv("ARUBACLOUD_LOG_LEVEL")
 
@@ -104,12 +104,12 @@ func (p *ArubaCloudProvider) Configure(ctx context.Context, req provider.Configu
 		return
 	}
 
-	if !config.ApiKey.IsNull() {
-		apiKey = config.ApiKey.ValueString()
+	if !config.ClientID.IsNull() {
+		clientID = config.ClientID.ValueString()
 	}
 
-	if !config.ApiSecret.IsNull() {
-		apiSecret = config.ApiSecret.ValueString()
+	if !config.ClientSecret.IsNull() {
+		clientSecret = config.ClientSecret.ValueString()
 	}
 
 	if !config.TokenIssuerURL.IsNull() && config.TokenIssuerURL.ValueString() != "" {
@@ -120,21 +120,21 @@ func (p *ArubaCloudProvider) Configure(ctx context.Context, req provider.Configu
 		logLevelStr = config.LogLevel.ValueString()
 	}
 
-	if apiKey == "" {
+	if clientID == "" {
 		resp.Diagnostics.AddAttributeError(
-			path.Root("api_key"),
-			"Unknown ArubaCloud API Key",
-			"The provider cannot create the ArubaCloud API client as there is an unknown configuration value for the API key. "+
-				"Either target apply the source of the value first, set the value statically in the configuration, or use the ARUBACLOUD_API_KEY environment variable.",
+			path.Root("client_id"),
+			"Unknown ArubaCloud Client ID",
+			"The provider cannot create the ArubaCloud API client as there is an unknown configuration value for the client ID. "+
+				"Either target apply the source of the value first, set the value statically in the configuration, or use the ARUBACLOUD_CLIENT_ID environment variable.",
 		)
 	}
 
-	if apiSecret == "" {
+	if clientSecret == "" {
 		resp.Diagnostics.AddAttributeError(
-			path.Root("api_secret"),
-			"Unknown ArubaCloud API Secret",
-			"The provider cannot create the ArubaCloud API client as there is an unknown configuration value for the API secret. "+
-				"Either target apply the source of the value first, set the value statically in the configuration, or use the ARUBACLOUD_API_SECRET environment variable.",
+			path.Root("client_secret"),
+			"Unknown ArubaCloud Client Secret",
+			"The provider cannot create the ArubaCloud API client as there is an unknown configuration value for the client secret. "+
+				"Either target apply the source of the value first, set the value statically in the configuration, or use the ARUBACLOUD_CLIENT_SECRET environment variable.",
 		)
 	}
 
@@ -157,7 +157,7 @@ func (p *ArubaCloudProvider) Configure(ctx context.Context, req provider.Configu
 	ctx = tflog.NewSubsystem(ctx, subsystemName)
 
 	// Create SDK client with credentials using DefaultOptions
-	options := aruba.DefaultOptions(apiKey, apiSecret)
+	options := aruba.DefaultOptions(clientID, clientSecret)
 	options = options.WithCustomLogger(newSDKLogAdapter(ctx, logLevel))
 
 	// Optionally override base URL and token issuer
@@ -183,8 +183,8 @@ func (p *ArubaCloudProvider) Configure(ctx context.Context, req provider.Configu
 
 	// Create a new ArubaCloud client using the SDK client
 	client := &ArubaCloudClient{
-		ApiKey:          apiKey,
-		ApiSecret:       apiSecret,
+		ClientID:        clientID,
+		ClientSecret:    clientSecret,
 		Client:          sdkClient,
 		ResourceTimeout: resourceTimeout,
 	}
@@ -215,8 +215,8 @@ func parseTimeout(timeoutStr types.String, defaultDuration time.Duration, diags 
 
 // ArubaCloudClient wraps the SDK client with API credentials and timeout configuration.
 type ArubaCloudClient struct {
-	ApiKey          string
-	ApiSecret       string
+	ClientID        string
+	ClientSecret    string
 	Client          aruba.Client
 	ResourceTimeout time.Duration
 }
