@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -89,31 +90,27 @@ func (d *VPNTunnelDataSource) Read(ctx context.Context, req datasource.ReadReque
 		return
 	}
 
-	response, err := d.client.Client.FromNetwork().VPNTunnels().Get(ctx, projectID, tunnelID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError("Error reading VPN tunnel", NewTransportError("read", "Vpntunnel", err).Error())
-		return
-	}
-	if apiErr := CheckResponse("read", "Vpntunnel", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-	if response == nil || response.Data == nil {
-		resp.Diagnostics.AddError("No data returned", "VPN Tunnel Get returned no data")
+	tunnel, err := d.client.Client.FromNetwork().VPNTunnels().Get(ctx,
+		aruba.VPNTunnelRef(projectID, tunnelID))
+	if provErr := CheckResponseErr("read", "VPNTunnel", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	tunnel := response.Data
-	if tunnel.Metadata.ID != nil {
-		data.Id = types.StringValue(*tunnel.Metadata.ID)
-	}
-	if tunnel.Metadata.Name != nil {
-		data.Name = types.StringValue(*tunnel.Metadata.Name)
-	}
+	data.Id = types.StringValue(tunnel.ID())
+	data.Name = types.StringValue(tunnel.Name())
 	data.ProjectId = types.StringValue(projectID)
-	// remote_peer and status are not directly available in the metadata response
-	data.RemotePeer = types.StringNull()
-	data.Status = types.StringNull()
+	// PeerClientPublicIP is the remote peer — exposed via wrapper accessor.
+	if peer := tunnel.PeerClientPublicIP(); peer != "" {
+		data.RemotePeer = types.StringValue(peer)
+	} else {
+		data.RemotePeer = types.StringNull()
+	}
+	if st := string(tunnel.State()); st != "" {
+		data.Status = types.StringValue(st)
+	} else {
+		data.Status = types.StringNull()
+	}
 
 	tflog.Trace(ctx, "read a VPN Tunnel data source", map[string]interface{}{"tunnel_id": tunnelID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
