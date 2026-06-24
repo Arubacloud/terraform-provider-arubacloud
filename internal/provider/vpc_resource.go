@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -35,6 +35,10 @@ func NewVPCResource() resource.Resource {
 	return &VPCResource{}
 }
 
+func (r *VPCResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_vpc"
+}
+
 func (r *VPCResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Manages an ArubaCloud VPC (Virtual Private Cloud) — the isolated network boundary within a region where subnets, security groups, and server instances are provisioned.",
@@ -42,34 +46,26 @@ func (r *VPCResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
 				Computed:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"uri": schema.StringAttribute{
-				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).",
+				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources.",
 				Computed:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Display name for the VPC.",
 				Required:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). (Immutable — changing this value forces the resource to be destroyed and re-created.)",
+				MarkdownDescription: "Region identifier for the resource (e.g., `ITBG-Bergamo`). Changing this value forces a new resource.",
 				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
+				MarkdownDescription: "ID of the project that owns this resource. Changing this value forces a new resource.",
 				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
@@ -86,10 +82,8 @@ func (r *VPCResource) Configure(ctx context.Context, req resource.ConfigureReque
 	}
 	client, ok := req.ProviderData.(*ArubaCloudClient)
 	if !ok {
-		resp.Diagnostics.AddError(
-			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected *ArubaCloudClient, got: %T. Please report this issue to the provider developers.", req.ProviderData),
-		)
+		resp.Diagnostics.AddError("Unexpected Resource Configure Type",
+			fmt.Sprintf("Expected *ArubaCloudClient, got: %T.", req.ProviderData))
 		return
 	}
 	r.client = client
@@ -103,129 +97,66 @@ func (r *VPCResource) Create(ctx context.Context, req resource.CreateRequest, re
 	}
 
 	projectID := data.ProjectID.ValueString()
-	if projectID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Project ID",
-			"Project ID is required to create a VPC",
-		)
-		return
-	}
-
 	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Build the create request
-	setDefault := false
-	setPreset := false
-	createRequest := sdktypes.VPCRequest{
-		Metadata: sdktypes.RegionalResourceMetadataRequest{
-			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
-				Name: data.Name.ValueString(),
-				Tags: tags,
-			},
-			Location: sdktypes.LocationRequest{
-				Value: data.Location.ValueString(),
-			},
-		},
-		Properties: sdktypes.VPCPropertiesRequest{
-			Properties: &sdktypes.VPCProperties{
-				Default: &setDefault,
-				Preset:  &setPreset,
-			},
-		},
-	}
-
-	// Create the VPC using the SDK
-	response, err := r.client.Client.FromNetwork().VPCs().Create(ctx, projectID, createRequest, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error creating VPC",
-			NewTransportError("create", "Vpc", err).Error(),
-		)
+	vpc, err := r.client.Client.FromNetwork().VPCs().Create(ctx,
+		aruba.NewVPC().
+			Named(data.Name.ValueString()).
+			InProject(aruba.URI("/projects/"+projectID)).
+			InRegion(aruba.Region(data.Location.ValueString())).
+			NotDefault().
+			WithoutPreset().
+			Tagged(tags...),
+	)
+	if provErr := CheckResponseErr("create", "VPC", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	if apiErr := CheckResponse("create", "Vpc", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-
-	if response != nil && response.Data != nil {
-		if response.Data.Metadata.ID != nil {
-			data.Id = types.StringValue(*response.Data.Metadata.ID)
-		}
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-	} else {
-		resp.Diagnostics.AddError(
-			"Invalid API Response",
-			"VPC created but no data returned from API",
-		)
-		return
-	}
-
-	// Wait for VPC to be active before returning (VPC is referenced by Subnets, SecurityGroups, etc.)
-	// This ensures Terraform doesn't proceed to create dependent resources until VPC is ready
-	vpcID := data.Id.ValueString()
-	checker := func(ctx context.Context) (string, error) {
-		getResp, err := r.client.Client.FromNetwork().VPCs().Get(ctx, projectID, vpcID, nil)
-		if err != nil {
-			return "", err
-		}
-		if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
-			return *getResp.Data.Status.State, nil
-		}
-		return "Unknown", nil
-	}
-
-	// Wait for VPC to be active - block until ready (using configured timeout)
-	if err := WaitForResourceActive(ctx, checker, "VPC", vpcID, r.client.ResourceTimeout); err != nil {
-		ReportWaitResult(&resp.Diagnostics, err, "VPC", vpcID)
-		// uri is only populated from the GET after the wait; null it out so state has
-		// no unknown values (Terraform rejects unknown values in saved state).
-		if data.Uri.IsUnknown() {
-			data.Uri = types.StringNull()
-		}
-		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-		return
-	}
-
-	// Re-read the VPC to get the URI and ensure all fields are properly set
-	getResp, err := r.client.Client.FromNetwork().VPCs().Get(ctx, projectID, vpcID, nil)
-	if err == nil && getResp != nil && getResp.Data != nil {
-		// Ensure ID is set from metadata (should already be set, but double-check)
-		if getResp.Data.Metadata.ID != nil {
-			data.Id = types.StringValue(*getResp.Data.Metadata.ID)
-		}
-		if getResp.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*getResp.Data.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-		// Also update other fields that might have changed
-		if getResp.Data.Metadata.Name != nil {
-			data.Name = types.StringValue(*getResp.Data.Metadata.Name)
-		}
-		if getResp.Data.Metadata.LocationResponse != nil {
-			data.Location = types.StringValue(getResp.Data.Metadata.LocationResponse.Value)
-		}
-		data.Tags = TagsToListPreserveNull(getResp.Data.Metadata.Tags, data.Tags)
-	} else if err != nil {
-		// If Get fails, log but don't fail - we already have the ID from create response
-		tflog.Warn(ctx, fmt.Sprintf("Failed to refresh VPC after creation: %v", err))
-	}
-
-	tflog.Trace(ctx, "created a VPC resource", map[string]interface{}{
-		"vpc_id":   data.Id.ValueString(),
-		"vpc_name": data.Name.ValueString(),
-	})
+	data.Id = types.StringValue(vpc.ID())
+	data.Uri = strVal(vpc.URI())
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if waitErr := vpc.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+		ReportWaitResult(&resp.Diagnostics, waitErr, "VPC", data.Id.ValueString())
+		return
+	}
+
+	// Re-read to get server-assigned fields.
+	fresh, freshErr := r.client.Client.FromNetwork().VPCs().Get(ctx, aruba.URI(vpc.URI()))
+	if freshErr == nil {
+		applyVPCToModel(fresh, &data)
+	} else {
+		tflog.Warn(ctx, fmt.Sprintf("Failed to refresh VPC after creation: %v", freshErr))
+	}
+
+	tflog.Trace(ctx, "created a VPC resource", map[string]interface{}{"vpc_id": data.Id.ValueString()})
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+}
+
+func vpcRef(data *VPCResourceModel) aruba.Ref {
+	if !data.Uri.IsNull() && data.Uri.ValueString() != "" {
+		return aruba.URI(data.Uri.ValueString())
+	}
+	return aruba.URI("/projects/" + data.ProjectID.ValueString() + "/network/vpcs/" + data.Id.ValueString())
+}
+
+func applyVPCToModel(vpc *aruba.VPC, data *VPCResourceModel) {
+	data.Id = types.StringValue(vpc.ID())
+	data.Uri = strVal(vpc.URI())
+	data.Name = types.StringValue(vpc.Name())
+	data.Tags = TagsToListPreserveNull(vpc.Tags(), data.Tags)
+	raw := vpc.Raw()
+	if raw != nil && raw.Metadata.LocationResponse != nil {
+		data.Location = types.StringValue(raw.Metadata.LocationResponse.Value)
+	}
 }
 
 func (r *VPCResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -234,169 +165,50 @@ func (r *VPCResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	projectID := data.ProjectID.ValueString()
-	vpcID := data.Id.ValueString()
-
-	if data.Id.IsUnknown() || data.Id.IsNull() || vpcID == "" {
-		tflog.Debug(ctx, "VPC ID is empty, removing resource from state", map[string]interface{}{"vpc_id": vpcID})
+	if data.Id.IsNull() || data.Id.ValueString() == "" {
 		resp.State.RemoveResource(ctx)
 		return
 	}
-	if projectID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID is required to read the VPC",
-		)
-		return
-	}
 
-	// Get VPC details using the SDK
-	response, err := r.client.Client.FromNetwork().VPCs().Get(ctx, projectID, vpcID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading VPC",
-			NewTransportError("read", "Vpc", err).Error(),
-		)
-		return
-	}
-
-	if apiErr := CheckResponse("read", "Vpc", response); apiErr != nil {
-		if IsNotFound(apiErr) {
+	vpc, err := r.client.Client.FromNetwork().VPCs().Get(ctx, vpcRef(&data))
+	if provErr := CheckResponseErr("read", "VPC", err); provErr != nil {
+		if IsNotFound(provErr) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	// If the resource is still provisioning (e.g. after a Create timeout that saved
-	// partial state), resume the wait so the next terraform apply reconciles correctly.
-	if response.Data.Status.State != nil {
-		switch st := *response.Data.Status.State; {
-		case isFailedState(st):
-			resp.Diagnostics.AddWarning(
-				"Resource in Failed State",
-				fmt.Sprintf("VPC %q is in a terminal failure state (%s). "+
-					"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", vpcID, st),
-			)
-		case IsCreatingState(st):
-			checker := func(ctx context.Context) (string, error) {
-				getResp, err := r.client.Client.FromNetwork().VPCs().Get(ctx, projectID, vpcID, nil)
-				if err != nil {
-					return "", err
-				}
-				if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
-					return *getResp.Data.Status.State, nil
-				}
-				return "Unknown", nil
-			}
-			if err := WaitForResourceActive(ctx, checker, "VPC", vpcID, r.client.ResourceTimeout); err != nil {
-				ReportWaitResult(&resp.Diagnostics, err, "VPC", vpcID)
-				resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-				return
-			}
-			// Re-read to get the final active state.
-			response, err = r.client.Client.FromNetwork().VPCs().Get(ctx, projectID, vpcID, nil)
-			if err != nil {
-				resp.Diagnostics.AddError("Error reading VPC after provisioning wait",
-					NewTransportError("read", "Vpc", err).Error())
-				return
-			}
-			if apiErr := CheckResponse("read", "Vpc", response); apiErr != nil {
-				if IsNotFound(apiErr) {
-					resp.State.RemoveResource(ctx)
-					return
-				}
-				resp.Diagnostics.AddError("API Error", apiErr.Error())
-				return
-			}
+	st := string(vpc.State())
+	switch {
+	case isFailedState(st):
+		resp.Diagnostics.AddWarning("Resource in Failed State",
+			fmt.Sprintf("VPC %q is in a terminal failure state (%s).", data.Id.ValueString(), st))
+	case IsCreatingState(st):
+		if waitErr := vpc.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+			ReportWaitResult(&resp.Diagnostics, waitErr, "VPC", data.Id.ValueString())
+			return
+		}
+		vpc, err = r.client.Client.FromNetwork().VPCs().Get(ctx, vpcRef(&data))
+		if provErr := CheckResponseErr("read", "VPC", err); provErr != nil {
+			resp.Diagnostics.AddError("API Error", provErr.Error())
+			return
 		}
 	}
 
-	if response != nil && response.Data != nil {
-		vpc := response.Data
-
-		if vpc.Metadata.ID != nil {
-			data.Id = types.StringValue(*vpc.Metadata.ID)
-		}
-		if vpc.Metadata.URI != nil {
-			data.Uri = types.StringValue(*vpc.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-		if vpc.Metadata.Name != nil {
-			data.Name = types.StringValue(*vpc.Metadata.Name)
-		}
-		if vpc.Metadata.LocationResponse != nil {
-			data.Location = types.StringValue(vpc.Metadata.LocationResponse.Value)
-		}
-
-		data.Tags = TagsToListPreserveNull(vpc.Metadata.Tags, data.Tags)
-	} else {
-		resp.State.RemoveResource(ctx)
-		return
-	}
-
+	projectID := data.ProjectID // preserve
+	applyVPCToModel(vpc, &data)
+	data.ProjectID = projectID
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
 func (r *VPCResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var data VPCResourceModel
 	var state VPCResourceModel
-
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	// Get IDs from state (not plan) - IDs are immutable and should always be in state
-	projectID := state.ProjectID.ValueString()
-	vpcID := state.Id.ValueString()
-
-	if projectID == "" || vpcID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID and VPC ID are required to update the VPC",
-		)
-		return
-	}
-
-	// Get current VPC details
-	getResponse, err := r.client.Client.FromNetwork().VPCs().Get(ctx, projectID, vpcID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error fetching current VPC",
-			NewTransportError("read", "Vpc", err).Error(),
-		)
-		return
-	}
-
-	if getResponse == nil || getResponse.Data == nil {
-		resp.Diagnostics.AddError(
-			"VPC Not Found",
-			"VPC not found or no data returned",
-		)
-		return
-	}
-
-	current := getResponse.Data
-
-	// Get region value
-	regionValue := ""
-	if current.Metadata.LocationResponse != nil {
-		regionValue = current.Metadata.LocationResponse.Value
-	}
-	if regionValue == "" {
-		resp.Diagnostics.AddError(
-			"Missing Region",
-			"Unable to determine region value for VPC",
-		)
 		return
 	}
 
@@ -404,76 +216,31 @@ func (r *VPCResource) Update(ctx context.Context, req resource.UpdateRequest, re
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if tags == nil {
-		tags = current.Metadata.Tags
-	}
 
-	// Build the update request
-	setDefault := current.Properties.Default
-	// Note: Preset field may not be available in VPCPropertiesResponse
-	// Only preserve Default if it exists
-	updateRequest := sdktypes.VPCRequest{
-		Metadata: sdktypes.RegionalResourceMetadataRequest{
-			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
-				Name: data.Name.ValueString(),
-				Tags: tags,
-			},
-			Location: sdktypes.LocationRequest{
-				Value: regionValue,
-			},
-		},
-		Properties: sdktypes.VPCPropertiesRequest{
-			Properties: &sdktypes.VPCProperties{
-				Default: &setDefault,
-				// Preset field not available in response type - omit if not needed
-			},
-		},
-	}
-
-	// Update the VPC using the SDK
-	response, err := r.client.Client.FromNetwork().VPCs().Update(ctx, projectID, vpcID, updateRequest, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error updating VPC",
-			NewTransportError("update", "Vpc", err).Error(),
-		)
+	vpc, err := r.client.Client.FromNetwork().VPCs().Get(ctx, vpcRef(&state))
+	if provErr := CheckResponseErr("read", "VPC", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	if apiErr := CheckResponse("update", "Vpc", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-
-	// Ensure immutable fields are set from state before saving
-	data.Id = state.Id
-	data.ProjectID = state.ProjectID
-	data.Uri = state.Uri // Preserve URI from state
-
-	if response != nil && response.Data != nil {
-		// Update from response if available (should match state)
-		if response.Data.Metadata.ID != nil {
-			data.Id = types.StringValue(*response.Data.Metadata.ID)
-		}
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		} else {
-			// If no URI in response, re-read the VPC to get the latest state
-			getResp, err := r.client.Client.FromNetwork().VPCs().Get(ctx, projectID, vpcID, nil)
-			if err == nil && getResp != nil && getResp.Data != nil {
-				if getResp.Data.Metadata.URI != nil {
-					data.Uri = types.StringValue(*getResp.Data.Metadata.URI)
-				} else {
-					data.Uri = state.Uri // Fallback to state if not available
-				}
-			} else {
-				data.Uri = state.Uri // Fallback to state if re-read fails
-			}
-		}
+	vpc.Named(data.Name.ValueString())
+	if tags != nil {
+		vpc.RetaggedAs(tags...)
 	} else {
-		// If no response, preserve URI from state
-		data.Uri = state.Uri
+		vpc.RetaggedAs(vpc.Tags()...)
 	}
+
+	updated, err := r.client.Client.FromNetwork().VPCs().Update(ctx, vpc)
+	if provErr := CheckResponseErr("update", "VPC", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
+		return
+	}
+
+	data.Id = state.Id
+	data.Uri = state.Uri
+	data.ProjectID = state.ProjectID
+	data.Name = types.StringValue(updated.Name())
+	data.Tags = TagsToListPreserveNull(updated.Tags(), data.Tags)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -485,23 +252,12 @@ func (r *VPCResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 		return
 	}
 
-	projectID := data.ProjectID.ValueString()
+	ref := vpcRef(&data)
 	vpcID := data.Id.ValueString()
 
-	if projectID == "" || vpcID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID and VPC ID are required to delete the VPC",
-		)
-		return
-	}
-
 	deletionChecker := func(ctx context.Context) (bool, error) {
-		getResp, getErr := r.client.Client.FromNetwork().VPCs().Get(ctx, projectID, vpcID, nil)
-		if getErr != nil {
-			return false, NewTransportError("get", "VPC", getErr)
-		}
-		if provErr := CheckResponse("get", "VPC", getResp); provErr != nil {
+		_, getErr := r.client.Client.FromNetwork().VPCs().Get(ctx, ref)
+		if provErr := CheckResponseErr("get", "VPC", getErr); provErr != nil {
 			if IsNotFound(provErr) {
 				return true, nil
 			}
@@ -511,47 +267,29 @@ func (r *VPCResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 	}
 
 	deleteStart := time.Now()
-	err := DeleteResourceWithRetry(
-		ctx,
-		func() error {
-			resp, err := r.client.Client.FromNetwork().VPCs().Delete(ctx, projectID, vpcID, nil)
-			if err != nil {
-				return NewTransportError("delete", "VPC", err)
-			}
-			return CheckResponse("delete", "VPC", resp)
-		},
-		"VPC",
-		vpcID,
-		r.client.ResourceTimeout,
-		deletionChecker,
-	)
-
+	err := DeleteResourceWithRetry(ctx, func() error {
+		_, delErr := r.client.Client.FromNetwork().VPCs().Delete(ctx, ref)
+		return CheckResponseErr("delete", "VPC", delErr)
+	}, "VPC", vpcID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error deleting VPC",
-			NewTransportError("delete", "Vpc", err).Error(),
-		)
+		resp.Diagnostics.AddError("Error deleting VPC", err.Error())
 		return
 	}
-
-	// Poll until the VPC is confirmed deleted (async deletion)
 	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "VPC", vpcID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
-		resp.Diagnostics.AddError(
-			"Error waiting for VPC deletion",
-			waitErr.Error(),
-		)
+		resp.Diagnostics.AddError("Error waiting for VPC deletion", waitErr.Error())
 		return
 	}
-
-	tflog.Trace(ctx, "deleted a VPC resource", map[string]interface{}{
-		"vpc_id": vpcID,
-	})
+	tflog.Trace(ctx, "deleted a VPC resource", map[string]interface{}{"vpc_id": vpcID})
 }
 
 func (r *VPCResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
-func (r *VPCResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_vpc"
+// strVal converts an API string to types.StringValue (non-empty) or types.StringNull.
+func strVal(s string) types.String {
+	if s != "" {
+		return types.StringValue(s)
+	}
+	return types.StringNull()
 }

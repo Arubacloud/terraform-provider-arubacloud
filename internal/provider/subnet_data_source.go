@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
@@ -157,72 +158,59 @@ func (d *SubnetDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 		return
 	}
 
-	response, err := d.client.Client.FromNetwork().Subnets().Get(ctx, projectID, vpcID, subnetID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError("Error reading subnet", NewTransportError("read", "Subnet", err).Error())
-		return
-	}
-	if apiErr := CheckResponse("read", "Subnet", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-	if response == nil || response.Data == nil {
-		resp.Diagnostics.AddError("No data returned", "Subnet Get returned no data")
+	subnet, err := d.client.Client.FromNetwork().Subnets().Get(ctx,
+		aruba.SubnetRef(projectID, vpcID, subnetID))
+	if provErr := CheckResponseErr("read", "Subnet", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	subnet := response.Data
-	if subnet.Metadata.ID != nil {
-		data.Id = types.StringValue(*subnet.Metadata.ID)
-	}
-	if subnet.Metadata.URI != nil {
-		data.Uri = types.StringValue(*subnet.Metadata.URI)
-	} else {
-		data.Uri = types.StringNull()
-	}
-	if subnet.Metadata.Name != nil {
-		data.Name = types.StringValue(*subnet.Metadata.Name)
-	}
-	if subnet.Metadata.LocationResponse != nil {
-		data.Location = types.StringValue(subnet.Metadata.LocationResponse.Value)
+	data.Id = types.StringValue(subnet.ID())
+	data.Uri = strVal(subnet.URI())
+	data.Name = types.StringValue(subnet.Name())
+	if subnet.Region() != "" {
+		data.Location = types.StringValue(string(subnet.Region()))
 	} else {
 		data.Location = types.StringNull()
 	}
 	data.ProjectId = types.StringValue(projectID)
 	data.VpcId = types.StringValue(vpcID)
-	data.Type = types.StringValue(string(subnet.Properties.Type))
+	data.Type = types.StringValue(string(subnet.Type()))
 
-	if subnet.Properties.Network != nil && subnet.Properties.Network.Address != "" {
-		data.Address = types.StringValue(subnet.Properties.Network.Address)
+	if cidr := subnet.CIDR(); cidr != "" {
+		data.Address = types.StringValue(cidr)
 	} else {
 		data.Address = types.StringNull()
 	}
 
-	if subnet.Properties.DHCP != nil {
-		data.DhcpEnabled = types.BoolValue(subnet.Properties.DHCP.Enabled)
+	routeObjType := types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"address": types.StringType,
+			"gateway": types.StringType,
+		},
+	}
 
-		if subnet.Properties.DHCP.Range != nil {
-			data.DhcpRangeStart = types.StringValue(subnet.Properties.DHCP.Range.Start)
-			data.DhcpRangeCount = types.Int64Value(int64(subnet.Properties.DHCP.Range.Count))
+	dhcp := subnet.DHCP()
+	if dhcp != nil {
+		data.DhcpEnabled = types.BoolValue(dhcp.IsEnabled())
+
+		if dhcp.RangeStart() != "" || dhcp.RangeCount() > 0 {
+			data.DhcpRangeStart = types.StringValue(dhcp.RangeStart())
+			data.DhcpRangeCount = types.Int64Value(int64(dhcp.RangeCount()))
 		} else {
 			data.DhcpRangeStart = types.StringNull()
 			data.DhcpRangeCount = types.Int64Null()
 		}
 
-		routeObjType := types.ObjectType{
-			AttrTypes: map[string]attr.Type{
-				"address": types.StringType,
-				"gateway": types.StringType,
-			},
-		}
-		if len(subnet.Properties.DHCP.Routes) > 0 {
-			routeObjs := make([]attr.Value, len(subnet.Properties.DHCP.Routes))
-			for i, route := range subnet.Properties.DHCP.Routes {
-				routeObj, diags := types.ObjectValue(routeObjType.AttrTypes, map[string]attr.Value{
+		routes := dhcp.Routes()
+		if len(routes) > 0 {
+			routeObjs := make([]attr.Value, len(routes))
+			for i, route := range routes {
+				routeObj, d := types.ObjectValue(routeObjType.AttrTypes, map[string]attr.Value{
 					"address": types.StringValue(route.Address),
 					"gateway": types.StringValue(route.Gateway),
 				})
-				resp.Diagnostics.Append(diags...)
+				resp.Diagnostics.Append(d...)
 				if resp.Diagnostics.HasError() {
 					return
 				}
@@ -233,10 +221,11 @@ func (d *SubnetDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 			data.DhcpRoutes = types.ListValueMust(routeObjType, []attr.Value{})
 		}
 
-		if len(subnet.Properties.DHCP.DNS) > 0 {
-			dnsValues := make([]attr.Value, len(subnet.Properties.DHCP.DNS))
-			for i, dns := range subnet.Properties.DHCP.DNS {
-				dnsValues[i] = types.StringValue(dns)
+		dns := dhcp.DNS()
+		if len(dns) > 0 {
+			dnsValues := make([]attr.Value, len(dns))
+			for i, s := range dns {
+				dnsValues[i] = types.StringValue(s)
 			}
 			data.Dns = types.ListValueMust(types.StringType, dnsValues)
 		} else {
@@ -246,17 +235,11 @@ func (d *SubnetDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 		data.DhcpEnabled = types.BoolNull()
 		data.DhcpRangeStart = types.StringNull()
 		data.DhcpRangeCount = types.Int64Null()
-		routeObjType := types.ObjectType{
-			AttrTypes: map[string]attr.Type{
-				"address": types.StringType,
-				"gateway": types.StringType,
-			},
-		}
 		data.DhcpRoutes = types.ListValueMust(routeObjType, []attr.Value{})
 		data.Dns = types.ListValueMust(types.StringType, []attr.Value{})
 	}
 
-	data.Tags = TagsToListPreserveNull(subnet.Metadata.Tags, data.Tags)
+	data.Tags = TagsToListPreserveNull(subnet.Tags(), data.Tags)
 
 	tflog.Trace(ctx, "read a Subnet data source", map[string]interface{}{"subnet_id": subnetID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
