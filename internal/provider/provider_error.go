@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Arubacloud/sdk-go/pkg/aruba"
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 )
 
@@ -213,21 +214,19 @@ func newResponseError(operation, resource string, statusCode int, errResp *sdkty
 	}
 }
 
-// CheckResponse inspects a typed SDK response and returns nil if the status code
-// is 2xx, or a *ProviderError otherwise. A nil response is treated as a Technical error.
-func CheckResponse[T any](operation, resource string, resp *sdktypes.Response[T]) error {
-	if resp == nil {
-		return &ProviderError{
-			Category:  ProviderErrorCategoryTechnical,
-			Operation: operation,
-			Resource:  resource,
-			Cause:     fmt.Errorf("nil response"),
-		}
-	}
-	if resp.IsSuccess() {
+// CheckResponseErr inspects the error returned by a sdk-go v1 builder call and
+// returns a classified *ProviderError, or nil on success (err == nil).
+// It handles both API-level errors (*aruba.HTTPError, produced by 4xx/5xx responses)
+// and transport-level errors (network failures, TLS errors, etc.).
+func CheckResponseErr(operation, resource string, err error) *ProviderError {
+	if err == nil {
 		return nil
 	}
-	return newResponseError(operation, resource, resp.StatusCode, resp.Error, resp.RawBody)
+	var httpErr *aruba.HTTPError
+	if errors.As(err, &httpErr) {
+		return newResponseError(operation, resource, httpErr.StatusCode, httpErr.ErrResp, httpErr.Body)
+	}
+	return NewTransportError(operation, resource, err)
 }
 
 // IsNotFound reports whether err (or any error in its chain) represents a 404 Not Found response.
