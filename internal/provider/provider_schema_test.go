@@ -3,6 +3,9 @@ package provider
 import (
 	"context"
 	"testing"
+
+	"github.com/hashicorp/terraform-plugin-framework/provider"
+	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 )
 
 // TestProviderSchema validates that the provider can be instantiated successfully.
@@ -86,6 +89,35 @@ func TestAllDataSourceSchemas(t *testing.T) {
 		dataSource := dataSourceFunc()
 		if dataSource == nil {
 			t.Error("data source function returned nil")
+		}
+	}
+}
+
+// TestProviderSchemaAttributes validates the auth attribute rename from v0.1.x to v0.2.0.
+func TestProviderSchemaAttributes(t *testing.T) {
+	t.Parallel()
+
+	p := New("test")()
+	schemaResp := &provider.SchemaResponse{}
+	p.Schema(context.TODO(), provider.SchemaRequest{}, schemaResp)
+	attrs := schemaResp.Schema.Attributes
+
+	// v0.2.0 attributes must exist
+	for _, name := range []string{"client_id", "client_secret"} {
+		if _, ok := attrs[name]; !ok {
+			t.Errorf("expected provider schema attribute %q to exist", name)
+		}
+	}
+	// client_secret must be sensitive
+	if cs, ok := attrs["client_secret"]; ok {
+		if sa, ok := cs.(schema.StringAttribute); !ok || !sa.Sensitive {
+			t.Error("client_secret must be Sensitive: true")
+		}
+	}
+	// v0.1.x attributes must NOT exist
+	for _, name := range []string{"api_key", "api_secret"} {
+		if _, ok := attrs[name]; ok {
+			t.Errorf("deprecated attribute %q must not be present in v0.2.0 schema", name)
 		}
 	}
 }

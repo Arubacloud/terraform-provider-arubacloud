@@ -20,7 +20,7 @@ var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServe
 
 func testAccPreCheck(t *testing.T) {
 	t.Helper()
-	for _, env := range []string{"ARUBACLOUD_API_KEY", "ARUBACLOUD_API_SECRET"} {
+	for _, env := range []string{"ARUBACLOUD_CLIENT_ID", "ARUBACLOUD_CLIENT_SECRET"} {
 		if os.Getenv(env) == "" {
 			t.Fatalf("acceptance tests require %s to be set", env)
 		}
@@ -29,12 +29,12 @@ func testAccPreCheck(t *testing.T) {
 
 // testAccClient builds an ArubaCloudClient from env vars for use in CheckDestroy functions.
 func testAccClient() (*ArubaCloudClient, error) {
-	apiKey := os.Getenv("ARUBACLOUD_API_KEY")
-	apiSecret := os.Getenv("ARUBACLOUD_API_SECRET")
-	if apiKey == "" || apiSecret == "" {
-		return nil, fmt.Errorf("ARUBACLOUD_API_KEY and ARUBACLOUD_API_SECRET must be set")
+	clientID := os.Getenv("ARUBACLOUD_CLIENT_ID")
+	clientSecret := os.Getenv("ARUBACLOUD_CLIENT_SECRET")
+	if clientID == "" || clientSecret == "" {
+		return nil, fmt.Errorf("ARUBACLOUD_CLIENT_ID and ARUBACLOUD_CLIENT_SECRET must be set")
 	}
-	sdkClient, err := aruba.NewClient(aruba.DefaultOptions(apiKey, apiSecret))
+	sdkClient, err := aruba.NewClient(aruba.DefaultOptions(clientID, clientSecret))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create test client: %w", err)
 	}

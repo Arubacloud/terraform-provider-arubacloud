@@ -12,18 +12,18 @@ terraform {
 }
 
 provider "arubacloud" {
-  api_key    = var.api_key
-  api_secret = var.api_secret
+  client_id     = var.client_id
+  client_secret = var.client_secret
 }
 
-variable "api_key" {
-  description = "ArubaCloud API key"
+variable "client_id" {
+  description = "ArubaCloud OAuth2 client ID"
   type        = string
   sensitive   = true
 }
 
-variable "api_secret" {
-  description = "ArubaCloud API secret"
+variable "client_secret" {
+  description = "ArubaCloud OAuth2 client secret"
   type        = string
   sensitive   = true
 }
@@ -117,7 +117,7 @@ resource "arubacloud_blockstorage" "quickstart_boot" {
   name           = "quickstart-boot-disk"
   project_id     = arubacloud_project.quickstart.id
   location       = "ITBG-Bergamo"
-  zone           = "ITBG-1" # Zone (datacenter) — must match the CloudServer zone below
+  zone           = "ITBG-1" # Zone (datacenter) ï¿½ must match the CloudServer zone below
   size_gb        = 50
   billing_period = "Hour"
   type           = "Performance" # Performance type recommended for boot volumes
@@ -133,7 +133,7 @@ resource "arubacloud_cloudserver" "quickstart" {
   name       = "quickstart-server"
   location   = "ITBG-Bergamo"
   project_id = arubacloud_project.quickstart.id
-  zone       = "ITBG-1" # Zone (datacenter) — must match the boot-volume zone above
+  zone       = "ITBG-1" # Zone (datacenter) ï¿½ must match the boot-volume zone above
   tags       = ["quickstart", "compute"]
 
   network = {

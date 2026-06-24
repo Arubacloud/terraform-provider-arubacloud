@@ -8,6 +8,6 @@ terraform {
 }
 
 provider "arubacloud" {
-  api_key    = var.arubacloud_api_key
-  api_secret = var.arubacloud_api_secret
+  client_id     = var.arubacloud_client_id
+  client_secret = var.arubacloud_client_secret
 }
