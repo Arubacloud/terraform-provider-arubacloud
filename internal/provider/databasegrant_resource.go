@@ -3,9 +3,10 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
-	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -89,6 +90,24 @@ func (r *DatabaseGrantResource) Configure(ctx context.Context, req resource.Conf
 	r.client = client
 }
 
+// grantCompositeRef constructs a URI using the user ID as the grant key.
+// This matches the legacy behavior where userID was used as the grant identifier.
+func grantCompositeRef(projectID, dbaasID, databaseName, userID string) aruba.Ref {
+	return aruba.URI("/projects/" + projectID +
+		"/providers/Aruba.Database/dbaas/" + dbaasID +
+		"/databases/" + databaseName +
+		"/grants/" + userID)
+}
+
+// grantRefFromModel extracts IDs from the composite stored ID (project/dbaas/db/user).
+func grantRefFromModel(data *DatabaseGrantResourceModel) aruba.Ref {
+	projectID := data.ProjectID.ValueString()
+	dbaasID := data.DBaaSID.ValueString()
+	databaseName := data.Database.ValueString()
+	userID := data.UserID.ValueString()
+	return grantCompositeRef(projectID, dbaasID, databaseName, userID)
+}
+
 func (r *DatabaseGrantResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data DatabaseGrantResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
@@ -101,60 +120,28 @@ func (r *DatabaseGrantResource) Create(ctx context.Context, req resource.CreateR
 	databaseName := data.Database.ValueString()
 	userID := data.UserID.ValueString()
 
-	if projectID == "" || dbaasID == "" || databaseName == "" || userID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID, DBaaS ID, Database name, and User ID are required to create a database grant",
-		)
+	databaseURI := "/projects/" + projectID +
+		"/providers/Aruba.Database/dbaas/" + dbaasID +
+		"/databases/" + databaseName
+
+	grant, err := r.client.Client.FromDatabase().Grants().Create(ctx,
+		aruba.NewGrant().
+			InDatabase(aruba.URI(databaseURI)).
+			ForUser(userID).
+			OfRole(data.Role.ValueString()),
+	)
+	if provErr := CheckResponseErr("create", "DatabaseGrant", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	// Build the create request
-	// GrantRequest requires both User and Role fields
-	createRequest := sdktypes.GrantRequest{
-		User: sdktypes.GrantUser{Username: userID},
-		Role: sdktypes.GrantRole{Name: data.Role.ValueString()},
-	}
+	// Preserve the composite ID pattern for backward compatibility.
+	data.Id = types.StringValue(fmt.Sprintf("%s/%s/%s/%s", projectID, dbaasID, databaseName, userID))
+	data.Uri = strVal(grant.URI())
+	data.Role = types.StringValue(grant.RoleName())
 
-	// Create the grant using the SDK
-	response, err := r.client.Client.FromDatabase().Grants().Create(ctx, projectID, dbaasID, databaseName, createRequest, nil)
-	if err != nil {
-		tflog.Error(ctx, "Database grant create error", map[string]interface{}{
-			"error":      err.Error(),
-			"project_id": projectID,
-			"dbaas_id":   dbaasID,
-			"database":   databaseName,
-			"user_id":    userID,
-		})
-		resp.Diagnostics.AddError(
-			"Error creating database grant",
-			NewTransportError("create", "Databasegrant", err).Error(),
-		)
-		return
-	}
-
-	if apiErr := CheckResponse("create", "Databasegrant", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-
-	if response != nil && response.Data != nil {
-		// Set the grant ID - using a composite key
-		data.Id = types.StringValue(fmt.Sprintf("%s/%s/%s/%s", projectID, dbaasID, databaseName, userID))
-		data.Uri = types.StringNull() // Grants don't have URIs
-	} else {
-		resp.Diagnostics.AddError(
-			"Invalid API Response",
-			"Database grant created but no data returned from API",
-		)
-		return
-	}
-
+	tflog.Trace(ctx, "created a Database Grant resource", map[string]interface{}{"grant_id": data.Id.ValueString()})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-
-	tflog.Trace(ctx, "created a Database Grant resource", map[string]interface{}{
-		"grant_id": data.Id.ValueString(),
-	})
 }
 
 func (r *DatabaseGrantResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -163,71 +150,23 @@ func (r *DatabaseGrantResource) Read(ctx context.Context, req resource.ReadReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	projectID := data.ProjectID.ValueString()
-	dbaasID := data.DBaaSID.ValueString()
-	databaseName := data.Database.ValueString()
-	userID := data.UserID.ValueString()
-
-	if data.Id.IsUnknown() || data.Id.IsNull() || data.Id.ValueString() == "" {
-		tflog.Debug(ctx, "Database Grant ID is empty, removing resource from state", map[string]interface{}{"grant_id": data.Id.ValueString()})
+	if data.Id.IsNull() || data.Id.ValueString() == "" {
 		resp.State.RemoveResource(ctx)
 		return
 	}
 
-	if projectID == "" || dbaasID == "" || databaseName == "" || userID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID, DBaaS ID, Database name, and User ID are required to read the database grant",
-		)
-		return
-	}
-
-	// Get grant details using the SDK
-	response, err := r.client.Client.FromDatabase().Grants().Get(ctx, projectID, dbaasID, databaseName, userID, nil)
-	if err != nil {
-		tflog.Error(ctx, "Database grant read error", map[string]interface{}{
-			"error":      err.Error(),
-			"project_id": projectID,
-			"dbaas_id":   dbaasID,
-			"database":   databaseName,
-			"user_id":    userID,
-		})
-		resp.Diagnostics.AddError(
-			"Error reading database grant",
-			NewTransportError("read", "Databasegrant", err).Error(),
-		)
-		return
-	}
-
-	if response != nil && response.IsError() && response.Error != nil {
-		// Handle 404 - Resource no longer exists
-		if response.Error.Status != nil && *response.Error.Status == 404 {
-			tflog.Info(ctx, "Database grant not found, removing from state", map[string]interface{}{
-				"project_id": projectID,
-				"dbaas_id":   dbaasID,
-				"database":   databaseName,
-				"user_id":    userID,
-			})
+	grant, err := r.client.Client.FromDatabase().Grants().Get(ctx, grantRefFromModel(&data))
+	if provErr := CheckResponseErr("read", "DatabaseGrant", err); provErr != nil {
+		if IsNotFound(provErr) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-
-		apiErr := newResponseError("read", "Databasegrant", response.StatusCode, response.Error, response.RawBody)
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	if response != nil && response.Data != nil {
-		// Update state with current grant info
-		data.Role = types.StringValue(response.Data.Role.Name)
-	} else {
-		resp.Diagnostics.AddError(
-			"Invalid API Response",
-			"Database grant not found or no data returned from API",
-		)
-		return
-	}
+	data.Role = types.StringValue(grant.RoleName())
+	data.Uri = strVal(grant.URI())
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -237,73 +176,35 @@ func (r *DatabaseGrantResource) Update(ctx context.Context, req resource.UpdateR
 	var state DatabaseGrantResourceModel
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Get IDs from state (not plan) - IDs are immutable and should always be in state
-	projectID := state.ProjectID.ValueString()
-	dbaasID := state.DBaaSID.ValueString()
-	databaseName := state.Database.ValueString()
-	userID := state.UserID.ValueString()
-
-	if projectID == "" || dbaasID == "" || databaseName == "" || userID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID, DBaaS ID, Database name, and User ID are required to update the database grant",
-		)
+	grant, err := r.client.Client.FromDatabase().Grants().Get(ctx, grantRefFromModel(&state))
+	if provErr := CheckResponseErr("read", "DatabaseGrant", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	// Build update request
-	updateRequest := sdktypes.GrantRequest{
-		User: sdktypes.GrantUser{Username: userID},
-		Role: sdktypes.GrantRole{Name: data.Role.ValueString()},
-	}
+	grant.OfRole(data.Role.ValueString())
 
-	// Update the grant using the SDK
-	response, err := r.client.Client.FromDatabase().Grants().Update(ctx, projectID, dbaasID, databaseName, userID, updateRequest, nil)
-	if err != nil {
-		tflog.Error(ctx, "Database grant update error", map[string]interface{}{
-			"error":      err.Error(),
-			"project_id": projectID,
-			"dbaas_id":   dbaasID,
-			"database":   databaseName,
-			"user_id":    userID,
-		})
-		resp.Diagnostics.AddError(
-			"Error updating database grant",
-			NewTransportError("update", "Databasegrant", err).Error(),
-		)
+	updated, err := r.client.Client.FromDatabase().Grants().Update(ctx, grant)
+	if provErr := CheckResponseErr("update", "DatabaseGrant", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	if apiErr := CheckResponse("update", "Databasegrant", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
+	data.Id = state.Id
+	data.ProjectID = state.ProjectID
+	data.DBaaSID = state.DBaaSID
+	data.Database = state.Database
+	data.UserID = state.UserID
+	data.Role = types.StringValue(updated.RoleName())
+	data.Uri = strVal(updated.URI())
 
-	if response != nil && response.Data != nil {
-		// Update state with the response data
-		data.Role = types.StringValue(response.Data.Role.Name)
-	} else {
-		resp.Diagnostics.AddError(
-			"Invalid API Response",
-			"Database grant updated but no data returned from API",
-		)
-		return
-	}
-
+	tflog.Trace(ctx, "updated a Database Grant resource", map[string]interface{}{"grant_id": data.Id.ValueString()})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-
-	tflog.Trace(ctx, "updated a Database Grant resource", map[string]interface{}{
-		"grant_id": data.Id.ValueString(),
-	})
 }
 
 func (r *DatabaseGrantResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -313,28 +214,12 @@ func (r *DatabaseGrantResource) Delete(ctx context.Context, req resource.DeleteR
 		return
 	}
 
-	projectID := data.ProjectID.ValueString()
-	dbaasID := data.DBaaSID.ValueString()
-	databaseName := data.Database.ValueString()
-	userID := data.UserID.ValueString()
-
-	if projectID == "" || dbaasID == "" || databaseName == "" || userID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID, DBaaS ID, Database name, and User ID are required to delete the database grant",
-		)
-		return
-	}
-
-	// Delete the grant using the SDK with retry mechanism
-	// Retry on any error except 404 (Resource Not Found)
+	ref := grantRefFromModel(&data)
 	grantID := data.Id.ValueString()
+
 	deletionChecker := func(ctx context.Context) (bool, error) {
-		getResp, getErr := r.client.Client.FromDatabase().Grants().Get(ctx, projectID, dbaasID, databaseName, userID, nil)
-		if getErr != nil {
-			return false, NewTransportError("get", "DatabaseGrant", getErr)
-		}
-		if provErr := CheckResponse("get", "DatabaseGrant", getResp); provErr != nil {
+		_, getErr := r.client.Client.FromDatabase().Grants().Get(ctx, ref)
+		if provErr := CheckResponseErr("get", "DatabaseGrant", getErr); provErr != nil {
 			if IsNotFound(provErr) {
 				return true, nil
 			}
@@ -344,39 +229,35 @@ func (r *DatabaseGrantResource) Delete(ctx context.Context, req resource.DeleteR
 	}
 
 	deleteStart := time.Now()
-	err := DeleteResourceWithRetry(
-		ctx,
-		func() error {
-			resp, err := r.client.Client.FromDatabase().Grants().Delete(ctx, projectID, dbaasID, databaseName, userID, nil)
-			if err != nil {
-				return NewTransportError("delete", "DatabaseGrant", err)
-			}
-			return CheckResponse("delete", "DatabaseGrant", resp)
-		},
-		"DatabaseGrant",
-		grantID,
-		r.client.ResourceTimeout,
-		deletionChecker,
-	)
-
+	err := DeleteResourceWithRetry(ctx, func() error {
+		return CheckResponseErr("delete", "DatabaseGrant",
+			r.client.Client.FromDatabase().Grants().Delete(ctx, ref))
+	}, "DatabaseGrant", grantID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error deleting database grant",
-			NewTransportError("delete", "Databasegrant", err).Error(),
-		)
+		resp.Diagnostics.AddError("Error deleting DatabaseGrant", err.Error())
 		return
 	}
-
 	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "DatabaseGrant", grantID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for DatabaseGrant deletion", waitErr.Error())
 		return
 	}
-
-	tflog.Trace(ctx, "deleted a Database Grant resource", map[string]interface{}{
-		"grant_id": grantID,
-	})
+	tflog.Trace(ctx, "deleted a Database Grant resource", map[string]interface{}{"grant_id": grantID})
 }
 
 func (r *DatabaseGrantResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	// Composite ID: project_id/dbaas_id/database/user_id
+	id := req.ID
+	parts := strings.Split(id, "/")
+	if len(parts) != 4 {
+		resp.Diagnostics.AddError(
+			"Invalid Import ID",
+			fmt.Sprintf("Expected composite ID in format 'project_id/dbaas_id/database/user_id', got: %q", id),
+		)
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), id)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("project_id"), parts[0])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("dbaas_id"), parts[1])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("database"), parts[2])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("user_id"), parts[3])...)
 }

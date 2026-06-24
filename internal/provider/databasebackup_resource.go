@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
-	"github.com/hashicorp/terraform-plugin-framework/attr"
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -106,6 +105,14 @@ func (r *DatabaseBackupResource) Configure(ctx context.Context, req resource.Con
 	r.client = client
 }
 
+func databaseBackupRef(data *DatabaseBackupResourceModel) aruba.Ref {
+	if !data.Uri.IsNull() && data.Uri.ValueString() != "" {
+		return aruba.URI(data.Uri.ValueString())
+	}
+	return aruba.URI("/projects/" + data.ProjectID.ValueString() +
+		"/providers/Aruba.Database/backups/" + data.Id.ValueString())
+}
+
 func (r *DatabaseBackupResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data DatabaseBackupResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
@@ -117,114 +124,40 @@ func (r *DatabaseBackupResource) Create(ctx context.Context, req resource.Create
 	dbaasID := data.DBaaSID.ValueString()
 	databaseName := data.Database.ValueString()
 
-	if projectID == "" || dbaasID == "" || databaseName == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID, DBaaS ID, and Database name are required to create a database backup",
-		)
-		return
-	}
-
-	// Get DBaaS instance to get its URI
-	dbaasResp, err := r.client.Client.FromDatabase().DBaaS().Get(ctx, projectID, dbaasID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error getting DBaaS instance",
-			NewTransportError("read", "Databasebackup", err).Error(),
-		)
-		return
-	}
-
-	if dbaasResp == nil || dbaasResp.Data == nil || dbaasResp.Data.Metadata.URI == nil {
-		resp.Diagnostics.AddError(
-			"DBaaS Instance Not Found",
-			"DBaaS instance not found or missing URI",
-		)
-		return
-	}
-
-	dbaasURI := *dbaasResp.Data.Metadata.URI
-	// Construct database URI
-	databaseURI := fmt.Sprintf("%s/databases/%s", dbaasURI, databaseName)
-
 	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Build the create request
-	createRequest := sdktypes.BackupRequest{
-		Metadata: sdktypes.RegionalResourceMetadataRequest{
-			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
-				Name: data.Name.ValueString(),
-				Tags: tags,
-			},
-			Location: sdktypes.LocationRequest{
-				Value: data.Location.ValueString(),
-			},
-		},
-		Properties: sdktypes.BackupPropertiesRequest{
-			Zone: data.Zone.ValueString(),
-			DBaaS: sdktypes.ReferenceResource{
-				URI: dbaasURI,
-			},
-			Database: sdktypes.ReferenceResource{
-				URI: databaseURI,
-			},
-			BillingPlan: sdktypes.BillingPeriodResource{
-				BillingPeriod: data.BillingPeriod.ValueString(),
-			},
-		},
-	}
+	dbaasURI := "/projects/" + projectID + "/providers/Aruba.Database/dbaas/" + dbaasID
+	databaseURI := dbaasURI + "/databases/" + databaseName
 
-	// Create the backup using the SDK
-	response, err := r.client.Client.FromDatabase().Backups().Create(ctx, projectID, createRequest, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error creating database backup",
-			NewTransportError("create", "Databasebackup", err).Error(),
-		)
+	backup, err := r.client.Client.FromDatabase().Backups().Create(ctx,
+		aruba.NewDBaaSBackup().
+			Named(data.Name.ValueString()).
+			InProject(aruba.URI("/projects/"+projectID)).
+			InRegion(aruba.Region(data.Location.ValueString())).
+			InZone(aruba.Zone(data.Zone.ValueString())).
+			FromDBaaS(aruba.URI(dbaasURI)).
+			FromDatabase(aruba.URI(databaseURI)).
+			BilledBy(aruba.BillingPeriod(data.BillingPeriod.ValueString())).
+			Tagged(tags...),
+	)
+	if provErr := CheckResponseErr("create", "DatabaseBackup", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	if apiErr := CheckResponse("create", "Databasebackup", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
+	data.Id = types.StringValue(backup.ID())
+	data.Uri = strVal(backup.URI())
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	if response != nil && response.Data != nil && response.Data.Metadata.ID != nil {
-		data.Id = types.StringValue(*response.Data.Metadata.ID)
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-	} else {
-		resp.Diagnostics.AddError(
-			"Invalid API Response",
-			"Database backup created but no ID returned from API",
-		)
-		return
-	}
-
-	// Wait for Database Backup to be active before returning
-	// This ensures Terraform doesn't proceed until Backup is ready
-	backupID := data.Id.ValueString()
-	checker := func(ctx context.Context) (string, error) {
-		getResp, err := r.client.Client.FromDatabase().Backups().Get(ctx, projectID, backupID, nil)
-		if err != nil {
-			return "", err
-		}
-		if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
-			return *getResp.Data.Status.State, nil
-		}
-		return "Unknown", nil
-	}
-
-	// Wait for Database Backup to be active - block until ready (using configured timeout)
-	if err := WaitForResourceActive(ctx, checker, "DatabaseBackup", backupID, r.client.ResourceTimeout); err != nil {
-		ReportWaitResult(&resp.Diagnostics, err, "DatabaseBackup", backupID)
-		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	if waitErr := backup.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+		ReportWaitResult(&resp.Diagnostics, waitErr, "DatabaseBackup", data.Id.ValueString())
 		return
 	}
 
@@ -232,7 +165,6 @@ func (r *DatabaseBackupResource) Create(ctx context.Context, req resource.Create
 		"backup_id":   data.Id.ValueString(),
 		"backup_name": data.Name.ValueString(),
 	})
-
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -242,153 +174,65 @@ func (r *DatabaseBackupResource) Read(ctx context.Context, req resource.ReadRequ
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	projectID := data.ProjectID.ValueString()
-	backupID := data.Id.ValueString()
-
-	if data.Id.IsUnknown() || data.Id.IsNull() || backupID == "" {
-		tflog.Debug(ctx, "Database Backup ID is empty, removing resource from state", map[string]interface{}{"backup_id": backupID})
+	if data.Id.IsNull() || data.Id.ValueString() == "" {
 		resp.State.RemoveResource(ctx)
 		return
 	}
 
-	if projectID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID is required to read the database backup",
-		)
-		return
-	}
-
-	// Get backup details using the SDK
-	response, err := r.client.Client.FromDatabase().Backups().Get(ctx, projectID, backupID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading database backup",
-			NewTransportError("read", "Databasebackup", err).Error(),
-		)
-		return
-	}
-
-	if apiErr := CheckResponse("read", "Databasebackup", response); apiErr != nil {
-		if IsNotFound(apiErr) {
+	backup, err := r.client.Client.FromDatabase().Backups().Get(ctx, databaseBackupRef(&data))
+	if provErr := CheckResponseErr("read", "DatabaseBackup", err); provErr != nil {
+		if IsNotFound(provErr) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	// If the resource is still provisioning (e.g. after a Create timeout that saved
-	// partial state), resume the wait so the next terraform apply reconciles correctly.
-	if response.Data.Status.State != nil {
-		switch st := *response.Data.Status.State; {
-		case isFailedState(st):
-			resp.Diagnostics.AddWarning(
-				"Resource in Failed State",
-				fmt.Sprintf("DatabaseBackup %q is in a terminal failure state (%s). "+
-					"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", backupID, st),
-			)
-		case IsCreatingState(st):
-			checker := func(ctx context.Context) (string, error) {
-				getResp, err := r.client.Client.FromDatabase().Backups().Get(ctx, projectID, backupID, nil)
-				if err != nil {
-					return "", err
-				}
-				if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
-					return *getResp.Data.Status.State, nil
-				}
-				return "Unknown", nil
-			}
-			if err := WaitForResourceActive(ctx, checker, "DatabaseBackup", backupID, r.client.ResourceTimeout); err != nil {
-				ReportWaitResult(&resp.Diagnostics, err, "DatabaseBackup", backupID)
-				resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-				return
-			}
-			// Re-read to get the final active state.
-			response, err = r.client.Client.FromDatabase().Backups().Get(ctx, projectID, backupID, nil)
-			if err != nil {
-				resp.Diagnostics.AddError("Error reading DatabaseBackup after provisioning wait",
-					NewTransportError("read", "Databasebackup", err).Error())
-				return
-			}
-			if apiErr := CheckResponse("read", "Databasebackup", response); apiErr != nil {
-				if IsNotFound(apiErr) {
-					resp.State.RemoveResource(ctx)
-					return
-				}
-				resp.Diagnostics.AddError("API Error", apiErr.Error())
-				return
-			}
+	st := string(backup.State())
+	switch {
+	case isFailedState(st):
+		resp.Diagnostics.AddWarning("Resource in Failed State",
+			fmt.Sprintf("DatabaseBackup %q is in a terminal failure state (%s). "+
+				"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", data.Id.ValueString(), st))
+	case IsCreatingState(st):
+		if waitErr := backup.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+			ReportWaitResult(&resp.Diagnostics, waitErr, "DatabaseBackup", data.Id.ValueString())
+			return
+		}
+		backup, err = r.client.Client.FromDatabase().Backups().Get(ctx, databaseBackupRef(&data))
+		if provErr := CheckResponseErr("read", "DatabaseBackup", err); provErr != nil {
+			resp.Diagnostics.AddError("API Error", provErr.Error())
+			return
 		}
 	}
 
-	if response != nil && response.Data != nil {
-		backup := response.Data
-		if backup.Metadata.ID != nil {
-			data.Id = types.StringValue(*backup.Metadata.ID)
-		}
-		if backup.Metadata.URI != nil {
-			data.Uri = types.StringValue(*backup.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-		if backup.Metadata.Name != nil {
-			data.Name = types.StringValue(*backup.Metadata.Name)
-		}
-		if backup.Metadata.LocationResponse != nil {
-			data.Location = types.StringValue(backup.Metadata.LocationResponse.Value)
-		}
-		if backup.Metadata.Tags != nil {
-			tagValues := make([]attr.Value, len(backup.Metadata.Tags))
-			for i, tag := range backup.Metadata.Tags {
-				tagValues[i] = types.StringValue(tag)
-			}
-			tagsList, diags := types.ListValue(types.StringType, tagValues)
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = tagsList
-			}
-		} else {
-			data.Tags = types.ListNull(types.StringType)
-		}
-		if backup.Properties.Zone != "" {
-			data.Zone = types.StringValue(backup.Properties.Zone)
-		}
-		if backup.Properties.BillingPlan.BillingPeriod != "" {
-			data.BillingPeriod = types.StringValue(backup.Properties.BillingPlan.BillingPeriod)
-		}
-		// Extract DBaaS ID and Database name from URIs if needed
-		// Note: These may need to be stored separately or extracted from URIs
-	} else {
-		resp.State.RemoveResource(ctx)
-		return
+	data.Id = types.StringValue(backup.ID())
+	data.Uri = strVal(backup.URI())
+	data.Name = types.StringValue(backup.Name())
+	data.Tags = TagsToListPreserveNull(backup.Tags(), data.Tags)
+	if backup.Region() != "" {
+		data.Location = types.StringValue(string(backup.Region()))
 	}
+	if z := string(backup.Zone()); z != "" {
+		data.Zone = types.StringValue(z)
+	}
+	if bp := string(backup.BillingPeriod()); bp != "" {
+		data.BillingPeriod = types.StringValue(bp)
+	}
+	// DBaaSID and Database are preserved from state (not in API response directly).
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
 func (r *DatabaseBackupResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var data DatabaseBackupResourceModel
-	var state DatabaseBackupResourceModel
-
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	// Database backups typically don't support updates
-	// If they do, implement update logic here
+	// Database backups do not support updates.
 	resp.Diagnostics.AddWarning(
 		"Update Not Supported",
 		"Database backups do not support updates. Changes will be ignored.",
 	)
-
+	var data DatabaseBackupResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -399,25 +243,12 @@ func (r *DatabaseBackupResource) Delete(ctx context.Context, req resource.Delete
 		return
 	}
 
-	projectID := data.ProjectID.ValueString()
+	ref := databaseBackupRef(&data)
 	backupID := data.Id.ValueString()
 
-	if projectID == "" || backupID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID and Backup ID are required to delete the database backup",
-		)
-		return
-	}
-
-	// Delete the backup using the SDK with retry mechanism
-	// Retry on any error except 404 (Resource Not Found)
 	deletionChecker := func(ctx context.Context) (bool, error) {
-		getResp, getErr := r.client.Client.FromDatabase().Backups().Get(ctx, projectID, backupID, nil)
-		if getErr != nil {
-			return false, NewTransportError("get", "DatabaseBackup", getErr)
-		}
-		if provErr := CheckResponse("get", "DatabaseBackup", getResp); provErr != nil {
+		_, getErr := r.client.Client.FromDatabase().Backups().Get(ctx, ref)
+		if provErr := CheckResponseErr("get", "DatabaseBackup", getErr); provErr != nil {
 			if IsNotFound(provErr) {
 				return true, nil
 			}
@@ -427,37 +258,19 @@ func (r *DatabaseBackupResource) Delete(ctx context.Context, req resource.Delete
 	}
 
 	deleteStart := time.Now()
-	err := DeleteResourceWithRetry(
-		ctx,
-		func() error {
-			resp, err := r.client.Client.FromDatabase().Backups().Delete(ctx, projectID, backupID, nil)
-			if err != nil {
-				return NewTransportError("delete", "DatabaseBackup", err)
-			}
-			return CheckResponse("delete", "DatabaseBackup", resp)
-		},
-		"DatabaseBackup",
-		backupID,
-		r.client.ResourceTimeout,
-		deletionChecker,
-	)
-
+	err := DeleteResourceWithRetry(ctx, func() error {
+		return CheckResponseErr("delete", "DatabaseBackup",
+			r.client.Client.FromDatabase().Backups().Delete(ctx, ref))
+	}, "DatabaseBackup", backupID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error deleting database backup",
-			NewTransportError("delete", "Databasebackup", err).Error(),
-		)
+		resp.Diagnostics.AddError("Error deleting DatabaseBackup", err.Error())
 		return
 	}
-
 	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "DatabaseBackup", backupID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for DatabaseBackup deletion", waitErr.Error())
 		return
 	}
-
-	tflog.Trace(ctx, "deleted a Database Backup resource", map[string]interface{}{
-		"backup_id": backupID,
-	})
+	tflog.Trace(ctx, "deleted a Database Backup resource", map[string]interface{}{"backup_id": backupID})
 }
 
 func (r *DatabaseBackupResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -110,49 +111,36 @@ func (d *DatabaseBackupDataSource) Read(ctx context.Context, req datasource.Read
 		return
 	}
 
-	response, err := d.client.Client.FromDatabase().Backups().Get(ctx, projectID, backupID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError("Error reading database backup", NewTransportError("read", "Databasebackup", err).Error())
-		return
-	}
-	if apiErr := CheckResponse("read", "Databasebackup", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-	if response == nil || response.Data == nil {
-		resp.Diagnostics.AddError("No data returned", "Database Backup Get returned no data")
+	backup, err := d.client.Client.FromDatabase().Backups().Get(ctx,
+		aruba.URI("/projects/"+projectID+"/providers/Aruba.Database/backups/"+backupID))
+	if provErr := CheckResponseErr("read", "DBaaSBackup", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	backup := response.Data
-	if backup.Metadata.ID != nil {
-		data.Id = types.StringValue(*backup.Metadata.ID)
-	}
-	if backup.Metadata.Name != nil {
-		data.Name = types.StringValue(*backup.Metadata.Name)
-	}
-	if backup.Metadata.LocationResponse != nil {
-		data.Location = types.StringValue(backup.Metadata.LocationResponse.Value)
+	data.Id = types.StringValue(backup.ID())
+	data.Name = types.StringValue(backup.Name())
+	data.ProjectID = types.StringValue(projectID)
+	data.Tags = TagsToListPreserveNull(backup.Tags(), data.Tags)
+
+	if backup.Region() != "" {
+		data.Location = types.StringValue(string(backup.Region()))
 	} else {
 		data.Location = types.StringNull()
 	}
-	data.ProjectID = types.StringValue(projectID)
-
-	if backup.Properties.Zone != "" {
-		data.Zone = types.StringValue(backup.Properties.Zone)
+	if z := string(backup.Zone()); z != "" {
+		data.Zone = types.StringValue(z)
 	} else {
 		data.Zone = types.StringNull()
 	}
-	if backup.Properties.BillingPlan.BillingPeriod != "" {
-		data.BillingPeriod = types.StringValue(backup.Properties.BillingPlan.BillingPeriod)
+	if bp := string(backup.BillingPeriod()); bp != "" {
+		data.BillingPeriod = types.StringValue(bp)
 	} else {
 		data.BillingPeriod = types.StringNull()
 	}
-	// DBaaSID and Database are not directly available in the response
+	// DBaaSID and Database are not directly available in the response.
 	data.DBaaSID = types.StringNull()
 	data.Database = types.StringNull()
-
-	data.Tags = TagsToListPreserveNull(backup.Metadata.Tags, data.Tags)
 
 	tflog.Trace(ctx, "read a Database Backup data source", map[string]interface{}{"backup_id": backupID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
