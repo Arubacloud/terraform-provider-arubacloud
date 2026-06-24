@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -106,6 +106,13 @@ func (r *BackupResource) Configure(ctx context.Context, req resource.ConfigureRe
 	r.client = client
 }
 
+func backupRef(data *BackupResourceModel) aruba.Ref {
+	if !data.Uri.IsNull() && data.Uri.ValueString() != "" {
+		return aruba.URI(data.Uri.ValueString())
+	}
+	return aruba.URI("/projects/" + data.ProjectID.ValueString() + "/providers/Aruba.Storage/backups/" + data.Id.ValueString())
+}
+
 func (r *BackupResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data BackupResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
@@ -116,128 +123,54 @@ func (r *BackupResource) Create(ctx context.Context, req resource.CreateRequest,
 	projectID := data.ProjectID.ValueString()
 	volumeID := data.VolumeID.ValueString()
 
-	if projectID == "" || volumeID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID and Volume ID are required to create a backup",
-		)
-		return
-	}
-
 	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Get the volume details to get the full URI
-	volumeResponse, err := r.client.Client.FromStorage().Volumes().Get(ctx, projectID, volumeID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error getting volume details",
-			NewTransportError("read", "Backup", err).Error(),
-		)
+	// Get the volume to obtain its URI.
+	vol, err := r.client.Client.FromStorage().Volumes().Get(ctx,
+		aruba.URI("/projects/"+projectID+"/providers/Aruba.Storage/volumes/"+volumeID))
+	if provErr := CheckResponseErr("read", "Volume", err); provErr != nil {
+		resp.Diagnostics.AddError("Error getting volume details", provErr.Error())
+		return
+	}
+	if vol.URI() == "" {
+		resp.Diagnostics.AddError("Invalid Volume Response", "Volume URI not found in response")
 		return
 	}
 
-	if volumeResponse == nil || volumeResponse.Data == nil {
-		resp.Diagnostics.AddError(
-			"Volume Not Found",
-			"Volume not found",
-		)
-		return
-	}
+	builder := aruba.NewStorageBackup().
+		Named(data.Name.ValueString()).
+		InProject(aruba.URI("/projects/"+projectID)).
+		InRegion(aruba.Region(data.Location.ValueString())).
+		OfType(aruba.StorageBackupType(data.Type.ValueString())).
+		FromVolume(aruba.URI(vol.URI())).
+		Tagged(tags...)
 
-	volumeURI := ""
-	if volumeResponse.Data.Metadata.URI != nil {
-		volumeURI = *volumeResponse.Data.Metadata.URI
-	} else {
-		resp.Diagnostics.AddError(
-			"Invalid Volume Response",
-			"Volume URI not found in response",
-		)
-		return
-	}
-
-	// Build the backup create request
-	createRequest := sdktypes.StorageBackupRequest{
-		Metadata: sdktypes.RegionalResourceMetadataRequest{
-			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
-				Name: data.Name.ValueString(),
-				Tags: tags,
-			},
-			Location: sdktypes.LocationRequest{
-				Value: data.Location.ValueString(),
-			},
-		},
-		Properties: sdktypes.StorageBackupPropertiesRequest{
-			StorageBackupType: sdktypes.StorageBackupType(data.Type.ValueString()),
-			Origin: sdktypes.ReferenceResource{
-				URI: volumeURI,
-			},
-		},
-	}
-
-	// Add optional fields
 	if !data.RetentionDays.IsNull() && !data.RetentionDays.IsUnknown() {
-		retentionDays := int(data.RetentionDays.ValueInt64())
-		createRequest.Properties.RetentionDays = &retentionDays
+		builder = builder.RetainedForDays(int(data.RetentionDays.ValueInt64()))
 	}
-
 	if !data.BillingPeriod.IsNull() && !data.BillingPeriod.IsUnknown() {
-		billingPeriod := data.BillingPeriod.ValueString()
-		createRequest.Properties.BillingPeriod = &billingPeriod
+		builder = builder.BilledBy(aruba.BillingPeriod(data.BillingPeriod.ValueString()))
 	}
 
-	// Create the backup using the SDK
-	response, err := r.client.Client.FromStorage().Backups().Create(ctx, projectID, createRequest, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error creating backup",
-			NewTransportError("create", "Backup", err).Error(),
-		)
+	backup, err := r.client.Client.FromStorage().Backups().Create(ctx, builder)
+	if provErr := CheckResponseErr("create", "Backup", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	if apiErr := CheckResponse("create", "Backup", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
+	data.Id = types.StringValue(backup.ID())
+	data.Uri = strVal(backup.URI())
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	if response != nil && response.Data != nil {
-		if response.Data.Metadata.ID != nil {
-			data.Id = types.StringValue(*response.Data.Metadata.ID)
-		}
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-	} else {
-		resp.Diagnostics.AddError(
-			"Invalid API Response",
-			"Backup created but no data returned from API",
-		)
-		return
-	}
-
-	// Wait for Backup to be active before returning
-	// This ensures Terraform doesn't proceed until Backup is ready
-	backupID := data.Id.ValueString()
-	checker := func(ctx context.Context) (string, error) {
-		getResp, err := r.client.Client.FromStorage().Backups().Get(ctx, projectID, backupID, nil)
-		if err != nil {
-			return "", err
-		}
-		if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
-			return *getResp.Data.Status.State, nil
-		}
-		return "Unknown", nil
-	}
-
-	// Wait for Backup to be active - block until ready (using configured timeout)
-	if err := WaitForResourceActive(ctx, checker, "Backup", backupID, r.client.ResourceTimeout); err != nil {
-		ReportWaitResult(&resp.Diagnostics, err, "Backup", backupID)
-		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	if waitErr := backup.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+		ReportWaitResult(&resp.Diagnostics, waitErr, "Backup", data.Id.ValueString())
 		return
 	}
 
@@ -245,7 +178,6 @@ func (r *BackupResource) Create(ctx context.Context, req resource.CreateRequest,
 		"backup_id":   data.Id.ValueString(),
 		"backup_name": data.Name.ValueString(),
 	})
-
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -255,124 +187,61 @@ func (r *BackupResource) Read(ctx context.Context, req resource.ReadRequest, res
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	projectID := data.ProjectID.ValueString()
-	backupID := data.Id.ValueString()
-
-	if data.Id.IsUnknown() || data.Id.IsNull() || backupID == "" {
-		tflog.Debug(ctx, "Backup ID is empty, removing resource from state", map[string]interface{}{"backup_id": backupID})
+	if data.Id.IsNull() || data.Id.ValueString() == "" {
 		resp.State.RemoveResource(ctx)
 		return
 	}
 
-	if projectID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID is required to read the backup",
-		)
-		return
-	}
-
-	// Get backup details using the SDK
-	response, err := r.client.Client.FromStorage().Backups().Get(ctx, projectID, backupID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading backup",
-			NewTransportError("read", "Backup", err).Error(),
-		)
-		return
-	}
-
-	if apiErr := CheckResponse("read", "Backup", response); apiErr != nil {
-		if IsNotFound(apiErr) {
+	backup, err := r.client.Client.FromStorage().Backups().Get(ctx, backupRef(&data))
+	if provErr := CheckResponseErr("read", "Backup", err); provErr != nil {
+		if IsNotFound(provErr) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	// If the resource is still provisioning (e.g. after a Create timeout that saved
-	// partial state), resume the wait so the next terraform apply reconciles correctly.
-	if response.Data.Status.State != nil {
-		switch st := *response.Data.Status.State; {
-		case isFailedState(st):
-			resp.Diagnostics.AddWarning(
-				"Resource in Failed State",
-				fmt.Sprintf("Backup %q is in a terminal failure state (%s). "+
-					"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", backupID, st),
-			)
-		case IsCreatingState(st):
-			checker := func(ctx context.Context) (string, error) {
-				getResp, err := r.client.Client.FromStorage().Backups().Get(ctx, projectID, backupID, nil)
-				if err != nil {
-					return "", err
-				}
-				if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
-					return *getResp.Data.Status.State, nil
-				}
-				return "Unknown", nil
-			}
-			if err := WaitForResourceActive(ctx, checker, "Backup", backupID, r.client.ResourceTimeout); err != nil {
-				ReportWaitResult(&resp.Diagnostics, err, "Backup", backupID)
-				resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-				return
-			}
-			// Re-read to get the final active state.
-			response, err = r.client.Client.FromStorage().Backups().Get(ctx, projectID, backupID, nil)
-			if err != nil {
-				resp.Diagnostics.AddError("Error reading Backup after provisioning wait",
-					NewTransportError("read", "Backup", err).Error())
-				return
-			}
-			if apiErr := CheckResponse("read", "Backup", response); apiErr != nil {
-				if IsNotFound(apiErr) {
-					resp.State.RemoveResource(ctx)
-					return
-				}
-				resp.Diagnostics.AddError("API Error", apiErr.Error())
-				return
-			}
+	st := string(backup.State())
+	switch {
+	case isFailedState(st):
+		resp.Diagnostics.AddWarning("Resource in Failed State",
+			fmt.Sprintf("Backup %q is in a terminal failure state (%s). "+
+				"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", data.Id.ValueString(), st))
+	case IsCreatingState(st):
+		if waitErr := backup.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+			ReportWaitResult(&resp.Diagnostics, waitErr, "Backup", data.Id.ValueString())
+			return
+		}
+		backup, err = r.client.Client.FromStorage().Backups().Get(ctx, backupRef(&data))
+		if provErr := CheckResponseErr("read", "Backup", err); provErr != nil {
+			resp.Diagnostics.AddError("API Error", provErr.Error())
+			return
 		}
 	}
 
-	if response != nil && response.Data != nil {
-		backup := response.Data
-
-		if backup.Metadata.ID != nil {
-			data.Id = types.StringValue(*backup.Metadata.ID)
+	data.Id = types.StringValue(backup.ID())
+	data.Uri = strVal(backup.URI())
+	data.Name = types.StringValue(backup.Name())
+	data.Tags = TagsToListPreserveNull(backup.Tags(), data.Tags)
+	if backup.Region() != "" {
+		data.Location = types.StringValue(string(backup.Region()))
+	}
+	if t := string(backup.Type()); t != "" {
+		data.Type = types.StringValue(t)
+	}
+	// Extract volume ID from origin URI.
+	if originURI := backup.OriginURI(); originURI != "" {
+		parts := strings.Split(originURI, "/")
+		if len(parts) > 0 {
+			data.VolumeID = types.StringValue(parts[len(parts)-1])
 		}
-		if backup.Metadata.URI != nil {
-			data.Uri = types.StringValue(*backup.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-		if backup.Metadata.Name != nil {
-			data.Name = types.StringValue(*backup.Metadata.Name)
-		}
-		if backup.Metadata.LocationResponse != nil {
-			data.Location = types.StringValue(backup.Metadata.LocationResponse.Value)
-		}
-		// Note: StorageBackupType field may not be available in the response
-		// If type is needed, it should be stored from the create request
-		if backup.Properties.Origin.URI != "" {
-			// Extract Volume ID from URI
-			parts := strings.Split(backup.Properties.Origin.URI, "/")
-			if len(parts) > 0 {
-				data.VolumeID = types.StringValue(parts[len(parts)-1])
-			}
-		}
-		if backup.Properties.RetentionDays != nil {
-			data.RetentionDays = types.Int64Value(int64(*backup.Properties.RetentionDays))
-		}
-		if backup.Properties.BillingPeriod != nil {
-			data.BillingPeriod = types.StringValue(*backup.Properties.BillingPeriod)
-		}
-
-		data.Tags = TagsToListPreserveNull(backup.Metadata.Tags, data.Tags)
-	} else {
-		resp.State.RemoveResource(ctx)
-		return
+	}
+	if days := backup.RetentionDays(); days > 0 {
+		data.RetentionDays = types.Int64Value(int64(days))
+	}
+	if bp := string(backup.BillingPeriod()); bp != "" {
+		data.BillingPeriod = types.StringValue(bp)
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -383,57 +252,8 @@ func (r *BackupResource) Update(ctx context.Context, req resource.UpdateRequest,
 	var state BackupResourceModel
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	// Get IDs from state (not plan) - IDs are immutable and should always be in state
-	projectID := state.ProjectID.ValueString()
-	backupID := state.Id.ValueString()
-
-	if projectID == "" || backupID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID and Backup ID are required to update the backup",
-		)
-		return
-	}
-
-	// Get current backup details
-	getResponse, err := r.client.Client.FromStorage().Backups().Get(ctx, projectID, backupID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error fetching current backup",
-			NewTransportError("read", "Backup", err).Error(),
-		)
-		return
-	}
-
-	if getResponse == nil || getResponse.Data == nil {
-		resp.Diagnostics.AddError(
-			"Backup Not Found",
-			"Backup not found or no data returned",
-		)
-		return
-	}
-
-	current := getResponse.Data
-
-	// Get region value
-	regionValue := ""
-	if current.Metadata.LocationResponse != nil {
-		regionValue = current.Metadata.LocationResponse.Value
-	}
-	if regionValue == "" {
-		resp.Diagnostics.AddError(
-			"Missing Region",
-			"Unable to determine region value for backup",
-		)
 		return
 	}
 
@@ -441,77 +261,36 @@ func (r *BackupResource) Update(ctx context.Context, req resource.UpdateRequest,
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if tags == nil {
-		tags = current.Metadata.Tags
-	}
 
-	// Build update request - only name and tags can be updated
-	updateRequest := sdktypes.StorageBackupRequest{
-		Metadata: sdktypes.RegionalResourceMetadataRequest{
-			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
-				Name: data.Name.ValueString(),
-				Tags: tags,
-			},
-			Location: sdktypes.LocationRequest{
-				Value: regionValue,
-			},
-		},
-		Properties: sdktypes.StorageBackupPropertiesRequest{
-			// Properties cannot be updated - use current values
-			// Note: StorageBackupType may not be available in result type
-			// If needed, preserve from state or use default
-			Origin:        current.Properties.Origin,
-			RetentionDays: current.Properties.RetentionDays,
-			BillingPeriod: current.Properties.BillingPeriod,
-		},
-	}
-
-	// Update the backup using the SDK
-	response, err := r.client.Client.FromStorage().Backups().Update(ctx, projectID, backupID, updateRequest, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error updating backup",
-			NewTransportError("update", "Backup", err).Error(),
-		)
+	backup, err := r.client.Client.FromStorage().Backups().Get(ctx, backupRef(&state))
+	if provErr := CheckResponseErr("read", "Backup", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	if apiErr := CheckResponse("update", "Backup", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
+	backup.Named(data.Name.ValueString())
+	if tags != nil {
+		backup.RetaggedAs(tags...)
+	} else {
+		backup.RetaggedAs(backup.Tags()...)
+	}
+
+	updated, err := r.client.Client.FromStorage().Backups().Update(ctx, backup)
+	if provErr := CheckResponseErr("update", "Backup", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	// Ensure immutable fields are set from state before saving
 	data.Id = state.Id
 	data.ProjectID = state.ProjectID
-	data.Uri = state.Uri                     // Preserve URI from state
-	data.VolumeID = state.VolumeID           // Immutable
-	data.Type = state.Type                   // Immutable
-	data.RetentionDays = state.RetentionDays // Immutable
-	data.BillingPeriod = state.BillingPeriod // Immutable
-
-	if response != nil && response.Data != nil {
-		// Update from response if available (should match state)
-		if response.Data.Metadata.ID != nil {
-			data.Id = types.StringValue(*response.Data.Metadata.ID)
-		}
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		}
-	} else {
-		// If no response, re-read the backup to get the latest state including URI
-		getResp, err := r.client.Client.FromStorage().Backups().Get(ctx, projectID, backupID, nil)
-		if err == nil && getResp != nil && getResp.Data != nil {
-			if getResp.Data.Metadata.URI != nil {
-				data.Uri = types.StringValue(*getResp.Data.Metadata.URI)
-			} else {
-				data.Uri = state.Uri // Fallback to state if not in response
-			}
-		} else {
-			// If re-read fails, preserve from state
-			data.Uri = state.Uri
-		}
-	}
+	data.Uri = state.Uri
+	data.VolumeID = state.VolumeID
+	data.Type = state.Type
+	data.RetentionDays = state.RetentionDays
+	data.BillingPeriod = state.BillingPeriod
+	data.Location = state.Location
+	data.Name = types.StringValue(updated.Name())
+	data.Tags = TagsToListPreserveNull(updated.Tags(), data.Tags)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -523,25 +302,12 @@ func (r *BackupResource) Delete(ctx context.Context, req resource.DeleteRequest,
 		return
 	}
 
-	projectID := data.ProjectID.ValueString()
+	ref := backupRef(&data)
 	backupID := data.Id.ValueString()
 
-	if projectID == "" || backupID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID and Backup ID are required to delete the backup",
-		)
-		return
-	}
-
-	// Delete the backup using the SDK with retry mechanism
-	// Retry on any error except 404 (Resource Not Found)
 	deletionChecker := func(ctx context.Context) (bool, error) {
-		getResp, getErr := r.client.Client.FromStorage().Backups().Get(ctx, projectID, backupID, nil)
-		if getErr != nil {
-			return false, NewTransportError("get", "Backup", getErr)
-		}
-		if provErr := CheckResponse("get", "Backup", getResp); provErr != nil {
+		_, getErr := r.client.Client.FromStorage().Backups().Get(ctx, ref)
+		if provErr := CheckResponseErr("get", "Backup", getErr); provErr != nil {
 			if IsNotFound(provErr) {
 				return true, nil
 			}
@@ -551,37 +317,19 @@ func (r *BackupResource) Delete(ctx context.Context, req resource.DeleteRequest,
 	}
 
 	deleteStart := time.Now()
-	err := DeleteResourceWithRetry(
-		ctx,
-		func() error {
-			resp, err := r.client.Client.FromStorage().Backups().Delete(ctx, projectID, backupID, nil)
-			if err != nil {
-				return NewTransportError("delete", "Backup", err)
-			}
-			return CheckResponse("delete", "Backup", resp)
-		},
-		"Backup",
-		backupID,
-		r.client.ResourceTimeout,
-		deletionChecker,
-	)
-
+	err := DeleteResourceWithRetry(ctx, func() error {
+		return CheckResponseErr("delete", "Backup",
+			r.client.Client.FromStorage().Backups().Delete(ctx, ref))
+	}, "Backup", backupID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error deleting backup",
-			NewTransportError("delete", "Backup", err).Error(),
-		)
+		resp.Diagnostics.AddError("Error deleting Backup", err.Error())
 		return
 	}
-
 	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "Backup", backupID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for Backup deletion", waitErr.Error())
 		return
 	}
-
-	tflog.Trace(ctx, "deleted a Backup resource", map[string]interface{}{
-		"backup_id": backupID,
-	})
+	tflog.Trace(ctx, "deleted a Backup resource", map[string]interface{}{"backup_id": backupID})
 }
 
 func (r *BackupResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

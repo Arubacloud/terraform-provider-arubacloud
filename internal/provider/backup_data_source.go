@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -107,70 +108,47 @@ func (d *BackupDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 	projectID := data.ProjectID.ValueString()
 	backupID := data.Id.ValueString()
 	if projectID == "" || backupID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID and Backup ID (id) are required to read the backup",
-		)
+		resp.Diagnostics.AddError("Missing Required Fields", "Project ID and Backup ID (id) are required to read the backup")
 		return
 	}
 
-	response, err := d.client.Client.FromStorage().Backups().Get(ctx, projectID, backupID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading backup",
-			NewTransportError("read", "Backup", err).Error(),
-		)
-		return
-	}
-	if apiErr := CheckResponse("read", "Backup", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-	if response == nil || response.Data == nil {
-		resp.Diagnostics.AddError(
-			"No data returned",
-			"Backup Get returned no data",
-		)
+	backup, err := d.client.Client.FromStorage().Backups().Get(ctx,
+		aruba.URI("/projects/"+projectID+"/providers/Aruba.Storage/backups/"+backupID))
+	if provErr := CheckResponseErr("read", "Backup", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	backup := response.Data
-
-	if backup.Metadata.ID != nil {
-		data.Id = types.StringValue(*backup.Metadata.ID)
-	}
-	if backup.Metadata.Name != nil {
-		data.Name = types.StringValue(*backup.Metadata.Name)
-	}
-	if backup.Metadata.LocationResponse != nil {
-		data.Location = types.StringValue(backup.Metadata.LocationResponse.Value)
+	data.Id = types.StringValue(backup.ID())
+	data.Name = types.StringValue(backup.Name())
+	data.ProjectID = types.StringValue(projectID)
+	if backup.Region() != "" {
+		data.Location = types.StringValue(string(backup.Region()))
 	} else {
 		data.Location = types.StringNull()
 	}
-	data.ProjectID = types.StringValue(projectID)
-	if backup.Properties.Type != "" {
-		data.Type = types.StringValue(string(backup.Properties.Type))
+	if t := string(backup.Type()); t != "" {
+		data.Type = types.StringValue(t)
 	} else {
 		data.Type = types.StringNull()
 	}
-	if backup.Properties.Origin.URI != "" {
-		parts := strings.Split(backup.Properties.Origin.URI, "/")
+	if originURI := backup.OriginURI(); originURI != "" {
+		parts := strings.Split(originURI, "/")
 		data.VolumeID = types.StringValue(parts[len(parts)-1])
 	} else {
 		data.VolumeID = types.StringNull()
 	}
-	if backup.Properties.RetentionDays != nil {
-		data.RetentionDays = types.Int64Value(int64(*backup.Properties.RetentionDays))
+	if days := backup.RetentionDays(); days > 0 {
+		data.RetentionDays = types.Int64Value(int64(days))
 	} else {
 		data.RetentionDays = types.Int64Null()
 	}
-	if backup.Properties.BillingPeriod != nil {
-		data.BillingPeriod = types.StringValue(*backup.Properties.BillingPeriod)
+	if bp := string(backup.BillingPeriod()); bp != "" {
+		data.BillingPeriod = types.StringValue(bp)
 	} else {
 		data.BillingPeriod = types.StringNull()
 	}
-
-	data.Tags = TagsToListPreserveNull(backup.Metadata.Tags, data.Tags)
+	data.Tags = TagsToListPreserveNull(backup.Tags(), data.Tags)
 
 	tflog.Trace(ctx, "read a Backup data source", map[string]interface{}{"backup_id": backupID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
