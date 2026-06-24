@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -106,6 +106,31 @@ func (r *VPNRouteResource) Configure(ctx context.Context, req resource.Configure
 	r.client = client
 }
 
+func vpnRouteRef(data *VPNRouteResourceModel) aruba.Ref {
+	if !data.Uri.IsNull() && data.Uri.ValueString() != "" {
+		return aruba.URI(data.Uri.ValueString())
+	}
+	return aruba.VPNRouteRef(data.ProjectId.ValueString(), data.VPNTunnelId.ValueString(), data.Id.ValueString())
+}
+
+func extractVPNRouteSubnets(data *VPNRouteResourceModel) (cloudSubnet, onPremSubnet string) {
+	if data.Properties.IsNull() || data.Properties.IsUnknown() {
+		return
+	}
+	attrs := data.Properties.Attributes()
+	if v, ok := attrs["cloud_subnet"]; ok {
+		if s, ok := v.(types.String); ok && !s.IsNull() {
+			cloudSubnet = s.ValueString()
+		}
+	}
+	if v, ok := attrs["on_prem_subnet"]; ok {
+		if s, ok := v.(types.String); ok && !s.IsNull() {
+			onPremSubnet = s.ValueString()
+		}
+	}
+	return
+}
+
 func (r *VPNRouteResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data VPNRouteResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
@@ -116,108 +141,38 @@ func (r *VPNRouteResource) Create(ctx context.Context, req resource.CreateReques
 	projectID := data.ProjectId.ValueString()
 	vpnTunnelID := data.VPNTunnelId.ValueString()
 
-	if projectID == "" || vpnTunnelID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID and VPN Tunnel ID are required to create a VPN route",
-		)
-		return
-	}
-
 	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Extract properties from Terraform object
-	propertiesObj, diags := data.Properties.ToObjectValue(ctx)
-	resp.Diagnostics.Append(diags...)
+	cloudSubnet, onPremSubnet := extractVPNRouteSubnets(&data)
+
+	tunnelRef := aruba.VPNTunnelRef(projectID, vpnTunnelID)
+	route, err := r.client.Client.FromNetwork().VPNRoutes().Create(ctx,
+		aruba.NewVPNRoute().
+			Named(data.Name.ValueString()).
+			InVPNTunnel(tunnelRef).
+			InRegion(aruba.Region(data.Location.ValueString())).
+			Tagged(tags...).
+			WithCloudSubnet(cloudSubnet).
+			WithOnPremSubnet(onPremSubnet),
+	)
+	if provErr := CheckResponseErr("create", "VPNRoute", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
+		return
+	}
+
+	data.Id = types.StringValue(route.ID())
+	data.Uri = strVal(route.URI())
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	propertiesAttrs := propertiesObj.Attributes()
-	cloudSubnetAttr, ok := propertiesAttrs["cloud_subnet"].(types.String)
-	if !ok {
-		resp.Diagnostics.AddError("Invalid Type", "cloud_subnet must be a String")
-		return
-	}
-	cloudSubnet := cloudSubnetAttr.ValueString()
-
-	onPremSubnetAttr, ok := propertiesAttrs["on_prem_subnet"].(types.String)
-	if !ok {
-		resp.Diagnostics.AddError("Invalid Type", "on_prem_subnet must be a String")
-		return
-	}
-	onPremSubnet := onPremSubnetAttr.ValueString()
-
-	// Build the create request
-	createRequest := sdktypes.VPNRouteRequest{
-		Metadata: sdktypes.RegionalResourceMetadataRequest{
-			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
-				Name: data.Name.ValueString(),
-				Tags: tags,
-			},
-			Location: sdktypes.LocationRequest{
-				Value: data.Location.ValueString(),
-			},
-		},
-		Properties: sdktypes.VPNRoutePropertiesRequest{
-			CloudSubnet:  cloudSubnet,
-			OnPremSubnet: onPremSubnet,
-		},
-	}
-
-	// Create the VPN route using the SDK
-	response, err := r.client.Client.FromNetwork().VPNRoutes().Create(ctx, projectID, vpnTunnelID, createRequest, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error creating VPN route",
-			NewTransportError("create", "Vpnroute", err).Error(),
-		)
-		return
-	}
-
-	if apiErr := CheckResponse("create", "Vpnroute", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-
-	if response != nil && response.Data != nil {
-		if response.Data.Metadata.ID != nil {
-			data.Id = types.StringValue(*response.Data.Metadata.ID)
-		}
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-	} else {
-		resp.Diagnostics.AddError(
-			"Invalid API Response",
-			"VPN route created but no data returned from API",
-		)
-		return
-	}
-
-	// Wait for VPN Route to be active before returning (VPNRoute references VPNTunnel)
-	// This ensures Terraform doesn't proceed to create dependent resources until VPN Route is ready
-	routeID := data.Id.ValueString()
-	checker := func(ctx context.Context) (string, error) {
-		getResp, err := r.client.Client.FromNetwork().VPNRoutes().Get(ctx, projectID, vpnTunnelID, routeID, nil)
-		if err != nil {
-			return "", err
-		}
-		if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
-			return *getResp.Data.Status.State, nil
-		}
-		return "Unknown", nil
-	}
-
-	// Wait for VPN Route to be active - block until ready (using configured timeout)
-	if err := WaitForResourceActive(ctx, checker, "VPNRoute", routeID, r.client.ResourceTimeout); err != nil {
-		ReportWaitResult(&resp.Diagnostics, err, "VPNRoute", routeID)
-		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	if waitErr := route.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+		ReportWaitResult(&resp.Diagnostics, waitErr, "VPNRoute", data.Id.ValueString())
 		return
 	}
 
@@ -225,7 +180,6 @@ func (r *VPNRouteResource) Create(ctx context.Context, req resource.CreateReques
 		"vpnroute_id":   data.Id.ValueString(),
 		"vpnroute_name": data.Name.ValueString(),
 	})
-
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -235,124 +189,60 @@ func (r *VPNRouteResource) Read(ctx context.Context, req resource.ReadRequest, r
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	projectID := data.ProjectId.ValueString()
-	vpnTunnelID := data.VPNTunnelId.ValueString()
-	routeID := data.Id.ValueString()
-
-	if data.Id.IsUnknown() || data.Id.IsNull() || routeID == "" {
-		tflog.Debug(ctx, "VPN Route ID is empty, removing resource from state", map[string]interface{}{"route_id": routeID})
+	if data.Id.IsNull() || data.Id.ValueString() == "" {
 		resp.State.RemoveResource(ctx)
 		return
 	}
-	if projectID == "" || vpnTunnelID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID and VPN Tunnel ID are required to read the VPN route",
-		)
-		return
-	}
 
-	// Get VPN route details using the SDK
-	response, err := r.client.Client.FromNetwork().VPNRoutes().Get(ctx, projectID, vpnTunnelID, routeID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading VPN route",
-			NewTransportError("read", "Vpnroute", err).Error(),
-		)
-		return
-	}
-
-	if apiErr := CheckResponse("read", "Vpnroute", response); apiErr != nil {
-		if IsNotFound(apiErr) {
+	route, err := r.client.Client.FromNetwork().VPNRoutes().Get(ctx, vpnRouteRef(&data))
+	if provErr := CheckResponseErr("read", "VPNRoute", err); provErr != nil {
+		if IsNotFound(provErr) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	// If the resource is still provisioning (e.g. after a Create timeout that saved
-	// partial state), resume the wait so the next terraform apply reconciles correctly.
-	if response.Data.Status.State != nil {
-		switch st := *response.Data.Status.State; {
-		case isFailedState(st):
-			resp.Diagnostics.AddWarning(
-				"Resource in Failed State",
-				fmt.Sprintf("VPNRoute %q is in a terminal failure state (%s). "+
-					"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", routeID, st),
-			)
-		case IsCreatingState(st):
-			checker := func(ctx context.Context) (string, error) {
-				getResp, err := r.client.Client.FromNetwork().VPNRoutes().Get(ctx, projectID, vpnTunnelID, routeID, nil)
-				if err != nil {
-					return "", err
-				}
-				if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
-					return *getResp.Data.Status.State, nil
-				}
-				return "Unknown", nil
-			}
-			if err := WaitForResourceActive(ctx, checker, "VPNRoute", routeID, r.client.ResourceTimeout); err != nil {
-				ReportWaitResult(&resp.Diagnostics, err, "VPNRoute", routeID)
-				resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-				return
-			}
-			// Re-read to get the final active state.
-			response, err = r.client.Client.FromNetwork().VPNRoutes().Get(ctx, projectID, vpnTunnelID, routeID, nil)
-			if err != nil {
-				resp.Diagnostics.AddError("Error reading VPNRoute after provisioning wait",
-					NewTransportError("read", "Vpnroute", err).Error())
-				return
-			}
-			if apiErr := CheckResponse("read", "Vpnroute", response); apiErr != nil {
-				if IsNotFound(apiErr) {
-					resp.State.RemoveResource(ctx)
-					return
-				}
-				resp.Diagnostics.AddError("API Error", apiErr.Error())
-				return
-			}
+	st := string(route.State())
+	switch {
+	case isFailedState(st):
+		resp.Diagnostics.AddWarning("Resource in Failed State",
+			fmt.Sprintf("VPNRoute %q is in a terminal failure state (%s). "+
+				"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", data.Id.ValueString(), st))
+	case IsCreatingState(st):
+		if waitErr := route.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+			ReportWaitResult(&resp.Diagnostics, waitErr, "VPNRoute", data.Id.ValueString())
+			return
+		}
+		route, err = r.client.Client.FromNetwork().VPNRoutes().Get(ctx, vpnRouteRef(&data))
+		if provErr := CheckResponseErr("read", "VPNRoute", err); provErr != nil {
+			resp.Diagnostics.AddError("API Error", provErr.Error())
+			return
 		}
 	}
 
-	if response != nil && response.Data != nil {
-		route := response.Data
+	data.Id = types.StringValue(route.ID())
+	data.Uri = strVal(route.URI())
+	data.Name = types.StringValue(route.Name())
+	data.Tags = TagsToListPreserveNull(route.Tags(), data.Tags)
+	if route.Region() != "" {
+		data.Location = types.StringValue(string(route.Region()))
+	}
 
-		if route.Metadata.ID != nil {
-			data.Id = types.StringValue(*route.Metadata.ID)
-		}
-		if route.Metadata.URI != nil {
-			data.Uri = types.StringValue(*route.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-		if route.Metadata.Name != nil {
-			data.Name = types.StringValue(*route.Metadata.Name)
-		}
-		if route.Metadata.LocationResponse != nil {
-			data.Location = types.StringValue(route.Metadata.LocationResponse.Value)
-		}
-
-		// Update properties from response
-		propertiesMap := map[string]attr.Value{
-			"cloud_subnet":   types.StringValue(route.Properties.CloudSubnet),
-			"on_prem_subnet": types.StringValue(route.Properties.OnPremSubnet),
-		}
-
-		propertiesObj, diags := types.ObjectValue(map[string]attr.Type{
+	propertiesObj, diags := types.ObjectValue(
+		map[string]attr.Type{
 			"cloud_subnet":   types.StringType,
 			"on_prem_subnet": types.StringType,
-		}, propertiesMap)
-		resp.Diagnostics.Append(diags...)
-		if !resp.Diagnostics.HasError() {
-			data.Properties = propertiesObj
-		}
-
-		data.Tags = TagsToListPreserveNull(route.Metadata.Tags, data.Tags)
-	} else {
-		resp.State.RemoveResource(ctx)
-		return
+		},
+		map[string]attr.Value{
+			"cloud_subnet":   types.StringValue(route.CloudSubnet()),
+			"on_prem_subnet": types.StringValue(route.OnPremSubnet()),
+		},
+	)
+	resp.Diagnostics.Append(diags...)
+	if !resp.Diagnostics.HasError() {
+		data.Properties = propertiesObj
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -363,67 +253,8 @@ func (r *VPNRouteResource) Update(ctx context.Context, req resource.UpdateReques
 	var state VPNRouteResourceModel
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	// Get IDs from state (not plan) - IDs are immutable and should always be in state
-	projectID := state.ProjectId.ValueString()
-	vpnTunnelID := state.VPNTunnelId.ValueString()
-	routeID := state.Id.ValueString()
-
-	if projectID == "" || vpnTunnelID == "" || routeID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID, VPN Tunnel ID, and Route ID are required to update the VPN route",
-		)
-		return
-	}
-
-	// Get current VPN route details
-	getResponse, err := r.client.Client.FromNetwork().VPNRoutes().Get(ctx, projectID, vpnTunnelID, routeID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error fetching current VPN route",
-			NewTransportError("read", "Vpnroute", err).Error(),
-		)
-		return
-	}
-
-	if getResponse == nil || getResponse.Data == nil {
-		resp.Diagnostics.AddError(
-			"VPN Route Not Found",
-			"VPN route not found or no data returned",
-		)
-		return
-	}
-
-	current := getResponse.Data
-
-	// Check if VPN route is in InCreation state
-	if current.Status.State != nil && *current.Status.State == "InCreation" {
-		resp.Diagnostics.AddError(
-			"Cannot Update VPN Route",
-			"Cannot update VPN route while it is in 'InCreation' state. Please wait until the VPN route is fully created.",
-		)
-		return
-	}
-
-	// Get region value
-	regionValue := ""
-	if current.Metadata.LocationResponse != nil {
-		regionValue = current.Metadata.LocationResponse.Value
-	}
-	if regionValue == "" {
-		resp.Diagnostics.AddError(
-			"Missing Region",
-			"Unable to determine region value for VPN route",
-		)
 		return
 	}
 
@@ -431,74 +262,55 @@ func (r *VPNRouteResource) Update(ctx context.Context, req resource.UpdateReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if tags == nil {
-		tags = current.Metadata.Tags
-	}
 
-	// Extract properties
-	propertiesObj, diags := data.Properties.ToObjectValue(ctx)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
+	route, err := r.client.Client.FromNetwork().VPNRoutes().Get(ctx, vpnRouteRef(&state))
+	if provErr := CheckResponseErr("read", "VPNRoute", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	propertiesAttrs := propertiesObj.Attributes()
-	cloudSubnetAttr, ok := propertiesAttrs["cloud_subnet"].(types.String)
-	if !ok {
-		resp.Diagnostics.AddError("Invalid Type", "cloud_subnet must be a String")
-		return
+	route.Named(data.Name.ValueString())
+	if tags != nil {
+		route.RetaggedAs(tags...)
+	} else {
+		route.RetaggedAs(route.Tags()...)
 	}
-	cloudSubnet := cloudSubnetAttr.ValueString()
-
-	onPremSubnetAttr, ok := propertiesAttrs["on_prem_subnet"].(types.String)
-	if !ok {
-		resp.Diagnostics.AddError("Invalid Type", "on_prem_subnet must be a String")
-		return
+	// Update subnets from plan.
+	cloudSubnet, onPremSubnet := extractVPNRouteSubnets(&data)
+	if cloudSubnet != "" {
+		route.WithCloudSubnet(cloudSubnet)
 	}
-	onPremSubnet := onPremSubnetAttr.ValueString()
-
-	// Build update request
-	updateRequest := sdktypes.VPNRouteRequest{
-		Metadata: sdktypes.RegionalResourceMetadataRequest{
-			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
-				Name: data.Name.ValueString(),
-				Tags: tags,
-			},
-			Location: sdktypes.LocationRequest{
-				Value: regionValue,
-			},
-		},
-		Properties: sdktypes.VPNRoutePropertiesRequest{
-			CloudSubnet:  cloudSubnet,
-			OnPremSubnet: onPremSubnet,
-		},
+	if onPremSubnet != "" {
+		route.WithOnPremSubnet(onPremSubnet)
 	}
 
-	// Update the VPN route using the SDK
-	response, err := r.client.Client.FromNetwork().VPNRoutes().Update(ctx, projectID, vpnTunnelID, routeID, updateRequest, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error updating VPN route",
-			NewTransportError("update", "Vpnroute", err).Error(),
-		)
+	updated, err := r.client.Client.FromNetwork().VPNRoutes().Update(ctx, route)
+	if provErr := CheckResponseErr("update", "VPNRoute", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	if apiErr := CheckResponse("update", "Vpnroute", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-
-	// Ensure immutable fields are set from state before saving
 	data.Id = state.Id
+	data.Uri = state.Uri
 	data.ProjectId = state.ProjectId
 	data.VPNTunnelId = state.VPNTunnelId
+	data.Location = state.Location
+	data.Name = types.StringValue(updated.Name())
+	data.Tags = TagsToListPreserveNull(updated.Tags(), data.Tags)
 
-	if response != nil && response.Data != nil {
-		// Update from response if available (should match state)
-		if response.Data.Metadata.ID != nil {
-			data.Id = types.StringValue(*response.Data.Metadata.ID)
-		}
+	propertiesObj, diags := types.ObjectValue(
+		map[string]attr.Type{
+			"cloud_subnet":   types.StringType,
+			"on_prem_subnet": types.StringType,
+		},
+		map[string]attr.Value{
+			"cloud_subnet":   types.StringValue(updated.CloudSubnet()),
+			"on_prem_subnet": types.StringValue(updated.OnPremSubnet()),
+		},
+	)
+	resp.Diagnostics.Append(diags...)
+	if !resp.Diagnostics.HasError() {
+		data.Properties = propertiesObj
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -511,26 +323,12 @@ func (r *VPNRouteResource) Delete(ctx context.Context, req resource.DeleteReques
 		return
 	}
 
-	projectID := data.ProjectId.ValueString()
-	vpnTunnelID := data.VPNTunnelId.ValueString()
+	ref := vpnRouteRef(&data)
 	routeID := data.Id.ValueString()
 
-	if projectID == "" || vpnTunnelID == "" || routeID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID, VPN Tunnel ID, and Route ID are required to delete the VPN route",
-		)
-		return
-	}
-
-	// Delete the VPN route using the SDK with retry mechanism
-	// Retry on any error except 404 (Resource Not Found)
 	deletionChecker := func(ctx context.Context) (bool, error) {
-		getResp, getErr := r.client.Client.FromNetwork().VPNRoutes().Get(ctx, projectID, vpnTunnelID, routeID, nil)
-		if getErr != nil {
-			return false, NewTransportError("get", "VPNRoute", getErr)
-		}
-		if provErr := CheckResponse("get", "VPNRoute", getResp); provErr != nil {
+		_, getErr := r.client.Client.FromNetwork().VPNRoutes().Get(ctx, ref)
+		if provErr := CheckResponseErr("get", "VPNRoute", getErr); provErr != nil {
 			if IsNotFound(provErr) {
 				return true, nil
 			}
@@ -540,37 +338,19 @@ func (r *VPNRouteResource) Delete(ctx context.Context, req resource.DeleteReques
 	}
 
 	deleteStart := time.Now()
-	err := DeleteResourceWithRetry(
-		ctx,
-		func() error {
-			resp, err := r.client.Client.FromNetwork().VPNRoutes().Delete(ctx, projectID, vpnTunnelID, routeID, nil)
-			if err != nil {
-				return NewTransportError("delete", "VPNRoute", err)
-			}
-			return CheckResponse("delete", "VPNRoute", resp)
-		},
-		"VPNRoute",
-		routeID,
-		r.client.ResourceTimeout,
-		deletionChecker,
-	)
-
+	err := DeleteResourceWithRetry(ctx, func() error {
+		return CheckResponseErr("delete", "VPNRoute",
+			r.client.Client.FromNetwork().VPNRoutes().Delete(ctx, ref))
+	}, "VPNRoute", routeID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error deleting VPN route",
-			NewTransportError("delete", "Vpnroute", err).Error(),
-		)
+		resp.Diagnostics.AddError("Error deleting VPNRoute", err.Error())
 		return
 	}
-
 	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "VPNRoute", routeID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for VPNRoute deletion", waitErr.Error())
 		return
 	}
-
-	tflog.Trace(ctx, "deleted a VPN Route resource", map[string]interface{}{
-		"vpnroute_id": routeID,
-	})
+	tflog.Trace(ctx, "deleted a VPN Route resource", map[string]interface{}{"vpnroute_id": routeID})
 }
 
 func (r *VPNRouteResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
