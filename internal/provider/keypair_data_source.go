@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -91,54 +92,35 @@ func (d *KeypairDataSource) Read(ctx context.Context, req datasource.ReadRequest
 	projectID := data.ProjectID.ValueString()
 	keypairID := data.Id.ValueString()
 	if projectID == "" || keypairID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID and Keypair ID (id) are required to read the keypair",
-		)
+		resp.Diagnostics.AddError("Missing Required Fields", "Project ID and Keypair ID are required to read the keypair")
 		return
 	}
 
-	response, err := d.client.Client.FromCompute().KeyPairs().Get(ctx, projectID, keypairID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading keypair",
-			NewTransportError("read", "Keypair", err).Error(),
-		)
-		return
-	}
-	if apiErr := CheckResponse("read", "Keypair", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-	if response == nil || response.Data == nil {
-		resp.Diagnostics.AddError(
-			"No data returned",
-			"Keypair Get returned no data",
-		)
+	ref := aruba.URI("/projects/" + projectID + "/compute/keyPairs/" + keypairID)
+	kp, err := d.client.Client.FromCompute().KeyPairs().Get(ctx, ref)
+	if provErr := CheckResponseErr("read", "Keypair", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	keypair := response.Data
+	data.Id = types.StringValue(kp.ID())
+	data.Name = types.StringValue(kp.Name())
+	data.ProjectID = types.StringValue(projectID)
 
-	if keypair.Metadata.ID != nil {
-		data.Id = types.StringValue(*keypair.Metadata.ID)
-	}
-	if keypair.Metadata.Name != nil {
-		data.Name = types.StringValue(*keypair.Metadata.Name)
-	}
-	if keypair.Metadata.LocationResponse != nil {
-		data.Location = types.StringValue(keypair.Metadata.LocationResponse.Value)
+	raw := kp.Raw()
+	if raw != nil && raw.Metadata.LocationResponse != nil {
+		data.Location = types.StringValue(raw.Metadata.LocationResponse.Value)
 	} else {
 		data.Location = types.StringNull()
 	}
-	data.ProjectID = types.StringValue(projectID)
-	if keypair.Properties.Value != "" {
-		data.Value = types.StringValue(keypair.Properties.Value)
+
+	if raw != nil && raw.Properties.Value != "" {
+		data.Value = types.StringValue(raw.Properties.Value)
 	} else {
 		data.Value = types.StringNull()
 	}
 
-	data.Tags = TagsToListPreserveNull(keypair.Metadata.Tags, data.Tags)
+	data.Tags = TagsToListPreserveNull(kp.Tags(), data.Tags)
 
 	tflog.Trace(ctx, "read a Keypair data source", map[string]interface{}{"keypair_id": keypairID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
