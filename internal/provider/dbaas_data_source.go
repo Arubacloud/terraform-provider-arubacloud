@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -157,74 +158,63 @@ func (d *DBaaSDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 		return
 	}
 
-	response, err := d.client.Client.FromDatabase().DBaaS().Get(ctx, projectID, dbaasID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError("Error reading DBaaS instance", NewTransportError("read", "Dbaas", err).Error())
-		return
-	}
-	if apiErr := CheckResponse("read", "Dbaas", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-	if response == nil || response.Data == nil {
-		resp.Diagnostics.AddError("No data returned", "DBaaS Get returned no data")
+	dbaas, err := d.client.Client.FromDatabase().DBaaS().Get(ctx,
+		aruba.URI("/projects/"+projectID+"/providers/Aruba.Database/dbaas/"+dbaasID))
+	if provErr := CheckResponseErr("read", "DBaaS", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	dbaas := response.Data
-	if dbaas.Metadata.ID != nil {
-		data.Id = types.StringValue(*dbaas.Metadata.ID)
-	}
-	if dbaas.Metadata.URI != nil {
-		data.Uri = types.StringValue(*dbaas.Metadata.URI)
-	} else {
-		data.Uri = types.StringNull()
-	}
-	if dbaas.Metadata.Name != nil {
-		data.Name = types.StringValue(*dbaas.Metadata.Name)
-	}
-	if dbaas.Metadata.LocationResponse != nil {
-		data.Location = types.StringValue(dbaas.Metadata.LocationResponse.Value)
+	data.Id = types.StringValue(dbaas.ID())
+	data.Uri = strVal(dbaas.URI())
+	data.Name = types.StringValue(dbaas.Name())
+	data.ProjectID = types.StringValue(projectID)
+	data.Tags = TagsToListPreserveNull(dbaas.Tags(), data.Tags)
+
+	if dbaas.Region() != "" {
+		data.Location = types.StringValue(string(dbaas.Region()))
 	} else {
 		data.Location = types.StringNull()
 	}
-	data.ProjectID = types.StringValue(projectID)
-	// Zone is not returned by the API
+	// Zone is not reliably returned by the API.
 	data.Zone = types.StringNull()
 
-	if dbaas.Properties.Engine != nil && dbaas.Properties.Engine.ID != nil {
-		data.EngineID = types.StringValue(*dbaas.Properties.Engine.ID)
+	if e := string(dbaas.Engine()); e != "" {
+		data.EngineID = types.StringValue(e)
 	} else {
 		data.EngineID = types.StringNull()
 	}
-	if dbaas.Properties.Flavor != nil && dbaas.Properties.Flavor.Name != nil {
-		data.Flavor = types.StringValue(*dbaas.Properties.Flavor.Name)
+	if f := string(dbaas.Flavor()); f != "" {
+		data.Flavor = types.StringValue(f)
 	} else {
 		data.Flavor = types.StringNull()
 	}
-	if dbaas.Properties.BillingPlan != nil && dbaas.Properties.BillingPlan.BillingPeriod != nil {
-		data.BillingPeriod = types.StringValue(*dbaas.Properties.BillingPlan.BillingPeriod)
+	if bp := string(dbaas.BillingPeriod()); bp != "" {
+		data.BillingPeriod = types.StringValue(bp)
 	} else {
 		data.BillingPeriod = types.StringNull()
 	}
 
-	if dbaas.Properties.Storage != nil && dbaas.Properties.Storage.SizeGB != nil {
-		data.StorageSizeGB = types.Int64Value(int64(*dbaas.Properties.Storage.SizeGB))
+	if s := dbaas.SizeGB(); s > 0 {
+		data.StorageSizeGB = types.Int64Value(int64(s))
 	} else {
 		data.StorageSizeGB = types.Int64Null()
 	}
-	// Autoscaling fields are not reliably returned by the API
-	data.AutoscalingEnabled = types.BoolNull()
-	data.AutoscalingAvailableSpace = types.Int64Null()
-	data.AutoscalingStepSize = types.Int64Null()
+	if dbaas.AutoscalingEnabled() {
+		data.AutoscalingEnabled = types.BoolValue(true)
+		data.AutoscalingAvailableSpace = types.Int64Value(int64(dbaas.AutoscalingAvailableSpaceGB()))
+		data.AutoscalingStepSize = types.Int64Value(int64(dbaas.AutoscalingStepSizeGB()))
+	} else {
+		data.AutoscalingEnabled = types.BoolNull()
+		data.AutoscalingAvailableSpace = types.Int64Null()
+		data.AutoscalingStepSize = types.Int64Null()
+	}
 
-	// Network URIs are not returned by the API
-	data.VpcUriRef = types.StringNull()
-	data.SubnetUriRef = types.StringNull()
-	data.SecurityGroupUriRef = types.StringNull()
-	data.ElasticIpUriRef = types.StringNull()
-
-	data.Tags = TagsToListPreserveNull(dbaas.Metadata.Tags, data.Tags)
+	// Network URIs (may be empty if not in API response).
+	data.VpcUriRef = strVal(dbaas.VPC())
+	data.SubnetUriRef = strVal(dbaas.Subnet())
+	data.SecurityGroupUriRef = strVal(dbaas.SecurityGroup())
+	data.ElasticIpUriRef = strVal(dbaas.ElasticIP())
 
 	tflog.Trace(ctx, "read a DBaaS data source", map[string]interface{}{"dbaas_id": dbaasID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -123,32 +123,24 @@ func (r *DBaaSResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				Required:            true,
 				Attributes: map[string]schema.Attribute{
 					"vpc_uri_ref": schema.StringAttribute{
-						MarkdownDescription: "URI reference to the VPC resource. References the `uri` attribute of an `arubacloud_vpc` resource (e.g., `arubacloud_vpc.example.uri`).",
+						MarkdownDescription: "URI reference to the VPC resource.",
 						Required:            true,
-						PlanModifiers: []planmodifier.String{
-							stringplanmodifier.UseStateForUnknown(),
-						},
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 					"subnet_uri_ref": schema.StringAttribute{
-						MarkdownDescription: "URI reference to the Subnet resource. References the `uri` attribute of an `arubacloud_subnet` resource (e.g., `arubacloud_subnet.example.uri`).",
+						MarkdownDescription: "URI reference to the Subnet resource.",
 						Required:            true,
-						PlanModifiers: []planmodifier.String{
-							stringplanmodifier.UseStateForUnknown(),
-						},
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 					"security_group_uri_ref": schema.StringAttribute{
-						MarkdownDescription: "URI reference to the Security Group resource. References the `uri` attribute of an `arubacloud_securitygroup` resource (e.g., `arubacloud_securitygroup.example.uri`).",
+						MarkdownDescription: "URI reference to the Security Group resource.",
 						Required:            true,
-						PlanModifiers: []planmodifier.String{
-							stringplanmodifier.UseStateForUnknown(),
-						},
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 					"elastic_ip_uri_ref": schema.StringAttribute{
-						MarkdownDescription: "Optional URI reference to an Elastic IP resource. References the `uri` attribute of an `arubacloud_elasticip` resource (e.g., `arubacloud_elasticip.example.uri`).",
+						MarkdownDescription: "Optional URI reference to an Elastic IP resource.",
 						Optional:            true,
-						PlanModifiers: []planmodifier.String{
-							stringplanmodifier.UseStateForUnknown(),
-						},
+						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 				},
 			},
@@ -175,6 +167,74 @@ func (r *DBaaSResource) Configure(ctx context.Context, req resource.ConfigureReq
 	r.client = client
 }
 
+func dbaasRef(data *DBaaSResourceModel) aruba.Ref {
+	if !data.Uri.IsNull() && data.Uri.ValueString() != "" {
+		return aruba.URI(data.Uri.ValueString())
+	}
+	return aruba.URI("/projects/" + data.ProjectID.ValueString() + "/providers/Aruba.Database/dbaas/" + data.Id.ValueString())
+}
+
+// dbaasNetworkAttrTypes returns the attr.Type map for the network object.
+func dbaasNetworkAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"vpc_uri_ref":            types.StringType,
+		"subnet_uri_ref":         types.StringType,
+		"security_group_uri_ref": types.StringType,
+		"elastic_ip_uri_ref":     types.StringType,
+	}
+}
+
+// dbaasStorageAttrTypes returns the attr.Type map for the storage object.
+func dbaasStorageAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"size_gb": types.Int64Type,
+		"autoscaling": types.ObjectType{
+			AttrTypes: map[string]attr.Type{
+				"enabled":         types.BoolType,
+				"available_space": types.Int64Type,
+				"step_size":       types.Int64Type,
+			},
+		},
+	}
+}
+
+// extractNetworkFromModel extracts VPC, subnet, security group, and elastic IP URIs from the model's Network object.
+func extractNetworkFromModel(ctx context.Context, data *DBaaSResourceModel) (vpc, subnet, sg, eip string, ok bool) {
+	if data.Network.IsNull() || data.Network.IsUnknown() {
+		return
+	}
+	attrs := data.Network.Attributes()
+	getStr := func(key string) string {
+		if v, exists := attrs[key]; exists {
+			if s, isStr := v.(types.String); isStr && !s.IsNull() {
+				return s.ValueString()
+			}
+		}
+		return ""
+	}
+	vpc = getStr("vpc_uri_ref")
+	subnet = getStr("subnet_uri_ref")
+	sg = getStr("security_group_uri_ref")
+	eip = getStr("elastic_ip_uri_ref")
+	ok = vpc != "" && subnet != "" && sg != ""
+	return
+}
+
+// buildNetworkObject builds the network types.Object for state from the four URIs.
+func buildNetworkObject(vpc, subnet, sg, eip string) types.Object {
+	eipVal := types.StringNull()
+	if eip != "" {
+		eipVal = types.StringValue(eip)
+	}
+	obj, _ := types.ObjectValue(dbaasNetworkAttrTypes(), map[string]attr.Value{
+		"vpc_uri_ref":            types.StringValue(vpc),
+		"subnet_uri_ref":         types.StringValue(subnet),
+		"security_group_uri_ref": types.StringValue(sg),
+		"elastic_ip_uri_ref":     eipVal,
+	})
+	return obj
+}
+
 func (r *DBaaSResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data DBaaSResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
@@ -183,291 +243,97 @@ func (r *DBaaSResource) Create(ctx context.Context, req resource.CreateRequest, 
 	}
 
 	projectID := data.ProjectID.ValueString()
-	if projectID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Project ID",
-			"Project ID is required to create a DBaaS instance",
-		)
-		return
-	}
-
 	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	engineID := data.EngineID.ValueString()
-	flavor := data.Flavor.ValueString()
-	zone := data.Zone.ValueString()
-
-	// Extract storage configuration from nested object
+	// Extract storage.
 	if data.Storage.IsNull() || data.Storage.IsUnknown() {
-		resp.Diagnostics.AddError(
-			"Missing Storage Configuration",
-			"Storage configuration is required to create a DBaaS instance",
-		)
+		resp.Diagnostics.AddError("Missing Storage Configuration", "Storage configuration is required to create a DBaaS instance")
+		return
+	}
+	storageAttrs := data.Storage.Attributes()
+	sizeGBAttr, _ := storageAttrs["size_gb"].(types.Int64)
+	if sizeGBAttr.IsNull() || sizeGBAttr.IsUnknown() {
+		resp.Diagnostics.AddError("Missing Storage Size", "Storage size_gb is required")
 		return
 	}
 
-	storageObj, diags := data.Storage.ToObjectValue(ctx)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
+	// Extract network.
+	vpc, subnet, sg, eip, netOK := extractNetworkFromModel(ctx, &data)
+	if !netOK {
+		resp.Diagnostics.AddError("Missing Network Configuration", "vpc_uri_ref, subnet_uri_ref, and security_group_uri_ref are required")
 		return
 	}
 
-	storageAttrs := storageObj.Attributes()
-	sizeGBAttr, ok := storageAttrs["size_gb"].(types.Int64)
-	if !ok || sizeGBAttr.IsNull() || sizeGBAttr.IsUnknown() {
-		resp.Diagnostics.AddError(
-			"Missing Storage Size",
-			"Storage size_gb is required to create a DBaaS instance",
-		)
-		return
+	builder := aruba.NewDBaaS().
+		Named(data.Name.ValueString()).
+		InProject(aruba.URI("/projects/"+projectID)).
+		InRegion(aruba.Region(data.Location.ValueString())).
+		InZone(aruba.Zone(data.Zone.ValueString())).
+		OfEngine(aruba.DatabaseEngine(data.EngineID.ValueString())).
+		OfFlavor(aruba.DBaaSFlavor(data.Flavor.ValueString())).
+		SizedGB(int(sizeGBAttr.ValueInt64())).
+		WithVPC(aruba.URI(vpc)).
+		WithSubnet(aruba.URI(subnet)).
+		WithSecurityGroup(aruba.URI(sg)).
+		Tagged(tags...)
+
+	if eip != "" {
+		builder = builder.WithElasticIP(aruba.URI(eip))
 	}
-	storageSizeGB := int32(sizeGBAttr.ValueInt64())
-	storageSizeGBPtr := &storageSizeGB
 
-	// Extract autoscaling if present
-	var autoscaling *sdktypes.DBaaSAutoscaling
-	if autoscalingAttr, ok := storageAttrs["autoscaling"]; ok && autoscalingAttr != nil {
-		if autoscalingObj, ok := autoscalingAttr.(types.Object); ok && !autoscalingObj.IsNull() && !autoscalingObj.IsUnknown() {
-			autoscalingObjValue, diags := autoscalingObj.ToObjectValue(ctx)
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				autoscalingAttrs := autoscalingObjValue.Attributes()
-				enabledAttr, _ := autoscalingAttrs["enabled"].(types.Bool)
-				availableSpaceAttr, _ := autoscalingAttrs["available_space"].(types.Int64)
-				stepSizeAttr, _ := autoscalingAttrs["step_size"].(types.Int64)
-
-				if !enabledAttr.IsNull() && !availableSpaceAttr.IsNull() && !stepSizeAttr.IsNull() {
-					enabled := enabledAttr.ValueBool()
-					availableSpace := int32(availableSpaceAttr.ValueInt64())
-					stepSize := int32(stepSizeAttr.ValueInt64())
-					autoscaling = &sdktypes.DBaaSAutoscaling{
-						Enabled:        &enabled,
-						AvailableSpace: &availableSpace,
-						StepSize:       &stepSize,
-					}
-				}
+	// Autoscaling.
+	if autoscalingAttr, ok := storageAttrs["autoscaling"]; ok {
+		if autoscalingObj, ok := autoscalingAttr.(types.Object); ok && !autoscalingObj.IsNull() {
+			asAttrs := autoscalingObj.Attributes()
+			enabledAttr, _ := asAttrs["enabled"].(types.Bool)
+			availableAttr, _ := asAttrs["available_space"].(types.Int64)
+			stepAttr, _ := asAttrs["step_size"].(types.Int64)
+			if !enabledAttr.IsNull() && enabledAttr.ValueBool() {
+				builder = builder.WithAutoscaling(int(availableAttr.ValueInt64()), int(stepAttr.ValueInt64()))
 			}
 		}
 	}
 
-	// Extract network configuration from nested object
-	if data.Network.IsNull() || data.Network.IsUnknown() {
-		resp.Diagnostics.AddError(
-			"Missing Network Configuration",
-			"Network configuration is required to create a DBaaS instance",
-		)
+	if !data.BillingPeriod.IsNull() && !data.BillingPeriod.IsUnknown() {
+		builder = builder.BilledBy(aruba.BillingPeriod(data.BillingPeriod.ValueString()))
+	}
+
+	dbaas, err := r.client.Client.FromDatabase().DBaaS().Create(ctx, builder)
+	if provErr := CheckResponseErr("create", "DBaaS", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	networkObj, diags := data.Network.ToObjectValue(ctx)
-	resp.Diagnostics.Append(diags...)
+	data.Id = types.StringValue(dbaas.ID())
+	data.Uri = strVal(dbaas.URI())
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	networkAttrs := networkObj.Attributes()
-	vpcUriRefAttr, ok := networkAttrs["vpc_uri_ref"].(types.String)
-	if !ok || vpcUriRefAttr.IsNull() || vpcUriRefAttr.IsUnknown() {
-		resp.Diagnostics.AddError(
-			"Missing VPC URI Reference",
-			"VPC URI reference is required in network configuration",
-		)
-		return
-	}
-	vpcUriRef := vpcUriRefAttr.ValueString()
-
-	subnetUriRefAttr, ok := networkAttrs["subnet_uri_ref"].(types.String)
-	if !ok || subnetUriRefAttr.IsNull() || subnetUriRefAttr.IsUnknown() {
-		resp.Diagnostics.AddError(
-			"Missing Subnet URI Reference",
-			"Subnet URI reference is required in network configuration",
-		)
-		return
-	}
-	subnetUriRef := subnetUriRefAttr.ValueString()
-
-	securityGroupUriRefAttr, ok := networkAttrs["security_group_uri_ref"].(types.String)
-	if !ok || securityGroupUriRefAttr.IsNull() || securityGroupUriRefAttr.IsUnknown() {
-		resp.Diagnostics.AddError(
-			"Missing Security Group URI Reference",
-			"Security Group URI reference is required in network configuration",
-		)
-		return
-	}
-	securityGroupUriRef := securityGroupUriRefAttr.ValueString()
-
-	// Elastic IP is optional
-	var elasticIpUriRef string
-	if elasticIpAttr, ok := networkAttrs["elastic_ip_uri_ref"]; ok && elasticIpAttr != nil {
-		if elasticIpStr, ok := elasticIpAttr.(types.String); ok && !elasticIpStr.IsNull() && !elasticIpStr.IsUnknown() {
-			elasticIpUriRef = elasticIpStr.ValueString()
-		}
-	}
-
-	// Build the create request
-	// Network configuration using DBaaSNetworking structure
-	networking := &sdktypes.DBaaSNetworking{
-		VPCURI:           &vpcUriRef,
-		SubnetURI:        &subnetUriRef,
-		SecurityGroupURI: &securityGroupUriRef,
-	}
-
-	// Add optional Elastic IP if provided
-	if elasticIpUriRef != "" {
-		networking.ElasticIPURI = &elasticIpUriRef
-	}
-
-	createRequest := sdktypes.DBaaSRequest{
-		Metadata: sdktypes.RegionalResourceMetadataRequest{
-			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
-				Name: data.Name.ValueString(),
-				Tags: tags,
-			},
-			Location: sdktypes.LocationRequest{
-				Value: data.Location.ValueString(),
-			},
-		},
-		Properties: sdktypes.DBaaSPropertiesRequest{
-			Engine: &sdktypes.DBaaSEngine{
-				ID: &engineID,
-			},
-			Flavor: &sdktypes.DBaaSFlavor{
-				Name: &flavor,
-			},
-			Storage: &sdktypes.DBaaSStorage{
-				SizeGB: storageSizeGBPtr,
-			},
-			Autoscaling: autoscaling,
-			Networking:  networking,
-			Zone:        &zone,
-		},
-	}
-
-	// Add optional billing period
-	if !data.BillingPeriod.IsNull() && !data.BillingPeriod.IsUnknown() {
-		billingPeriod := data.BillingPeriod.ValueString()
-		createRequest.Properties.BillingPlan = &sdktypes.DBaaSBillingPlan{
-			BillingPeriod: &billingPeriod,
-		}
-	}
-
-	// Log the full request for debugging
-	debugMap := map[string]interface{}{
-		"project_id":         projectID,
-		"name":               data.Name.ValueString(),
-		"location":           data.Location.ValueString(),
-		"zone":               zone,
-		"engine_id":          engineID,
-		"flavor":             flavor,
-		"storage_size_gb":    storageSizeGB,
-		"vpc_uri":            vpcUriRef,
-		"subnet_uri":         subnetUriRef,
-		"security_group_uri": securityGroupUriRef,
-		"elastic_ip_uri":     elasticIpUriRef,
-		"autoscaling":        autoscaling != nil,
-	}
-	if !data.BillingPeriod.IsNull() && !data.BillingPeriod.IsUnknown() {
-		debugMap["billing_period"] = data.BillingPeriod.ValueString()
-	}
-	tflog.Debug(ctx, "DBaaS create request", debugMap)
-
-	// Create the DBaaS instance using the SDK
-	response, err := r.client.Client.FromDatabase().DBaaS().Create(ctx, projectID, createRequest, nil)
-	if err != nil {
-		tflog.Error(ctx, "DBaaS create error", map[string]interface{}{
-			"error":      err.Error(),
-			"project_id": projectID,
-		})
-		resp.Diagnostics.AddError(
-			"Error creating DBaaS instance",
-			NewTransportError("create", "Dbaas", err).Error(),
-		)
+	if waitErr := dbaas.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+		ReportWaitResult(&resp.Diagnostics, waitErr, "DBaaS", data.Id.ValueString())
 		return
 	}
 
-	if apiErr := CheckResponse("create", "Dbaas", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-
-	if response != nil && response.Data != nil {
-		if response.Data.Metadata.ID != nil {
-			data.Id = types.StringValue(*response.Data.Metadata.ID)
-		}
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
+	// Refresh URI from re-read and preserve network from plan.
+	fresh, freshErr := r.client.Client.FromDatabase().DBaaS().Get(ctx, dbaasRef(&data))
+	if freshErr == nil {
+		data.Uri = strVal(fresh.URI())
 	} else {
-		resp.Diagnostics.AddError(
-			"Invalid API Response",
-			"DBaaS instance created but no data returned from API",
-		)
-		return
+		tflog.Warn(ctx, fmt.Sprintf("Failed to refresh DBaaS after creation: %v", freshErr))
 	}
 
-	// Wait for DBaaS to be active before returning
-	// This ensures Terraform doesn't proceed until DBaaS is ready
-	dbaasID := data.Id.ValueString()
-	checker := func(ctx context.Context) (string, error) {
-		getResp, err := r.client.Client.FromDatabase().DBaaS().Get(ctx, projectID, dbaasID, nil)
-		if err != nil {
-			return "", err
-		}
-		if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
-			return *getResp.Data.Status.State, nil
-		}
-		return "Unknown", nil
-	}
-
-	// Wait for DBaaS to be active - block until ready (using configured timeout)
-	if err := WaitForResourceActive(ctx, checker, "DBaaS", dbaasID, r.client.ResourceTimeout); err != nil {
-		ReportWaitResult(&resp.Diagnostics, err, "DBaaS", dbaasID)
-		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-		return
-	}
-
-	// Re-read the DBaaS instance to populate URI
-	getResp, err := r.client.Client.FromDatabase().DBaaS().Get(ctx, projectID, dbaasID, nil)
-	if err == nil && getResp != nil && getResp.Data != nil {
-		dbaas := getResp.Data
-		if dbaas.Metadata.URI != nil {
-			data.Uri = types.StringValue(*dbaas.Metadata.URI)
-		}
-
-		// Build network object from extracted values
-		networkAttrTypes := map[string]attr.Type{
-			"vpc_uri_ref":            types.StringType,
-			"subnet_uri_ref":         types.StringType,
-			"security_group_uri_ref": types.StringType,
-			"elastic_ip_uri_ref":     types.StringType,
-		}
-		networkAttrs := map[string]attr.Value{
-			"vpc_uri_ref":            types.StringValue(vpcUriRef),
-			"subnet_uri_ref":         types.StringValue(subnetUriRef),
-			"security_group_uri_ref": types.StringValue(securityGroupUriRef),
-		}
-		if elasticIpUriRef != "" {
-			networkAttrs["elastic_ip_uri_ref"] = types.StringValue(elasticIpUriRef)
-		} else {
-			networkAttrs["elastic_ip_uri_ref"] = types.StringNull()
-		}
-		networkObj, diags := types.ObjectValue(networkAttrTypes, networkAttrs)
-		resp.Diagnostics.Append(diags...)
-		if !resp.Diagnostics.HasError() {
-			data.Network = networkObj
-		}
-	}
+	data.Network = buildNetworkObject(vpc, subnet, sg, eip)
 
 	tflog.Trace(ctx, "created a DBaaS resource", map[string]interface{}{
 		"dbaas_id":   data.Id.ValueString(),
 		"dbaas_name": data.Name.ValueString(),
 	})
-
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -477,237 +343,109 @@ func (r *DBaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	projectID := data.ProjectID.ValueString()
-	dbaasID := data.Id.ValueString()
-
-	if data.Id.IsUnknown() || data.Id.IsNull() || dbaasID == "" {
-		tflog.Debug(ctx, "DBaaS ID is empty, removing resource from state", map[string]interface{}{"dbaas_id": dbaasID})
+	if data.Id.IsNull() || data.Id.ValueString() == "" {
 		resp.State.RemoveResource(ctx)
 		return
 	}
 
-	if projectID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID is required to read the DBaaS instance",
-		)
-		return
-	}
-
-	// Get DBaaS instance details using the SDK
-	response, err := r.client.Client.FromDatabase().DBaaS().Get(ctx, projectID, dbaasID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading DBaaS instance",
-			NewTransportError("read", "Dbaas", err).Error(),
-		)
-		return
-	}
-
-	if apiErr := CheckResponse("read", "Dbaas", response); apiErr != nil {
-		if IsNotFound(apiErr) {
+	dbaas, err := r.client.Client.FromDatabase().DBaaS().Get(ctx, dbaasRef(&data))
+	if provErr := CheckResponseErr("read", "DBaaS", err); provErr != nil {
+		if IsNotFound(provErr) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	// If the resource is still provisioning (e.g. after a Create timeout that saved
-	// partial state), resume the wait so the next terraform apply reconciles correctly.
-	if response.Data.Status.State != nil {
-		switch st := *response.Data.Status.State; {
-		case isFailedState(st):
-			resp.Diagnostics.AddWarning(
-				"Resource in Failed State",
-				fmt.Sprintf("DBaaS %q is in a terminal failure state (%s). "+
-					"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", dbaasID, st),
-			)
-		case IsCreatingState(st):
-			checker := func(ctx context.Context) (string, error) {
-				getResp, err := r.client.Client.FromDatabase().DBaaS().Get(ctx, projectID, dbaasID, nil)
-				if err != nil {
-					return "", err
-				}
-				if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
-					return *getResp.Data.Status.State, nil
-				}
-				return "Unknown", nil
-			}
-			if err := WaitForResourceActive(ctx, checker, "DBaaS", dbaasID, r.client.ResourceTimeout); err != nil {
-				ReportWaitResult(&resp.Diagnostics, err, "DBaaS", dbaasID)
-				resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-				return
-			}
-			// Re-read to get the final active state.
-			response, err = r.client.Client.FromDatabase().DBaaS().Get(ctx, projectID, dbaasID, nil)
-			if err != nil {
-				resp.Diagnostics.AddError("Error reading DBaaS after provisioning wait",
-					NewTransportError("read", "Dbaas", err).Error())
-				return
-			}
-			if apiErr := CheckResponse("read", "Dbaas", response); apiErr != nil {
-				if IsNotFound(apiErr) {
-					resp.State.RemoveResource(ctx)
-					return
-				}
-				resp.Diagnostics.AddError("API Error", apiErr.Error())
-				return
-			}
+	st := string(dbaas.State())
+	switch {
+	case isFailedState(st):
+		resp.Diagnostics.AddWarning("Resource in Failed State",
+			fmt.Sprintf("DBaaS %q is in a terminal failure state (%s). "+
+				"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", data.Id.ValueString(), st))
+	case IsCreatingState(st):
+		if waitErr := dbaas.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+			ReportWaitResult(&resp.Diagnostics, waitErr, "DBaaS", data.Id.ValueString())
+			return
+		}
+		dbaas, err = r.client.Client.FromDatabase().DBaaS().Get(ctx, dbaasRef(&data))
+		if provErr := CheckResponseErr("read", "DBaaS", err); provErr != nil {
+			resp.Diagnostics.AddError("API Error", provErr.Error())
+			return
 		}
 	}
 
-	if response != nil && response.Data != nil {
-		dbaas := response.Data
+	// Preserve immutable fields from state.
+	projectID := data.ProjectID
+	zone := data.Zone
+	engineID := data.EngineID
+	flavor := data.Flavor
+	network := data.Network
+	storage := data.Storage
 
-		if dbaas.Metadata.ID != nil {
-			data.Id = types.StringValue(*dbaas.Metadata.ID)
-		}
-		if dbaas.Metadata.URI != nil {
-			data.Uri = types.StringValue(*dbaas.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-		if dbaas.Metadata.Name != nil {
-			data.Name = types.StringValue(*dbaas.Metadata.Name)
-		}
-		if dbaas.Metadata.LocationResponse != nil {
-			data.Location = types.StringValue(dbaas.Metadata.LocationResponse.Value)
-		}
-		// Zone is not in the response, preserve from state
-		// data.Zone is already set from state in Read function
-		if dbaas.Properties.Engine != nil && dbaas.Properties.Engine.ID != nil {
-			data.EngineID = types.StringValue(*dbaas.Properties.Engine.ID)
-		}
-		if dbaas.Properties.Flavor != nil && dbaas.Properties.Flavor.Name != nil {
-			data.Flavor = types.StringValue(*dbaas.Properties.Flavor.Name)
-		}
-		if dbaas.Properties.BillingPlan != nil && dbaas.Properties.BillingPlan.BillingPeriod != nil {
-			data.BillingPeriod = types.StringValue(*dbaas.Properties.BillingPlan.BillingPeriod)
-		} else {
-			data.BillingPeriod = types.StringNull()
-		}
+	data.Id = types.StringValue(dbaas.ID())
+	data.Uri = strVal(dbaas.URI())
+	data.Name = types.StringValue(dbaas.Name())
+	data.Tags = TagsToListPreserveNull(dbaas.Tags(), data.Tags)
+	data.ProjectID = projectID
+	data.Zone = zone // zone not returned by API
 
-		// Build nested storage object from API response
-		storageAttrs := make(map[string]attr.Value)
-		storageAttrTypes := map[string]attr.Type{
-			"size_gb": types.Int64Type,
-			"autoscaling": types.ObjectType{
-				AttrTypes: map[string]attr.Type{
-					"enabled":         types.BoolType,
-					"available_space": types.Int64Type,
-					"step_size":       types.Int64Type,
-				},
-			},
-		}
+	if dbaas.Region() != "" {
+		data.Location = types.StringValue(string(dbaas.Region()))
+	}
 
-		// Set storage size_gb
-		if dbaas.Properties.Storage != nil && dbaas.Properties.Storage.SizeGB != nil {
-			storageAttrs["size_gb"] = types.Int64Value(int64(*dbaas.Properties.Storage.SizeGB))
-		} else {
-			// If not in API response, preserve from state
-			if !data.Storage.IsNull() && !data.Storage.IsUnknown() {
-				storageObj, diags := data.Storage.ToObjectValue(ctx)
-				if !diags.HasError() {
-					existingAttrs := storageObj.Attributes()
-					if sizeGB, ok := existingAttrs["size_gb"]; ok {
-						storageAttrs["size_gb"] = sizeGB
-					}
-				}
-			}
-		}
-
-		// Set autoscaling - preserve from state since API response structure may differ
-		// DBaaSAutoscalingResponse has a different structure than DBaaSAutoscaling
-		// We'll preserve autoscaling from state to maintain consistency
-		if !data.Storage.IsNull() && !data.Storage.IsUnknown() {
-			storageObj, diags := data.Storage.ToObjectValue(ctx)
-			if !diags.HasError() {
-				storageAttrsFromState := storageObj.Attributes()
-				if autoscalingAttr, ok := storageAttrsFromState["autoscaling"]; ok && autoscalingAttr != nil {
-					storageAttrs["autoscaling"] = autoscalingAttr
-				} else {
-					// If no autoscaling in state, set to null
-					storageAttrs["autoscaling"] = types.ObjectNull(map[string]attr.Type{
-						"enabled":         types.BoolType,
-						"available_space": types.Int64Type,
-						"step_size":       types.Int64Type,
-					})
-				}
-			}
-		} else {
-			// If not in API response, preserve from state
-			if !data.Storage.IsNull() && !data.Storage.IsUnknown() {
-				storageObj, diags := data.Storage.ToObjectValue(ctx)
-				if !diags.HasError() {
-					existingAttrs := storageObj.Attributes()
-					if autoscaling, ok := existingAttrs["autoscaling"]; ok {
-						storageAttrs["autoscaling"] = autoscaling
-					}
-				}
-			}
-			// If no autoscaling in state either, set to null
-			if _, ok := storageAttrs["autoscaling"]; !ok {
-				storageAttrs["autoscaling"] = types.ObjectNull(map[string]attr.Type{
-					"enabled":         types.BoolType,
-					"available_space": types.Int64Type,
-					"step_size":       types.Int64Type,
-				})
-			}
-		}
-
-		// Build storage object
-		storageObj, diags := types.ObjectValue(storageAttrTypes, storageAttrs)
-		resp.Diagnostics.Append(diags...)
-		if !resp.Diagnostics.HasError() {
-			data.Storage = storageObj
-		}
-
-		// Build nested network object from state
-		// Network configuration is preserved from state since it's not in API response
-		networkAttrs := make(map[string]attr.Value)
-		networkAttrTypes := map[string]attr.Type{
-			"vpc_uri_ref":            types.StringType,
-			"subnet_uri_ref":         types.StringType,
-			"security_group_uri_ref": types.StringType,
-			"elastic_ip_uri_ref":     types.StringType,
-		}
-
-		// Preserve network configuration from state
-		if !data.Network.IsNull() && !data.Network.IsUnknown() {
-			networkObj, diags := data.Network.ToObjectValue(ctx)
-			if !diags.HasError() {
-				existingNetworkAttrs := networkObj.Attributes()
-				networkAttrs["vpc_uri_ref"] = existingNetworkAttrs["vpc_uri_ref"]
-				networkAttrs["subnet_uri_ref"] = existingNetworkAttrs["subnet_uri_ref"]
-				networkAttrs["security_group_uri_ref"] = existingNetworkAttrs["security_group_uri_ref"]
-				if elasticIp, ok := existingNetworkAttrs["elastic_ip_uri_ref"]; ok {
-					networkAttrs["elastic_ip_uri_ref"] = elasticIp
-				} else {
-					networkAttrs["elastic_ip_uri_ref"] = types.StringNull()
-				}
-			}
-		} else {
-			// If network not in state, set to null (should not happen)
-			networkAttrs["vpc_uri_ref"] = types.StringNull()
-			networkAttrs["subnet_uri_ref"] = types.StringNull()
-			networkAttrs["security_group_uri_ref"] = types.StringNull()
-			networkAttrs["elastic_ip_uri_ref"] = types.StringNull()
-		}
-
-		// Build network object
-		networkObj, diags := types.ObjectValue(networkAttrTypes, networkAttrs)
-		resp.Diagnostics.Append(diags...)
-		if !resp.Diagnostics.HasError() {
-			data.Network = networkObj
-		}
-
-		data.Tags = TagsToListPreserveNull(dbaas.Metadata.Tags, data.Tags)
+	// EngineID and Flavor: use API values if available, else preserve state.
+	if e := string(dbaas.Engine()); e != "" {
+		data.EngineID = types.StringValue(e)
 	} else {
-		resp.State.RemoveResource(ctx)
-		return
+		data.EngineID = engineID
 	}
+	if f := string(dbaas.Flavor()); f != "" {
+		data.Flavor = types.StringValue(f)
+	} else {
+		data.Flavor = flavor
+	}
+	if bp := string(dbaas.BillingPeriod()); bp != "" {
+		data.BillingPeriod = types.StringValue(bp)
+	} else {
+		data.BillingPeriod = types.StringNull()
+	}
+
+	// Storage: update size_gb from API, preserve autoscaling from state.
+	storageAttrTypes := dbaasStorageAttrTypes()
+	storageAttrs := map[string]attr.Value{}
+	if s := dbaas.SizeGB(); s > 0 {
+		storageAttrs["size_gb"] = types.Int64Value(int64(s))
+	} else if !storage.IsNull() {
+		if existingAttrs := storage.Attributes(); existingAttrs != nil {
+			if v, ok := existingAttrs["size_gb"]; ok {
+				storageAttrs["size_gb"] = v
+			}
+		}
+	}
+	if _, ok := storageAttrs["size_gb"]; !ok {
+		storageAttrs["size_gb"] = types.Int64Null()
+	}
+	// Preserve autoscaling from state.
+	if !storage.IsNull() {
+		existingAttrs := storage.Attributes()
+		if v, ok := existingAttrs["autoscaling"]; ok {
+			storageAttrs["autoscaling"] = v
+		} else {
+			storageAttrs["autoscaling"] = types.ObjectNull(storageAttrTypes["autoscaling"].(types.ObjectType).AttrTypes)
+		}
+	} else {
+		storageAttrs["autoscaling"] = types.ObjectNull(storageAttrTypes["autoscaling"].(types.ObjectType).AttrTypes)
+	}
+	storageObj, diags := types.ObjectValue(storageAttrTypes, storageAttrs)
+	resp.Diagnostics.Append(diags...)
+	if !resp.Diagnostics.HasError() {
+		data.Storage = storageObj
+	}
+
+	// Network: preserve from state (not returned by API reliably).
+	data.Network = network
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -717,57 +455,8 @@ func (r *DBaaSResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	var state DBaaSResourceModel
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	// Get IDs from state (not plan) - IDs are immutable and should always be in state
-	projectID := state.ProjectID.ValueString()
-	dbaasID := state.Id.ValueString()
-
-	if projectID == "" || dbaasID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID and DBaaS ID are required to update the DBaaS instance",
-		)
-		return
-	}
-
-	// Get current DBaaS instance details
-	getResponse, err := r.client.Client.FromDatabase().DBaaS().Get(ctx, projectID, dbaasID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error fetching current DBaaS instance",
-			NewTransportError("read", "Dbaas", err).Error(),
-		)
-		return
-	}
-
-	if getResponse == nil || getResponse.Data == nil {
-		resp.Diagnostics.AddError(
-			"DBaaS Instance Not Found",
-			"DBaaS instance not found or no data returned",
-		)
-		return
-	}
-
-	current := getResponse.Data
-
-	// Get region value
-	regionValue := ""
-	if current.Metadata.LocationResponse != nil {
-		regionValue = current.Metadata.LocationResponse.Value
-	}
-	if regionValue == "" {
-		resp.Diagnostics.AddError(
-			"Missing Region",
-			"Unable to determine region value for DBaaS instance",
-		)
 		return
 	}
 
@@ -775,233 +464,63 @@ func (r *DBaaSResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if tags == nil {
-		tags = current.Metadata.Tags
+
+	dbaas, err := r.client.Client.FromDatabase().DBaaS().Get(ctx, dbaasRef(&state))
+	if provErr := CheckResponseErr("read", "DBaaS", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
+		return
 	}
 
-	// Extract storage configuration from plan's nested storage object
-	var storageSizeGBPtr *int32
-	var autoscaling *sdktypes.DBaaSAutoscaling
-
-	if !data.Storage.IsNull() && !data.Storage.IsUnknown() {
-		storageObj, diags := data.Storage.ToObjectValue(ctx)
-		if !diags.HasError() {
-			storageAttrs := storageObj.Attributes()
-
-			// Extract size_gb
-			if sizeGBAttr, ok := storageAttrs["size_gb"].(types.Int64); ok && !sizeGBAttr.IsNull() && !sizeGBAttr.IsUnknown() {
-				storageSizeGB := int32(sizeGBAttr.ValueInt64())
-				storageSizeGBPtr = &storageSizeGB
-			} else if current.Properties.Storage != nil && current.Properties.Storage.SizeGB != nil {
-				// Fallback to current if not in plan
-				sizeGB := *current.Properties.Storage.SizeGB
-				storageSizeGBPtr = &sizeGB
-			}
-
-			// Extract autoscaling if present
-			if autoscalingAttr, ok := storageAttrs["autoscaling"]; ok && autoscalingAttr != nil {
-				if autoscalingObj, ok := autoscalingAttr.(types.Object); ok && !autoscalingObj.IsNull() && !autoscalingObj.IsUnknown() {
-					autoscalingObjValue, diags := autoscalingObj.ToObjectValue(ctx)
-					if !diags.HasError() {
-						autoscalingAttrs := autoscalingObjValue.Attributes()
-						enabledAttr, _ := autoscalingAttrs["enabled"].(types.Bool)
-						availableSpaceAttr, _ := autoscalingAttrs["available_space"].(types.Int64)
-						stepSizeAttr, _ := autoscalingAttrs["step_size"].(types.Int64)
-
-						if !enabledAttr.IsNull() && !availableSpaceAttr.IsNull() && !stepSizeAttr.IsNull() {
-							enabled := enabledAttr.ValueBool()
-							availableSpace := int32(availableSpaceAttr.ValueInt64())
-							stepSize := int32(stepSizeAttr.ValueInt64())
-							autoscaling = &sdktypes.DBaaSAutoscaling{
-								Enabled:        &enabled,
-								AvailableSpace: &availableSpace,
-								StepSize:       &stepSize,
-							}
-						}
-					}
-				}
-			} else if current.Properties.Autoscaling != nil {
-				// Fallback to current if not in plan
-				// Convert from DBaaSAutoscalingResponse to DBaaSAutoscaling
-				// Note: Response type may have different structure, extract what we can
-				availableSpace := int32(0)
-				stepSize := int32(0)
-				if current.Properties.Autoscaling.AvailableSpace != nil {
-					availableSpace = *current.Properties.Autoscaling.AvailableSpace
-				}
-				if current.Properties.Autoscaling.StepSize != nil {
-					stepSize = *current.Properties.Autoscaling.StepSize
-				}
-				// Default enabled to true if autoscaling exists (we can't determine from response)
-				enabled := true
-				autoscaling = &sdktypes.DBaaSAutoscaling{
-					Enabled:        &enabled,
-					AvailableSpace: &availableSpace,
-					StepSize:       &stepSize,
-				}
-			}
-		}
+	dbaas.Named(data.Name.ValueString())
+	if tags != nil {
+		dbaas.RetaggedAs(tags...)
 	} else {
-		// If storage not in plan, use current values
-		if current.Properties.Storage != nil && current.Properties.Storage.SizeGB != nil {
-			sizeGB := *current.Properties.Storage.SizeGB
-			storageSizeGBPtr = &sizeGB
+		dbaas.RetaggedAs(dbaas.Tags()...)
+	}
+
+	// Update storage size if changed.
+	if !data.Storage.IsNull() {
+		storageAttrs := data.Storage.Attributes()
+		if sizeAttr, ok := storageAttrs["size_gb"].(types.Int64); ok && !sizeAttr.IsNull() {
+			dbaas.SizedGB(int(sizeAttr.ValueInt64()))
 		}
-		if current.Properties.Autoscaling != nil {
-			// Convert from DBaaSAutoscalingResponse to DBaaSAutoscaling
-			availableSpace := int32(0)
-			stepSize := int32(0)
-			if current.Properties.Autoscaling.AvailableSpace != nil {
-				availableSpace = *current.Properties.Autoscaling.AvailableSpace
-			}
-			if current.Properties.Autoscaling.StepSize != nil {
-				stepSize = *current.Properties.Autoscaling.StepSize
-			}
-			// Default enabled to true if autoscaling exists
-			enabled := true
-			autoscaling = &sdktypes.DBaaSAutoscaling{
-				Enabled:        &enabled,
-				AvailableSpace: &availableSpace,
-				StepSize:       &stepSize,
+		// Update autoscaling if provided.
+		if asAttr, ok := storageAttrs["autoscaling"]; ok {
+			if asObj, ok := asAttr.(types.Object); ok && !asObj.IsNull() {
+				asAttrs := asObj.Attributes()
+				enabledAttr, _ := asAttrs["enabled"].(types.Bool)
+				availableAttr, _ := asAttrs["available_space"].(types.Int64)
+				stepAttr, _ := asAttrs["step_size"].(types.Int64)
+				if !enabledAttr.IsNull() && enabledAttr.ValueBool() {
+					dbaas.WithAutoscaling(int(availableAttr.ValueInt64()), int(stepAttr.ValueInt64()))
+				} else {
+					dbaas.WithoutAutoscaling()
+				}
 			}
 		}
 	}
 
-	// Build update request - only name and tags can be updated
-	updateRequest := sdktypes.DBaaSRequest{
-		Metadata: sdktypes.RegionalResourceMetadataRequest{
-			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
-				Name: data.Name.ValueString(),
-				Tags: tags,
-			},
-			Location: sdktypes.LocationRequest{
-				Value: regionValue,
-			},
-		},
-		Properties: sdktypes.DBaaSPropertiesRequest{
-			// Preserve current engine if it exists
-			Engine: func() *sdktypes.DBaaSEngine {
-				if current.Properties.Engine != nil {
-					return &sdktypes.DBaaSEngine{
-						ID: current.Properties.Engine.ID,
-					}
-				}
-				return nil
-			}(),
-			// Preserve current flavor if it exists
-			Flavor: func() *sdktypes.DBaaSFlavor {
-				if current.Properties.Flavor != nil {
-					return &sdktypes.DBaaSFlavor{
-						Name: current.Properties.Flavor.Name,
-					}
-				}
-				return nil
-			}(),
-			// Use storage from plan or current
-			Storage: func() *sdktypes.DBaaSStorage {
-				if storageSizeGBPtr != nil {
-					return &sdktypes.DBaaSStorage{
-						SizeGB: storageSizeGBPtr,
-					}
-				}
-				return nil
-			}(),
-			Autoscaling: autoscaling,
-			// Preserve zone from plan or state (zone is immutable)
-			Zone: func() *string {
-				if !data.Zone.IsNull() && !data.Zone.IsUnknown() {
-					zone := data.Zone.ValueString()
-					return &zone
-				}
-				// Preserve from state if not in plan
-				if !state.Zone.IsNull() && !state.Zone.IsUnknown() {
-					zone := state.Zone.ValueString()
-					return &zone
-				}
-				return nil
-			}(),
-			// Preserve networking from Terraform state (networking is immutable)
-			// Extract from state since response type structure may differ
-			Networking: func() *sdktypes.DBaaSNetworking {
-				if !state.Network.IsNull() && !state.Network.IsUnknown() {
-					networkObj, diags := state.Network.ToObjectValue(ctx)
-					if !diags.HasError() {
-						networkAttrs := networkObj.Attributes()
-						vpcUriAttr, _ := networkAttrs["vpc_uri_ref"].(types.String)
-						subnetUriAttr, _ := networkAttrs["subnet_uri_ref"].(types.String)
-						securityGroupUriAttr, _ := networkAttrs["security_group_uri_ref"].(types.String)
-						elasticIpUriAttr, _ := networkAttrs["elastic_ip_uri_ref"].(types.String)
-
-						networking := &sdktypes.DBaaSNetworking{}
-						if !vpcUriAttr.IsNull() && !vpcUriAttr.IsUnknown() {
-							vpcUri := vpcUriAttr.ValueString()
-							networking.VPCURI = &vpcUri
-						}
-						if !subnetUriAttr.IsNull() && !subnetUriAttr.IsUnknown() {
-							subnetUri := subnetUriAttr.ValueString()
-							networking.SubnetURI = &subnetUri
-						}
-						if !securityGroupUriAttr.IsNull() && !securityGroupUriAttr.IsUnknown() {
-							securityGroupUri := securityGroupUriAttr.ValueString()
-							networking.SecurityGroupURI = &securityGroupUri
-						}
-						if !elasticIpUriAttr.IsNull() && !elasticIpUriAttr.IsUnknown() {
-							elasticIpUri := elasticIpUriAttr.ValueString()
-							networking.ElasticIPURI = &elasticIpUri
-						}
-						return networking
-					}
-				}
-				return nil
-			}(),
-		},
-	}
-
-	// Add billing period if provided, otherwise preserve from current
 	if !data.BillingPeriod.IsNull() && !data.BillingPeriod.IsUnknown() {
-		billingPeriod := data.BillingPeriod.ValueString()
-		updateRequest.Properties.BillingPlan = &sdktypes.DBaaSBillingPlan{
-			BillingPeriod: &billingPeriod,
-		}
-	} else if current.Properties.BillingPlan != nil && current.Properties.BillingPlan.BillingPeriod != nil {
-		updateRequest.Properties.BillingPlan = &sdktypes.DBaaSBillingPlan{
-			BillingPeriod: current.Properties.BillingPlan.BillingPeriod,
-		}
+		dbaas.BilledBy(aruba.BillingPeriod(data.BillingPeriod.ValueString()))
 	}
 
-	// Update the DBaaS instance using the SDK
-	response, err := r.client.Client.FromDatabase().DBaaS().Update(ctx, projectID, dbaasID, updateRequest, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error updating DBaaS instance",
-			NewTransportError("update", "Dbaas", err).Error(),
-		)
+	updated, err := r.client.Client.FromDatabase().DBaaS().Update(ctx, dbaas)
+	if provErr := CheckResponseErr("update", "DBaaS", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	if apiErr := CheckResponse("update", "Dbaas", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-
-	// Preserve immutable fields from state
+	// Preserve immutable fields.
 	data.Id = state.Id
 	data.ProjectID = state.ProjectID
 	data.Uri = state.Uri
-	// Preserve network configuration from state
-	// Network configuration is immutable, so we preserve it from state
-	data.Network = state.Network
-	// Storage is preserved from plan (which includes autoscaling)
+	data.Zone = state.Zone
+	data.EngineID = state.EngineID
+	data.Flavor = state.Flavor
+	data.Network = state.Network // network is immutable
 
-	// Re-read the DBaaS instance to get the latest state
-	getResp, err := r.client.Client.FromDatabase().DBaaS().Get(ctx, projectID, dbaasID, nil)
-	if err == nil && getResp != nil && getResp.Data != nil {
-		dbaas := getResp.Data
-		if dbaas.Metadata.URI != nil {
-			data.Uri = types.StringValue(*dbaas.Metadata.URI)
-		}
-		// Note: Network URI references are preserved from state
-		// They are not yet available in the SDK response structure
+	if updated.URI() != "" {
+		data.Uri = types.StringValue(updated.URI())
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -1014,25 +533,12 @@ func (r *DBaaSResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 		return
 	}
 
-	projectID := data.ProjectID.ValueString()
+	ref := dbaasRef(&data)
 	dbaasID := data.Id.ValueString()
 
-	if projectID == "" || dbaasID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID and DBaaS ID are required to delete the DBaaS instance",
-		)
-		return
-	}
-
-	// Delete the DBaaS instance using the SDK with retry mechanism
-	// Retry on any error except 404 (Resource Not Found)
 	deletionChecker := func(ctx context.Context) (bool, error) {
-		getResp, getErr := r.client.Client.FromDatabase().DBaaS().Get(ctx, projectID, dbaasID, nil)
-		if getErr != nil {
-			return false, NewTransportError("get", "DBaaS", getErr)
-		}
-		if provErr := CheckResponse("get", "DBaaS", getResp); provErr != nil {
+		_, getErr := r.client.Client.FromDatabase().DBaaS().Get(ctx, ref)
+		if provErr := CheckResponseErr("get", "DBaaS", getErr); provErr != nil {
 			if IsNotFound(provErr) {
 				return true, nil
 			}
@@ -1042,37 +548,19 @@ func (r *DBaaSResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 	}
 
 	deleteStart := time.Now()
-	err := DeleteResourceWithRetry(
-		ctx,
-		func() error {
-			resp, err := r.client.Client.FromDatabase().DBaaS().Delete(ctx, projectID, dbaasID, nil)
-			if err != nil {
-				return NewTransportError("delete", "DBaaS", err)
-			}
-			return CheckResponse("delete", "DBaaS", resp)
-		},
-		"DBaaS",
-		dbaasID,
-		r.client.ResourceTimeout,
-		deletionChecker,
-	)
-
+	err := DeleteResourceWithRetry(ctx, func() error {
+		return CheckResponseErr("delete", "DBaaS",
+			r.client.Client.FromDatabase().DBaaS().Delete(ctx, ref))
+	}, "DBaaS", dbaasID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error deleting DBaaS instance",
-			NewTransportError("delete", "Dbaas", err).Error(),
-		)
+		resp.Diagnostics.AddError("Error deleting DBaaS", err.Error())
 		return
 	}
-
 	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "DBaaS", dbaasID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for DBaaS deletion", waitErr.Error())
 		return
 	}
-
-	tflog.Trace(ctx, "deleted a DBaaS resource", map[string]interface{}{
-		"dbaas_id": dbaasID,
-	})
+	tflog.Trace(ctx, "deleted a DBaaS resource", map[string]interface{}{"dbaas_id": dbaasID})
 }
 
 func (r *DBaaSResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

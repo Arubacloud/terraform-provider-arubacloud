@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -96,59 +97,30 @@ func (d *ElasticIPDataSource) Read(ctx context.Context, req datasource.ReadReque
 	projectID := data.ProjectId.ValueString()
 	eipID := data.Id.ValueString()
 	if projectID == "" || eipID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID and Elastic IP ID (id) are required to read the Elastic IP",
-		)
+		resp.Diagnostics.AddError("Missing Required Fields", "Project ID and Elastic IP ID (id) are required to read the Elastic IP")
 		return
 	}
 
-	response, err := d.client.Client.FromNetwork().ElasticIPs().Get(ctx, projectID, eipID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading Elastic IP",
-			NewTransportError("read", "Elasticip", err).Error(),
-		)
-		return
-	}
-	if apiErr := CheckResponse("read", "Elasticip", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-	if response == nil || response.Data == nil {
-		resp.Diagnostics.AddError(
-			"No data returned",
-			"Elastic IP Get returned no data",
-		)
+	eip, err := d.client.Client.FromNetwork().ElasticIPs().Get(ctx,
+		aruba.URI("/projects/"+projectID+"/network/elasticIPs/"+eipID))
+	if provErr := CheckResponseErr("read", "ElasticIP", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	eip := response.Data
+	data.Id = types.StringValue(eip.ID())
+	data.Name = types.StringValue(eip.Name())
+	data.ProjectId = types.StringValue(projectID)
+	data.Tags = TagsToListPreserveNull(eip.Tags(), data.Tags)
+	data.Address = strVal(eip.Address())
+	data.BillingPeriod = strVal(string(eip.BillingPeriod()))
 
-	if eip.Metadata.ID != nil {
-		data.Id = types.StringValue(*eip.Metadata.ID)
-	}
-	if eip.Metadata.Name != nil {
-		data.Name = types.StringValue(*eip.Metadata.Name)
-	}
-	if eip.Metadata.LocationResponse != nil {
-		data.Location = types.StringValue(eip.Metadata.LocationResponse.Value)
+	raw := eip.Raw()
+	if raw != nil && raw.Metadata.LocationResponse != nil {
+		data.Location = types.StringValue(string(raw.Metadata.LocationResponse.Value))
 	} else {
 		data.Location = types.StringNull()
 	}
-	data.ProjectId = types.StringValue(projectID)
-	if eip.Properties.Address != nil {
-		data.Address = types.StringValue(*eip.Properties.Address)
-	} else {
-		data.Address = types.StringNull()
-	}
-	if eip.Properties.BillingPlan.BillingPeriod != "" {
-		data.BillingPeriod = types.StringValue(billingPeriodFromAPI(eip.Properties.BillingPlan.BillingPeriod))
-	} else {
-		data.BillingPeriod = types.StringNull()
-	}
-
-	data.Tags = TagsToListPreserveNull(eip.Metadata.Tags, data.Tags)
 
 	tflog.Trace(ctx, "read an Elastic IP data source", map[string]interface{}{"eip_id": eipID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

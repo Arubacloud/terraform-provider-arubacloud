@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -85,23 +86,15 @@ func (d *DatabaseDataSource) Read(ctx context.Context, req datasource.ReadReques
 		return
 	}
 
-	response, err := d.client.Client.FromDatabase().Databases().Get(ctx, projectID, dbaasID, databaseName, nil)
-	if err != nil {
-		resp.Diagnostics.AddError("Error reading database", NewTransportError("read", "Database", err).Error())
-		return
-	}
-	if apiErr := CheckResponse("read", "Database", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-	if response == nil || response.Data == nil {
-		resp.Diagnostics.AddError("No data returned", "Database Get returned no data")
+	db, err := d.client.Client.FromDatabase().Databases().Get(ctx,
+		aruba.URI("/projects/"+projectID+"/providers/Aruba.Database/dbaas/"+dbaasID+"/databases/"+databaseName))
+	if provErr := CheckResponseErr("read", "Database", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	db := response.Data
-	data.Id = types.StringValue(db.Name)
-	data.Name = types.StringValue(db.Name)
+	data.Id = types.StringValue(db.Name())
+	data.Name = types.StringValue(db.Name())
 	data.ProjectID = types.StringValue(projectID)
 	data.DBaaSID = types.StringValue(dbaasID)
 

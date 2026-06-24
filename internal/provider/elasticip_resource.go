@@ -170,7 +170,7 @@ func applyEIPToModel(eip *aruba.ElasticIP, data *ElasticIPResourceModel) {
 	data.Address = strVal(eip.Address())
 	raw := eip.Raw()
 	if raw != nil && raw.Metadata.LocationResponse != nil {
-		data.Location = types.StringValue(raw.Metadata.LocationResponse.Value)
+		data.Location = types.StringValue(string(raw.Metadata.LocationResponse.Value))
 	}
 }
 
@@ -288,7 +288,7 @@ func (r *ElasticIPResource) Delete(ctx context.Context, req resource.DeleteReque
 
 	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(ctx, func() error {
-		_, delErr := r.client.Client.FromNetwork().ElasticIPs().Delete(ctx, ref)
+		delErr := r.client.Client.FromNetwork().ElasticIPs().Delete(ctx, ref)
 		return CheckResponseErr("delete", "ElasticIP", delErr)
 	}, "ElasticIP", eipID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {

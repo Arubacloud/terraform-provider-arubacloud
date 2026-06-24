@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -91,27 +92,18 @@ func (d *DBaaSUserDataSource) Read(ctx context.Context, req datasource.ReadReque
 		return
 	}
 
-	response, err := d.client.Client.FromDatabase().Users().Get(ctx, projectID, dbaasID, username, nil)
-	if err != nil {
-		resp.Diagnostics.AddError("Error reading DBaaS user", NewTransportError("read", "Dbaasuser", err).Error())
-		return
-	}
-	if apiErr := CheckResponse("read", "Dbaasuser", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-	if response == nil || response.Data == nil {
-		resp.Diagnostics.AddError("No data returned", "DBaaS User Get returned no data")
+	user, err := d.client.Client.FromDatabase().Users().Get(ctx,
+		aruba.URI("/projects/"+projectID+"/providers/Aruba.Database/dbaas/"+dbaasID+"/users/"+username))
+	if provErr := CheckResponseErr("read", "DBaaSUser", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	user := response.Data
-	data.Id = types.StringValue(user.Username)
-	data.Username = types.StringValue(user.Username)
+	data.Id = types.StringValue(user.Username())
+	data.Username = types.StringValue(user.Username())
 	data.ProjectID = types.StringValue(projectID)
 	data.DBaaSID = types.StringValue(dbaasID)
-	// Password is not returned by the API
-	data.Password = types.StringNull()
+	data.Password = types.StringNull() // password is write-only
 
 	tflog.Trace(ctx, "read a DBaaS User data source", map[string]interface{}{"username": username})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
