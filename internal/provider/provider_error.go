@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/Arubacloud/sdk-go/pkg/aruba"
-	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 )
 
 // ProviderErrorCategory classifies an API error as semantic, transient, or technical.
@@ -146,63 +145,18 @@ func NewTransportError(operation, resource string, err error) *ProviderError {
 	}
 }
 
-// newResponseError creates a ProviderError from a non-success HTTP response.
-// For HTTP 4xx: Semantic when ErrorResponse.Errors is non-empty (field-level validation
+// newResponseError creates a ProviderError from pre-extracted HTTP response fields.
+// For HTTP 4xx: Semantic when hasValidationErrors is true (field-level validation
 // failures), Transient otherwise. For everything else: Technical.
-func newResponseError(operation, resource string, statusCode int, errResp *sdktypes.ErrorResponse, rawBody []byte) *ProviderError {
+func newResponseError(operation, resource string, statusCode int, title, detail, instance string, hasValidationErrors bool) *ProviderError {
 	category := ProviderErrorCategoryTechnical
 	if statusCode >= 400 && statusCode < 500 {
-		if errResp != nil && len(errResp.Errors) > 0 {
+		if hasValidationErrors {
 			category = ProviderErrorCategorySemantic
 		} else {
 			category = ProviderErrorCategoryTransient
 		}
 	}
-
-	title, detail, instance := "", "", ""
-	if errResp != nil {
-		if errResp.Title != nil {
-			title = sanitizeAPIString(*errResp.Title)
-		}
-		if errResp.Detail != nil {
-			detail = sanitizeAPIString(*errResp.Detail)
-		}
-		if errResp.Instance != nil {
-			instance = sanitizeAPIString(*errResp.Instance)
-		}
-		if len(errResp.Errors) > 0 {
-			parts := make([]string, 0, len(errResp.Errors))
-			for _, ve := range errResp.Errors {
-				switch {
-				case ve.Field != "" && ve.Message != "":
-					parts = append(parts, ve.Field+": "+ve.Message)
-				case ve.Message != "":
-					parts = append(parts, ve.Message)
-				case ve.Field != "":
-					parts = append(parts, ve.Field+": invalid")
-				}
-			}
-			if len(parts) > 0 {
-				validationDetail := sanitizeAPIString(strings.Join(parts, "; "))
-				if detail != "" {
-					detail = detail + " | Validation: " + validationDetail
-				} else {
-					detail = "Validation: " + validationDetail
-				}
-			} else {
-				// Typed Field/Message extraction produced nothing; fall back to raw body.
-				rawDetail := formatRawValidationErrors(rawBody)
-				if rawDetail != "" {
-					if detail != "" {
-						detail = detail + " | Validation: " + rawDetail
-					} else {
-						detail = "Validation: " + rawDetail
-					}
-				}
-			}
-		}
-	}
-
 	return &ProviderError{
 		Category:   category,
 		StatusCode: statusCode,
@@ -224,7 +178,51 @@ func CheckResponseErr(operation, resource string, err error) *ProviderError {
 	}
 	var httpErr *aruba.HTTPError
 	if errors.As(err, &httpErr) {
-		return newResponseError(operation, resource, httpErr.StatusCode, httpErr.ErrResp, httpErr.Body)
+		title, detail, instance := "", "", ""
+		hasValidationErrors := false
+		if httpErr.ErrResp != nil {
+			if httpErr.ErrResp.Title != nil {
+				title = sanitizeAPIString(*httpErr.ErrResp.Title)
+			}
+			if httpErr.ErrResp.Detail != nil {
+				detail = sanitizeAPIString(*httpErr.ErrResp.Detail)
+			}
+			if httpErr.ErrResp.Instance != nil {
+				instance = sanitizeAPIString(*httpErr.ErrResp.Instance)
+			}
+			if len(httpErr.ErrResp.Errors) > 0 {
+				hasValidationErrors = true
+				parts := make([]string, 0, len(httpErr.ErrResp.Errors))
+				for _, ve := range httpErr.ErrResp.Errors {
+					switch {
+					case ve.Field != "" && ve.Message != "":
+						parts = append(parts, ve.Field+": "+ve.Message)
+					case ve.Message != "":
+						parts = append(parts, ve.Message)
+					case ve.Field != "":
+						parts = append(parts, ve.Field+": invalid")
+					}
+				}
+				if len(parts) > 0 {
+					validationDetail := sanitizeAPIString(strings.Join(parts, "; "))
+					if detail != "" {
+						detail = detail + " | Validation: " + validationDetail
+					} else {
+						detail = "Validation: " + validationDetail
+					}
+				} else {
+					rawDetail := formatRawValidationErrors(httpErr.Body)
+					if rawDetail != "" {
+						if detail != "" {
+							detail = detail + " | Validation: " + rawDetail
+						} else {
+							detail = "Validation: " + rawDetail
+						}
+					}
+				}
+			}
+		}
+		return newResponseError(operation, resource, httpErr.StatusCode, title, detail, instance, hasValidationErrors)
 	}
 	return NewTransportError(operation, resource, err)
 }

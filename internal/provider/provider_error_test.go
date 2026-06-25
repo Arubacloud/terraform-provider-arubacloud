@@ -104,7 +104,7 @@ func contains(s, sub string) bool {
 		}())
 }
 
-func TestNewResponseError_TypedExtractionWorks(t *testing.T) {
+func TestCheckResponseErr_TypedExtractionWorks(t *testing.T) {
 	errResp := &sdktypes.ErrorResponse{
 		Title: strPtr("One or more validation errors occurred."),
 		Errors: []sdktypes.ValidationError{
@@ -112,8 +112,9 @@ func TestNewResponseError_TypedExtractionWorks(t *testing.T) {
 		},
 	}
 	rawBody := []byte(`{"title":"One or more validation errors occurred.","errors":[{"propertyName":"Tag","errorMessage":"length must be at least 4"}]}`)
+	httpErr := &aruba.HTTPError{StatusCode: 400, ErrResp: errResp, Body: rawBody}
 
-	err := newResponseError("create", "Schedulejob", 400, errResp, rawBody)
+	err := CheckResponseErr("create", "Schedulejob", httpErr)
 
 	if err.Category != ProviderErrorCategorySemantic {
 		t.Errorf("expected semantic, got %v", err.Category)
@@ -127,7 +128,7 @@ func TestNewResponseError_TypedExtractionWorks(t *testing.T) {
 	}
 }
 
-func TestNewResponseError_FallbackToRawBody(t *testing.T) {
+func TestCheckResponseErr_FallbackToRawBody(t *testing.T) {
 	// Errors array has entries but Field/Message are empty (API uses different keys).
 	errResp := &sdktypes.ErrorResponse{
 		Title: strPtr("One or more validation errors occurred."),
@@ -136,8 +137,9 @@ func TestNewResponseError_FallbackToRawBody(t *testing.T) {
 		},
 	}
 	rawBody := []byte(`{"title":"One or more validation errors occurred.","errors":[{"propertyName":"CronExpression","errorMessage":"invalid cron format"}]}`)
+	httpErr := &aruba.HTTPError{StatusCode: 400, ErrResp: errResp, Body: rawBody}
 
-	err := newResponseError("create", "Schedulejob", 400, errResp, rawBody)
+	err := CheckResponseErr("create", "Schedulejob", httpErr)
 
 	if err.Category != ProviderErrorCategorySemantic {
 		t.Errorf("expected semantic, got %v", err.Category)
@@ -147,13 +149,14 @@ func TestNewResponseError_FallbackToRawBody(t *testing.T) {
 	}
 }
 
-func TestNewResponseError_NilRawBodyDoesNotPanic(t *testing.T) {
+func TestCheckResponseErr_NilBodyDoesNotPanic(t *testing.T) {
 	errResp := &sdktypes.ErrorResponse{
 		Title:  strPtr("One or more validation errors occurred."),
 		Errors: []sdktypes.ValidationError{{}},
 	}
+	httpErr := &aruba.HTTPError{StatusCode: 400, ErrResp: errResp, Body: nil}
 
-	err := newResponseError("create", "Schedulejob", 400, errResp, nil)
+	err := CheckResponseErr("create", "Schedulejob", httpErr)
 
 	if err.Category != ProviderErrorCategorySemantic {
 		t.Errorf("expected semantic, got %v", err.Category)
@@ -162,14 +165,15 @@ func TestNewResponseError_NilRawBodyDoesNotPanic(t *testing.T) {
 	_ = err.Error()
 }
 
-func TestNewResponseError_TransientNotConsultingRawBody(t *testing.T) {
+func TestCheckResponseErr_TransientNotConsultingRawBody(t *testing.T) {
 	errResp := &sdktypes.ErrorResponse{
 		Title:  strPtr("Conflict"),
 		Errors: []sdktypes.ValidationError{}, // empty → transient
 	}
 	rawBody := []byte(`{"title":"Conflict","errors":[{"propertyName":"Name","errorMessage":"must be unique"}]}`)
+	httpErr := &aruba.HTTPError{StatusCode: 409, ErrResp: errResp, Body: rawBody}
 
-	err := newResponseError("create", "Resource", 409, errResp, rawBody)
+	err := CheckResponseErr("create", "Resource", httpErr)
 
 	if err.Category != ProviderErrorCategoryTransient {
 		t.Errorf("expected transient, got %v", err.Category)
@@ -180,8 +184,8 @@ func TestNewResponseError_TransientNotConsultingRawBody(t *testing.T) {
 	}
 }
 
-func TestNewResponseError_NilErrResp(t *testing.T) {
-	err := newResponseError("create", "Resource", 500, nil, nil)
+func TestCheckResponseErr_NilErrResp(t *testing.T) {
+	err := CheckResponseErr("create", "Resource", &aruba.HTTPError{StatusCode: 500, ErrResp: nil})
 	if err.Category != ProviderErrorCategoryTechnical {
 		t.Errorf("expected technical, got %v", err.Category)
 	}
