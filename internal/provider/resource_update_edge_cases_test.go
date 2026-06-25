@@ -94,4 +94,3 @@ func TestBlockStorageUpdate_WithZone(t *testing.T) {
 		t.Errorf("BlockStorageResource Update() with zone reported error: %v", resp.Diagnostics)
 	}
 }
-
