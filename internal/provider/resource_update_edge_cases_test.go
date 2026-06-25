@@ -95,33 +95,3 @@ func TestBlockStorageUpdate_WithZone(t *testing.T) {
 	}
 }
 
-// blockstorageNoLocationJSON is used by acceptance tests only.
-// BlockStorage Update() does not check for location; the "missing region" variant
-// of this constant was removed when it was found to test coincidental SDK
-// URI-parsing failures rather than actual region-check logic.
-const blockstorageNoLocationJSON = `{` +
-	`"metadata":{"id":"test-id","name":"test-name"},` +
-	`"status":{"state":"NotUsed"},` +
-	`"properties":{"sizeGb":10,"billingPeriod":"Hour","type":"Standard","dataCenter":""}}`
-
-// elasticipNoLocationJSON is kept for reference; ElasticIP Update() does not
-// check for InCreation status so there is no status-guard branch to test here.
-
-// elasticipNoLocationJSON is kept for reference; ElasticIP Update() does not
-// check for location so there is no "missing region" error branch to test.
-const elasticipNoLocationJSON = `{` +
-	`"metadata":{"id":"test-id","name":"test-name"},` +
-	`"status":{"state":"Active"},` +
-	`"properties":{}}`
-
-// vpcNoLocationJSON is a VPC API response without a location block.
-const vpcNoLocationJSON = `{` +
-	`"metadata":{"id":"test-id","name":"test-name"},` +
-	`"status":{"state":"Active"},` +
-	`"properties":{}}`
-
-// backupNoLocationJSON is a Backup API response without a location block.
-const backupNoLocationJSON = `{` +
-	`"metadata":{"id":"test-id","name":"test-name"},` +
-	`"status":{"state":"Active"},` +
-	`"properties":{}}`
