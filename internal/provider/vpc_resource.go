@@ -169,6 +169,11 @@ func (r *VPCResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 		resp.State.RemoveResource(ctx)
 		return
 	}
+	if data.ProjectID.IsNull() || data.ProjectID.ValueString() == "" {
+		resp.Diagnostics.AddError("Missing Project ID",
+			fmt.Sprintf("Cannot read VPC %q: project_id is empty or null", data.Id.ValueString()))
+		return
+	}
 
 	vpc, err := r.client.Client.FromNetwork().VPCs().Get(ctx, vpcRef(&data))
 	if provErr := CheckResponseErr("read", "VPC", err); provErr != nil {

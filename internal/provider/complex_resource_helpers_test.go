@@ -89,8 +89,9 @@ func resourceCreateReqFull(ctx context.Context, t *testing.T, r resource.Resourc
 }
 
 // resourceReadReqFull builds a Read request where ALL attributes receive
-// non-null values via buildFullTFValue.  Use for resources whose Read()
-// calls As() on nested state objects (e.g. CloudServer, ContainerRegistry).
+// non-null values via buildFullTFValue, except "uri" which is set to null so
+// that the SDK falls back to constructing the resource ref from component IDs
+// (project_id, id, etc.) rather than trying to parse "test-value" as a URI.
 func resourceReadReqFull(ctx context.Context, t *testing.T, r resource.Resource) (resource.ReadRequest, *resource.ReadResponse) {
 	t.Helper()
 
@@ -102,8 +103,20 @@ func resourceReadReqFull(ctx context.Context, t *testing.T, r resource.Resource)
 		t.Fatalf("resourceReadReqFull: schema root is not an object type")
 	}
 
+	fullVal := buildFullTFValue(objType)
+	// Mirror the uri-null logic from resourceReadReq: a "test-value" uri causes
+	// the SDK to reject the request with "cannot determine X ID from Ref".
+	if _, hasURI := objType.AttributeTypes["uri"]; hasURI {
+		attrs := make(map[string]tftypes.Value, len(objType.AttributeTypes))
+		if err := fullVal.As(&attrs); err != nil {
+			t.Fatalf("resourceReadReqFull: failed to unpack full value: %v", err)
+		}
+		attrs["uri"] = tftypes.NewValue(tftypes.String, nil)
+		fullVal = tftypes.NewValue(objType, attrs)
+	}
+
 	state := tfsdk.State{
-		Raw:    buildFullTFValue(objType),
+		Raw:    fullVal,
 		Schema: schemaResp.Schema,
 	}
 	req := resource.ReadRequest{State: state}
@@ -134,23 +147,6 @@ func resourceUpdateReqFull(ctx context.Context, t *testing.T, r resource.Resourc
 	return req, resp
 }
 
-// cloudserverFullJSON is a CloudServer API response that includes a
-// properties block so that Read() and Update() can access Flavor.Name,
-// VPC.URI, etc. without nil-pointer panics.
-const cloudserverFullJSON = `{` +
-	`"metadata":{"id":"test-id","name":"test-name",` +
-	`"uri":"/projects/p/providers/Aruba.Compute/cloudServers/test-id",` +
-	`"location":{"value":"test-location","code":"test-code","name":"test-region"},` +
-	`"project":{"id":"test-project-id"}},` +
-	`"status":{"state":"Active"},` +
-	`"properties":{` +
-	`"vpc":{"uri":"test-vpc-uri"},` +
-	`"bootVolume":{"uri":"test-boot-uri"},` +
-	`"flavor":{"name":"test-flavor"},` +
-	`"keyPair":{"uri":""},` +
-	`"zone":"test-zone"` +
-	`}}`
-
 // securityruleFullJSON includes a properties block with all required fields
 // (direction, protocol, port) and a non-nil target pointer.  Without target
 // the Read() function skips building the target ObjectValue, which leaves a
@@ -164,76 +160,6 @@ const securityruleFullJSON = `{` +
 	`"port":"80",` +
 	`"target":{"kind":"IP","value":"10.0.0.0/8"}` +
 	`}}`
-
-// blockstorageNotUsedJSON is used for BlockStorage Update tests.
-// The status must be "NotUsed" or "Used" — "Active" causes Update to
-// return early with "Cannot Update" diagnostic.  The location block
-// provides regionValue, and properties.type prevents an empty-type error.
-const blockstorageNotUsedJSON = `{` +
-	`"metadata":{` +
-	`"id":"test-id","name":"test-name",` +
-	`"location":{"value":"test-location","code":"test-code","name":"test-region"},` +
-	`"project":{"id":"test-project-id"}},` +
-	`"status":{"state":"NotUsed"},` +
-	`"properties":{"sizeGB":10,"billingPeriod":"Hour","type":"Standard","zone":""}}`
-
-// containerregistryUpdateJSON is used for ContainerRegistry Update tests.
-// It combines updateActiveJSON's location block with the properties block
-// needed to avoid nil-pointer panics on Properties.BillingPlan / AdminUser.
-const containerregistryUpdateJSON = `{` +
-	`"metadata":{` +
-	`"id":"test-id","name":"test-name",` +
-	`"location":{"value":"test-location","code":"test-code","name":"test-region"},` +
-	`"project":{"id":"test-project-id"}},` +
-	`"status":{"state":"Active"},` +
-	`"properties":{` +
-	`"publicIp":{"uri":"test-pip-uri"},` +
-	`"vpc":{"uri":"test-vpc-uri"},` +
-	`"subnet":{"uri":"test-subnet-uri"},` +
-	`"securityGroup":{"uri":"test-sg-uri"},` +
-	`"blockStorage":{"uri":"test-bs-uri"},` +
-	`"billingPlan":{"billingPeriod":"Month"},` +
-	`"adminUser":{"username":"test-admin"}` +
-	`}}`
-
-// cloudserverCreateSuccessHandler serves the cloudserverFullJSON for every
-// request so that POST (create) has a metadata.id and GET (wait poll +
-// re-read) has properties for field-mapping.
-func cloudserverCreateSuccessHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	if r.Method == http.MethodPost {
-		w.WriteHeader(http.StatusCreated)
-	} else {
-		w.WriteHeader(http.StatusOK)
-	}
-	w.Write([]byte(cloudserverFullJSON)) //nolint:errcheck
-}
-
-// blockstorageUpdateSuccessHandler routes GET to blockstorageNotUsedJSON
-// (status=NotUsed, has location+properties) so Update() proceeds past all
-// guards, and routes PATCH to minimalActiveJSON for the write response.
-func blockstorageUpdateSuccessHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if r.Method == http.MethodGet {
-		w.Write([]byte(blockstorageNotUsedJSON)) //nolint:errcheck
-	} else {
-		w.Write([]byte(minimalActiveJSON)) //nolint:errcheck
-	}
-}
-
-// containerregistryUpdateSuccessHandler routes all requests to
-// containerregistryUpdateJSON which has both location and properties so
-// ContainerRegistry.Update() can proceed past all guards.
-func containerregistryUpdateSuccessHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	if r.Method == http.MethodPost {
-		w.WriteHeader(http.StatusCreated)
-	} else {
-		w.WriteHeader(http.StatusOK)
-	}
-	w.Write([]byte(containerregistryUpdateJSON)) //nolint:errcheck
-}
 
 // TestResourceCreate_Success_ComplexResources verifies that Create() succeeds
 // (no error diagnostic) for resources that were excluded from the generic

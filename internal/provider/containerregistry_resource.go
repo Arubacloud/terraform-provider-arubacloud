@@ -172,7 +172,7 @@ func containerRegistryRef(data *ContainerRegistryResourceModel) aruba.Ref {
 		return aruba.URI(data.Uri.ValueString())
 	}
 	return aruba.URI("/projects/" + data.ProjectID.ValueString() +
-		"/providers/Aruba.Container/containerRegistries/" + data.Id.ValueString())
+		"/providers/Aruba.Container/registries/" + data.Id.ValueString())
 }
 
 func applyContainerRegistryToModel(reg *aruba.ContainerRegistry, data *ContainerRegistryResourceModel) {
