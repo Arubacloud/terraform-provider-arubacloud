@@ -121,7 +121,7 @@ func applySecurityGroupToModel(sg *aruba.SecurityGroup, data *SecurityGroupResou
 	data.Tags = TagsToListPreserveNull(sg.Tags(), data.Tags)
 	raw := sg.Raw()
 	if raw != nil && raw.Metadata.LocationResponse != nil {
-		data.Location = types.StringValue(raw.Metadata.LocationResponse.Value)
+		data.Location = types.StringValue(string(raw.Metadata.LocationResponse.Value))
 	}
 }
 

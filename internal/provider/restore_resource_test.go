@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
@@ -70,16 +71,15 @@ func testCheckRestoreDestroyed(s *terraform.State) error {
 		if rs.Type != "arubacloud_restore" {
 			continue
 		}
+		projectID := rs.Primary.Attributes["project_id"]
 		backupID := rs.Primary.Attributes["backup_id"]
-		resp, err := client.Client.FromStorage().Restores().Get(ctx, rs.Primary.Attributes["project_id"], backupID, rs.Primary.ID, nil)
-		if err != nil {
-			return err
-		}
-		if apiErr := CheckResponse("get", "Restore", resp); apiErr != nil {
-			if IsNotFound(apiErr) {
+		ref := aruba.URI("/projects/" + projectID + "/providers/Aruba.Storage/backups/" + backupID + "/restores/" + rs.Primary.ID)
+		_, err = client.Client.FromStorage().Restores().Get(ctx, ref)
+		if provErr := CheckResponseErr("get", "Restore", err); provErr != nil {
+			if IsNotFound(provErr) {
 				continue
 			}
-			return apiErr
+			return provErr
 		}
 		return fmt.Errorf("Restore %s still exists", rs.Primary.ID)
 	}

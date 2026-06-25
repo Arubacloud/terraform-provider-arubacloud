@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
@@ -70,16 +71,15 @@ func testCheckVpnrouteDestroyed(s *terraform.State) error {
 		if rs.Type != "arubacloud_vpnroute" {
 			continue
 		}
+		projectID := rs.Primary.Attributes["project_id"]
 		tunnelID := rs.Primary.Attributes["vpn_tunnel_id"]
-		resp, err := client.Client.FromNetwork().VPNRoutes().Get(ctx, rs.Primary.Attributes["project_id"], tunnelID, rs.Primary.ID, nil)
-		if err != nil {
-			return err
-		}
-		if apiErr := CheckResponse("get", "Vpnroute", resp); apiErr != nil {
-			if IsNotFound(apiErr) {
+		ref := aruba.VPNRouteRef(projectID, tunnelID, rs.Primary.ID)
+		_, err = client.Client.FromNetwork().VPNRoutes().Get(ctx, ref)
+		if provErr := CheckResponseErr("get", "Vpnroute", err); provErr != nil {
+			if IsNotFound(provErr) {
 				continue
 			}
-			return apiErr
+			return provErr
 		}
 		return fmt.Errorf("VPNRoute %s still exists", rs.Primary.ID)
 	}

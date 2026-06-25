@@ -6,6 +6,7 @@ import (
 	"net"
 	"testing"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
@@ -76,16 +77,15 @@ func testCheckSubnetDestroyed(s *terraform.State) error {
 		if rs.Type != "arubacloud_subnet" {
 			continue
 		}
+		projectID := rs.Primary.Attributes["project_id"]
 		vpcID := rs.Primary.Attributes["vpc_id"]
-		resp, err := client.Client.FromNetwork().Subnets().Get(ctx, rs.Primary.Attributes["project_id"], vpcID, rs.Primary.ID, nil)
-		if err != nil {
-			return err
-		}
-		if apiErr := CheckResponse("get", "Subnet", resp); apiErr != nil {
-			if IsNotFound(apiErr) {
+		ref := aruba.SubnetRef(projectID, vpcID, rs.Primary.ID)
+		_, err = client.Client.FromNetwork().Subnets().Get(ctx, ref)
+		if provErr := CheckResponseErr("get", "Subnet", err); provErr != nil {
+			if IsNotFound(provErr) {
 				continue
 			}
-			return apiErr
+			return provErr
 		}
 		return fmt.Errorf("Subnet %s still exists", rs.Primary.ID)
 	}

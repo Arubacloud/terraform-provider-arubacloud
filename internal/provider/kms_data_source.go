@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -89,27 +90,15 @@ func (d *KMSDataSource) Read(ctx context.Context, req datasource.ReadRequest, re
 		return
 	}
 
-	response, err := d.client.Client.FromSecurity().KMS().Get(ctx, projectID, kmsID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError("Error reading KMS", NewTransportError("read", "Kms", err).Error())
-		return
-	}
-	if apiErr := CheckResponse("read", "Kms", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-	if response == nil || response.Data == nil {
-		resp.Diagnostics.AddError("No data returned", "KMS Get returned no data")
+	ref := aruba.URI("/projects/" + projectID + "/providers/Aruba.Security/kms/" + kmsID)
+	kms, err := d.client.Client.FromSecurity().KMS().Get(ctx, ref)
+	if provErr := CheckResponseErr("read", "KMS", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	kms := response.Data
-	if kms.Metadata.ID != nil {
-		data.Id = types.StringValue(*kms.Metadata.ID)
-	}
-	if kms.Metadata.Name != nil {
-		data.Name = types.StringValue(*kms.Metadata.Name)
-	}
+	data.Id = types.StringValue(kms.ID())
+	data.Name = types.StringValue(kms.Name())
 	data.ProjectID = types.StringValue(projectID)
 	// description and endpoint are not returned by the API
 	data.Description = types.StringNull()

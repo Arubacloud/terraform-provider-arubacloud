@@ -2,9 +2,9 @@ package provider
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
@@ -181,7 +181,7 @@ func (d *KaaSDataSource) Configure(ctx context.Context, req datasource.Configure
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Data Source Configure Type",
-			fmt.Sprintf("Expected *ArubaCloudClient, got: %T. Please report this issue to the provider developers. Please report this issue to the provider developers.", req.ProviderData),
+			fmt.Sprintf("Expected *ArubaCloudClient, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
 		return
 	}
@@ -205,170 +205,92 @@ func (d *KaaSDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 		return
 	}
 
-	response, err := d.client.Client.FromContainer().KaaS().Get(ctx, projectID, kaasID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading KaaS cluster",
-			NewTransportError("read", "Kaas", err).Error(),
-		)
-		return
-	}
-	if apiErr := CheckResponse("read", "Kaas", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-	if response == nil || response.Data == nil {
-		resp.Diagnostics.AddError(
-			"No data returned",
-			"KaaS cluster Get returned no data",
-		)
+	ref := aruba.URI("/projects/" + projectID + "/providers/Aruba.Container/kaas/" + kaasID)
+	kaas, err := d.client.Client.FromContainer().KaaS().Get(ctx, ref)
+	if provErr := CheckResponseErr("read", "KaaS", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	kaas := response.Data
+	raw := kaas.Raw()
 
-	if kaas.Metadata.ID != nil {
-		data.Id = types.StringValue(*kaas.Metadata.ID)
-	}
-	if kaas.Metadata.URI != nil {
-		data.Uri = types.StringValue(*kaas.Metadata.URI)
-	} else {
-		data.Uri = types.StringNull()
-	}
-	if kaas.Metadata.Name != nil {
-		data.Name = types.StringValue(*kaas.Metadata.Name)
-	}
-	if kaas.Metadata.LocationResponse != nil {
-		data.Location = types.StringValue(kaas.Metadata.LocationResponse.Value)
-	}
+	data.Id = types.StringValue(kaas.ID())
+	data.Uri = strVal(kaas.URI())
+	data.Name = types.StringValue(kaas.Name())
 	data.ProjectID = types.StringValue(projectID)
-	if kaas.Properties.BillingPlan != nil && kaas.Properties.BillingPlan.BillingPeriod != nil {
-		data.BillingPeriod = types.StringValue(*kaas.Properties.BillingPlan.BillingPeriod)
+	if kaas.Region() != "" {
+		data.Location = types.StringValue(string(kaas.Region()))
+	} else {
+		data.Location = types.StringNull()
+	}
+	data.Tags = TagsToListPreserveNull(kaas.Tags(), data.Tags)
+	if bp := string(kaas.BillingPeriod()); bp != "" {
+		data.BillingPeriod = types.StringValue(bp)
 	} else {
 		data.BillingPeriod = types.StringNull()
 	}
-	if kaas.Properties.ManagementIP != nil && *kaas.Properties.ManagementIP != "" {
-		data.ManagementIP = types.StringValue(*kaas.Properties.ManagementIP)
+	if raw != nil && raw.Properties.ManagementIP != nil && *raw.Properties.ManagementIP != "" {
+		data.ManagementIP = types.StringValue(*raw.Properties.ManagementIP)
 	} else {
 		data.ManagementIP = types.StringNull()
 	}
 
 	// Network (flattened)
-	if kaas.Properties.VPC.URI != nil {
-		data.VpcUriRef = types.StringValue(*kaas.Properties.VPC.URI)
+	if v := kaas.VPC(); v != "" {
+		data.VpcUriRef = types.StringValue(v)
 	} else {
 		data.VpcUriRef = types.StringNull()
 	}
-	if kaas.Properties.Subnet.URI != nil {
-		data.SubnetUriRef = types.StringValue(*kaas.Properties.Subnet.URI)
+	if v := kaas.Subnet(); v != "" {
+		data.SubnetUriRef = types.StringValue(v)
 	} else {
 		data.SubnetUriRef = types.StringNull()
 	}
-	if kaas.Properties.NodeCIDR.Address != nil {
-		data.NodeCIDRAddress = types.StringValue(*kaas.Properties.NodeCIDR.Address)
-	} else {
-		data.NodeCIDRAddress = types.StringNull()
-	}
-	if kaas.Properties.NodeCIDR.Name != nil {
-		data.NodeCIDRName = types.StringValue(*kaas.Properties.NodeCIDR.Name)
-	} else {
-		data.NodeCIDRName = types.StringNull()
-	}
-	if kaas.Properties.SecurityGroup.Name != nil {
-		data.SecurityGroupName = types.StringValue(*kaas.Properties.SecurityGroup.Name)
+	if v := kaas.SecurityGroupName(); v != "" {
+		data.SecurityGroupName = types.StringValue(v)
 	} else {
 		data.SecurityGroupName = types.StringNull()
 	}
-	if kaas.Properties.PodCIDR != nil && kaas.Properties.PodCIDR.Address != nil {
-		data.PodCIDR = types.StringValue(*kaas.Properties.PodCIDR.Address)
+	if v := kaas.PodCIDR(); v != "" {
+		data.PodCIDR = types.StringValue(v)
 	} else {
 		data.PodCIDR = types.StringNull()
 	}
+	if raw != nil && raw.Properties.NodeCIDR.Address != nil {
+		data.NodeCIDRAddress = types.StringValue(*raw.Properties.NodeCIDR.Address)
+	} else {
+		data.NodeCIDRAddress = types.StringNull()
+	}
+	if raw != nil && raw.Properties.NodeCIDR.Name != nil {
+		data.NodeCIDRName = types.StringValue(*raw.Properties.NodeCIDR.Name)
+	} else {
+		data.NodeCIDRName = types.StringNull()
+	}
 
 	// Settings (flattened)
-	if kaas.Properties.KubernetesVersion.Value != nil {
-		data.KubernetesVersion = types.StringValue(*kaas.Properties.KubernetesVersion.Value)
+	if kv := string(kaas.KubernetesVersion()); kv != "" {
+		data.KubernetesVersion = types.StringValue(kv)
 	} else {
 		data.KubernetesVersion = types.StringNull()
 	}
-	if kaas.Properties.HA != nil {
-		data.HA = types.BoolValue(*kaas.Properties.HA)
+	if raw != nil && raw.Properties.HA != nil {
+		data.HA = types.BoolValue(*raw.Properties.HA)
 	} else {
 		data.HA = types.BoolNull()
 	}
 
 	// Node pools
-	nodePoolType := types.ObjectType{
-		AttrTypes: map[string]attr.Type{
-			"name":        types.StringType,
-			"nodes":       types.Int64Type,
-			"instance":    types.StringType,
-			"zone":        types.StringType,
-			"autoscaling": types.BoolType,
-			"min_count":   types.Int64Type,
-			"max_count":   types.Int64Type,
-		},
-	}
-	if kaas.Properties.NodePools != nil && len(*kaas.Properties.NodePools) > 0 {
-		nodePoolValues := make([]attr.Value, 0, len(*kaas.Properties.NodePools))
-		for _, np := range *kaas.Properties.NodePools {
-			instanceName := ""
-			if np.Instance != nil && np.Instance.Name != nil {
-				instanceName = *np.Instance.Name
-			}
-			zoneCode := ""
-			if np.DataCenter != nil && np.DataCenter.Code != nil {
-				zoneCode = *np.DataCenter.Code
-			}
-			nodes := int64(0)
-			if np.Nodes != nil {
-				nodes = int64(*np.Nodes)
-			}
-			nodePoolMap := map[string]attr.Value{
-				"name":        types.StringValue(ptrToString(np.Name)),
-				"nodes":       types.Int64Value(nodes),
-				"instance":    types.StringValue(instanceName),
-				"zone":        types.StringValue(zoneCode),
-				"autoscaling": types.BoolValue(np.Autoscaling),
-			}
-			if np.MinCount != nil {
-				nodePoolMap["min_count"] = types.Int64Value(int64(*np.MinCount))
-			} else {
-				nodePoolMap["min_count"] = types.Int64Null()
-			}
-			if np.MaxCount != nil {
-				nodePoolMap["max_count"] = types.Int64Value(int64(*np.MaxCount))
-			} else {
-				nodePoolMap["max_count"] = types.Int64Null()
-			}
-			obj, diags := types.ObjectValue(nodePoolType.AttrTypes, nodePoolMap)
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				nodePoolValues = append(nodePoolValues, obj)
-			}
-		}
-		if !resp.Diagnostics.HasError() {
-			data.NodePools = types.ListValueMust(nodePoolType, nodePoolValues)
-		}
+	nodePoolType := types.ObjectType{AttrTypes: nodePoolAttrTypes()}
+	nodePoolList, npOk := buildNodePoolAttrValues(kaas, types.ListNull(nodePoolType))
+	if npOk {
+		data.NodePools = nodePoolList
 	} else {
 		data.NodePools = types.ListValueMust(nodePoolType, []attr.Value{})
 	}
 
-	data.Tags = TagsToListPreserveNull(kaas.Metadata.Tags, data.Tags)
-
-	// Download kubeconfig (API returns base64-encoded content), when cluster has management IP
-	if kaas.Properties.ManagementIP != nil && *kaas.Properties.ManagementIP != "" {
-		kubeconfigResp, kerr := d.client.Client.FromContainer().KaaS().DownloadKubeconfig(ctx, projectID, kaasID, nil)
-		if kerr == nil && kubeconfigResp != nil && !kubeconfigResp.IsError() && kubeconfigResp.Data != nil && kubeconfigResp.Data.Content != "" {
-			if decoded, decErr := base64.StdEncoding.DecodeString(kubeconfigResp.Data.Content); decErr == nil {
-				data.Kubeconfig = types.StringValue(string(decoded))
-			} else {
-				tflog.Warn(ctx, "Failed to decode kubeconfig base64", map[string]interface{}{"error": decErr.Error()})
-				data.Kubeconfig = types.StringNull()
-			}
-		} else {
-			data.Kubeconfig = types.StringNull()
-		}
+	// Kubeconfig
+	if raw != nil && raw.Properties.ManagementIP != nil && *raw.Properties.ManagementIP != "" {
+		data.Kubeconfig = downloadKubeconfig(ctx, kaas)
 	} else {
 		data.Kubeconfig = types.StringNull()
 	}

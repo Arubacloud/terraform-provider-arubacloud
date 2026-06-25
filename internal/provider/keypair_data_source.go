@@ -109,7 +109,7 @@ func (d *KeypairDataSource) Read(ctx context.Context, req datasource.ReadRequest
 
 	raw := kp.Raw()
 	if raw != nil && raw.Metadata.LocationResponse != nil {
-		data.Location = types.StringValue(raw.Metadata.LocationResponse.Value)
+		data.Location = types.StringValue(string(raw.Metadata.LocationResponse.Value))
 	} else {
 		data.Location = types.StringNull()
 	}
