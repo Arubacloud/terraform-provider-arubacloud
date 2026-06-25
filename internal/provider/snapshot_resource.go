@@ -252,8 +252,6 @@ func (r *SnapshotResource) Read(ctx context.Context, req resource.ReadRequest, r
 		if !resp.Diagnostics.HasError() {
 			data.Tags = tagsList
 		}
-	} else if !data.Tags.IsNull() {
-		// preserve state
 	}
 
 	data.ProjectId = projectId
@@ -332,7 +330,7 @@ func (r *SnapshotResource) Delete(ctx context.Context, req resource.DeleteReques
 
 	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(ctx, func() error {
-		return CheckResponseErr("delete", "Snapshot",
+		return CheckResponseErrAsError("delete", "Snapshot",
 			r.client.Client.FromStorage().Snapshots().Delete(ctx, ref))
 	}, "Snapshot", snapshotID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {

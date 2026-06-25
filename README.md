@@ -42,22 +42,22 @@ terraform {
   required_providers {
     arubacloud = {
       source  = "arubacloud/arubacloud"
-      version = ">= 0.1.3"
+      version = ">= 0.2.0"
     }
   }
 }
 
 provider "arubacloud" {
-  api_key    = var.arubacloud_api_key
-  api_secret = var.arubacloud_api_secret
+  client_id     = var.arubacloud_client_id
+  client_secret = var.arubacloud_client_secret
 }
 ```
 
 Credentials can also be supplied via environment variables:
 
 ```bash
-export ARUBACLOUD_API_KEY="your-api-key"
-export ARUBACLOUD_API_SECRET="your-api-secret"
+export ARUBACLOUD_CLIENT_ID="your-client-id"
+export ARUBACLOUD_CLIENT_SECRET="your-client-secret"
 terraform plan
 ```
 
@@ -84,9 +84,9 @@ The provider can emit full HTTP request/response traces to help diagnose API err
 
 ```hcl
 provider "arubacloud" {
-  api_key    = var.arubacloud_api_key
-  api_secret = var.arubacloud_api_secret
-  log_level  = "DEBUG"
+  client_id     = var.arubacloud_client_id
+  client_secret = var.arubacloud_client_secret
+  log_level     = "DEBUG"
 }
 ```
 

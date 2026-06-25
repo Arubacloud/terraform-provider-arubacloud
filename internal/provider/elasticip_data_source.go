@@ -102,7 +102,7 @@ func (d *ElasticIPDataSource) Read(ctx context.Context, req datasource.ReadReque
 	}
 
 	eip, err := d.client.Client.FromNetwork().ElasticIPs().Get(ctx,
-		aruba.URI("/projects/"+projectID+"/network/elasticIPs/"+eipID))
+		aruba.URI("/projects/"+projectID+"/network/elasticIps/"+eipID))
 	if provErr := CheckResponseErr("read", "ElasticIP", err); provErr != nil {
 		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return

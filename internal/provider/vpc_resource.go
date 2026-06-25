@@ -46,12 +46,12 @@ func (r *VPCResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
 				Computed:            true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"uri": schema.StringAttribute{
 				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources.",
 				Computed:            true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Display name for the VPC.",
@@ -60,12 +60,12 @@ func (r *VPCResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 			"location": schema.StringAttribute{
 				MarkdownDescription: "Region identifier for the resource (e.g., `ITBG-Bergamo`). Changing this value forces a new resource.",
 				Required:            true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project that owns this resource. Changing this value forces a new resource.",
 				Required:            true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
@@ -169,6 +169,11 @@ func (r *VPCResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 		resp.State.RemoveResource(ctx)
 		return
 	}
+	if data.ProjectID.IsNull() || data.ProjectID.ValueString() == "" {
+		resp.Diagnostics.AddError("Missing Project ID",
+			fmt.Sprintf("Cannot read VPC %q: project_id is empty or null", data.Id.ValueString()))
+		return
+	}
 
 	vpc, err := r.client.Client.FromNetwork().VPCs().Get(ctx, vpcRef(&data))
 	if provErr := CheckResponseErr("read", "VPC", err); provErr != nil {
@@ -269,7 +274,7 @@ func (r *VPCResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(ctx, func() error {
 		delErr := r.client.Client.FromNetwork().VPCs().Delete(ctx, ref)
-		return CheckResponseErr("delete", "VPC", delErr)
+		return CheckResponseErrAsError("delete", "VPC", delErr)
 	}, "VPC", vpcID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting VPC", err.Error())

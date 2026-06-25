@@ -233,7 +233,7 @@ func vpnTunnelRef(data *VPNTunnelResourceModel) aruba.Ref {
 }
 
 // buildVPNTunnel constructs a *aruba.VPNTunnel builder from model properties.
-func buildVPNTunnel(ctx context.Context, data *VPNTunnelResourceModel, tags []string) *aruba.VPNTunnel {
+func buildVPNTunnel(_ context.Context, data *VPNTunnelResourceModel, tags []string) *aruba.VPNTunnel {
 	projectID := data.ProjectId.ValueString()
 
 	builder := aruba.NewVPNTunnel().
@@ -576,7 +576,7 @@ func (r *VPNTunnelResource) Delete(ctx context.Context, req resource.DeleteReque
 
 	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(ctx, func() error {
-		return CheckResponseErr("delete", "VPNTunnel",
+		return CheckResponseErrAsError("delete", "VPNTunnel",
 			r.client.Client.FromNetwork().VPNTunnels().Delete(ctx, ref))
 	}, "VPNTunnel", tunnelID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {

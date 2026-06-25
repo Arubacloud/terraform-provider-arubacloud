@@ -40,7 +40,11 @@ func resourceUpdateReq(ctx context.Context, t *testing.T, r resource.Resource) (
 	attrs := make(map[string]tftypes.Value, len(objType.AttributeTypes))
 	for name, ty := range objType.AttributeTypes {
 		if ty.Is(tftypes.String) {
-			attrs[name] = tftypes.NewValue(tftypes.String, "test-"+name)
+			if name == "uri" {
+				attrs[name] = tftypes.NewValue(tftypes.String, nil)
+			} else {
+				attrs[name] = tftypes.NewValue(tftypes.String, "test-"+name)
+			}
 		} else {
 			attrs[name] = tftypes.NewValue(ty, nil)
 		}
@@ -111,6 +115,7 @@ var resourcesWithAPIUpdate = []struct {
 //   - database:          requires DBaaS-specific fields in GET response
 //   - databasebackup:    documented no-op (no API call, adds warning only)
 //   - dbaasuser:         WaitForResourceActive extracts user_id from response
+//   - databasegrant:     SDK Grants().Update() requires username from GET response
 //   - kaas:              complex nested schema with nil-unsafe access
 //   - schedulejob:       schedule_job_type null nested attribute
 //   - securityrule:      null Properties nested object → missing attribute error
@@ -126,6 +131,7 @@ func TestResourceUpdate_Success(t *testing.T) {
 		"database":          true,
 		"databasebackup":    true,
 		"dbaasuser":         true,
+		"databasegrant":     true,
 		"kaas":              true,
 		"schedulejob":       true,
 		"securityrule":      true,

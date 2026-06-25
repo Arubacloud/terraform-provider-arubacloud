@@ -22,8 +22,8 @@ Acceptance tests exercise the real ArubaCloud API — they provision, read, upda
 
 ```bash
 export TF_ACC=1
-export ARUBACLOUD_API_KEY=<your-api-key>
-export ARUBACLOUD_API_SECRET=<your-api-secret>
+export ARUBACLOUD_CLIENT_ID=<your-api-key>
+export ARUBACLOUD_CLIENT_SECRET=<your-api-secret>
 export ARUBACLOUD_PROJECT_ID=<an-existing-project-id>
 
 # Run all acceptance tests
@@ -38,15 +38,15 @@ A convenience wrapper is available that accepts credentials and fixture IDs as f
 ```bash
 # Minimal: run a single test
 ./run-acceptance-tests.sh \
-  --api-key "$ARUBACLOUD_API_KEY" \
-  --api-secret "$ARUBACLOUD_API_SECRET" \
+  --client-id "$ARUBACLOUD_CLIENT_ID" \
+  --client-secret "$ARUBACLOUD_CLIENT_SECRET" \
   --project-id "$ARUBACLOUD_PROJECT_ID" \
   -t '^TestAccKeypairResource$'
 
 # With an optional fixture for DBaaS-dependent tests
 ./run-acceptance-tests.sh \
-  --api-key "$ARUBACLOUD_API_KEY" \
-  --api-secret "$ARUBACLOUD_API_SECRET" \
+  --client-id "$ARUBACLOUD_CLIENT_ID" \
+  --client-secret "$ARUBACLOUD_CLIENT_SECRET" \
   --project-id "$ARUBACLOUD_PROJECT_ID" \
   --dbaas-id "$ARUBACLOUD_DBAAS_ID" \
   -t '^TestAccDatabaseDataSource$'
@@ -73,8 +73,8 @@ The workflow also runs automatically on every push to `main`.
 | Variable | Purpose |
 |---|---|
 | `TF_ACC` | Set to `"1"` to activate acceptance tests |
-| `ARUBACLOUD_API_KEY` | API authentication |
-| `ARUBACLOUD_API_SECRET` | API authentication |
+| `ARUBACLOUD_CLIENT_ID` | OAuth2 Client ID for API authentication |
+| `ARUBACLOUD_CLIENT_SECRET` | OAuth2 Client Secret for API authentication |
 
 ### Resource Tests
 
@@ -119,8 +119,8 @@ Data source tests look up an **existing** resource by ID. A data source test ski
 
 To run acceptance tests in CI, add the following [repository secrets](https://docs.github.com/en/actions/security-guides/encrypted-secrets):
 
-- `ARUBACLOUD_API_KEY`
-- `ARUBACLOUD_API_SECRET`
+- `ARUBACLOUD_CLIENT_ID`
+- `ARUBACLOUD_CLIENT_SECRET`
 
 The `ARUBACLOUD_PROJECT_ID` and resource-specific IDs are not stored as secrets (they are not sensitive) — they can be added as [repository variables](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/store-information-in-variables) and referenced as `${{ vars.ARUBACLOUD_PROJECT_ID }}` in the workflow if needed.
 
@@ -142,4 +142,4 @@ func TestAccExampleResource(t *testing.T) {
 }
 ```
 
-`testAccPreCheck` (defined in `provider_test.go`) validates that `ARUBACLOUD_API_KEY` and `ARUBACLOUD_API_SECRET` are set before each test case runs.
+`testAccPreCheck` (defined in `provider_test.go`) validates that `ARUBACLOUD_CLIENT_ID` and `ARUBACLOUD_CLIENT_SECRET` are set before each acceptance test case runs.

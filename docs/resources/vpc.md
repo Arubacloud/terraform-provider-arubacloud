@@ -31,9 +31,9 @@ The following arguments are supported:
 
 #### Required
 
-- `location` (String) Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `location` (String) Region identifier for the resource (e.g., `ITBG-Bergamo`). Changing this value forces a new resource.
 - `name` (String) Display name for the VPC.
-- `project_id` (String) ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `project_id` (String) ID of the project that owns this resource. Changing this value forces a new resource.
 
 #### Optional
 
@@ -46,7 +46,7 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) Computed by the API. Unique identifier for the resource.
-- `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).
+- `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources.
 
 
 

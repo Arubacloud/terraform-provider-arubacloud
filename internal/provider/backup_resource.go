@@ -130,7 +130,7 @@ func (r *BackupResource) Create(ctx context.Context, req resource.CreateRequest,
 
 	// Get the volume to obtain its URI.
 	vol, err := r.client.Client.FromStorage().Volumes().Get(ctx,
-		aruba.URI("/projects/"+projectID+"/providers/Aruba.Storage/volumes/"+volumeID))
+		aruba.URI("/projects/"+projectID+"/providers/Aruba.Storage/blockStorages/"+volumeID))
 	if provErr := CheckResponseErr("read", "Volume", err); provErr != nil {
 		resp.Diagnostics.AddError("Error getting volume details", provErr.Error())
 		return
@@ -142,7 +142,7 @@ func (r *BackupResource) Create(ctx context.Context, req resource.CreateRequest,
 
 	builder := aruba.NewStorageBackup().
 		Named(data.Name.ValueString()).
-		InProject(aruba.URI("/projects/"+projectID)).
+		InProject(aruba.URI("/projects/" + projectID)).
 		InRegion(aruba.Region(data.Location.ValueString())).
 		OfType(aruba.StorageBackupType(data.Type.ValueString())).
 		FromVolume(aruba.URI(vol.URI())).
@@ -318,7 +318,7 @@ func (r *BackupResource) Delete(ctx context.Context, req resource.DeleteRequest,
 
 	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(ctx, func() error {
-		return CheckResponseErr("delete", "Backup",
+		return CheckResponseErrAsError("delete", "Backup",
 			r.client.Client.FromStorage().Backups().Delete(ctx, ref))
 	}, "Backup", backupID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {

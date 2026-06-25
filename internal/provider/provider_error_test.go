@@ -212,8 +212,8 @@ func TestCheckResponseErr(t *testing.T) {
 			wantNil: true,
 		},
 		{
-			name: "404 Not Found (no validation errors) → transient",
-			err:  makeHTTPErr(404, &sdktypes.ErrorResponse{Title: &title404}),
+			name:         "404 Not Found (no validation errors) → transient",
+			err:          makeHTTPErr(404, &sdktypes.ErrorResponse{Title: &title404}),
 			wantCategory: ProviderErrorCategoryTransient,
 		},
 		{

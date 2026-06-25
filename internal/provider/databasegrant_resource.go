@@ -230,7 +230,7 @@ func (r *DatabaseGrantResource) Delete(ctx context.Context, req resource.DeleteR
 
 	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(ctx, func() error {
-		return CheckResponseErr("delete", "DatabaseGrant",
+		return CheckResponseErrAsError("delete", "DatabaseGrant",
 			r.client.Client.FromDatabase().Grants().Delete(ctx, ref))
 	}, "DatabaseGrant", grantID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {

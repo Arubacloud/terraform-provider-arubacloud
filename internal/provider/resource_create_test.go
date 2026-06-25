@@ -17,7 +17,7 @@ import (
 const uriActiveJSON = `{` +
 	`"metadata":{` +
 	`"id":"test-id","name":"test-name",` +
-	`"uri":"/projects/p/providers/Aruba.Storage/volumes/test-vol-id"` +
+	`"uri":"/projects/p/providers/Aruba.Storage/blockStorages/test-vol-id"` +
 	`},"status":{"state":"Active"}` +
 	`}`
 

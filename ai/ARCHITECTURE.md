@@ -18,8 +18,8 @@ The `ArubaCloudProvider` struct implements three interfaces:
 **Provider config model** (`provider.go:35-41`):
 ```go
 type ArubaCloudProviderModel struct {
-    ApiKey          types.String `tfsdk:"api_key"`
-    ApiSecret       types.String `tfsdk:"api_secret"`
+    ClientID        types.String `tfsdk:"client_id"`
+    ClientSecret    types.String `tfsdk:"client_secret"`
     ResourceTimeout types.String `tfsdk:"resource_timeout"`  // e.g. "5m", "10m"
     BaseURL         types.String `tfsdk:"base_url"`
     TokenIssuerURL  types.String `tfsdk:"token_issuer_url"`
@@ -27,7 +27,7 @@ type ArubaCloudProviderModel struct {
 ```
 
 **Configuration precedence** (`provider.go:76-160`):
-1. Environment variables checked first: `ARUBACLOUD_API_KEY`, `ARUBACLOUD_API_SECRET`, `ARUBACLOUD_TOKEN_ISSUER_URL`
+1. Environment variables checked first: `ARUBACLOUD_CLIENT_ID`, `ARUBACLOUD_CLIENT_SECRET`, `ARUBACLOUD_TOKEN_ISSUER_URL`
 2. HCL provider block overrides env vars
 
 **SDK client creation** (`provider.go:126-138`):

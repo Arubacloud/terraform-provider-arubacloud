@@ -104,7 +104,7 @@ func (r *DatabaseResource) Create(ctx context.Context, req resource.CreateReques
 				Named(data.Name.ValueString()).
 				InDBaaS(aruba.URI(dbaasURI)),
 		)
-		return CheckResponseErr("create", "Database", err)
+		return CheckResponseErrAsError("create", "Database", err)
 	}, "Database", data.Name.ValueString(), r.client.ResourceTimeout); createErr != nil {
 		resp.Diagnostics.AddError("Error creating database", createErr.Error())
 		return
@@ -123,7 +123,7 @@ func (r *DatabaseResource) Create(ctx context.Context, req resource.CreateReques
 	checker := func(ctx context.Context) (string, error) {
 		_, getErr := r.client.Client.FromDatabase().Databases().Get(ctx, databaseRef(&data))
 		if provErr := CheckResponseErr("get", "Database", getErr); provErr != nil {
-			return "Unknown", nil
+			return "Unknown", provErr
 		}
 		return "Active", nil
 	}
@@ -223,7 +223,7 @@ func (r *DatabaseResource) Delete(ctx context.Context, req resource.DeleteReques
 
 	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(ctx, func() error {
-		return CheckResponseErr("delete", "Database",
+		return CheckResponseErrAsError("delete", "Database",
 			r.client.Client.FromDatabase().Databases().Delete(ctx, ref))
 	}, "Database", databaseName, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {

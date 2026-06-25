@@ -1,3 +1,20 @@
+## 0.2.0 (Unreleased)
+
+BREAKING CHANGES:
+
+* Provider authentication renamed: `api_key` → `client_id`, `api_secret` → `client_secret` ([#134](https://github.com/Arubacloud/terraform-provider-arubacloud/issues/134)).
+* Environment variables renamed: `ARUBACLOUD_API_KEY` → `ARUBACLOUD_CLIENT_ID`, `ARUBACLOUD_API_SECRET` → `ARUBACLOUD_CLIENT_SECRET`.
+* sdk-go upgraded from v0.1.24 to v1.0.4 — internal builder API migration; no resource schema changes.
+
+FEATURES:
+
+* All 25 resources and 25 data sources migrated to the sdk-go v1.0.4 fluent builder API, eliminating all `pkg/types` imports from production code ([#136](https://github.com/Arubacloud/terraform-provider-arubacloud/issues/136), [#137](https://github.com/Arubacloud/terraform-provider-arubacloud/issues/137), [#138](https://github.com/Arubacloud/terraform-provider-arubacloud/issues/138), [#139](https://github.com/Arubacloud/terraform-provider-arubacloud/issues/139), [#140](https://github.com/Arubacloud/terraform-provider-arubacloud/issues/140), [#141](https://github.com/Arubacloud/terraform-provider-arubacloud/issues/141), [#142](https://github.com/Arubacloud/terraform-provider-arubacloud/issues/142), [#143](https://github.com/Arubacloud/terraform-provider-arubacloud/issues/143)).
+
+NOTES:
+
+* The `uri` attribute on all resources may show a value change during the first `terraform refresh` after upgrading. This is expected (URI path segment casing may differ between SDK versions) and does **not** trigger resource replacement — all `uri` attributes are `Computed: true` and not `ForceNew`.
+* See [upgrade guide](docs/guides/upgrade-to-v0.2.0.md) for step-by-step migration instructions.
+
 ## 0.1.7 (June 22, 2026)
 
 BUG FIXES:

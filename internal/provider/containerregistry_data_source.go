@@ -140,7 +140,7 @@ func (d *ContainerRegistryDataSource) Read(ctx context.Context, req datasource.R
 	}
 
 	registry, err := d.client.Client.FromContainer().ContainerRegistry().Get(ctx,
-		aruba.URI("/projects/"+projectID+"/providers/Aruba.Container/containerRegistries/"+registryID))
+		aruba.URI("/projects/"+projectID+"/providers/Aruba.Container/registries/"+registryID))
 	if provErr := CheckResponseErr("read", "ContainerRegistry", err); provErr != nil {
 		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return

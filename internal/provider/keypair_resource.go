@@ -119,7 +119,7 @@ func (r *KeypairResource) Create(ctx context.Context, req resource.CreateRequest
 
 	builder := aruba.NewKeyPair().
 		Named(data.Name.ValueString()).
-		InProject(aruba.URI("/projects/"+projectID)).
+		InProject(aruba.URI("/projects/" + projectID)).
 		InRegion(aruba.Region(data.Location.ValueString())).
 		WithPublicKey(data.Value.ValueString()).
 		Tagged(tags...)
@@ -302,7 +302,7 @@ func (r *KeypairResource) Delete(ctx context.Context, req resource.DeleteRequest
 		ctx,
 		func() error {
 			delErr := r.client.Client.FromCompute().KeyPairs().Delete(ctx, ref)
-			return CheckResponseErr("delete", "Keypair", delErr)
+			return CheckResponseErrAsError("delete", "Keypair", delErr)
 		},
 		"Keypair",
 		keypairID,

@@ -104,22 +104,22 @@ func (r *ContainerRegistryResource) Schema(ctx context.Context, req resource.Sch
 					"public_ip_uri_ref": schema.StringAttribute{
 						MarkdownDescription: "URI of the Elastic IP that exposes the registry endpoint (e.g., `arubacloud_elasticip.example.uri`).",
 						Required:            true,
-						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+						PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 					"vpc_uri_ref": schema.StringAttribute{
 						MarkdownDescription: "URI of the VPC that hosts the registry (e.g., `arubacloud_vpc.example.uri`).",
 						Required:            true,
-						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+						PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 					"subnet_uri_ref": schema.StringAttribute{
 						MarkdownDescription: "URI of the subnet within the VPC (e.g., `arubacloud_subnet.example.uri`).",
 						Required:            true,
-						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+						PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 					"security_group_uri_ref": schema.StringAttribute{
 						MarkdownDescription: "URI of the security group controlling registry traffic (e.g., `arubacloud_securitygroup.example.uri`).",
 						Required:            true,
-						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+						PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 				},
 			},
@@ -130,7 +130,7 @@ func (r *ContainerRegistryResource) Schema(ctx context.Context, req resource.Sch
 					"block_storage_uri_ref": schema.StringAttribute{
 						MarkdownDescription: "URI of the block storage volume (e.g., `arubacloud_blockstorage.example.uri`).",
 						Required:            true,
-						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+						PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 				},
 			},
@@ -172,7 +172,7 @@ func containerRegistryRef(data *ContainerRegistryResourceModel) aruba.Ref {
 		return aruba.URI(data.Uri.ValueString())
 	}
 	return aruba.URI("/projects/" + data.ProjectID.ValueString() +
-		"/providers/Aruba.Container/containerRegistries/" + data.Id.ValueString())
+		"/providers/Aruba.Container/registries/" + data.Id.ValueString())
 }
 
 func applyContainerRegistryToModel(reg *aruba.ContainerRegistry, data *ContainerRegistryResourceModel) {
@@ -247,7 +247,7 @@ func (r *ContainerRegistryResource) Create(ctx context.Context, req resource.Cre
 	projectID := data.ProjectID.ValueString()
 	builder := aruba.NewContainerRegistry().
 		Named(data.Name.ValueString()).
-		InProject(aruba.URI("/projects/"+projectID)).
+		InProject(aruba.URI("/projects/" + projectID)).
 		InRegion(aruba.Region(data.Location.ValueString())).
 		Tagged(tags...).
 		WithElasticIP(aruba.URI(networkModel.PublicIpUriRef.ValueString())).
@@ -288,8 +288,7 @@ func (r *ContainerRegistryResource) Create(ctx context.Context, req resource.Cre
 		return
 	}
 
-	// ContainerRegistry can take 20-40 minutes to converge.
-	if waitErr := registry.WaitUntilReady(ctx, aruba.WithTimeout(40*time.Minute)); waitErr != nil {
+	if waitErr := registry.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "ContainerRegistry", data.Id.ValueString())
 		return
 	}
@@ -338,7 +337,7 @@ func (r *ContainerRegistryResource) Read(ctx context.Context, req resource.ReadR
 			fmt.Sprintf("ContainerRegistry %q is in a terminal failure state (%s). "+
 				"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", data.Id.ValueString(), st))
 	case IsCreatingState(st):
-		if waitErr := registry.WaitUntilReady(ctx, aruba.WithTimeout(40*time.Minute)); waitErr != nil {
+		if waitErr := registry.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
 			ReportWaitResult(&resp.Diagnostics, waitErr, "ContainerRegistry", data.Id.ValueString())
 			return
 		}
@@ -461,7 +460,7 @@ func (r *ContainerRegistryResource) Delete(ctx context.Context, req resource.Del
 
 	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(ctx, func() error {
-		return CheckResponseErr("delete", "ContainerRegistry",
+		return CheckResponseErrAsError("delete", "ContainerRegistry",
 			r.client.Client.FromContainer().ContainerRegistry().Delete(ctx, ref))
 	}, "ContainerRegistry", registryID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {

@@ -18,7 +18,7 @@ make ci-test      # Full CI pipeline locally (build, lint, generate, test, mod t
 
 ## Acceptance Tests
 
-Require environment variables `ARUBACLOUD_API_KEY` and `ARUBACLOUD_API_SECRET`, or use `run-acceptance-tests.sh` to load them from `terraform.tfvars`.
+Require environment variables `ARUBACLOUD_CLIENT_ID` and `ARUBACLOUD_CLIENT_SECRET`, or use `run-acceptance-tests.sh` to load them from `terraform.tfvars`.
 
 ## Local Terraform Development
 

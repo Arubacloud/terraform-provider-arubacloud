@@ -9,6 +9,13 @@ import (
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
 )
 
+// compositeImportIDs maps resource names to their required composite import ID
+// format.  Resources not in this map use the simple "test-import-id" default.
+var compositeImportIDs = map[string]string{
+	// databasegrant requires project_id/dbaas_id/database/user_id
+	"databasegrant": "test-project_id/test-dbaas_id/test-database/test-user_id",
+}
+
 // TestResourceImportState_Success invokes ImportState() for all 25 resources.
 // This covers ImportStatePassthroughID (the standard one-liner every resource
 // in this provider uses) which the existing interface-only TestResourceImportState
@@ -35,7 +42,12 @@ func TestResourceImportState_Success(t *testing.T) {
 				t.Fatalf("%s: schema root is not an object type", tc.name)
 			}
 
-			req := resource.ImportStateRequest{ID: "test-import-id"}
+			importID := "test-import-id"
+			if composite, exists := compositeImportIDs[tc.name]; exists {
+				importID = composite
+			}
+
+			req := resource.ImportStateRequest{ID: importID}
 			resp := &resource.ImportStateResponse{
 				State: tfsdk.State{
 					Raw:    tftypes.NewValue(objType, nil),

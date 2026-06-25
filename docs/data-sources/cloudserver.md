@@ -78,16 +78,16 @@ In addition to all arguments above, the following attributes are exported:
 
 - `boot_volume_uri_ref` (String) URI of the bootable block storage volume.
 - `elastic_ip_uri_ref` (String) URI of the Elastic IP associated with this CloudServer, if any.
-- `flavor_name` (String) Compute flavour name (e.g., `CSO4A8` for 4 vCPU / 8 GB RAM). See [available flavours](https://api.arubacloud.com/docs/metadata/#cloudserver-flavors).
+- `flavor_name` (String) Compute flavour name (e.g., `CSO4A8` for 4 vCPU / 8 GB RAM).
 - `key_pair_uri_ref` (String) URI of the SSH key pair injected at boot.
-- `location` (String) Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
+- `location` (String) Region identifier for the resource (e.g., `ITBG-Bergamo`).
 - `name` (String) Display name for the CloudServer.
 - `securitygroup_uri_refs` (List of String) List of security group URIs applied to this CloudServer.
 - `subnet_uri_refs` (List of String) List of subnet URIs attached to this CloudServer.
 - `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
-- `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).
+- `uri` (String) Computed by the API. Full resource URI.
 - `user_data` (String) Cloud-Init configuration passed to the instance at first boot.
 - `vpc_uri_ref` (String) URI of the VPC attached to this CloudServer.
-- `zone` (String) Availability zone within the region (e.g., `ITBG-1`). See [available zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
+- `zone` (String) Availability zone within the region (e.g., `ITBG-1`).
 
 

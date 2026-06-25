@@ -268,7 +268,7 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 
 	builder := aruba.NewCloudServer().
 		Named(data.Name.ValueString()).
-		InProject(aruba.URI("/projects/"+projectID)).
+		InProject(aruba.URI("/projects/" + projectID)).
 		InRegion(aruba.Region(data.Location.ValueString())).
 		InZone(aruba.Zone(data.Zone.ValueString())).
 		OfFlavor(aruba.CloudServerFlavor(settingsModel.FlavorName.ValueString())).
@@ -625,7 +625,7 @@ func (r *CloudServerResource) Delete(ctx context.Context, req resource.DeleteReq
 		ctx,
 		func() error {
 			delErr := r.client.Client.FromCompute().CloudServers().Delete(ctx, ref)
-			return CheckResponseErr("delete", "CloudServer", delErr)
+			return CheckResponseErrAsError("delete", "CloudServer", delErr)
 		},
 		"CloudServer",
 		serverID,

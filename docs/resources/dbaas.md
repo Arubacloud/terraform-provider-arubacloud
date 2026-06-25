@@ -84,13 +84,13 @@ In addition to all arguments above, the following attributes are exported:
 
 Required:
 
-- `security_group_uri_ref` (String) URI reference to the Security Group resource. References the `uri` attribute of an `arubacloud_securitygroup` resource (e.g., `arubacloud_securitygroup.example.uri`).
-- `subnet_uri_ref` (String) URI reference to the Subnet resource. References the `uri` attribute of an `arubacloud_subnet` resource (e.g., `arubacloud_subnet.example.uri`).
-- `vpc_uri_ref` (String) URI reference to the VPC resource. References the `uri` attribute of an `arubacloud_vpc` resource (e.g., `arubacloud_vpc.example.uri`).
+- `security_group_uri_ref` (String) URI reference to the Security Group resource.
+- `subnet_uri_ref` (String) URI reference to the Subnet resource.
+- `vpc_uri_ref` (String) URI reference to the VPC resource.
 
 Optional:
 
-- `elastic_ip_uri_ref` (String) Optional URI reference to an Elastic IP resource. References the `uri` attribute of an `arubacloud_elasticip` resource (e.g., `arubacloud_elasticip.example.uri`).
+- `elastic_ip_uri_ref` (String) Optional URI reference to an Elastic IP resource.
 
 
 <a id="nestedatt--storage"></a>

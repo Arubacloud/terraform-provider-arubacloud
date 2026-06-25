@@ -65,10 +65,14 @@ func normalizeProtocol(p string) string {
 
 // normalizeTargetKind maps the wire "Ip" value to the user-facing "IP".
 func normalizeTargetKind(kind string) string {
-	if strings.EqualFold(kind, "Ip") || strings.EqualFold(kind, "ip") {
+	switch {
+	case strings.EqualFold(kind, "ip"):
 		return "IP"
+	case strings.EqualFold(kind, "securitygroup"):
+		return "SecurityGroup"
+	default:
+		return kind
 	}
-	return kind
 }
 
 type SecurityRuleResource struct {
@@ -222,7 +226,7 @@ func sgRuleRef(data *SecurityRuleResourceModel) aruba.Ref {
 	)
 }
 
-func applySecurityRuleToModel(ctx context.Context, rule *aruba.SecurityRule, data *SecurityRuleResourceModel) {
+func applySecurityRuleToModel(_ context.Context, rule *aruba.SecurityRule, data *SecurityRuleResourceModel) {
 	data.Id = types.StringValue(rule.ID())
 	data.Uri = strVal(rule.URI())
 	data.Name = types.StringValue(rule.Name())
@@ -268,7 +272,7 @@ func applySecurityRuleToModel(ctx context.Context, rule *aruba.SecurityRule, dat
 
 // extractRuleProperties pulls direction, protocol, port, targetKind, and targetValue
 // from the plan's Properties object attribute.
-func extractRuleProperties(ctx context.Context, data *SecurityRuleResourceModel) (direction, protocol, port, targetKind, targetValue string, ok bool) {
+func extractRuleProperties(_ context.Context, data *SecurityRuleResourceModel) (direction, protocol, port, targetKind, targetValue string, ok bool) {
 	if data.Properties.IsNull() || data.Properties.IsUnknown() {
 		return
 	}
@@ -456,7 +460,7 @@ func (r *SecurityRuleResource) Update(ctx context.Context, req resource.UpdateRe
 	if planDirection != "" && string(rule.Direction()) != planDirection {
 		propertiesChanged = true
 	}
-	if planProtocol != "" && strings.ToUpper(string(rule.Protocol())) != strings.ToUpper(planProtocol) {
+	if planProtocol != "" && !strings.EqualFold(string(rule.Protocol()), planProtocol) {
 		propertiesChanged = true
 	}
 	if planPort != "" && rule.Port() != planPort {
@@ -530,7 +534,7 @@ func (r *SecurityRuleResource) Delete(ctx context.Context, req resource.DeleteRe
 
 	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(ctx, func() error {
-		return CheckResponseErr("delete", "SecurityRule",
+		return CheckResponseErrAsError("delete", "SecurityRule",
 			r.client.Client.FromNetwork().SecurityGroupRules().Delete(ctx, ref))
 	}, "SecurityRule", ruleID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {

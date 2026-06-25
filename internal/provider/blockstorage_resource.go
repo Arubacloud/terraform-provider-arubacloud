@@ -130,7 +130,7 @@ func blockStorageRef(data *BlockStorageResourceModel) aruba.Ref {
 	if !data.Uri.IsNull() && data.Uri.ValueString() != "" {
 		return aruba.URI(data.Uri.ValueString())
 	}
-	return aruba.URI("/projects/" + data.ProjectID.ValueString() + "/providers/Aruba.Storage/volumes/" + data.Id.ValueString())
+	return aruba.URI("/projects/" + data.ProjectID.ValueString() + "/providers/Aruba.Storage/blockStorages/" + data.Id.ValueString())
 }
 
 func applyBlockStorageToModel(vol *aruba.BlockStorage, data *BlockStorageResourceModel) {
@@ -375,7 +375,7 @@ func (r *BlockStorageResource) Delete(ctx context.Context, req resource.DeleteRe
 
 	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(ctx, func() error {
-		return CheckResponseErr("delete", "BlockStorage",
+		return CheckResponseErrAsError("delete", "BlockStorage",
 			r.client.Client.FromStorage().Volumes().Delete(ctx, ref))
 	}, "BlockStorage", volumeID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {

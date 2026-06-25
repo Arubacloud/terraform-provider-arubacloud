@@ -44,6 +44,7 @@ func TestResourceUpdate_RichMetadata(t *testing.T) {
 		"database":          true, // tested separately
 		"databasebackup":    true, // no-op update
 		"dbaasuser":         true, // needs nested objects in plan
+		"databasegrant":     true, // SDK Grants().Update() requires username from GET response
 		"kaas":              true, // needs node_pools
 		"schedulejob":       true, // needs Properties in plan
 		"securityrule":      true, // tested separately below

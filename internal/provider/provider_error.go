@@ -227,26 +227,38 @@ func CheckResponseErr(operation, resource string, err error) *ProviderError {
 	return NewTransportError(operation, resource, err)
 }
 
+// CheckResponseErrAsError is like CheckResponseErr but returns a plain error
+// interface instead of *ProviderError. Use this in func() error closures passed
+// to CreateWithTransientRetry and DeleteResourceWithRetry to avoid the typed-nil
+// interface bug: a nil *ProviderError returned as error is a non-nil interface,
+// which triggers spurious error handling and can panic on .Error() dereference.
+func CheckResponseErrAsError(operation, resource string, err error) error {
+	if provErr := CheckResponseErr(operation, resource, err); provErr != nil {
+		return provErr
+	}
+	return nil
+}
+
 // IsNotFound reports whether err (or any error in its chain) represents a 404 Not Found response.
 func IsNotFound(err error) bool {
 	var provErr *ProviderError
-	return errors.As(err, &provErr) && provErr.StatusCode == 404
+	return errors.As(err, &provErr) && provErr != nil && provErr.StatusCode == 404
 }
 
 // ErrorIsSemantic reports whether err is a *ProviderError with category Semantic.
 func ErrorIsSemantic(err error) bool {
 	var provErr *ProviderError
-	return errors.As(err, &provErr) && provErr.Category == ProviderErrorCategorySemantic
+	return errors.As(err, &provErr) && provErr != nil && provErr.Category == ProviderErrorCategorySemantic
 }
 
 // ErrorIsTransient reports whether err is a *ProviderError with category Transient.
 func ErrorIsTransient(err error) bool {
 	var provErr *ProviderError
-	return errors.As(err, &provErr) && provErr.Category == ProviderErrorCategoryTransient
+	return errors.As(err, &provErr) && provErr != nil && provErr.Category == ProviderErrorCategoryTransient
 }
 
 // ErrorIsTechnical reports whether err is a *ProviderError with category Technical.
 func ErrorIsTechnical(err error) bool {
 	var provErr *ProviderError
-	return errors.As(err, &provErr) && provErr.Category == ProviderErrorCategoryTechnical
+	return errors.As(err, &provErr) && provErr != nil && provErr.Category == ProviderErrorCategoryTechnical
 }

@@ -288,7 +288,7 @@ func buildSubnetDHCP(ctx context.Context, dhcpAttr types.Object, diags *diag.Dia
 
 // applySubnetToModel hydrates data from the wrapper response.
 // It preserves project_id and vpc_id from the caller (those aren't in the API response).
-func applySubnetToModel(ctx context.Context, subnet *aruba.Subnet, data *SubnetResourceModel, diags *diag.Diagnostics) {
+func applySubnetToModel(_ context.Context, subnet *aruba.Subnet, data *SubnetResourceModel, diags *diag.Diagnostics) {
 	data.Id = types.StringValue(subnet.ID())
 	data.Uri = strVal(subnet.URI())
 	data.Name = types.StringValue(subnet.Name())
@@ -704,7 +704,7 @@ func (r *SubnetResource) Delete(ctx context.Context, req resource.DeleteRequest,
 
 	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(ctx, func() error {
-		return CheckResponseErr("delete", "Subnet",
+		return CheckResponseErrAsError("delete", "Subnet",
 			r.client.Client.FromNetwork().Subnets().Delete(ctx, ref))
 	}, "Subnet", subnetID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {

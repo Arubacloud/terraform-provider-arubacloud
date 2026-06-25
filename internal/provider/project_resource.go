@@ -227,7 +227,7 @@ func (r *ProjectResource) Delete(ctx context.Context, req resource.DeleteRequest
 
 	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(ctx, func() error {
-		return CheckResponseErr("delete", "Project",
+		return CheckResponseErrAsError("delete", "Project",
 			r.client.Client.FromProject().Delete(ctx, ref))
 	}, "Project", projectID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {
