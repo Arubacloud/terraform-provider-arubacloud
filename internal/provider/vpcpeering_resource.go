@@ -113,7 +113,7 @@ func applyVPCPeeringToModel(p *aruba.VPCPeering, data *VpcPeeringResourceModel) 
 	}
 	raw := p.Raw()
 	if raw != nil && raw.Metadata.LocationResponse != nil {
-		data.Location = types.StringValue(raw.Metadata.LocationResponse.Value)
+		data.Location = types.StringValue(string(raw.Metadata.LocationResponse.Value))
 	}
 }
 

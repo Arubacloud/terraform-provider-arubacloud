@@ -42,6 +42,27 @@ func (m protocolNormalizePlanModifier) PlanModifyString(ctx context.Context, req
 	}
 }
 
+// normalizeProtocol normalizes protocol strings to the canonical API form.
+func normalizeProtocol(p string) string {
+	switch strings.ToLower(p) {
+	case "any":
+		return "Any"
+	case "tcp":
+		return "TCP"
+	case "udp":
+		return "UDP"
+	case "icmp":
+		return "ICMP"
+	case "":
+		return ""
+	default:
+		if len(p) == 0 {
+			return ""
+		}
+		return strings.ToUpper(p[:1]) + p[1:]
+	}
+}
+
 // normalizeTargetKind maps the wire "Ip" value to the user-facing "IP".
 func normalizeTargetKind(kind string) string {
 	if strings.EqualFold(kind, "Ip") || strings.EqualFold(kind, "ip") {

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -142,6 +142,178 @@ func (r *ScheduleJobResource) Configure(ctx context.Context, req resource.Config
 	r.client = client
 }
 
+func jobRef(data *ScheduleJobResourceModel) aruba.Ref {
+	if !data.Uri.IsNull() && data.Uri.ValueString() != "" {
+		return aruba.URI(data.Uri.ValueString())
+	}
+	return aruba.URI("/projects/" + data.ProjectID.ValueString() +
+		"/providers/Aruba.Schedule/jobs/" + data.Id.ValueString())
+}
+
+// stepObjectAttrTypes returns the attr.Type map for a step object.
+func stepObjectAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"name":         types.StringType,
+		"resource_uri": types.StringType,
+		"action_uri":   types.StringType,
+		"http_verb":    types.StringType,
+		"body":         types.StringType,
+	}
+}
+
+// propertiesAttrTypes returns the attr.Type map for the properties object.
+func propertiesAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"enabled":           types.BoolType,
+		"schedule_job_type": types.StringType,
+		"schedule_at":       types.StringType,
+		"execute_until":     types.StringType,
+		"cron":              types.StringType,
+		"steps":             types.ListType{ElemType: types.ObjectType{AttrTypes: stepObjectAttrTypes()}},
+	}
+}
+
+// buildJobSteps builds *aruba.JobStep builders from the Terraform properties object.
+func buildJobSteps(propertiesObj map[string]attr.Value, ctx context.Context, diagnostics *diag.Diagnostics) []*aruba.JobStep {
+	stepsAttr, ok := propertiesObj["steps"]
+	if !ok {
+		return nil
+	}
+	stepsList, ok := stepsAttr.(types.List)
+	if !ok || stepsList.IsNull() || stepsList.IsUnknown() {
+		return nil
+	}
+
+	var stepsElements []types.Object
+	d := stepsList.ElementsAs(ctx, &stepsElements, false)
+	diagnostics.Append(d...)
+	if diagnostics.HasError() {
+		return nil
+	}
+
+	steps := make([]*aruba.JobStep, 0, len(stepsElements))
+	for _, stepObj := range stepsElements {
+		stepAttrs := stepObj.Attributes()
+		builder := aruba.NewJobStep()
+
+		if nameAttr, ok := stepAttrs["name"]; ok {
+			if nameStr, ok := nameAttr.(types.String); ok && !nameStr.IsNull() {
+				builder = builder.Named(nameStr.ValueString())
+			}
+		}
+		if resURIAttr, ok := stepAttrs["resource_uri"]; ok {
+			if resURIStr, ok := resURIAttr.(types.String); ok && !resURIStr.IsNull() {
+				builder = builder.Targeting(aruba.URI(resURIStr.ValueString()))
+			}
+		}
+		if actURIAttr, ok := stepAttrs["action_uri"]; ok {
+			if actURIStr, ok := actURIAttr.(types.String); ok && !actURIStr.IsNull() {
+				builder = builder.WithAction(actURIStr.ValueString())
+			}
+		}
+		if verbAttr, ok := stepAttrs["http_verb"]; ok {
+			if verbStr, ok := verbAttr.(types.String); ok && !verbStr.IsNull() {
+				builder = builder.WithVerb(aruba.HTTPVerb(verbStr.ValueString()))
+			}
+		}
+		if bodyAttr, ok := stepAttrs["body"]; ok {
+			if bodyStr, ok := bodyAttr.(types.String); ok && !bodyStr.IsNull() {
+				builder = builder.WithBody(bodyStr.ValueString())
+			}
+		}
+		steps = append(steps, builder)
+	}
+	return steps
+}
+
+// applyJobToModel populates data from the job wrapper and raw response.
+func applyJobToModel(job *aruba.Job, data *ScheduleJobResourceModel, diagnostics *diag.Diagnostics) {
+	data.Id = types.StringValue(job.ID())
+	if uri := job.URI(); uri != "" {
+		data.Uri = types.StringValue(uri)
+	} else {
+		data.Uri = types.StringNull()
+	}
+	data.Name = types.StringValue(job.Name())
+	if r := string(job.Region()); r != "" {
+		data.Location = types.StringValue(r)
+	}
+	data.Tags = TagsToListPreserveNull(job.Tags(), data.Tags)
+
+	raw := job.Raw()
+	if raw == nil {
+		return
+	}
+
+	stepObjType := types.ObjectType{AttrTypes: stepObjectAttrTypes()}
+	var stepsListValue types.List
+	if len(raw.Properties.Steps) > 0 {
+		stepObjects := make([]attr.Value, 0, len(raw.Properties.Steps))
+		for _, step := range raw.Properties.Steps {
+			stepAttrs := map[string]attr.Value{
+				"name":         types.StringNull(),
+				"resource_uri": types.StringNull(),
+				"action_uri":   types.StringNull(),
+				"http_verb":    types.StringNull(),
+				"body":         types.StringNull(),
+			}
+			if step.Name != nil {
+				stepAttrs["name"] = types.StringValue(*step.Name)
+			}
+			if step.ResourceURI != nil {
+				stepAttrs["resource_uri"] = types.StringValue(*step.ResourceURI)
+			}
+			if step.ActionURI != nil {
+				stepAttrs["action_uri"] = types.StringValue(*step.ActionURI)
+			}
+			if step.HttpVerb != nil {
+				stepAttrs["http_verb"] = types.StringValue(*step.HttpVerb)
+			}
+			if step.Body != nil {
+				stepAttrs["body"] = types.StringValue(*step.Body)
+			}
+			obj, d := types.ObjectValue(stepObjectAttrTypes(), stepAttrs)
+			diagnostics.Append(d...)
+			if diagnostics.HasError() {
+				return
+			}
+			stepObjects = append(stepObjects, obj)
+		}
+		var d diag.Diagnostics
+		stepsListValue, d = types.ListValue(stepObjType, stepObjects)
+		diagnostics.Append(d...)
+		if diagnostics.HasError() {
+			return
+		}
+	} else {
+		stepsListValue = types.ListNull(stepObjType)
+	}
+
+	propertiesAttrs := map[string]attr.Value{
+		"enabled":           types.BoolValue(raw.Properties.Enabled),
+		"schedule_job_type": types.StringValue(string(raw.Properties.JobType)),
+		"schedule_at":       types.StringNull(),
+		"execute_until":     types.StringNull(),
+		"cron":              types.StringNull(),
+		"steps":             stepsListValue,
+	}
+	if raw.Properties.ScheduleAt != nil {
+		propertiesAttrs["schedule_at"] = types.StringValue(*raw.Properties.ScheduleAt)
+	}
+	if raw.Properties.ExecuteUntil != nil {
+		propertiesAttrs["execute_until"] = types.StringValue(*raw.Properties.ExecuteUntil)
+	}
+	if raw.Properties.Cron != nil {
+		propertiesAttrs["cron"] = types.StringValue(*raw.Properties.Cron)
+	}
+
+	propertiesObj, d := types.ObjectValue(propertiesAttrTypes(), propertiesAttrs)
+	diagnostics.Append(d...)
+	if !diagnostics.HasError() {
+		data.Properties = propertiesObj
+	}
+}
+
 func (r *ScheduleJobResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data ScheduleJobResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
@@ -150,12 +322,8 @@ func (r *ScheduleJobResource) Create(ctx context.Context, req resource.CreateReq
 	}
 
 	projectID := data.ProjectID.ValueString()
-
 	if projectID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID is required to create a schedule job",
-		)
+		resp.Diagnostics.AddError("Missing Required Fields", "Project ID is required to create a schedule job")
 		return
 	}
 
@@ -164,7 +332,6 @@ func (r *ScheduleJobResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
-	// Extract properties
 	propertiesObj := data.Properties.Attributes()
 
 	jobTypeAttr, ok := propertiesObj["schedule_job_type"].(types.String)
@@ -172,7 +339,7 @@ func (r *ScheduleJobResource) Create(ctx context.Context, req resource.CreateReq
 		resp.Diagnostics.AddError("Invalid Type", "schedule_job_type must be a String")
 		return
 	}
-	jobType := jobTypeAttr.ValueString()
+	jobTypeStr := jobTypeAttr.ValueString()
 
 	enabled := true
 	if enabledAttr, ok := propertiesObj["enabled"]; ok {
@@ -184,168 +351,101 @@ func (r *ScheduleJobResource) Create(ctx context.Context, req resource.CreateReq
 	var scheduleAt *string
 	if scheduleAtAttr, ok := propertiesObj["schedule_at"]; ok {
 		if scheduleAtStr, ok := scheduleAtAttr.(types.String); ok && !scheduleAtStr.IsNull() {
-			scheduleAtVal := scheduleAtStr.ValueString()
-			scheduleAt = &scheduleAtVal
+			v := scheduleAtStr.ValueString()
+			scheduleAt = &v
 		}
 	}
 
 	var cron *string
 	if cronAttr, ok := propertiesObj["cron"]; ok {
 		if cronStr, ok := cronAttr.(types.String); ok && !cronStr.IsNull() {
-			cronVal := cronStr.ValueString()
-			cron = &cronVal
+			v := cronStr.ValueString()
+			cron = &v
 		}
 	}
 
 	var executeUntil *string
 	if executeUntilAttr, ok := propertiesObj["execute_until"]; ok {
 		if executeUntilStr, ok := executeUntilAttr.(types.String); ok && !executeUntilStr.IsNull() {
-			executeUntilVal := executeUntilStr.ValueString()
-			executeUntil = &executeUntilVal
+			v := executeUntilStr.ValueString()
+			executeUntil = &v
 		}
 	}
 
-	// Extract steps
-	var steps []sdktypes.JobStep
-	if stepsAttr, ok := propertiesObj["steps"]; ok {
-		if stepsList, ok := stepsAttr.(types.List); ok && !stepsList.IsNull() {
-			var stepsElements []types.Object
-			diags := stepsList.ElementsAs(ctx, &stepsElements, false)
-			resp.Diagnostics.Append(diags...)
-			if resp.Diagnostics.HasError() {
-				return
-			}
-
-			for _, stepObj := range stepsElements {
-				stepAttrs := stepObj.Attributes()
-
-				var name *string
-				if nameAttr, ok := stepAttrs["name"]; ok {
-					if nameStr, ok := nameAttr.(types.String); ok && !nameStr.IsNull() {
-						nameVal := nameStr.ValueString()
-						name = &nameVal
-					}
-				}
-
-				var resourceURI string
-				if resURIAttr, ok := stepAttrs["resource_uri"]; ok {
-					if resURIStr, ok := resURIAttr.(types.String); ok {
-						resourceURI = resURIStr.ValueString()
-					}
-				}
-
-				var actionURI string
-				if actURIAttr, ok := stepAttrs["action_uri"]; ok {
-					if actURIStr, ok := actURIAttr.(types.String); ok {
-						actionURI = actURIStr.ValueString()
-					}
-				}
-
-				var httpVerb string
-				if verbAttr, ok := stepAttrs["http_verb"]; ok {
-					if verbStr, ok := verbAttr.(types.String); ok {
-						httpVerb = verbStr.ValueString()
-					}
-				}
-
-				var body *string
-				if bodyAttr, ok := stepAttrs["body"]; ok {
-					if bodyStr, ok := bodyAttr.(types.String); ok && !bodyStr.IsNull() {
-						bodyVal := bodyStr.ValueString()
-						body = &bodyVal
-					}
-				}
-
-				steps = append(steps, sdktypes.JobStep{
-					Name:        name,
-					ResourceURI: resourceURI,
-					ActionURI:   actionURI,
-					HttpVerb:    httpVerb,
-					Body:        body,
-				})
-			}
-		}
-	}
-
-	// Build the create request
-	createRequest := sdktypes.JobRequest{
-		Metadata: sdktypes.RegionalResourceMetadataRequest{
-			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
-				Name: data.Name.ValueString(),
-				Tags: tags,
-			},
-			Location: sdktypes.LocationRequest{
-				Value: data.Location.ValueString(),
-			},
-		},
-		Properties: sdktypes.JobPropertiesRequest{
-			Enabled:      enabled,
-			JobType:      sdktypes.TypeJob(jobType),
-			ScheduleAt:   scheduleAt,
-			Cron:         cron,
-			ExecuteUntil: executeUntil,
-			Steps:        steps,
-		},
-	}
-
-	// Create the job using the SDK
-	response, err := r.client.Client.FromSchedule().Jobs().Create(ctx, projectID, createRequest, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error creating schedule job",
-			NewTransportError("create", "Schedulejob", err).Error(),
-		)
+	steps := buildJobSteps(propertiesObj, ctx, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	if apiErr := CheckResponse("create", "Schedulejob", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
+	builder := aruba.NewJob().
+		Named(data.Name.ValueString()).
+		InProject(aruba.URI("/projects/"+projectID)).
+		InRegion(aruba.Region(data.Location.ValueString())).
+		Tagged(tags...).
+		WithSteps(steps...)
+
+	switch jobTypeStr {
+	case string(aruba.JobTypeOneShot):
+		if scheduleAt != nil {
+			t, parseErr := time.Parse(time.RFC3339, *scheduleAt)
+			if parseErr == nil {
+				builder = builder.OneShotAt(t)
+			}
+		} else {
+			builder = builder.OfType(aruba.JobTypeOneShot)
+		}
+	case string(aruba.JobTypeRecurring):
+		if cron != nil {
+			builder = builder.WithCron(*cron)
+		}
+		if scheduleAt != nil {
+			t, parseErr := time.Parse(time.RFC3339, *scheduleAt)
+			if parseErr == nil {
+				builder = builder.StartingAt(t)
+			}
+		}
+		if executeUntil != nil {
+			t, parseErr := time.Parse(time.RFC3339, *executeUntil)
+			if parseErr == nil {
+				builder = builder.RecurringUntil(t)
+			}
+		}
+	default:
+		builder = builder.OfType(aruba.JobType(jobTypeStr))
 	}
 
-	if response != nil && response.Data != nil && response.Data.Metadata.ID != nil {
-		data.Id = types.StringValue(*response.Data.Metadata.ID)
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
+	if enabled {
+		builder = builder.Enabled()
 	} else {
-		resp.Diagnostics.AddError(
-			"Invalid API Response",
-			"Schedule job created but no ID returned from API",
-		)
+		builder = builder.Disabled()
+	}
+
+	job, err := r.client.Client.FromSchedule().Jobs().Create(ctx, builder)
+	if provErr := CheckResponseErr("create", "ScheduleJob", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	// Wait for Schedule Job to be active before returning
-	// This ensures Terraform doesn't proceed until Job is ready
-	jobID := data.Id.ValueString()
-	checker := func(ctx context.Context) (string, error) {
-		getResp, err := r.client.Client.FromSchedule().Jobs().Get(ctx, projectID, jobID, nil)
-		if err != nil {
-			return "", err
-		}
-		if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
-			return *getResp.Data.Status.State, nil
-		}
-		return "Unknown", nil
+	data.Id = types.StringValue(job.ID())
+	if uri := job.URI(); uri != "" {
+		data.Uri = types.StringValue(uri)
+	} else {
+		data.Uri = types.StringNull()
 	}
 
-	// Wait for Schedule Job to be active - block until ready (using configured timeout)
-	if err := WaitForResourceActive(ctx, checker, "ScheduleJob", jobID, r.client.ResourceTimeout); err != nil {
-		ReportWaitResult(&resp.Diagnostics, err, "ScheduleJob", jobID)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if waitErr := job.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+		ReportWaitResult(&resp.Diagnostics, waitErr, "ScheduleJob", data.Id.ValueString())
 		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+		return
+	}
+
+	applyJobToModel(job, &data, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
@@ -353,7 +453,6 @@ func (r *ScheduleJobResource) Create(ctx context.Context, req resource.CreateReq
 		"job_id":   data.Id.ValueString(),
 		"job_name": data.Name.ValueString(),
 	})
-
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -364,222 +463,44 @@ func (r *ScheduleJobResource) Read(ctx context.Context, req resource.ReadRequest
 		return
 	}
 
-	projectID := data.ProjectID.ValueString()
-	jobID := data.Id.ValueString()
-
-	if data.Id.IsUnknown() || data.Id.IsNull() || jobID == "" {
-		tflog.Debug(ctx, "Schedule Job ID is empty, removing resource from state", map[string]interface{}{"job_id": jobID})
+	if data.Id.IsUnknown() || data.Id.IsNull() || data.Id.ValueString() == "" {
 		resp.State.RemoveResource(ctx)
 		return
 	}
 
-	if projectID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID is required to read the schedule job",
-		)
-		return
-	}
-
-	// Get job details using the SDK
-	response, err := r.client.Client.FromSchedule().Jobs().Get(ctx, projectID, jobID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading schedule job",
-			NewTransportError("read", "Schedulejob", err).Error(),
-		)
-		return
-	}
-
-	if apiErr := CheckResponse("read", "Schedulejob", response); apiErr != nil {
-		if IsNotFound(apiErr) {
+	job, err := r.client.Client.FromSchedule().Jobs().Get(ctx, jobRef(&data))
+	if provErr := CheckResponseErr("read", "ScheduleJob", err); provErr != nil {
+		if IsNotFound(provErr) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	// If the resource is still provisioning (e.g. after a Create timeout that saved
-	// partial state), resume the wait so the next terraform apply reconciles correctly.
-	if response.Data.Status.State != nil {
-		switch st := *response.Data.Status.State; {
-		case isFailedState(st):
-			resp.Diagnostics.AddWarning(
-				"Resource in Failed State",
-				fmt.Sprintf("ScheduleJob %q is in a terminal failure state (%s). "+
-					"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", jobID, st),
-			)
-		case IsCreatingState(st):
-			checker := func(ctx context.Context) (string, error) {
-				getResp, err := r.client.Client.FromSchedule().Jobs().Get(ctx, projectID, jobID, nil)
-				if err != nil {
-					return "", err
-				}
-				if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
-					return *getResp.Data.Status.State, nil
-				}
-				return "Unknown", nil
-			}
-			if err := WaitForResourceActive(ctx, checker, "ScheduleJob", jobID, r.client.ResourceTimeout); err != nil {
-				ReportWaitResult(&resp.Diagnostics, err, "ScheduleJob", jobID)
-				resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-				return
-			}
-			// Re-read to get the final active state.
-			response, err = r.client.Client.FromSchedule().Jobs().Get(ctx, projectID, jobID, nil)
-			if err != nil {
-				resp.Diagnostics.AddError("Error reading ScheduleJob after provisioning wait",
-					NewTransportError("read", "Schedulejob", err).Error())
-				return
-			}
-			if apiErr := CheckResponse("read", "Schedulejob", response); apiErr != nil {
-				if IsNotFound(apiErr) {
-					resp.State.RemoveResource(ctx)
-					return
-				}
-				resp.Diagnostics.AddError("API Error", apiErr.Error())
-				return
-			}
+	st := string(job.State())
+	switch {
+	case isFailedState(st):
+		resp.Diagnostics.AddWarning("Resource in Failed State",
+			fmt.Sprintf("ScheduleJob %q is in a terminal failure state (%s). "+
+				"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", data.Id.ValueString(), st))
+	case IsCreatingState(st):
+		if waitErr := job.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+			ReportWaitResult(&resp.Diagnostics, waitErr, "ScheduleJob", data.Id.ValueString())
+			return
+		}
+		job, err = r.client.Client.FromSchedule().Jobs().Get(ctx, jobRef(&data))
+		if provErr := CheckResponseErr("read", "ScheduleJob", err); provErr != nil {
+			resp.Diagnostics.AddError("API Error", provErr.Error())
+			return
 		}
 	}
 
-	if response != nil && response.Data != nil {
-		job := response.Data
-		if job.Metadata.ID != nil {
-			data.Id = types.StringValue(*job.Metadata.ID)
-			if response.Data.Metadata.URI != nil {
-				data.Uri = types.StringValue(*response.Data.Metadata.URI)
-			} else {
-				data.Uri = types.StringNull()
-			}
-			if response.Data.Metadata.URI != nil {
-				data.Uri = types.StringValue(*response.Data.Metadata.URI)
-			} else {
-				data.Uri = types.StringNull()
-			}
-			if response.Data.Metadata.URI != nil {
-				data.Uri = types.StringValue(*response.Data.Metadata.URI)
-			} else {
-				data.Uri = types.StringNull()
-			}
-		}
-		if job.Metadata.Name != nil {
-			data.Name = types.StringValue(*job.Metadata.Name)
-		}
-		if job.Metadata.LocationResponse != nil {
-			data.Location = types.StringValue(job.Metadata.LocationResponse.Value)
-		}
-		if job.Metadata.Tags != nil {
-			tagValues := make([]attr.Value, len(job.Metadata.Tags))
-			for i, tag := range job.Metadata.Tags {
-				tagValues[i] = types.StringValue(tag)
-			}
-			tagsList, diags := types.ListValue(types.StringType, tagValues)
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = tagsList
-			}
-		} else {
-			data.Tags = types.ListNull(types.StringType)
-		}
-
-		// Define step object type
-		stepObjectType := types.ObjectType{
-			AttrTypes: map[string]attr.Type{
-				"name":         types.StringType,
-				"resource_uri": types.StringType,
-				"action_uri":   types.StringType,
-				"http_verb":    types.StringType,
-				"body":         types.StringType,
-			},
-		}
-
-		// Convert steps from API response
-		var stepsListValue types.List
-		if len(job.Properties.Steps) > 0 {
-			stepObjects := make([]attr.Value, len(job.Properties.Steps))
-			for i, step := range job.Properties.Steps {
-				stepAttrs := map[string]attr.Value{
-					"name":         types.StringNull(),
-					"resource_uri": types.StringNull(),
-					"action_uri":   types.StringNull(),
-					"http_verb":    types.StringNull(),
-					"body":         types.StringNull(),
-				}
-
-				if step.Name != nil {
-					stepAttrs["name"] = types.StringValue(*step.Name)
-				}
-				if step.ResourceURI != nil {
-					stepAttrs["resource_uri"] = types.StringValue(*step.ResourceURI)
-				}
-				if step.ActionURI != nil {
-					stepAttrs["action_uri"] = types.StringValue(*step.ActionURI)
-				}
-				if step.HttpVerb != nil {
-					stepAttrs["http_verb"] = types.StringValue(*step.HttpVerb)
-				}
-				if step.Body != nil {
-					stepAttrs["body"] = types.StringValue(*step.Body)
-				}
-
-				stepObj, diags := types.ObjectValue(stepObjectType.AttrTypes, stepAttrs)
-				resp.Diagnostics.Append(diags...)
-				if resp.Diagnostics.HasError() {
-					return
-				}
-				stepObjects[i] = stepObj
-			}
-			var diags diag.Diagnostics
-			stepsListValue, diags = types.ListValue(stepObjectType, stepObjects)
-			resp.Diagnostics.Append(diags...)
-			if resp.Diagnostics.HasError() {
-				return
-			}
-		} else {
-			stepsListValue = types.ListNull(stepObjectType)
-		}
-
-		// Reconstruct properties object
-		propertiesAttrs := map[string]attr.Value{
-			"enabled":           types.BoolValue(job.Properties.Enabled),
-			"schedule_job_type": types.StringValue(string(job.Properties.JobType)),
-			"schedule_at":       types.StringNull(),
-			"execute_until":     types.StringNull(),
-			"cron":              types.StringNull(),
-			"steps":             stepsListValue,
-		}
-
-		if job.Properties.ScheduleAt != nil {
-			propertiesAttrs["schedule_at"] = types.StringValue(*job.Properties.ScheduleAt)
-		}
-		if job.Properties.ExecuteUntil != nil {
-			propertiesAttrs["execute_until"] = types.StringValue(*job.Properties.ExecuteUntil)
-		}
-		if job.Properties.Cron != nil {
-			propertiesAttrs["cron"] = types.StringValue(*job.Properties.Cron)
-		}
-
-		propertiesObj, diags := types.ObjectValue(
-			map[string]attr.Type{
-				"enabled":           types.BoolType,
-				"schedule_job_type": types.StringType,
-				"schedule_at":       types.StringType,
-				"execute_until":     types.StringType,
-				"cron":              types.StringType,
-				"steps":             types.ListType{ElemType: stepObjectType},
-			},
-			propertiesAttrs,
-		)
-		resp.Diagnostics.Append(diags...)
-		if !resp.Diagnostics.HasError() {
-			data.Properties = propertiesObj
-		}
-	} else {
-		resp.State.RemoveResource(ctx)
+	applyJobToModel(job, &data, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
 		return
 	}
+	data.ProjectID = types.StringValue(data.ProjectID.ValueString())
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -589,217 +510,54 @@ func (r *ScheduleJobResource) Update(ctx context.Context, req resource.UpdateReq
 	var state ScheduleJobResourceModel
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
-	}
-
-	// Get IDs from state (not plan) - IDs are immutable and should always be in state
-	projectID := state.ProjectID.ValueString()
-	jobID := state.Id.ValueString()
-
-	if projectID == "" || jobID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID and Job ID are required to update the schedule job",
-		)
-		return
-	}
-
-	// Get current job to preserve fields
-	getResp, err := r.client.Client.FromSchedule().Jobs().Get(ctx, projectID, jobID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error getting schedule job",
-			NewTransportError("read", "Schedulejob", err).Error(),
-		)
-		return
-	}
-
-	if getResp == nil || getResp.Data == nil {
-		resp.Diagnostics.AddError(
-			"Job Not Found",
-			"Schedule job not found",
-		)
-		return
-	}
-
-	current := getResp.Data
-	regionValue := ""
-	if current.Metadata.LocationResponse != nil {
-		regionValue = current.Metadata.LocationResponse.Value
 	}
 
 	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if tags == nil {
-		tags = current.Metadata.Tags
+
+	job, err := r.client.Client.FromSchedule().Jobs().Get(ctx, jobRef(&state))
+	if provErr := CheckResponseErr("read", "ScheduleJob", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
+		return
 	}
 
-	// Extract properties
-	propertiesObj := data.Properties.Attributes()
+	job.Named(data.Name.ValueString())
+	if tags != nil {
+		job.RetaggedAs(tags...)
+	} else {
+		job.RetaggedAs(job.Tags()...)
+	}
 
-	enabled := current.Properties.Enabled
+	propertiesObj := data.Properties.Attributes()
 	if enabledAttr, ok := propertiesObj["enabled"]; ok {
 		if enabledBool, ok := enabledAttr.(types.Bool); ok && !enabledBool.IsNull() {
-			enabled = enabledBool.ValueBool()
-		}
-	}
-
-	// Extract steps from properties
-	var steps []sdktypes.JobStep
-	if stepsAttr, ok := propertiesObj["steps"]; ok {
-		if stepsList, ok := stepsAttr.(types.List); ok && !stepsList.IsNull() {
-			var stepsElements []types.Object
-			diags := stepsList.ElementsAs(ctx, &stepsElements, false)
-			resp.Diagnostics.Append(diags...)
-			if resp.Diagnostics.HasError() {
-				return
-			}
-
-			for _, stepObj := range stepsElements {
-				stepAttrs := stepObj.Attributes()
-
-				var name *string
-				if nameAttr, ok := stepAttrs["name"]; ok {
-					if nameStr, ok := nameAttr.(types.String); ok && !nameStr.IsNull() {
-						nameVal := nameStr.ValueString()
-						name = &nameVal
-					}
-				}
-
-				var resourceURI string
-				if resURIAttr, ok := stepAttrs["resource_uri"]; ok {
-					if resURIStr, ok := resURIAttr.(types.String); ok {
-						resourceURI = resURIStr.ValueString()
-					}
-				}
-
-				var actionURI string
-				if actURIAttr, ok := stepAttrs["action_uri"]; ok {
-					if actURIStr, ok := actURIAttr.(types.String); ok {
-						actionURI = actURIStr.ValueString()
-					}
-				}
-
-				var httpVerb string
-				if verbAttr, ok := stepAttrs["http_verb"]; ok {
-					if verbStr, ok := verbAttr.(types.String); ok {
-						httpVerb = verbStr.ValueString()
-					}
-				}
-
-				var body *string
-				if bodyAttr, ok := stepAttrs["body"]; ok {
-					if bodyStr, ok := bodyAttr.(types.String); ok && !bodyStr.IsNull() {
-						bodyVal := bodyStr.ValueString()
-						body = &bodyVal
-					}
-				}
-
-				steps = append(steps, sdktypes.JobStep{
-					Name:        name,
-					ResourceURI: resourceURI,
-					ActionURI:   actionURI,
-					HttpVerb:    httpVerb,
-					Body:        body,
-				})
-			}
-		}
-	} else {
-		// If steps not provided in update, use current steps
-		if current.Properties.Steps != nil {
-			steps = make([]sdktypes.JobStep, len(current.Properties.Steps))
-			for i, currentStep := range current.Properties.Steps {
-				step := sdktypes.JobStep{
-					Name: currentStep.Name,
-					Body: currentStep.Body,
-				}
-				if currentStep.ResourceURI != nil {
-					step.ResourceURI = *currentStep.ResourceURI
-				}
-				if currentStep.ActionURI != nil {
-					step.ActionURI = *currentStep.ActionURI
-				}
-				if currentStep.HttpVerb != nil {
-					step.HttpVerb = *currentStep.HttpVerb
-				}
-				steps[i] = step
+			if enabledBool.ValueBool() {
+				job.Enabled()
+			} else {
+				job.Disabled()
 			}
 		}
 	}
 
-	// Build update request
-	updateRequest := sdktypes.JobRequest{
-		Metadata: sdktypes.RegionalResourceMetadataRequest{
-			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
-				Name: data.Name.ValueString(),
-				Tags: tags,
-			},
-			Location: sdktypes.LocationRequest{
-				Value: regionValue,
-			},
-		},
-		Properties: sdktypes.JobPropertiesRequest{
-			Enabled:      enabled,
-			JobType:      current.Properties.JobType,
-			ScheduleAt:   current.Properties.ScheduleAt,
-			ExecuteUntil: current.Properties.ExecuteUntil,
-			Cron:         current.Properties.Cron,
-			Steps:        steps,
-		},
-	}
-
-	// Update the job using the SDK
-	response, err := r.client.Client.FromSchedule().Jobs().Update(ctx, projectID, jobID, updateRequest, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error updating schedule job",
-			NewTransportError("update", "Schedulejob", err).Error(),
-		)
+	updated, err := r.client.Client.FromSchedule().Jobs().Update(ctx, job)
+	if provErr := CheckResponseErr("update", "ScheduleJob", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	if apiErr := CheckResponse("update", "Schedulejob", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-
-	if response != nil && response.Data != nil && response.Data.Metadata.ID != nil {
-		data.Id = types.StringValue(*response.Data.Metadata.ID)
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-	}
-
-	// Ensure immutable fields are set from state before saving
 	data.Id = state.Id
 	data.ProjectID = state.ProjectID
-
-	if response != nil && response.Data != nil {
-		// Update from response if available (should match state)
-		if response.Data.Metadata.ID != nil {
-			data.Id = types.StringValue(*response.Data.Metadata.ID)
-		}
+	applyJobToModel(updated, &data, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
 	}
+	data.Id = state.Id
+	data.ProjectID = state.ProjectID
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -811,25 +569,16 @@ func (r *ScheduleJobResource) Delete(ctx context.Context, req resource.DeleteReq
 		return
 	}
 
-	projectID := data.ProjectID.ValueString()
-	jobID := data.Id.ValueString()
-
-	if projectID == "" || jobID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID and Job ID are required to delete the schedule job",
-		)
+	if data.Id.IsUnknown() || data.Id.IsNull() || data.Id.ValueString() == "" {
 		return
 	}
 
-	// Delete the job using the SDK with retry mechanism
-	// Retry on any error except 404 (Resource Not Found)
+	ref := jobRef(&data)
+	jobID := data.Id.ValueString()
+
 	deletionChecker := func(ctx context.Context) (bool, error) {
-		getResp, getErr := r.client.Client.FromSchedule().Jobs().Get(ctx, projectID, jobID, nil)
-		if getErr != nil {
-			return false, NewTransportError("get", "ScheduleJob", getErr)
-		}
-		if provErr := CheckResponse("get", "ScheduleJob", getResp); provErr != nil {
+		_, getErr := r.client.Client.FromSchedule().Jobs().Get(ctx, ref)
+		if provErr := CheckResponseErr("get", "ScheduleJob", getErr); provErr != nil {
 			if IsNotFound(provErr) {
 				return true, nil
 			}
@@ -839,33 +588,17 @@ func (r *ScheduleJobResource) Delete(ctx context.Context, req resource.DeleteReq
 	}
 
 	deleteStart := time.Now()
-	err := DeleteResourceWithRetry(
-		ctx,
-		func() error {
-			resp, err := r.client.Client.FromSchedule().Jobs().Delete(ctx, projectID, jobID, nil)
-			if err != nil {
-				return NewTransportError("delete", "ScheduleJob", err)
-			}
-			return CheckResponse("delete", "ScheduleJob", resp)
-		},
-		"ScheduleJob",
-		jobID,
-		r.client.ResourceTimeout,
-		deletionChecker,
-	)
-
+	err := DeleteResourceWithRetry(ctx, func() error {
+		return CheckResponseErr("delete", "ScheduleJob",
+			r.client.Client.FromSchedule().Jobs().Delete(ctx, ref))
+	}, "ScheduleJob", jobID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error deleting schedule job",
-			NewTransportError("delete", "Schedulejob", err).Error(),
-		)
+		resp.Diagnostics.AddError("Error deleting schedule job", err.Error())
 		return
 	}
 
 	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "ScheduleJob", jobID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
 		if IsWaitTimeout(waitErr) {
-			// ScheduleJob deletion is asynchronous. DELETE was accepted; the resource
-			// will be cleaned up by the API in the background. Remove it from state now.
 			resp.Diagnostics.AddWarning(
 				"ScheduleJob Deletion Pending",
 				fmt.Sprintf("ScheduleJob %q delete was accepted but the resource is still visible in the API. "+
@@ -877,9 +610,7 @@ func (r *ScheduleJobResource) Delete(ctx context.Context, req resource.DeleteReq
 		}
 	}
 
-	tflog.Trace(ctx, "deleted a Schedule Job resource", map[string]interface{}{
-		"job_id": jobID,
-	})
+	tflog.Trace(ctx, "deleted a Schedule Job resource", map[string]interface{}{"job_id": jobID})
 }
 
 func (r *ScheduleJobResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

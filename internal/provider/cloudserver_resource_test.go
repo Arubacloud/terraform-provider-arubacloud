@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
@@ -76,15 +77,14 @@ func testCheckCloudserverDestroyed(s *terraform.State) error {
 		if rs.Type != "arubacloud_cloudserver" {
 			continue
 		}
-		resp, err := client.Client.FromCompute().CloudServers().Get(ctx, rs.Primary.Attributes["project_id"], rs.Primary.ID, nil)
-		if err != nil {
-			return err
-		}
-		if apiErr := CheckResponse("get", "Cloudserver", resp); apiErr != nil {
-			if IsNotFound(apiErr) {
+		projectID := rs.Primary.Attributes["project_id"]
+		ref := aruba.URI("/projects/" + projectID + "/compute/cloudServers/" + rs.Primary.ID)
+		_, err = client.Client.FromCompute().CloudServers().Get(ctx, ref)
+		if provErr := CheckResponseErr("get", "Cloudserver", err); provErr != nil {
+			if IsNotFound(provErr) {
 				continue
 			}
-			return apiErr
+			return provErr
 		}
 		return fmt.Errorf("CloudServer %s still exists", rs.Primary.ID)
 	}

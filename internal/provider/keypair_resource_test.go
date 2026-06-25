@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
@@ -65,15 +66,14 @@ func testCheckKeypairDestroyed(s *terraform.State) error {
 		if rs.Type != "arubacloud_keypair" {
 			continue
 		}
-		resp, err := client.Client.FromCompute().KeyPairs().Get(ctx, rs.Primary.Attributes["project_id"], rs.Primary.ID, nil)
-		if err != nil {
-			return err
-		}
-		if apiErr := CheckResponse("get", "Keypair", resp); apiErr != nil {
-			if IsNotFound(apiErr) {
+		projectID := rs.Primary.Attributes["project_id"]
+		ref := aruba.URI("/projects/" + projectID + "/compute/keyPairs/" + rs.Primary.ID)
+		_, err = client.Client.FromCompute().KeyPairs().Get(ctx, ref)
+		if provErr := CheckResponseErr("get", "Keypair", err); provErr != nil {
+			if IsNotFound(provErr) {
 				continue
 			}
-			return apiErr
+			return provErr
 		}
 		return fmt.Errorf("Keypair %s still exists", rs.Primary.ID)
 	}

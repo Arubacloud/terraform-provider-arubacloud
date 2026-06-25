@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
@@ -70,15 +71,14 @@ func testCheckDbaasDestroyed(s *terraform.State) error {
 		if rs.Type != "arubacloud_dbaas" {
 			continue
 		}
-		resp, err := client.Client.FromDatabase().DBaaS().Get(ctx, rs.Primary.Attributes["project_id"], rs.Primary.ID, nil)
-		if err != nil {
-			return err
-		}
-		if apiErr := CheckResponse("get", "Dbaas", resp); apiErr != nil {
-			if IsNotFound(apiErr) {
+		projectID := rs.Primary.Attributes["project_id"]
+		ref := aruba.URI("/projects/" + projectID + "/providers/Aruba.Database/dbaas/" + rs.Primary.ID)
+		_, err = client.Client.FromDatabase().DBaaS().Get(ctx, ref)
+		if provErr := CheckResponseErr("get", "Dbaas", err); provErr != nil {
+			if IsNotFound(provErr) {
 				continue
 			}
-			return apiErr
+			return provErr
 		}
 		return fmt.Errorf("DBaaS %s still exists", rs.Primary.ID)
 	}

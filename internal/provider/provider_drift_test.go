@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
@@ -58,7 +59,8 @@ resource "arubacloud_vpc" "drift" {
 					if err != nil {
 						return
 					}
-					_, _ = client.Client.FromNetwork().VPCs().Delete(context.Background(), projectID, capturedID, nil)
+					ref := aruba.URI("/projects/" + projectID + "/network/vpcs/" + capturedID)
+					_ = client.Client.FromNetwork().VPCs().Delete(context.Background(), ref)
 					time.Sleep(15 * time.Second)
 				},
 				Config:             cfg,

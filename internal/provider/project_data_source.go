@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -64,7 +65,7 @@ func (d *ProjectDataSource) Configure(ctx context.Context, req datasource.Config
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Data Source Configure Type",
-			fmt.Sprintf("Expected *ArubaCloudClient, got: %T. Please report this issue to the provider developers. Please report this issue to the provider developers.", req.ProviderData),
+			fmt.Sprintf("Expected *ArubaCloudClient, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
 		return
 	}
@@ -84,34 +85,20 @@ func (d *ProjectDataSource) Read(ctx context.Context, req datasource.ReadRequest
 		return
 	}
 
-	response, err := d.client.Client.FromProject().Get(ctx, projectID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError("Error reading project", NewTransportError("read", "Project", err).Error())
-		return
-	}
-	if apiErr := CheckResponse("read", "Project", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-	if response == nil || response.Data == nil {
-		resp.Diagnostics.AddError("No data returned", "Project Get returned no data")
+	project, err := d.client.Client.FromProject().Get(ctx, aruba.URI("/projects/"+projectID))
+	if provErr := CheckResponseErr("read", "Project", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	project := response.Data
-	if project.Metadata.ID != nil {
-		data.Id = types.StringValue(*project.Metadata.ID)
-	}
-	if project.Metadata.Name != nil {
-		data.Name = types.StringValue(*project.Metadata.Name)
-	}
-	if project.Properties.Description != nil {
-		data.Description = types.StringValue(*project.Properties.Description)
+	data.Id = types.StringValue(project.ID())
+	data.Name = types.StringValue(project.Name())
+	if desc := project.Description(); desc != "" {
+		data.Description = types.StringValue(desc)
 	} else {
 		data.Description = types.StringNull()
 	}
-
-	data.Tags = TagsToListPreserveNull(project.Metadata.Tags, data.Tags)
+	data.Tags = TagsToListPreserveNull(project.Tags(), data.Tags)
 
 	tflog.Trace(ctx, "read project data source", map[string]interface{}{"project_id": projectID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

@@ -205,7 +205,7 @@ func (r *KeypairResource) Read(ctx context.Context, req resource.ReadRequest, re
 
 	raw := kp.Raw()
 	if raw != nil && raw.Metadata.LocationResponse != nil {
-		data.Location = types.StringValue(raw.Metadata.LocationResponse.Value)
+		data.Location = types.StringValue(string(raw.Metadata.LocationResponse.Value))
 	}
 
 	data.Tags = TagsToListPreserveNull(kp.Tags(), data.Tags)
@@ -301,7 +301,7 @@ func (r *KeypairResource) Delete(ctx context.Context, req resource.DeleteRequest
 	err := DeleteResourceWithRetry(
 		ctx,
 		func() error {
-			_, delErr := r.client.Client.FromCompute().KeyPairs().Delete(ctx, ref)
+			delErr := r.client.Client.FromCompute().KeyPairs().Delete(ctx, ref)
 			return CheckResponseErr("delete", "Keypair", delErr)
 		},
 		"Keypair",

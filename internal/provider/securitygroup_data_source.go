@@ -110,7 +110,7 @@ func (d *SecurityGroupDataSource) Read(ctx context.Context, req datasource.ReadR
 	data.VpcId = types.StringValue(vpcID)
 	raw := sg.Raw()
 	if raw != nil && raw.Metadata.LocationResponse != nil {
-		data.Location = types.StringValue(raw.Metadata.LocationResponse.Value)
+		data.Location = types.StringValue(string(raw.Metadata.LocationResponse.Value))
 	} else {
 		data.Location = types.StringNull()
 	}

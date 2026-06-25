@@ -155,7 +155,7 @@ func applyVPCToModel(vpc *aruba.VPC, data *VPCResourceModel) {
 	data.Tags = TagsToListPreserveNull(vpc.Tags(), data.Tags)
 	raw := vpc.Raw()
 	if raw != nil && raw.Metadata.LocationResponse != nil {
-		data.Location = types.StringValue(raw.Metadata.LocationResponse.Value)
+		data.Location = types.StringValue(string(raw.Metadata.LocationResponse.Value))
 	}
 }
 
@@ -268,7 +268,7 @@ func (r *VPCResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 
 	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(ctx, func() error {
-		_, delErr := r.client.Client.FromNetwork().VPCs().Delete(ctx, ref)
+		delErr := r.client.Client.FromNetwork().VPCs().Delete(ctx, ref)
 		return CheckResponseErr("delete", "VPC", delErr)
 	}, "VPC", vpcID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {
