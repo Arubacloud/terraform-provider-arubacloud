@@ -233,7 +233,7 @@ func vpnTunnelRef(data *VPNTunnelResourceModel) aruba.Ref {
 }
 
 // buildVPNTunnel constructs a *aruba.VPNTunnel builder from model properties.
-func buildVPNTunnel(ctx context.Context, data *VPNTunnelResourceModel, tags []string) *aruba.VPNTunnel {
+func buildVPNTunnel(_ context.Context, data *VPNTunnelResourceModel, tags []string) *aruba.VPNTunnel {
 	projectID := data.ProjectId.ValueString()
 
 	builder := aruba.NewVPNTunnel().

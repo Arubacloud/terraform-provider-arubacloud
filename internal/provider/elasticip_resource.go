@@ -50,12 +50,12 @@ func (r *ElasticIPResource) Schema(ctx context.Context, req resource.SchemaReque
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
 				Computed:            true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"uri": schema.StringAttribute{
 				MarkdownDescription: "Computed by the API. Full resource URI.",
 				Computed:            true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Display name for the Elastic IP.",
@@ -64,7 +64,7 @@ func (r *ElasticIPResource) Schema(ctx context.Context, req resource.SchemaReque
 			"location": schema.StringAttribute{
 				MarkdownDescription: "Region identifier (e.g., `ITBG-Bergamo`). Changing this value forces a new resource.",
 				Required:            true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"tags": schema.ListAttribute{
 				ElementType: types.StringType, MarkdownDescription: "List of string tags.", Optional: true,
@@ -73,18 +73,18 @@ func (r *ElasticIPResource) Schema(ctx context.Context, req resource.SchemaReque
 				MarkdownDescription: "Billing cycle. Accepted values: `Hour`, `Month`, `Year`.",
 				Optional:            true,
 				Computed:            true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
-				Validators:    []validator.String{stringvalidator.OneOf("Hour", "Month", "Year")},
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				Validators:          []validator.String{stringvalidator.OneOf("Hour", "Month", "Year")},
 			},
 			"address": schema.StringAttribute{
 				MarkdownDescription: "Computed by the API. The assigned public IP address.",
 				Computed:            true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project that owns this resource. Changing this value forces a new resource.",
 				Required:            true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 		},
 	}

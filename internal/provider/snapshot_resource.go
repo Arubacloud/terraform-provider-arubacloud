@@ -252,8 +252,6 @@ func (r *SnapshotResource) Read(ctx context.Context, req resource.ReadRequest, r
 		if !resp.Diagnostics.HasError() {
 			data.Tags = tagsList
 		}
-	} else if !data.Tags.IsNull() {
-		// preserve state
 	}
 
 	data.ProjectId = projectId

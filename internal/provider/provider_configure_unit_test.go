@@ -121,7 +121,7 @@ func TestProviderConfigure_Success(t *testing.T) {
 	p := newTestProvider(t)
 
 	config := buildProviderConfig(t, p, map[string]tftypes.Value{
-		"client_id":    tftypes.NewValue(tftypes.String, "test-key"),
+		"client_id":     tftypes.NewValue(tftypes.String, "test-key"),
 		"client_secret": tftypes.NewValue(tftypes.String, "test-secret"),
 	})
 	req := providerframe.ConfigureRequest{Config: config}
@@ -156,8 +156,8 @@ func TestProviderConfigure_WithBaseURL(t *testing.T) {
 	p := newTestProvider(t)
 
 	config := buildProviderConfig(t, p, map[string]tftypes.Value{
-		"client_id":          tftypes.NewValue(tftypes.String, "test-key"),
-		"client_secret":       tftypes.NewValue(tftypes.String, "test-secret"),
+		"client_id":        tftypes.NewValue(tftypes.String, "test-key"),
+		"client_secret":    tftypes.NewValue(tftypes.String, "test-secret"),
 		"base_url":         tftypes.NewValue(tftypes.String, "https://example.com/api"),
 		"token_issuer_url": tftypes.NewValue(tftypes.String, "https://example.com/token"),
 	})
@@ -178,9 +178,9 @@ func TestProviderConfigure_InvalidLogLevel(t *testing.T) {
 	p := newTestProvider(t)
 
 	config := buildProviderConfig(t, p, map[string]tftypes.Value{
-		"client_id":    tftypes.NewValue(tftypes.String, "test-key"),
+		"client_id":     tftypes.NewValue(tftypes.String, "test-key"),
 		"client_secret": tftypes.NewValue(tftypes.String, "test-secret"),
-		"log_level":  tftypes.NewValue(tftypes.String, "INVALID_LEVEL"),
+		"log_level":     tftypes.NewValue(tftypes.String, "INVALID_LEVEL"),
 	})
 	req := providerframe.ConfigureRequest{Config: config}
 	resp := &providerframe.ConfigureResponse{}
@@ -208,8 +208,8 @@ func TestProviderConfigure_ValidResourceTimeout(t *testing.T) {
 	p := newTestProvider(t)
 
 	config := buildProviderConfig(t, p, map[string]tftypes.Value{
-		"client_id":          tftypes.NewValue(tftypes.String, "test-key"),
-		"client_secret":       tftypes.NewValue(tftypes.String, "test-secret"),
+		"client_id":        tftypes.NewValue(tftypes.String, "test-key"),
+		"client_secret":    tftypes.NewValue(tftypes.String, "test-secret"),
 		"resource_timeout": tftypes.NewValue(tftypes.String, "5m"),
 	})
 	req := providerframe.ConfigureRequest{Config: config}

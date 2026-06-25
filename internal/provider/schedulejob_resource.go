@@ -379,7 +379,7 @@ func (r *ScheduleJobResource) Create(ctx context.Context, req resource.CreateReq
 
 	builder := aruba.NewJob().
 		Named(data.Name.ValueString()).
-		InProject(aruba.URI("/projects/"+projectID)).
+		InProject(aruba.URI("/projects/" + projectID)).
 		InRegion(aruba.Region(data.Location.ValueString())).
 		Tagged(tags...).
 		WithSteps(steps...)

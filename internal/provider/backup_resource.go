@@ -142,7 +142,7 @@ func (r *BackupResource) Create(ctx context.Context, req resource.CreateRequest,
 
 	builder := aruba.NewStorageBackup().
 		Named(data.Name.ValueString()).
-		InProject(aruba.URI("/projects/"+projectID)).
+		InProject(aruba.URI("/projects/" + projectID)).
 		InRegion(aruba.Region(data.Location.ValueString())).
 		OfType(aruba.StorageBackupType(data.Type.ValueString())).
 		FromVolume(aruba.URI(vol.URI())).

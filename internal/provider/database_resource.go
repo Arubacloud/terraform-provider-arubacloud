@@ -123,7 +123,7 @@ func (r *DatabaseResource) Create(ctx context.Context, req resource.CreateReques
 	checker := func(ctx context.Context) (string, error) {
 		_, getErr := r.client.Client.FromDatabase().Databases().Get(ctx, databaseRef(&data))
 		if provErr := CheckResponseErr("get", "Database", getErr); provErr != nil {
-			return "Unknown", nil
+			return "Unknown", provErr
 		}
 		return "Active", nil
 	}

@@ -46,12 +46,12 @@ func (r *VPCResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
 				Computed:            true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"uri": schema.StringAttribute{
 				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources.",
 				Computed:            true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Display name for the VPC.",
@@ -60,12 +60,12 @@ func (r *VPCResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 			"location": schema.StringAttribute{
 				MarkdownDescription: "Region identifier for the resource (e.g., `ITBG-Bergamo`). Changing this value forces a new resource.",
 				Required:            true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project that owns this resource. Changing this value forces a new resource.",
 				Required:            true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,

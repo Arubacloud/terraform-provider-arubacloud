@@ -125,22 +125,22 @@ func (r *DBaaSResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 					"vpc_uri_ref": schema.StringAttribute{
 						MarkdownDescription: "URI reference to the VPC resource.",
 						Required:            true,
-						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+						PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 					"subnet_uri_ref": schema.StringAttribute{
 						MarkdownDescription: "URI reference to the Subnet resource.",
 						Required:            true,
-						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+						PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 					"security_group_uri_ref": schema.StringAttribute{
 						MarkdownDescription: "URI reference to the Security Group resource.",
 						Required:            true,
-						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+						PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 					"elastic_ip_uri_ref": schema.StringAttribute{
 						MarkdownDescription: "Optional URI reference to an Elastic IP resource.",
 						Optional:            true,
-						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+						PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 				},
 			},
@@ -199,7 +199,7 @@ func dbaasStorageAttrTypes() map[string]attr.Type {
 }
 
 // extractNetworkFromModel extracts VPC, subnet, security group, and elastic IP URIs from the model's Network object.
-func extractNetworkFromModel(ctx context.Context, data *DBaaSResourceModel) (vpc, subnet, sg, eip string, ok bool) {
+func extractNetworkFromModel(_ context.Context, data *DBaaSResourceModel) (vpc, subnet, sg, eip string, ok bool) {
 	if data.Network.IsNull() || data.Network.IsUnknown() {
 		return
 	}
@@ -269,7 +269,7 @@ func (r *DBaaSResource) Create(ctx context.Context, req resource.CreateRequest, 
 
 	builder := aruba.NewDBaaS().
 		Named(data.Name.ValueString()).
-		InProject(aruba.URI("/projects/"+projectID)).
+		InProject(aruba.URI("/projects/" + projectID)).
 		InRegion(aruba.Region(data.Location.ValueString())).
 		InZone(aruba.Zone(data.Zone.ValueString())).
 		OfEngine(aruba.DatabaseEngine(data.EngineID.ValueString())).
@@ -428,15 +428,16 @@ func (r *DBaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp
 		storageAttrs["size_gb"] = types.Int64Null()
 	}
 	// Preserve autoscaling from state.
+	autoscalingObjType, _ := storageAttrTypes["autoscaling"].(types.ObjectType)
 	if !storage.IsNull() {
 		existingAttrs := storage.Attributes()
 		if v, ok := existingAttrs["autoscaling"]; ok {
 			storageAttrs["autoscaling"] = v
 		} else {
-			storageAttrs["autoscaling"] = types.ObjectNull(storageAttrTypes["autoscaling"].(types.ObjectType).AttrTypes)
+			storageAttrs["autoscaling"] = types.ObjectNull(autoscalingObjType.AttrTypes)
 		}
 	} else {
-		storageAttrs["autoscaling"] = types.ObjectNull(storageAttrTypes["autoscaling"].(types.ObjectType).AttrTypes)
+		storageAttrs["autoscaling"] = types.ObjectNull(autoscalingObjType.AttrTypes)
 	}
 	storageObj, diags := types.ObjectValue(storageAttrTypes, storageAttrs)
 	resp.Diagnostics.Append(diags...)

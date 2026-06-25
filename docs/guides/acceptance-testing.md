@@ -22,8 +22,8 @@ Acceptance tests exercise the real ArubaCloud API — they provision, read, upda
 
 ```bash
 export TF_ACC=1
-export ARUBACLOUD_CLIENT_ID=<your-client-id>
-export ARUBACLOUD_CLIENT_SECRET=<your-client-secret>
+export ARUBACLOUD_CLIENT_ID=<your-api-key>
+export ARUBACLOUD_CLIENT_SECRET=<your-api-secret>
 export ARUBACLOUD_PROJECT_ID=<an-existing-project-id>
 
 # Run all acceptance tests

@@ -625,7 +625,8 @@ func (r *KaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	if raw.Properties.HA != nil {
 		settingsAttrs["ha"] = types.BoolValue(*raw.Properties.HA)
 	}
-	nodePoolList, npOk := buildNodePoolAttrValues(kaas, originalState.Settings.Attributes()["node_pools"].(types.List))
+	nodePoolsAttr, _ := originalState.Settings.Attributes()["node_pools"].(types.List)
+	nodePoolList, npOk := buildNodePoolAttrValues(kaas, nodePoolsAttr)
 	if npOk {
 		settingsAttrs["node_pools"] = nodePoolList
 	} else if !originalState.Settings.IsNull() {

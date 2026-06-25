@@ -104,22 +104,22 @@ func (r *ContainerRegistryResource) Schema(ctx context.Context, req resource.Sch
 					"public_ip_uri_ref": schema.StringAttribute{
 						MarkdownDescription: "URI of the Elastic IP that exposes the registry endpoint (e.g., `arubacloud_elasticip.example.uri`).",
 						Required:            true,
-						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+						PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 					"vpc_uri_ref": schema.StringAttribute{
 						MarkdownDescription: "URI of the VPC that hosts the registry (e.g., `arubacloud_vpc.example.uri`).",
 						Required:            true,
-						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+						PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 					"subnet_uri_ref": schema.StringAttribute{
 						MarkdownDescription: "URI of the subnet within the VPC (e.g., `arubacloud_subnet.example.uri`).",
 						Required:            true,
-						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+						PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 					"security_group_uri_ref": schema.StringAttribute{
 						MarkdownDescription: "URI of the security group controlling registry traffic (e.g., `arubacloud_securitygroup.example.uri`).",
 						Required:            true,
-						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+						PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 				},
 			},
@@ -130,7 +130,7 @@ func (r *ContainerRegistryResource) Schema(ctx context.Context, req resource.Sch
 					"block_storage_uri_ref": schema.StringAttribute{
 						MarkdownDescription: "URI of the block storage volume (e.g., `arubacloud_blockstorage.example.uri`).",
 						Required:            true,
-						PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+						PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 				},
 			},
@@ -247,7 +247,7 @@ func (r *ContainerRegistryResource) Create(ctx context.Context, req resource.Cre
 	projectID := data.ProjectID.ValueString()
 	builder := aruba.NewContainerRegistry().
 		Named(data.Name.ValueString()).
-		InProject(aruba.URI("/projects/"+projectID)).
+		InProject(aruba.URI("/projects/" + projectID)).
 		InRegion(aruba.Region(data.Location.ValueString())).
 		Tagged(tags...).
 		WithElasticIP(aruba.URI(networkModel.PublicIpUriRef.ValueString())).

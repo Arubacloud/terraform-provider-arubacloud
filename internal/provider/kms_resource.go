@@ -143,7 +143,7 @@ func (r *KMSResource) Create(ctx context.Context, req resource.CreateRequest, re
 
 	builder := aruba.NewKMS().
 		Named(data.Name.ValueString()).
-		InProject(aruba.URI("/projects/"+projectID)).
+		InProject(aruba.URI("/projects/" + projectID)).
 		Tagged(tags...)
 
 	if !data.Location.IsNull() && !data.Location.IsUnknown() {

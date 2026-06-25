@@ -133,7 +133,7 @@ func (r *DBaaSUserResource) Create(ctx context.Context, req resource.CreateReque
 	checker := func(ctx context.Context) (string, error) {
 		_, getErr := r.client.Client.FromDatabase().Users().Get(ctx, dbaasUserRef(&data))
 		if provErr := CheckResponseErr("get", "DBaaSUser", getErr); provErr != nil {
-			return "Unknown", nil
+			return "Unknown", provErr
 		}
 		return "Active", nil
 	}
