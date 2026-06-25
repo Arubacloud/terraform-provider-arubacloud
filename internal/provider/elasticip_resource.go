@@ -158,7 +158,7 @@ func eipRef(data *ElasticIPResourceModel) aruba.Ref {
 	if !data.Uri.IsNull() && data.Uri.ValueString() != "" {
 		return aruba.URI(data.Uri.ValueString())
 	}
-	return aruba.URI("/projects/" + data.ProjectId.ValueString() + "/network/elasticIPs/" + data.Id.ValueString())
+	return aruba.URI("/projects/" + data.ProjectId.ValueString() + "/network/elasticIps/" + data.Id.ValueString())
 }
 
 func applyEIPToModel(eip *aruba.ElasticIP, data *ElasticIPResourceModel) {

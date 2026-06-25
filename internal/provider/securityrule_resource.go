@@ -65,10 +65,14 @@ func normalizeProtocol(p string) string {
 
 // normalizeTargetKind maps the wire "Ip" value to the user-facing "IP".
 func normalizeTargetKind(kind string) string {
-	if strings.EqualFold(kind, "Ip") || strings.EqualFold(kind, "ip") {
+	switch {
+	case strings.EqualFold(kind, "ip"):
 		return "IP"
+	case strings.EqualFold(kind, "securitygroup"):
+		return "SecurityGroup"
+	default:
+		return kind
 	}
-	return kind
 }
 
 type SecurityRuleResource struct {

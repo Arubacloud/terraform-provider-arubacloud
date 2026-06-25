@@ -42,7 +42,7 @@ const createRichWithSourceURI = `{` +
 	`"metadata":{` +
 	`"id":"test-id",` +
 	`"name":"test-name",` +
-	`"uri":"/projects/p/providers/Aruba.Storage/volumes/test-vol-id",` +
+	`"uri":"/projects/p/providers/Aruba.Storage/blockStorages/test-vol-id",` +
 	`"tags":["env:test"]` +
 	`},"status":{"state":"Active"}}`
 

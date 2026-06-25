@@ -130,7 +130,7 @@ func (r *BackupResource) Create(ctx context.Context, req resource.CreateRequest,
 
 	// Get the volume to obtain its URI.
 	vol, err := r.client.Client.FromStorage().Volumes().Get(ctx,
-		aruba.URI("/projects/"+projectID+"/providers/Aruba.Storage/volumes/"+volumeID))
+		aruba.URI("/projects/"+projectID+"/providers/Aruba.Storage/blockStorages/"+volumeID))
 	if provErr := CheckResponseErr("read", "Volume", err); provErr != nil {
 		resp.Diagnostics.AddError("Error getting volume details", provErr.Error())
 		return

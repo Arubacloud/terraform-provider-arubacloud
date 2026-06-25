@@ -130,7 +130,7 @@ func blockStorageRef(data *BlockStorageResourceModel) aruba.Ref {
 	if !data.Uri.IsNull() && data.Uri.ValueString() != "" {
 		return aruba.URI(data.Uri.ValueString())
 	}
-	return aruba.URI("/projects/" + data.ProjectID.ValueString() + "/providers/Aruba.Storage/volumes/" + data.Id.ValueString())
+	return aruba.URI("/projects/" + data.ProjectID.ValueString() + "/providers/Aruba.Storage/blockStorages/" + data.Id.ValueString())
 }
 
 func applyBlockStorageToModel(vol *aruba.BlockStorage, data *BlockStorageResourceModel) {

@@ -288,8 +288,7 @@ func (r *ContainerRegistryResource) Create(ctx context.Context, req resource.Cre
 		return
 	}
 
-	// ContainerRegistry can take 20-40 minutes to converge.
-	if waitErr := registry.WaitUntilReady(ctx, aruba.WithTimeout(40*time.Minute)); waitErr != nil {
+	if waitErr := registry.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "ContainerRegistry", data.Id.ValueString())
 		return
 	}
@@ -338,7 +337,7 @@ func (r *ContainerRegistryResource) Read(ctx context.Context, req resource.ReadR
 			fmt.Sprintf("ContainerRegistry %q is in a terminal failure state (%s). "+
 				"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", data.Id.ValueString(), st))
 	case IsCreatingState(st):
-		if waitErr := registry.WaitUntilReady(ctx, aruba.WithTimeout(40*time.Minute)); waitErr != nil {
+		if waitErr := registry.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
 			ReportWaitResult(&resp.Diagnostics, waitErr, "ContainerRegistry", data.Id.ValueString())
 			return
 		}

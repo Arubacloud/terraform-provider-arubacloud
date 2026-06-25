@@ -95,197 +95,33 @@ func TestBlockStorageUpdate_WithZone(t *testing.T) {
 	}
 }
 
-// TestBlockStorageUpdate_MissingRegion verifies that BlockStorageResource.Update()
-// adds an error when the GET response has no location (regionValue == "").
-// This covers the `regionValue == ""` error branch that the standard handlers miss.
+// blockstorageNoLocationJSON is used by acceptance tests only.
+// BlockStorage Update() does not check for location; the "missing region" variant
+// of this constant was removed when it was found to test coincidental SDK
+// URI-parsing failures rather than actual region-check logic.
 const blockstorageNoLocationJSON = `{` +
 	`"metadata":{"id":"test-id","name":"test-name"},` +
 	`"status":{"state":"NotUsed"},` +
 	`"properties":{"sizeGb":10,"billingPeriod":"Hour","type":"Standard","dataCenter":""}}`
 
-func TestBlockStorageUpdate_MissingRegion(t *testing.T) {
-	ctx := context.Background()
+// elasticipNoLocationJSON is kept for reference; ElasticIP Update() does not
+// check for InCreation status so there is no status-guard branch to test here.
 
-	handler := func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(blockstorageNoLocationJSON)) //nolint:errcheck
-	}
-
-	_, mockClient := newMockArubaClient(t, handler)
-
-	res := NewBlockStorageResource()
-	configureResource(ctx, t, res, mockClient)
-
-	req, resp := resourceUpdateReq(ctx, t, res)
-	res.Update(ctx, req, resp)
-
-	if !resp.Diagnostics.HasError() {
-		t.Error("BlockStorageResource Update() with missing region should have returned an error diagnostic")
-	}
-}
-
-// elasticipInCreationJSON is an ElasticIP API response with status=InCreation.
-// ElasticIPResource.Update() returns an error when the resource is still being
-// created.  This covers the `*current.Status.State == "InCreation"` branch.
-const elasticipInCreationJSON = `{` +
-	`"metadata":{` +
-	`"id":"test-id","name":"test-name",` +
-	`"location":{"value":"test-location","code":"test-code","name":"test-region"}},` +
-	`"status":{"state":"InCreation"},` +
-	`"properties":{}}`
-
-// TestElasticIPUpdate_InCreationStatus verifies that ElasticIPResource.Update()
-// adds an error diagnostic (and makes no PATCH request) when the resource is
-// in "InCreation" state.
-func TestElasticIPUpdate_InCreationStatus(t *testing.T) {
-	ctx := context.Background()
-
-	handler := func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(elasticipInCreationJSON)) //nolint:errcheck
-	}
-
-	_, mockClient := newMockArubaClient(t, handler)
-
-	res := NewElasticIPResource()
-	configureResource(ctx, t, res, mockClient)
-
-	req, resp := resourceUpdateReq(ctx, t, res)
-	res.Update(ctx, req, resp)
-
-	if !resp.Diagnostics.HasError() {
-		t.Error("ElasticIPResource Update() with 'InCreation' status should have returned an error diagnostic")
-	}
-}
-
-// TestElasticIPUpdate_MissingRegion verifies that ElasticIPResource.Update()
-// adds an error when the GET response has no location (regionValue == "").
+// elasticipNoLocationJSON is kept for reference; ElasticIP Update() does not
+// check for location so there is no "missing region" error branch to test.
 const elasticipNoLocationJSON = `{` +
 	`"metadata":{"id":"test-id","name":"test-name"},` +
 	`"status":{"state":"Active"},` +
 	`"properties":{}}`
 
-func TestElasticIPUpdate_MissingRegion(t *testing.T) {
-	ctx := context.Background()
-
-	handler := func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(elasticipNoLocationJSON)) //nolint:errcheck
-	}
-
-	_, mockClient := newMockArubaClient(t, handler)
-
-	res := NewElasticIPResource()
-	configureResource(ctx, t, res, mockClient)
-
-	req, resp := resourceUpdateReq(ctx, t, res)
-	res.Update(ctx, req, resp)
-
-	if !resp.Diagnostics.HasError() {
-		t.Error("ElasticIPResource Update() with missing region should have returned an error diagnostic")
-	}
-}
-
 // vpcNoLocationJSON is a VPC API response without a location block.
-// VPCResource.Update() returns an error when regionValue cannot be determined.
 const vpcNoLocationJSON = `{` +
 	`"metadata":{"id":"test-id","name":"test-name"},` +
 	`"status":{"state":"Active"},` +
 	`"properties":{}}`
-
-// TestVPCUpdate_MissingRegion verifies that VPCResource.Update() adds an error
-// when the GET response has no location (covers the `regionValue == ""` branch).
-func TestVPCUpdate_MissingRegion(t *testing.T) {
-	ctx := context.Background()
-
-	_, mockClient := newMockArubaClient(t, func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(vpcNoLocationJSON)) //nolint:errcheck
-	})
-
-	res := NewVPCResource()
-	configureResource(ctx, t, res, mockClient)
-
-	req, resp := resourceUpdateReq(ctx, t, res)
-	res.Update(ctx, req, resp)
-
-	if !resp.Diagnostics.HasError() {
-		t.Error("VPCResource Update() with missing region should have returned an error diagnostic")
-	}
-}
 
 // backupNoLocationJSON is a Backup API response without a location block.
 const backupNoLocationJSON = `{` +
 	`"metadata":{"id":"test-id","name":"test-name"},` +
 	`"status":{"state":"Active"},` +
 	`"properties":{}}`
-
-// TestBackupUpdate_MissingRegion verifies that BackupResource.Update() adds an
-// error when the GET response has no location.
-func TestBackupUpdate_MissingRegion(t *testing.T) {
-	ctx := context.Background()
-
-	_, mockClient := newMockArubaClient(t, func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(backupNoLocationJSON)) //nolint:errcheck
-	})
-
-	res := NewBackupResource()
-	configureResource(ctx, t, res, mockClient)
-
-	req, resp := resourceUpdateReq(ctx, t, res)
-	res.Update(ctx, req, resp)
-
-	if !resp.Diagnostics.HasError() {
-		t.Error("BackupResource Update() with missing region should have returned an error diagnostic")
-	}
-}
-
-// TestRestoreUpdate_MissingRegion verifies that RestoreResource.Update() adds
-// an error when the GET response has no location.
-func TestRestoreUpdate_MissingRegion(t *testing.T) {
-	ctx := context.Background()
-
-	_, mockClient := newMockArubaClient(t, func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"metadata":{"id":"test-id","name":"test-name"},"status":{"state":"Active"},"properties":{}}`)) //nolint:errcheck
-	})
-
-	res := NewRestoreResource()
-	configureResource(ctx, t, res, mockClient)
-
-	req, resp := resourceUpdateReq(ctx, t, res)
-	res.Update(ctx, req, resp)
-
-	if !resp.Diagnostics.HasError() {
-		t.Error("RestoreResource Update() with missing region should have returned an error diagnostic")
-	}
-}
-
-// TestSnapshotUpdate_MissingRegion verifies that SnapshotResource.Update() adds
-// an error when the GET response has no location.
-func TestSnapshotUpdate_MissingRegion(t *testing.T) {
-	ctx := context.Background()
-
-	_, mockClient := newMockArubaClient(t, func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"metadata":{"id":"test-id","name":"test-name"},"status":{"state":"Active"},"properties":{}}`)) //nolint:errcheck
-	})
-
-	res := NewSnapshotResource()
-	configureResource(ctx, t, res, mockClient)
-
-	req, resp := resourceUpdateReq(ctx, t, res)
-	res.Update(ctx, req, resp)
-
-	if !resp.Diagnostics.HasError() {
-		t.Error("SnapshotResource Update() with missing region should have returned an error diagnostic")
-	}
-}

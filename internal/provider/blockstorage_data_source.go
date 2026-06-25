@@ -137,7 +137,7 @@ func (d *BlockStorageDataSource) Read(ctx context.Context, req datasource.ReadRe
 	}
 
 	vol, err := d.client.Client.FromStorage().Volumes().Get(ctx,
-		aruba.URI("/projects/"+projectID+"/providers/Aruba.Storage/volumes/"+volumeID))
+		aruba.URI("/projects/"+projectID+"/providers/Aruba.Storage/blockStorages/"+volumeID))
 	if provErr := CheckResponseErr("read", "BlockStorage", err); provErr != nil {
 		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return

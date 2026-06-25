@@ -37,7 +37,7 @@ func alwaysCreatingWithURIHandler(w http.ResponseWriter, r *http.Request) {
 	// Use uriActiveJSON but override the state to InCreation.
 	// uriActiveJSON ends with `"status":{"state":"Active"}}` — we build a
 	// variant inline that ends with InCreation instead.
-	w.Write([]byte(`{"metadata":{"id":"test-id","name":"test-name","uri":"/projects/p/providers/Aruba.Storage/volumes/test-vol-id"},"status":{"state":"InCreation"}}`)) //nolint:errcheck
+	w.Write([]byte(`{"metadata":{"id":"test-id","name":"test-name","uri":"/projects/p/providers/Aruba.Storage/blockStorages/test-vol-id"},"status":{"state":"InCreation"}}`)) //nolint:errcheck
 }
 
 // TestResourceCreate_ProvisioningTimeout verifies that Create() correctly
