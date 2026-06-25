@@ -225,9 +225,9 @@ resp.Diagnostics.AddError(
 **Attribute-level error** (provider configuration):
 ```go
 resp.Diagnostics.AddAttributeError(
-    path.Root("api_key"),
-    "Unknown ArubaCloud API Key",
-    "The provider cannot create the ArubaCloud API client as the API key is unknown.",
+    path.Root("client_id"),
+    "Unknown ArubaCloud Client ID",
+    "The provider cannot create the ArubaCloud API client as the client ID is unknown.",
 )
 ```
 

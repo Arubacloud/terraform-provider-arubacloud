@@ -51,14 +51,14 @@ provider "arubacloud" {
   client_secret = var.client_secret
 }
 
-variable "api_key" {
-  description = "ArubaCloud API key"
+variable "client_id" {
+  description = "ArubaCloud OAuth2 client ID"
   type        = string
   sensitive   = true
 }
 
-variable "api_secret" {
-  description = "ArubaCloud API secret"
+variable "client_secret" {
+  description = "ArubaCloud OAuth2 client secret"
   type        = string
   sensitive   = true
 }
@@ -152,7 +152,7 @@ resource "arubacloud_blockstorage" "quickstart_boot" {
   name           = "quickstart-boot-disk"
   project_id     = arubacloud_project.quickstart.id
   location       = "ITBG-Bergamo"
-  zone           = "ITBG-1" # Zone (datacenter) — must match the CloudServer zone below
+  zone           = "ITBG-1" # Zone (datacenter) ï¿½ must match the CloudServer zone below
   size_gb        = 50
   billing_period = "Hour"
   type           = "Performance" # Performance type recommended for boot volumes
@@ -168,7 +168,7 @@ resource "arubacloud_cloudserver" "quickstart" {
   name       = "quickstart-server"
   location   = "ITBG-Bergamo"
   project_id = arubacloud_project.quickstart.id
-  zone       = "ITBG-1" # Zone (datacenter) — must match the boot-volume zone above
+  zone       = "ITBG-1" # Zone (datacenter) ï¿½ must match the boot-volume zone above
   tags       = ["quickstart", "compute"]
 
   network = {
@@ -209,8 +209,8 @@ output "cloudserver_id" {
 
 The following arguments are supported:
 
-- `client_id` - (Required, string) ArubaCloud API key. Can also be specified with the `ARUBACLOUD_CLIENT_ID` environment variable.
-- `client_secret` - (Required, string) ArubaCloud API secret. Can also be specified with the `ARUBACLOUD_CLIENT_SECRET` environment variable.
+- `api_key` - (Required, string) ArubaCloud API key. Can also be specified with the `ARUBACLOUD_API_KEY` environment variable.
+- `api_secret` - (Required, string) ArubaCloud API secret. Can also be specified with the `ARUBACLOUD_API_SECRET` environment variable.
 - `resource_timeout` - (Optional, string) Timeout for waiting for resources to become active after creation (e.g. `"5m"`, `"10m"`). Default: `"10m"`.
 - `base_url` - (Optional, string) Override the ArubaCloud API base URL. Advanced use only.
 - `token_issuer_url` - (Optional, string) Override the ArubaCloud token issuer URL. Advanced use only.
@@ -231,8 +231,8 @@ A message is visible only when **both** filters permit it. SDK messages are tagg
 
 ```hcl
 provider "arubacloud" {
-  client_id     = var.client_id
-  client_secret = var.client_secret
+  api_key    = var.api_key
+  api_secret = var.api_secret
   log_level  = "DEBUG"
 }
 ```
