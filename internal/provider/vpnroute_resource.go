@@ -339,7 +339,7 @@ func (r *VPNRouteResource) Delete(ctx context.Context, req resource.DeleteReques
 
 	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(ctx, func() error {
-		return CheckResponseErr("delete", "VPNRoute",
+		return CheckResponseErrAsError("delete", "VPNRoute",
 			r.client.Client.FromNetwork().VPNRoutes().Delete(ctx, ref))
 	}, "VPNRoute", routeID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {

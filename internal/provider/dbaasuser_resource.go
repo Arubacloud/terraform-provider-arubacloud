@@ -115,7 +115,7 @@ func (r *DBaaSUserResource) Create(ctx context.Context, req resource.CreateReque
 				WithPassword(passwordBase64).
 				InDBaaS(aruba.URI(dbaasURI)),
 		)
-		return CheckResponseErr("create", "DBaaSUser", err)
+		return CheckResponseErrAsError("create", "DBaaSUser", err)
 	}, "DBaaSUser", username, r.client.ResourceTimeout); createErr != nil {
 		resp.Diagnostics.AddError("Error creating DBaaS user", createErr.Error())
 		return
@@ -236,7 +236,7 @@ func (r *DBaaSUserResource) Delete(ctx context.Context, req resource.DeleteReque
 
 	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(ctx, func() error {
-		return CheckResponseErr("delete", "DBaaSUser",
+		return CheckResponseErrAsError("delete", "DBaaSUser",
 			r.client.Client.FromDatabase().Users().Delete(ctx, ref))
 	}, "DBaaSUser", username, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {

@@ -289,7 +289,7 @@ func (r *ElasticIPResource) Delete(ctx context.Context, req resource.DeleteReque
 	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(ctx, func() error {
 		delErr := r.client.Client.FromNetwork().ElasticIPs().Delete(ctx, ref)
-		return CheckResponseErr("delete", "ElasticIP", delErr)
+		return CheckResponseErrAsError("delete", "ElasticIP", delErr)
 	}, "ElasticIP", eipID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting ElasticIP", err.Error())

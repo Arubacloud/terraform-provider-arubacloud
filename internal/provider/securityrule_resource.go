@@ -530,7 +530,7 @@ func (r *SecurityRuleResource) Delete(ctx context.Context, req resource.DeleteRe
 
 	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(ctx, func() error {
-		return CheckResponseErr("delete", "SecurityRule",
+		return CheckResponseErrAsError("delete", "SecurityRule",
 			r.client.Client.FromNetwork().SecurityGroupRules().Delete(ctx, ref))
 	}, "SecurityRule", ruleID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {

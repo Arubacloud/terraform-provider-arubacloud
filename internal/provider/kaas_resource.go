@@ -799,7 +799,7 @@ func (r *KaaSResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 
 	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(ctx, func() error {
-		return CheckResponseErr("delete", "KaaS",
+		return CheckResponseErrAsError("delete", "KaaS",
 			r.client.Client.FromContainer().KaaS().Delete(ctx, ref))
 	}, "KaaS", kaasID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {

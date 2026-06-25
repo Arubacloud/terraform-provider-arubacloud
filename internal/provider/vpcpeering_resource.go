@@ -299,7 +299,7 @@ func (r *VpcPeeringResource) Delete(ctx context.Context, req resource.DeleteRequ
 
 	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(ctx, func() error {
-		return CheckResponseErr("delete", "VPCPeering",
+		return CheckResponseErrAsError("delete", "VPCPeering",
 			r.client.Client.FromNetwork().VPCPeerings().Delete(ctx, ref))
 	}, "VPCPeering", peeringID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {

@@ -375,7 +375,7 @@ func (r *BlockStorageResource) Delete(ctx context.Context, req resource.DeleteRe
 
 	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(ctx, func() error {
-		return CheckResponseErr("delete", "BlockStorage",
+		return CheckResponseErrAsError("delete", "BlockStorage",
 			r.client.Client.FromStorage().Volumes().Delete(ctx, ref))
 	}, "BlockStorage", volumeID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {

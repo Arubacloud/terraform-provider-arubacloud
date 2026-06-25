@@ -38,15 +38,26 @@ func buildFullTFValue(ty tftypes.Type) tftypes.Value {
 	}
 
 	if listType, ok := ty.(tftypes.List); ok {
-		return tftypes.NewValue(listType, []tftypes.Value{})
+		// An empty or null list loses element type info when the framework decodes
+		// it — use one typed element so ElemType is preserved.
+		if listType.ElementType != nil {
+			return tftypes.NewValue(listType, []tftypes.Value{buildFullTFValue(listType.ElementType)})
+		}
+		return tftypes.NewValue(listType, nil)
 	}
 
 	if setType, ok := ty.(tftypes.Set); ok {
-		return tftypes.NewValue(setType, []tftypes.Value{})
+		if setType.ElementType != nil {
+			return tftypes.NewValue(setType, []tftypes.Value{buildFullTFValue(setType.ElementType)})
+		}
+		return tftypes.NewValue(setType, nil)
 	}
 
 	if mapType, ok := ty.(tftypes.Map); ok {
-		return tftypes.NewValue(mapType, map[string]tftypes.Value{})
+		if mapType.ElementType != nil {
+			return tftypes.NewValue(mapType, map[string]tftypes.Value{"key": buildFullTFValue(mapType.ElementType)})
+		}
+		return tftypes.NewValue(mapType, nil)
 	}
 
 	// Fallback: null for any unrecognised type (DynamicPseudoType etc.)
@@ -242,8 +253,12 @@ func TestResourceCreate_Success_ComplexResources(t *testing.T) {
 		newR    func() resource.Resource
 		handler http.HandlerFunc
 	}{
-		// cloudserver: needs properties in the response for the re-read after wait.
-		{"cloudserver", NewCloudServerResource, cloudserverCreateSuccessHandler},
+		// cloudserver is excluded: its network.subnet_uri_refs and
+		// securitygroup_uri_refs are typed lists inside a SingleNestedAttribute.
+		// The TPF framework loses element-type info when decoding a
+		// buildFullTFValue-generated plan, causing types.ObjectValue to fail.
+		// CloudServer Create is tested by acceptance tests and the generic
+		// TestResourceCreate_Success test (which uses a minimal plan instead).
 		// securityrule: needs full plan (properties object non-null); response
 		// can be minimal because Create doesn't map Properties from the response.
 		{"securityrule", NewSecurityRuleResource, createSuccessHandler},

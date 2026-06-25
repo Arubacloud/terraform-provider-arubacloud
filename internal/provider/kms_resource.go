@@ -296,7 +296,7 @@ func (r *KMSResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 
 	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(ctx, func() error {
-		return CheckResponseErr("delete", "KMS",
+		return CheckResponseErrAsError("delete", "KMS",
 			r.client.Client.FromSecurity().KMS().Delete(ctx, ref))
 	}, "KMS", kmsID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {

@@ -576,7 +576,7 @@ func (r *VPNTunnelResource) Delete(ctx context.Context, req resource.DeleteReque
 
 	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(ctx, func() error {
-		return CheckResponseErr("delete", "VPNTunnel",
+		return CheckResponseErrAsError("delete", "VPNTunnel",
 			r.client.Client.FromNetwork().VPNTunnels().Delete(ctx, ref))
 	}, "VPNTunnel", tunnelID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {

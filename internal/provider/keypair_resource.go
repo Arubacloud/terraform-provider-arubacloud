@@ -302,7 +302,7 @@ func (r *KeypairResource) Delete(ctx context.Context, req resource.DeleteRequest
 		ctx,
 		func() error {
 			delErr := r.client.Client.FromCompute().KeyPairs().Delete(ctx, ref)
-			return CheckResponseErr("delete", "Keypair", delErr)
+			return CheckResponseErrAsError("delete", "Keypair", delErr)
 		},
 		"Keypair",
 		keypairID,

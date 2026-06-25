@@ -589,7 +589,7 @@ func (r *ScheduleJobResource) Delete(ctx context.Context, req resource.DeleteReq
 
 	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(ctx, func() error {
-		return CheckResponseErr("delete", "ScheduleJob",
+		return CheckResponseErrAsError("delete", "ScheduleJob",
 			r.client.Client.FromSchedule().Jobs().Delete(ctx, ref))
 	}, "ScheduleJob", jobID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {

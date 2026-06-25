@@ -550,7 +550,7 @@ func (r *DBaaSResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 
 	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(ctx, func() error {
-		return CheckResponseErr("delete", "DBaaS",
+		return CheckResponseErrAsError("delete", "DBaaS",
 			r.client.Client.FromDatabase().DBaaS().Delete(ctx, ref))
 	}, "DBaaS", dbaasID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {

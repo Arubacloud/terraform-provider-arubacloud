@@ -269,7 +269,7 @@ func (r *VPCResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(ctx, func() error {
 		delErr := r.client.Client.FromNetwork().VPCs().Delete(ctx, ref)
-		return CheckResponseErr("delete", "VPC", delErr)
+		return CheckResponseErrAsError("delete", "VPC", delErr)
 	}, "VPC", vpcID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting VPC", err.Error())

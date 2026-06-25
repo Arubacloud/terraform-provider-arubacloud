@@ -625,7 +625,7 @@ func (r *CloudServerResource) Delete(ctx context.Context, req resource.DeleteReq
 		ctx,
 		func() error {
 			delErr := r.client.Client.FromCompute().CloudServers().Delete(ctx, ref)
-			return CheckResponseErr("delete", "CloudServer", delErr)
+			return CheckResponseErrAsError("delete", "CloudServer", delErr)
 		},
 		"CloudServer",
 		serverID,

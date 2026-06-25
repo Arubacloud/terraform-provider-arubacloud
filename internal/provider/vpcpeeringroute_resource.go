@@ -306,7 +306,7 @@ func (r *VpcPeeringRouteResource) Delete(ctx context.Context, req resource.Delet
 
 	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(ctx, func() error {
-		return CheckResponseErr("delete", "VPCPeeringRoute",
+		return CheckResponseErrAsError("delete", "VPCPeeringRoute",
 			r.client.Client.FromNetwork().VPCPeeringRoutes().Delete(ctx, ref))
 	}, "VPCPeeringRoute", routeID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {

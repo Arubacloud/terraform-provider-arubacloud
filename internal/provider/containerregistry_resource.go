@@ -461,7 +461,7 @@ func (r *ContainerRegistryResource) Delete(ctx context.Context, req resource.Del
 
 	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(ctx, func() error {
-		return CheckResponseErr("delete", "ContainerRegistry",
+		return CheckResponseErrAsError("delete", "ContainerRegistry",
 			r.client.Client.FromContainer().ContainerRegistry().Delete(ctx, ref))
 	}, "ContainerRegistry", registryID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {

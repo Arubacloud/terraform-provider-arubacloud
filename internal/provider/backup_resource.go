@@ -318,7 +318,7 @@ func (r *BackupResource) Delete(ctx context.Context, req resource.DeleteRequest,
 
 	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(ctx, func() error {
-		return CheckResponseErr("delete", "Backup",
+		return CheckResponseErrAsError("delete", "Backup",
 			r.client.Client.FromStorage().Backups().Delete(ctx, ref))
 	}, "Backup", backupID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {

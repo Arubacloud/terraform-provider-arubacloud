@@ -330,7 +330,7 @@ func (r *SnapshotResource) Delete(ctx context.Context, req resource.DeleteReques
 
 	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(ctx, func() error {
-		return CheckResponseErr("delete", "Snapshot",
+		return CheckResponseErrAsError("delete", "Snapshot",
 			r.client.Client.FromStorage().Snapshots().Delete(ctx, ref))
 	}, "Snapshot", snapshotID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {

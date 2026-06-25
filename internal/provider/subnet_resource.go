@@ -704,7 +704,7 @@ func (r *SubnetResource) Delete(ctx context.Context, req resource.DeleteRequest,
 
 	deleteStart := time.Now()
 	err := DeleteResourceWithRetry(ctx, func() error {
-		return CheckResponseErr("delete", "Subnet",
+		return CheckResponseErrAsError("delete", "Subnet",
 			r.client.Client.FromNetwork().Subnets().Delete(ctx, ref))
 	}, "Subnet", subnetID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {
