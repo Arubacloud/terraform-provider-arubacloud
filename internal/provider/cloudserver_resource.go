@@ -425,8 +425,16 @@ func (r *CloudServerResource) applyServerToState(
 	}
 
 	// ── Network object ────────────────────────────────────────────────────────
-	var origNetwork CloudServerNetworkModel
-	if originalState != nil {
+	// Initialize with properly-typed nulls so types.ObjectValue never receives
+	// a zero-value types.List{} (which has no element type).  We only overwrite
+	// from state when the stored object is non-null and non-unknown.
+	origNetwork := CloudServerNetworkModel{
+		VpcUriRef:            types.StringNull(),
+		ElasticIpUriRef:      types.StringNull(),
+		SubnetUriRefs:        types.ListNull(types.StringType),
+		SecurityGroupUriRefs: types.ListNull(types.StringType),
+	}
+	if originalState != nil && !originalState.Network.IsNull() && !originalState.Network.IsUnknown() {
 		diags.Append(originalState.Network.As(ctx, &origNetwork, basetypes.ObjectAsOptions{})...)
 		if diags.HasError() {
 			return
@@ -444,7 +452,7 @@ func (r *CloudServerResource) applyServerToState(
 
 	// ── Settings object ───────────────────────────────────────────────────────
 	var origSettings CloudServerSettingsModel
-	if originalState != nil {
+	if originalState != nil && !originalState.Settings.IsNull() && !originalState.Settings.IsUnknown() {
 		diags.Append(originalState.Settings.As(ctx, &origSettings, basetypes.ObjectAsOptions{})...)
 		if diags.HasError() {
 			return
@@ -461,7 +469,7 @@ func (r *CloudServerResource) applyServerToState(
 
 	// ── Storage object ────────────────────────────────────────────────────────
 	var origStorage CloudServerStorageModel
-	if originalState != nil {
+	if originalState != nil && !originalState.Storage.IsNull() && !originalState.Storage.IsUnknown() {
 		diags.Append(originalState.Storage.As(ctx, &origStorage, basetypes.ObjectAsOptions{})...)
 		if diags.HasError() {
 			return
