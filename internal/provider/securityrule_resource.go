@@ -158,7 +158,7 @@ func (r *SecurityRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 				Optional:            true,
 			},
 			"properties": schema.SingleNestedAttribute{
-				MarkdownDescription: "Traffic-matching properties of the security rule. Most fields are immutable after creation.",
+				MarkdownDescription: "Traffic-matching properties of the security rule. All fields are immutable after creation — to change any of them, destroy and re-create the rule.",
 				Required:            true,
 				Attributes: map[string]schema.Attribute{
 					"direction": schema.StringAttribute{
@@ -167,29 +167,42 @@ func (r *SecurityRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 						Validators: []validator.String{
 							stringvalidator.OneOf("Ingress", "Egress"),
 						},
+						PlanModifiers: []planmodifier.String{
+							stringplanmodifier.RequiresReplace(),
+						},
 					},
 					"protocol": schema.StringAttribute{
-						MarkdownDescription: "IP protocol. Accepted values: `TCP`, `UDP`, `ICMP`, `ANY` (case-insensitive).",
+						MarkdownDescription: "IP protocol. Accepted values: `TCP`, `UDP`, `ICMP`, `ANY` (case-insensitive). (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 						Required:            true,
 						PlanModifiers: []planmodifier.String{
 							protocolNormalizePlanModifier{},
+							stringplanmodifier.RequiresReplace(),
 						},
 					},
 					"port": schema.StringAttribute{
-						MarkdownDescription: "Port or port range for TCP/UDP (e.g., `80` or `8080-8090`). Use `0` for ICMP or ANY.",
+						MarkdownDescription: "Port or port range for TCP/UDP (e.g., `80` or `8080-8090`). Use `0` for ICMP or ANY. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 						Optional:            true,
+						PlanModifiers: []planmodifier.String{
+							stringplanmodifier.RequiresReplace(),
+						},
 					},
 					"target": schema.SingleNestedAttribute{
-						MarkdownDescription: "Source (inbound) or destination (outbound) endpoint for this rule.",
+						MarkdownDescription: "Source (inbound) or destination (outbound) endpoint for this rule. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 						Required:            true,
 						Attributes: map[string]schema.Attribute{
 							"kind": schema.StringAttribute{
-								MarkdownDescription: "Type of the target endpoint. Accepted values: `IP`, `SecurityGroup`.",
+								MarkdownDescription: "Type of the target endpoint. Accepted values: `IP`, `SecurityGroup`. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 								Required:            true,
+								PlanModifiers: []planmodifier.String{
+									stringplanmodifier.RequiresReplace(),
+								},
 							},
 							"value": schema.StringAttribute{
-								MarkdownDescription: "Source (inbound) or destination (outbound) CIDR in notation like `0.0.0.0/0`, or SecurityGroup URI.",
+								MarkdownDescription: "Source (inbound) or destination (outbound) CIDR in notation like `0.0.0.0/0`, or SecurityGroup URI. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 								Required:            true,
+								PlanModifiers: []planmodifier.String{
+									stringplanmodifier.RequiresReplace(),
+								},
 							},
 						},
 					},
@@ -486,32 +499,6 @@ func (r *SecurityRuleResource) Update(ctx context.Context, req resource.UpdateRe
 	rule, err := r.client.Client.FromNetwork().SecurityGroupRules().Get(ctx, sgRuleRef(&state))
 	if provErr := CheckResponseErr("read", "SecurityRule", err); provErr != nil {
 		resp.Diagnostics.AddError("API Error", provErr.Error())
-		return
-	}
-
-	// Properties are immutable; reject if they differ from current.
-	planDirection, planProtocol, planPort, planTargetKind, planTargetValue, _ := extractRuleProperties(ctx, &data)
-	var propertiesChanged bool
-	if planDirection != "" && string(rule.Direction()) != planDirection {
-		propertiesChanged = true
-	}
-	if planProtocol != "" && !strings.EqualFold(string(rule.Protocol()), planProtocol) {
-		propertiesChanged = true
-	}
-	if planPort != "" && rule.Port() != planPort {
-		propertiesChanged = true
-	}
-	if planTargetKind != "" && normalizeTargetKind(string(rule.TargetKind())) != planTargetKind {
-		propertiesChanged = true
-	}
-	if planTargetValue != "" && rule.TargetValue() != planTargetValue {
-		propertiesChanged = true
-	}
-	if propertiesChanged {
-		resp.Diagnostics.AddError(
-			"Cannot Update Security Rule Properties",
-			"Security rule properties (direction, protocol, port, target) cannot be updated. To change properties, delete and recreate the security rule.",
-		)
 		return
 	}
 

@@ -65,7 +65,7 @@ The following arguments are supported:
 - `location` (String) Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). (Immutable — changing this value forces the resource to be destroyed and re-created.)
 - `name` (String) Display name for the security rule.
 - `project_id` (String) ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)
-- `properties` (Attributes) Traffic-matching properties of the security rule. Most fields are immutable after creation. (see [below for nested schema](#nestedatt--properties))
+- `properties` (Attributes) Traffic-matching properties of the security rule. All fields are immutable after creation — to change any of them, destroy and re-create the rule. (see [below for nested schema](#nestedatt--properties))
 - `security_group_id` (String) ID of the security group this rule belongs to. (Immutable — changing this value forces the resource to be destroyed and re-created.)
 - `vpc_id` (String) ID of the VPC this security rule belongs to. (Immutable — changing this value forces the resource to be destroyed and re-created.)
 
@@ -88,20 +88,20 @@ In addition to all arguments above, the following attributes are exported:
 Required:
 
 - `direction` (String) Traffic direction the rule applies to. Accepted values: `Ingress`, `Egress`. (Immutable — changing this value forces the resource to be destroyed and re-created.)
-- `protocol` (String) IP protocol. Accepted values: `TCP`, `UDP`, `ICMP`, `ANY` (case-insensitive).
-- `target` (Attributes) Source (inbound) or destination (outbound) endpoint for this rule. (see [below for nested schema](#nestedatt--properties--target))
+- `protocol` (String) IP protocol. Accepted values: `TCP`, `UDP`, `ICMP`, `ANY` (case-insensitive). (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `target` (Attributes) Source (inbound) or destination (outbound) endpoint for this rule. (Immutable — changing this value forces the resource to be destroyed and re-created.) (see [below for nested schema](#nestedatt--properties--target))
 
 Optional:
 
-- `port` (String) Port or port range for TCP/UDP (e.g., `80` or `8080-8090`). Use `0` for ICMP or ANY.
+- `port` (String) Port or port range for TCP/UDP (e.g., `80` or `8080-8090`). Use `0` for ICMP or ANY. (Immutable — changing this value forces the resource to be destroyed and re-created.)
 
 <a id="nestedatt--properties--target"></a>
 ### Nested Schema for `properties.target`
 
 Required:
 
-- `kind` (String) Type of the target endpoint. Accepted values: `IP`, `SecurityGroup`.
-- `value` (String) Source (inbound) or destination (outbound) CIDR in notation like `0.0.0.0/0`, or SecurityGroup URI.
+- `kind` (String) Type of the target endpoint. Accepted values: `IP`, `SecurityGroup`. (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `value` (String) Source (inbound) or destination (outbound) CIDR in notation like `0.0.0.0/0`, or SecurityGroup URI. (Immutable — changing this value forces the resource to be destroyed and re-created.)
 
 
 
