@@ -160,7 +160,7 @@ func (r *VpcPeeringResource) Create(ctx context.Context, req resource.CreateRequ
 		return
 	}
 
-	if waitErr := peering.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := peering.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "VPCPeering", data.Id.ValueString())
 		return
 	}
@@ -211,7 +211,7 @@ func (r *VpcPeeringResource) Read(ctx context.Context, req resource.ReadRequest,
 			fmt.Sprintf("VPCPeering %q is in a terminal failure state (%s). "+
 				"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", data.Id.ValueString(), st))
 	case IsCreatingState(st):
-		if waitErr := peering.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+		if waitErr := peering.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
 			ReportWaitResult(&resp.Diagnostics, waitErr, "VPCPeering", data.Id.ValueString())
 			return
 		}

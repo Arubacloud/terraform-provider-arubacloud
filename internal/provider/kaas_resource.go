@@ -462,7 +462,7 @@ func (r *KaaSResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
-	if waitErr := kaas.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := kaas.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "KaaS", data.Id.ValueString())
 		data.Kubeconfig = types.StringNull()
 		data.ManagementIP = types.StringNull()
@@ -523,7 +523,7 @@ func (r *KaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 			fmt.Sprintf("KaaS %q is in a terminal failure state (%s). "+
 				"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", data.Id.ValueString(), st))
 	case IsCreatingState(st):
-		if waitErr := kaas.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+		if waitErr := kaas.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
 			ReportWaitResult(&resp.Diagnostics, waitErr, "KaaS", data.Id.ValueString())
 			return
 		}

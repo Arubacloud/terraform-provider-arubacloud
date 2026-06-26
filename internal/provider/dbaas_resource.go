@@ -318,7 +318,7 @@ func (r *DBaaSResource) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 
-	if waitErr := dbaas.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := dbaas.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "DBaaS", data.Id.ValueString())
 		return
 	}
@@ -368,7 +368,7 @@ func (r *DBaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp
 			fmt.Sprintf("DBaaS %q is in a terminal failure state (%s). "+
 				"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", data.Id.ValueString(), st))
 	case IsCreatingState(st):
-		if waitErr := dbaas.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+		if waitErr := dbaas.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
 			ReportWaitResult(&resp.Diagnostics, waitErr, "DBaaS", data.Id.ValueString())
 			return
 		}

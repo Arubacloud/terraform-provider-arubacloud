@@ -174,7 +174,7 @@ func (r *VpcPeeringRouteResource) Create(ctx context.Context, req resource.Creat
 		return
 	}
 
-	if waitErr := route.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := route.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "VPCPeeringRoute", data.Id.ValueString())
 		return
 	}
@@ -214,7 +214,7 @@ func (r *VpcPeeringRouteResource) Read(ctx context.Context, req resource.ReadReq
 			fmt.Sprintf("VPCPeeringRoute %q is in a terminal failure state (%s). "+
 				"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", data.Id.ValueString(), st))
 	case IsCreatingState(st):
-		if waitErr := route.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+		if waitErr := route.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
 			ReportWaitResult(&resp.Diagnostics, waitErr, "VPCPeeringRoute", data.Id.ValueString())
 			return
 		}

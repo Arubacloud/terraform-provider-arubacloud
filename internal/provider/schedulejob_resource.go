@@ -438,7 +438,7 @@ func (r *ScheduleJobResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
-	if waitErr := job.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := job.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "ScheduleJob", data.Id.ValueString())
 		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 		return
@@ -485,7 +485,7 @@ func (r *ScheduleJobResource) Read(ctx context.Context, req resource.ReadRequest
 			fmt.Sprintf("ScheduleJob %q is in a terminal failure state (%s). "+
 				"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", data.Id.ValueString(), st))
 	case IsCreatingState(st):
-		if waitErr := job.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+		if waitErr := job.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
 			ReportWaitResult(&resp.Diagnostics, waitErr, "ScheduleJob", data.Id.ValueString())
 			return
 		}

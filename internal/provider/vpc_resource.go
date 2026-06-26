@@ -124,7 +124,7 @@ func (r *VPCResource) Create(ctx context.Context, req resource.CreateRequest, re
 		return
 	}
 
-	if waitErr := vpc.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := vpc.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "VPC", data.Id.ValueString())
 		return
 	}
@@ -191,7 +191,7 @@ func (r *VPCResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 		resp.Diagnostics.AddWarning("Resource in Failed State",
 			fmt.Sprintf("VPC %q is in a terminal failure state (%s).", data.Id.ValueString(), st))
 	case IsCreatingState(st):
-		if waitErr := vpc.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+		if waitErr := vpc.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
 			ReportWaitResult(&resp.Diagnostics, waitErr, "VPC", data.Id.ValueString())
 			return
 		}

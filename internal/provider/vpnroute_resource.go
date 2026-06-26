@@ -171,7 +171,7 @@ func (r *VPNRouteResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
-	if waitErr := route.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := route.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "VPNRoute", data.Id.ValueString())
 		return
 	}
@@ -211,7 +211,7 @@ func (r *VPNRouteResource) Read(ctx context.Context, req resource.ReadRequest, r
 			fmt.Sprintf("VPNRoute %q is in a terminal failure state (%s). "+
 				"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", data.Id.ValueString(), st))
 	case IsCreatingState(st):
-		if waitErr := route.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+		if waitErr := route.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
 			ReportWaitResult(&resp.Diagnostics, waitErr, "VPNRoute", data.Id.ValueString())
 			return
 		}

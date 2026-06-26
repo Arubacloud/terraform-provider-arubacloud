@@ -169,7 +169,7 @@ func (r *BackupResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
-	if waitErr := backup.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := backup.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "Backup", data.Id.ValueString())
 		return
 	}
@@ -209,7 +209,7 @@ func (r *BackupResource) Read(ctx context.Context, req resource.ReadRequest, res
 			fmt.Sprintf("Backup %q is in a terminal failure state (%s). "+
 				"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", data.Id.ValueString(), st))
 	case IsCreatingState(st):
-		if waitErr := backup.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+		if waitErr := backup.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
 			ReportWaitResult(&resp.Diagnostics, waitErr, "Backup", data.Id.ValueString())
 			return
 		}

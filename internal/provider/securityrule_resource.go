@@ -405,7 +405,7 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
-	if waitErr := rule.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := rule.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "SecurityRule", data.Id.ValueString())
 		return
 	}
@@ -452,7 +452,7 @@ func (r *SecurityRuleResource) Read(ctx context.Context, req resource.ReadReques
 			fmt.Sprintf("SecurityRule %q is in a terminal failure state (%s). "+
 				"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", data.Id.ValueString(), st))
 	case IsCreatingState(st):
-		if waitErr := rule.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+		if waitErr := rule.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
 			ReportWaitResult(&resp.Diagnostics, waitErr, "SecurityRule", data.Id.ValueString())
 			return
 		}

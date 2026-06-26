@@ -140,7 +140,7 @@ func (r *ElasticIPResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 
-	if waitErr := eip.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := eip.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "ElasticIP", data.Id.ValueString())
 		return
 	}
@@ -200,7 +200,7 @@ func (r *ElasticIPResource) Read(ctx context.Context, req resource.ReadRequest, 
 		resp.Diagnostics.AddWarning("Resource in Failed State",
 			fmt.Sprintf("ElasticIP %q is in a terminal failure state (%s).", data.Id.ValueString(), st))
 	} else if IsCreatingState(st) {
-		if waitErr := eip.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+		if waitErr := eip.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
 			ReportWaitResult(&resp.Diagnostics, waitErr, "ElasticIP", data.Id.ValueString())
 			return
 		}

@@ -166,7 +166,7 @@ func (r *KMSResource) Create(ctx context.Context, req resource.CreateRequest, re
 		return
 	}
 
-	if waitErr := kms.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := kms.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "KMS", data.Id.ValueString())
 		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 		return
@@ -208,7 +208,7 @@ func (r *KMSResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 			fmt.Sprintf("KMS %q is in a terminal failure state (%s). "+
 				"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", data.Id.ValueString(), st))
 	case IsCreatingState(st):
-		if waitErr := kms.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+		if waitErr := kms.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
 			ReportWaitResult(&resp.Diagnostics, waitErr, "KMS", data.Id.ValueString())
 			return
 		}

@@ -216,7 +216,7 @@ func (r *BlockStorageResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
-	if waitErr := vol.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := vol.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "BlockStorage", data.Id.ValueString())
 		return
 	}
@@ -265,7 +265,7 @@ func (r *BlockStorageResource) Read(ctx context.Context, req resource.ReadReques
 			fmt.Sprintf("BlockStorage %q is in a terminal failure state (%s). "+
 				"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", data.Id.ValueString(), st))
 	case IsCreatingState(st):
-		if waitErr := vol.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+		if waitErr := vol.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
 			ReportWaitResult(&resp.Diagnostics, waitErr, "BlockStorage", data.Id.ValueString())
 			return
 		}
@@ -331,7 +331,7 @@ func (r *BlockStorageResource) Update(ctx context.Context, req resource.UpdateRe
 	}
 
 	// Wait for update to settle.
-	if waitErr := updated.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := updated.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "BlockStorage", state.Id.ValueString())
 		return
 	}

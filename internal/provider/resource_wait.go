@@ -6,9 +6,25 @@ import (
 	"fmt"
 	"time"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
+
+// sdkWaitOptions returns WaitOption values for SDK WaitUntilReady calls calibrated
+// to the given timeout. The SDK uses a fixed 10s base delay and defaults to only
+// 60 retries (= 10 min), which exhausts before a longer timeout fires. This helper
+// sets retries = timeout/10s + 1 so the context deadline always fires first,
+// returning context.DeadlineExceeded (recognised by IsWaitTimeout) instead of the
+// opaque "after N retries: <nil>" error.
+func sdkWaitOptions(timeout time.Duration) []aruba.WaitOption {
+	const sdkBaseDelay = 10 * time.Second
+	retries := int(timeout/sdkBaseDelay) + 1
+	return []aruba.WaitOption{
+		aruba.WithTimeout(timeout),
+		aruba.WithRetries(retries),
+	}
+}
 
 // ErrWaitTimeout is returned by WaitForResourceActive or WaitForResourceDeleted
 // when the resource does not reach the expected state within the configured

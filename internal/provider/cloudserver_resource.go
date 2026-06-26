@@ -308,7 +308,7 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
-	if err := server.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); err != nil {
+	if err := server.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); err != nil {
 		ReportWaitResult(&resp.Diagnostics, err, "CloudServer", serverID)
 		return
 	}
@@ -374,7 +374,7 @@ func (r *CloudServerResource) Read(ctx context.Context, req resource.ReadRequest
 				"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", serverID, st),
 		)
 	case IsCreatingState(st):
-		if waitErr := server.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+		if waitErr := server.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
 			ReportWaitResult(&resp.Diagnostics, waitErr, "CloudServer", serverID)
 			return
 		}

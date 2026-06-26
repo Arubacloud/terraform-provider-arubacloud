@@ -140,7 +140,7 @@ func (r *KeypairResource) Create(ctx context.Context, req resource.CreateRequest
 	keypairID := data.Id.ValueString()
 
 	// KeyPairs may go through a short provisioning phase; wait until ready.
-	if err := kp.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); err != nil {
+	if err := kp.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); err != nil {
 		ReportWaitResult(&resp.Diagnostics, err, "Keypair", keypairID)
 		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 		return

@@ -154,7 +154,7 @@ func (r *RestoreResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
-	if waitErr := restore.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := restore.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "Restore", data.Id.ValueString())
 		return
 	}
@@ -194,7 +194,7 @@ func (r *RestoreResource) Read(ctx context.Context, req resource.ReadRequest, re
 			fmt.Sprintf("Restore %q is in a terminal failure state (%s). "+
 				"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", data.Id.ValueString(), st))
 	case IsCreatingState(st):
-		if waitErr := restore.WaitUntilReady(ctx, aruba.WithTimeout(r.client.ResourceTimeout)); waitErr != nil {
+		if waitErr := restore.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
 			ReportWaitResult(&resp.Diagnostics, waitErr, "Restore", data.Id.ValueString())
 			return
 		}
