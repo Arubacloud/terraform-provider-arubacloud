@@ -3,7 +3,6 @@ package provider
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
@@ -253,17 +252,13 @@ func (r *DatabaseGrantResource) Delete(ctx context.Context, req resource.DeleteR
 }
 
 func (r *DatabaseGrantResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	// Composite ID: project_id/dbaas_id/database/user_id
-	id := req.ID
-	parts := strings.Split(id, "/")
-	if len(parts) != 4 {
-		resp.Diagnostics.AddError(
-			"Invalid Import ID",
-			fmt.Sprintf("Expected composite ID in format 'project_id/dbaas_id/database/user_id', got: %q", id),
-		)
+	parts, err := parseImportID(req.ID, "<project_id>/<dbaas_id>/<database>/<user_id>", "proj-abc/dbaas-xyz/mydb/usr-xyz", 4)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid Import ID", err.Error())
 		return
 	}
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), id)...)
+	// DatabaseGrant uses the composite string as its stable id (no API-assigned UUID).
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("project_id"), parts[0])...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("dbaas_id"), parts[1])...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("database"), parts[2])...)
