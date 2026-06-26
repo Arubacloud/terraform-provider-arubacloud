@@ -45,6 +45,7 @@ func TestAccSecuritygroupResource(t *testing.T) {
 				ResourceName:      "arubacloud_securitygroup.test",
 				ImportState:       true,
 				ImportStateVerify: true,
+				ImportStateIdFunc: importIDFromAttrs("arubacloud_securitygroup.test", "project_id", "vpc_id", "id"),
 			},
 			// Update and Read testing
 			{

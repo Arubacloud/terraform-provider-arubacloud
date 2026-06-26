@@ -55,6 +55,7 @@ func TestAccBackupResource(t *testing.T) {
 				ResourceName:      "arubacloud_backup.test",
 				ImportState:       true,
 				ImportStateVerify: true,
+				ImportStateIdFunc: importIDFromAttrs("arubacloud_backup.test", "project_id", "id"),
 			},
 			// Update and Read testing
 			{

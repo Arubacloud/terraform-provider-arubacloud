@@ -42,9 +42,11 @@ func TestAccDbaasuserResource(t *testing.T) {
 			},
 			// ImportState testing
 			{
-				ResourceName:      "arubacloud_dbaasuser.test",
-				ImportState:       true,
-				ImportStateVerify: true,
+				ResourceName:            "arubacloud_dbaasuser.test",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"password"},
+				ImportStateIdFunc:       importIDFromAttrs("arubacloud_dbaasuser.test", "project_id", "dbaas_id", "id"),
 			},
 			// Update and Read testing
 			{

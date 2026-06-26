@@ -45,6 +45,7 @@ func TestAccContainerregistryResource(t *testing.T) {
 				ResourceName:      "arubacloud_containerregistry.test",
 				ImportState:       true,
 				ImportStateVerify: true,
+				ImportStateIdFunc: importIDFromAttrs("arubacloud_containerregistry.test", "project_id", "id"),
 			},
 			// Update and Read testing
 			{

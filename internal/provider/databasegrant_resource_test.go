@@ -45,6 +45,7 @@ func TestAccDatabasegrantResource(t *testing.T) {
 				ResourceName:      "arubacloud_databasegrant.test",
 				ImportState:       true,
 				ImportStateVerify: true,
+				ImportStateIdFunc: importIDFromAttrs("arubacloud_databasegrant.test", "project_id", "dbaas_id", "database", "user_id"),
 			},
 			// Update and Read testing
 			{

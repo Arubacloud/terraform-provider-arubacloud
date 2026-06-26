@@ -51,6 +51,7 @@ func TestAccSubnetResource(t *testing.T) {
 				ResourceName:      "arubacloud_subnet.test",
 				ImportState:       true,
 				ImportStateVerify: true,
+				ImportStateIdFunc: importIDFromAttrs("arubacloud_subnet.test", "project_id", "vpc_id", "id"),
 			},
 			// Update and Read testing
 			{

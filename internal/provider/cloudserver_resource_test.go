@@ -48,9 +48,11 @@ func TestAccCloudserverResource(t *testing.T) {
 			},
 			// ImportState testing
 			{
-				ResourceName:      "arubacloud_cloudserver.test",
-				ImportState:       true,
-				ImportStateVerify: true,
+				ResourceName:            "arubacloud_cloudserver.test",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"settings.user_data"},
+				ImportStateIdFunc:       importIDFromAttrs("arubacloud_cloudserver.test", "project_id", "id"),
 			},
 			// Update and Read testing
 			{

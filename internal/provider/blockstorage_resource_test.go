@@ -60,6 +60,7 @@ func TestAccBlockStorageResource(t *testing.T) {
 				ResourceName:      "arubacloud_blockstorage.test",
 				ImportState:       true,
 				ImportStateVerify: true,
+				ImportStateIdFunc: importIDFromAttrs("arubacloud_blockstorage.test", "project_id", "id"),
 			},
 			// Update and Read testing
 			{

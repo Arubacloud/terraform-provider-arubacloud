@@ -42,9 +42,11 @@ func TestAccKaasResource(t *testing.T) {
 			},
 			// ImportState testing
 			{
-				ResourceName:      "arubacloud_kaas.test",
-				ImportState:       true,
-				ImportStateVerify: true,
+				ResourceName:            "arubacloud_kaas.test",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"kubeconfig"},
+				ImportStateIdFunc:       importIDFromAttrs("arubacloud_kaas.test", "project_id", "id"),
 			},
 			// Update and Read testing
 			{
