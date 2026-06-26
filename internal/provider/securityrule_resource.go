@@ -226,6 +226,25 @@ func sgRuleRef(data *SecurityRuleResourceModel) aruba.Ref {
 	)
 }
 
+// priorProtocolAndKind extracts the protocol and target.kind strings already
+// stored in data.Properties (plan value during Create, prior state during Read).
+// Used by applySecurityRuleToModel to preserve the user's original casing.
+func priorProtocolAndKind(data *SecurityRuleResourceModel) (protocol, kind string) {
+	if data.Properties.IsNull() || data.Properties.IsUnknown() {
+		return
+	}
+	attrs := data.Properties.Attributes()
+	if v, ok := attrs["protocol"].(types.String); ok && !v.IsNull() {
+		protocol = v.ValueString()
+	}
+	if t, ok := attrs["target"].(types.Object); ok && !t.IsNull() {
+		if k, ok := t.Attributes()["kind"].(types.String); ok && !k.IsNull() {
+			kind = k.ValueString()
+		}
+	}
+	return
+}
+
 func applySecurityRuleToModel(_ context.Context, rule *aruba.SecurityRule, data *SecurityRuleResourceModel) {
 	data.Id = types.StringValue(rule.ID())
 	data.Uri = strVal(rule.URI())
@@ -236,7 +255,23 @@ func applySecurityRuleToModel(_ context.Context, rule *aruba.SecurityRule, data 
 		data.Location = types.StringValue(string(rule.Region()))
 	}
 
+	// Preserve the user's original casing for protocol and target.kind.
+	// The API normalises these (e.g. "Ip" → "IP", "tcp" → "TCP"), but storing
+	// the API's canonical form would cause perpetual drift for users who wrote
+	// a different case in their config. We only fall back to the API's form when
+	// no prior value is available (e.g. on import).
+	priorProtocol, priorKind := priorProtocolAndKind(data)
+
 	targetKindStr := normalizeTargetKind(string(rule.TargetKind()))
+	if priorKind != "" && strings.EqualFold(priorKind, targetKindStr) {
+		targetKindStr = priorKind
+	}
+
+	protocolStr := strings.ToUpper(string(rule.Protocol()))
+	if priorProtocol != "" && strings.EqualFold(priorProtocol, protocolStr) {
+		protocolStr = priorProtocol
+	}
+
 	targetObj, _ := types.ObjectValue(
 		map[string]attr.Type{
 			"kind":  types.StringType,
@@ -262,7 +297,7 @@ func applySecurityRuleToModel(_ context.Context, rule *aruba.SecurityRule, data 
 		},
 		map[string]attr.Value{
 			"direction": types.StringValue(string(rule.Direction())),
-			"protocol":  types.StringValue(strings.ToUpper(string(rule.Protocol()))),
+			"protocol":  types.StringValue(protocolStr),
 			"port":      types.StringValue(rule.Port()),
 			"target":    targetObj,
 		},

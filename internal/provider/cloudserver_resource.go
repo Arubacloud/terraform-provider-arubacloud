@@ -316,7 +316,11 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 	// Re-read to populate URI and server-assigned fields after provisioning.
 	fresh, freshErr := r.client.Client.FromCompute().CloudServers().Get(ctx, aruba.URI(server.URI()))
 	if freshErr == nil {
-		r.applyServerToState(ctx, fresh, &data, nil, &resp.Diagnostics)
+		// Pass &data as originalState so the plan's typed list values for
+		// subnet_uri_refs and securitygroup_uri_refs are preserved — the API
+		// does not return these in a usable form, and zero-value types.List{}
+		// (when originalState is nil) causes an "MISSING TYPE" object error.
+		r.applyServerToState(ctx, fresh, &data, &data, &resp.Diagnostics)
 	} else {
 		tflog.Warn(ctx, fmt.Sprintf("Failed to refresh CloudServer after creation: %v", freshErr))
 	}
