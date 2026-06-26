@@ -28,7 +28,13 @@ func resourceDeleteReq(ctx context.Context, t *testing.T, r resource.Resource) (
 	attrs := make(map[string]tftypes.Value, len(objType.AttributeTypes))
 	for name, ty := range objType.AttributeTypes {
 		if ty.Is(tftypes.String) {
-			attrs[name] = tftypes.NewValue(tftypes.String, "test-"+name)
+			if name == "uri" {
+				// Null uri so resources fall back to constructing the ref from
+				// component IDs (project_id, id, etc.) which produce parseable paths.
+				attrs[name] = tftypes.NewValue(tftypes.String, nil)
+			} else {
+				attrs[name] = tftypes.NewValue(tftypes.String, "test-"+name)
+			}
 		} else {
 			attrs[name] = tftypes.NewValue(ty, nil)
 		}

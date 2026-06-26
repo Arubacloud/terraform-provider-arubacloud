@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
@@ -70,16 +71,15 @@ func testCheckSecuritygroupDestroyed(s *terraform.State) error {
 		if rs.Type != "arubacloud_securitygroup" {
 			continue
 		}
+		projectID := rs.Primary.Attributes["project_id"]
 		vpcID := rs.Primary.Attributes["vpc_id"]
-		resp, err := client.Client.FromNetwork().SecurityGroups().Get(ctx, rs.Primary.Attributes["project_id"], vpcID, rs.Primary.ID, nil)
-		if err != nil {
-			return err
-		}
-		if apiErr := CheckResponse("get", "Securitygroup", resp); apiErr != nil {
-			if IsNotFound(apiErr) {
+		ref := aruba.SecurityGroupRef(projectID, vpcID, rs.Primary.ID)
+		_, err = client.Client.FromNetwork().SecurityGroups().Get(ctx, ref)
+		if provErr := CheckResponseErr("get", "Securitygroup", err); provErr != nil {
+			if IsNotFound(provErr) {
 				continue
 			}
-			return apiErr
+			return provErr
 		}
 		return fmt.Errorf("SecurityGroup %s still exists", rs.Primary.ID)
 	}

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -47,60 +47,44 @@ func (r *ElasticIPResource) Schema(ctx context.Context, req resource.SchemaReque
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Manages an ArubaCloud Elastic IP — a static public IPv4 address.",
 		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
+				Computed:            true,
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "Computed by the API. Full resource URI.",
+				Computed:            true,
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Display name for the Elastic IP.",
 				Required:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). (Immutable — changing this value forces the resource to be destroyed and re-created.)",
+				MarkdownDescription: "Region identifier (e.g., `ITBG-Bergamo`). Changing this value forces a new resource.",
 				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"tags": schema.ListAttribute{
-				ElementType:         types.StringType,
-				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
-				Optional:            true,
+				ElementType: types.StringType, MarkdownDescription: "List of string tags.", Optional: true,
 			},
 			"billing_period": schema.StringAttribute{
-				MarkdownDescription: "Computed by the API. Billing cycle for the resource. Accepted values: `Hour`, `Month`, `Year`.",
+				MarkdownDescription: "Billing cycle. Accepted values: `Hour`, `Month`, `Year`.",
 				Optional:            true,
 				Computed:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-				Validators: []validator.String{
-					stringvalidator.OneOf("Hour", "Month", "Year"),
-				},
-			},
-			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
-				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				Validators:          []validator.String{stringvalidator.OneOf("Hour", "Month", "Year")},
 			},
 			"address": schema.StringAttribute{
-				MarkdownDescription: "Computed by the API. Public IPv4 address allocated for this Elastic IP.",
+				MarkdownDescription: "Computed by the API. The assigned public IP address.",
 				Computed:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
-			"id": schema.StringAttribute{
-				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
-				Computed:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"uri": schema.StringAttribute{
-				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).",
-				Computed:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
+			"project_id": schema.StringAttribute{
+				MarkdownDescription: "ID of the project that owns this resource. Changing this value forces a new resource.",
+				Required:            true,
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 		},
 	}
@@ -112,10 +96,7 @@ func (r *ElasticIPResource) Configure(ctx context.Context, req resource.Configur
 	}
 	client, ok := req.ProviderData.(*ArubaCloudClient)
 	if !ok {
-		resp.Diagnostics.AddError(
-			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected *ArubaCloudClient, got: %T. Please report this issue to the provider developers.", req.ProviderData),
-		)
+		resp.Diagnostics.AddError("Unexpected Resource Configure Type", fmt.Sprintf("Expected *ArubaCloudClient, got: %T.", req.ProviderData))
 		return
 	}
 	r.client = client
@@ -128,167 +109,69 @@ func (r *ElasticIPResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 
-	projectID := data.ProjectId.ValueString()
-	if projectID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Project ID",
-			"Project ID is required to create an Elastic IP",
-		)
-		return
-	}
-
 	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Build the create request
-	createRequest := sdktypes.ElasticIPRequest{
-		Metadata: sdktypes.RegionalResourceMetadataRequest{
-			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
-				Name: data.Name.ValueString(),
-				Tags: tags,
-			},
-			Location: sdktypes.LocationRequest{
-				Value: data.Location.ValueString(),
-			},
-		},
-		Properties: sdktypes.ElasticIPPropertiesRequest{
-			BillingPlan: sdktypes.BillingPeriodResource{
-				BillingPeriod: func() string {
-					if !data.BillingPeriod.IsNull() && !data.BillingPeriod.IsUnknown() {
-						return data.BillingPeriod.ValueString()
-					}
-					return "Hour"
-				}(),
-			},
-		},
+	billingPeriod := "Hour"
+	if !data.BillingPeriod.IsNull() && data.BillingPeriod.ValueString() != "" {
+		billingPeriod = data.BillingPeriod.ValueString()
 	}
 
-	// Create the Elastic IP using the SDK
-	response, err := r.client.Client.FromNetwork().ElasticIPs().Create(ctx, projectID, createRequest, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error creating Elastic IP",
-			NewTransportError("create", "Elasticip", err).Error(),
-		)
+	eip, err := r.client.Client.FromNetwork().ElasticIPs().Create(ctx,
+		aruba.NewElasticIP().
+			Named(data.Name.ValueString()).
+			InProject(aruba.URI("/projects/"+data.ProjectId.ValueString())).
+			InRegion(aruba.Region(data.Location.ValueString())).
+			BilledBy(aruba.BillingPeriod(billingPeriod)).
+			Tagged(tags...),
+	)
+	if provErr := CheckResponseErr("create", "ElasticIP", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	if apiErr := CheckResponse("create", "Elasticip", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-
-	if response != nil && response.Data != nil {
-		if response.Data.Metadata.ID != nil {
-			data.Id = types.StringValue(*response.Data.Metadata.ID)
-		} else {
-			resp.Diagnostics.AddError(
-				"Invalid API Response",
-				"Elastic IP created but ID not returned from API",
-			)
-			return
-		}
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-		if response.Data.Properties.Address != nil {
-			data.Address = types.StringValue(*response.Data.Properties.Address)
-		}
-		// Set billing_period from create response if available
-		if response.Data.Properties.BillingPlan.BillingPeriod != "" {
-			data.BillingPeriod = types.StringValue(billingPeriodFromAPI(response.Data.Properties.BillingPlan.BillingPeriod))
-		} else if data.BillingPeriod.IsNull() || data.BillingPeriod.IsUnknown() {
-			data.BillingPeriod = types.StringValue("Hour")
-		}
-	} else {
-		resp.Diagnostics.AddError(
-			"Invalid API Response",
-			"Elastic IP created but no data returned from API",
-		)
-		return
-	}
-
-	// Wait for Elastic IP to be active before returning (ElasticIP is referenced by CloudServer)
-	// This ensures Terraform doesn't proceed to create dependent resources until ElasticIP is ready
-	eipID := data.Id.ValueString()
-	if eipID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Elastic IP ID",
-			"Elastic IP ID is required but was not set",
-		)
-		return
-	}
-	checker := func(ctx context.Context) (string, error) {
-		getResp, err := r.client.Client.FromNetwork().ElasticIPs().Get(ctx, projectID, eipID, nil)
-		if err != nil {
-			return "", err
-		}
-		if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
-			return *getResp.Data.Status.State, nil
-		}
-		return "Unknown", nil
-	}
-
-	// Wait for Elastic IP to be active - block until ready (using configured timeout)
-	if err := WaitForResourceActive(ctx, checker, "ElasticIP", eipID, r.client.ResourceTimeout); err != nil {
-		ReportWaitResult(&resp.Diagnostics, err, "ElasticIP", eipID)
-		// address is only assigned once the EIP is active; null it out if the create
-		// response didn't include it, so state has no unknown values.
-		if data.Address.IsUnknown() {
-			data.Address = types.StringNull()
-		}
-		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-		return
-	}
-
-	// Read the Elastic IP again to get the address and ensure ID is set (it might not be available immediately after creation)
-	getResp, err := r.client.Client.FromNetwork().ElasticIPs().Get(ctx, projectID, eipID, nil)
-	if err == nil && getResp != nil && getResp.Data != nil {
-		// Ensure ID is set (should already be set, but double-check)
-		if getResp.Data.Metadata.ID != nil {
-			data.Id = types.StringValue(*getResp.Data.Metadata.ID)
-		}
-		if getResp.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*getResp.Data.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-		// Update address from re-read response (computed field from ElasticIpPropertiesResponse)
-		if getResp.Data.Properties.Address != nil {
-			data.Address = types.StringValue(*getResp.Data.Properties.Address)
-		} else {
-			// Address might not be available yet, set to null
-			data.Address = types.StringNull()
-		}
-		// Update billing_period from the re-read response
-		if getResp.Data.Properties.BillingPlan.BillingPeriod != "" {
-			data.BillingPeriod = types.StringValue(billingPeriodFromAPI(getResp.Data.Properties.BillingPlan.BillingPeriod))
-		} else if data.BillingPeriod.IsNull() || data.BillingPeriod.IsUnknown() {
-			data.BillingPeriod = types.StringValue("Hour")
-		}
-		// Also update other fields that might have changed
-		if getResp.Data.Metadata.Name != nil {
-			data.Name = types.StringValue(*getResp.Data.Metadata.Name)
-		}
-	} else if err != nil {
-		// If Get fails, log but don't fail - we already have the ID from create response
-		tflog.Warn(ctx, fmt.Sprintf("Failed to refresh Elastic IP after creation: %v", err))
-		// Ensure billing_period is set even if re-read fails
-		if data.BillingPeriod.IsNull() || data.BillingPeriod.IsUnknown() {
-			data.BillingPeriod = types.StringValue("Hour")
-		}
-	}
-
-	tflog.Trace(ctx, "created an Elastic IP resource", map[string]interface{}{
-		"elasticip_id":   data.Id.ValueString(),
-		"elasticip_name": data.Name.ValueString(),
-	})
+	data.Id = types.StringValue(eip.ID())
+	data.Uri = strVal(eip.URI())
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if waitErr := eip.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
+		ReportWaitResult(&resp.Diagnostics, waitErr, "ElasticIP", data.Id.ValueString())
+		return
+	}
+
+	fresh, freshErr := r.client.Client.FromNetwork().ElasticIPs().Get(ctx, aruba.URI(eip.URI()))
+	if freshErr == nil {
+		applyEIPToModel(fresh, &data)
+	}
+
+	tflog.Trace(ctx, "created an ElasticIP resource", map[string]interface{}{"eip_id": data.Id.ValueString()})
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+}
+
+func eipRef(data *ElasticIPResourceModel) aruba.Ref {
+	if !data.Uri.IsNull() && data.Uri.ValueString() != "" {
+		return aruba.URI(data.Uri.ValueString())
+	}
+	return aruba.URI("/projects/" + data.ProjectId.ValueString() + "/network/elasticIps/" + data.Id.ValueString())
+}
+
+func applyEIPToModel(eip *aruba.ElasticIP, data *ElasticIPResourceModel) {
+	data.Id = types.StringValue(eip.ID())
+	data.Uri = strVal(eip.URI())
+	data.Name = types.StringValue(eip.Name())
+	data.Tags = TagsToListPreserveNull(eip.Tags(), data.Tags)
+	data.BillingPeriod = strVal(string(eip.BillingPeriod()))
+	data.Address = strVal(eip.Address())
+	raw := eip.Raw()
+	if raw != nil && raw.Metadata.LocationResponse != nil {
+		data.Location = types.StringValue(string(raw.Metadata.LocationResponse.Value))
+	}
 }
 
 func (r *ElasticIPResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -297,194 +180,49 @@ func (r *ElasticIPResource) Read(ctx context.Context, req resource.ReadRequest, 
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	projectID := data.ProjectId.ValueString()
-	eipID := data.Id.ValueString()
-
-	if data.Id.IsUnknown() || data.Id.IsNull() || eipID == "" {
-		tflog.Debug(ctx, "Elastic IP ID is empty, removing resource from state", map[string]interface{}{"eip_id": eipID})
+	if data.Id.IsNull() || data.Id.ValueString() == "" {
 		resp.State.RemoveResource(ctx)
 		return
 	}
 
-	// Project ID should always be set, but check to be safe
-	if projectID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID is required to read the Elastic IP",
-		)
-		return
-	}
-
-	// Get Elastic IP details using the SDK
-	response, err := r.client.Client.FromNetwork().ElasticIPs().Get(ctx, projectID, eipID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading Elastic IP",
-			NewTransportError("read", "Elasticip", err).Error(),
-		)
-		return
-	}
-
-	if apiErr := CheckResponse("read", "Elasticip", response); apiErr != nil {
-		if IsNotFound(apiErr) {
+	eip, err := r.client.Client.FromNetwork().ElasticIPs().Get(ctx, eipRef(&data))
+	if provErr := CheckResponseErr("read", "ElasticIP", err); provErr != nil {
+		if IsNotFound(provErr) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	// If the resource is still provisioning (e.g. after a Create timeout that saved
-	// partial state), resume the wait so the next terraform apply reconciles correctly.
-	if response.Data.Status.State != nil {
-		switch st := *response.Data.Status.State; {
-		case isFailedState(st):
-			resp.Diagnostics.AddWarning(
-				"Resource in Failed State",
-				fmt.Sprintf("ElasticIP %q is in a terminal failure state (%s). "+
-					"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", eipID, st),
-			)
-		case IsCreatingState(st):
-			checker := func(ctx context.Context) (string, error) {
-				getResp, err := r.client.Client.FromNetwork().ElasticIPs().Get(ctx, projectID, eipID, nil)
-				if err != nil {
-					return "", err
-				}
-				if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
-					return *getResp.Data.Status.State, nil
-				}
-				return "Unknown", nil
-			}
-			if err := WaitForResourceActive(ctx, checker, "ElasticIP", eipID, r.client.ResourceTimeout); err != nil {
-				ReportWaitResult(&resp.Diagnostics, err, "ElasticIP", eipID)
-				resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-				return
-			}
-			// Re-read to get the final active state.
-			response, err = r.client.Client.FromNetwork().ElasticIPs().Get(ctx, projectID, eipID, nil)
-			if err != nil {
-				resp.Diagnostics.AddError("Error reading ElasticIP after provisioning wait",
-					NewTransportError("read", "Elasticip", err).Error())
-				return
-			}
-			if apiErr := CheckResponse("read", "Elasticip", response); apiErr != nil {
-				if IsNotFound(apiErr) {
-					resp.State.RemoveResource(ctx)
-					return
-				}
-				resp.Diagnostics.AddError("API Error", apiErr.Error())
-				return
-			}
+	st := string(eip.State())
+	if isFailedState(st) {
+		resp.Diagnostics.AddWarning("Resource in Failed State",
+			fmt.Sprintf("ElasticIP %q is in a terminal failure state (%s).", data.Id.ValueString(), st))
+	} else if IsCreatingState(st) {
+		if waitErr := eip.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
+			ReportWaitResult(&resp.Diagnostics, waitErr, "ElasticIP", data.Id.ValueString())
+			return
+		}
+		eip, err = r.client.Client.FromNetwork().ElasticIPs().Get(ctx, eipRef(&data))
+		if provErr := CheckResponseErr("read", "ElasticIP", err); provErr != nil {
+			resp.Diagnostics.AddError("API Error", provErr.Error())
+			return
 		}
 	}
 
-	if response != nil && response.Data != nil {
-		eip := response.Data
-
-		if eip.Metadata.ID != nil {
-			data.Id = types.StringValue(*eip.Metadata.ID)
-		}
-		if eip.Metadata.URI != nil {
-			data.Uri = types.StringValue(*eip.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-		if eip.Metadata.Name != nil {
-			data.Name = types.StringValue(*eip.Metadata.Name)
-		}
-		if eip.Metadata.LocationResponse != nil {
-			data.Location = types.StringValue(eip.Metadata.LocationResponse.Value)
-		}
-		// Update address from response (computed field from ElasticIpPropertiesResponse)
-		if eip.Properties.Address != nil {
-			data.Address = types.StringValue(*eip.Properties.Address)
-		} else {
-			// Address might not be available yet, set to null
-			data.Address = types.StringNull()
-		}
-		// Always set billing_period from API response (it's always available from API)
-		// This ensures it's always in state, preventing false changes in plan
-		if eip.Properties.BillingPlan.BillingPeriod != "" {
-			data.BillingPeriod = types.StringValue(billingPeriodFromAPI(eip.Properties.BillingPlan.BillingPeriod))
-		} else {
-			data.BillingPeriod = types.StringValue("Hour")
-		}
-
-		data.Tags = TagsToListPreserveNull(eip.Metadata.Tags, data.Tags)
-	} else {
-		resp.State.RemoveResource(ctx)
-		return
-	}
-
+	projectID := data.ProjectId
+	applyEIPToModel(eip, &data)
+	data.ProjectId = projectID
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
 func (r *ElasticIPResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var data ElasticIPResourceModel
 	var state ElasticIPResourceModel
-
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	// Use IDs from state (they are immutable)
-	projectID := state.ProjectId.ValueString()
-	eipID := state.Id.ValueString()
-
-	if projectID == "" || eipID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID and Elastic IP ID are required to update the Elastic IP",
-		)
-		return
-	}
-
-	// Get current Elastic IP details
-	getResponse, err := r.client.Client.FromNetwork().ElasticIPs().Get(ctx, projectID, eipID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error fetching current Elastic IP",
-			NewTransportError("read", "Elasticip", err).Error(),
-		)
-		return
-	}
-
-	if getResponse == nil || getResponse.Data == nil {
-		resp.Diagnostics.AddError(
-			"Elastic IP Not Found",
-			"Elastic IP not found or no data returned",
-		)
-		return
-	}
-
-	current := getResponse.Data
-
-	// Check if Elastic IP is in InCreation state
-	if current.Status.State != nil && *current.Status.State == "InCreation" {
-		resp.Diagnostics.AddError(
-			"Cannot Update During Creation",
-			"Cannot update Elastic IP while it is in 'InCreation' state. Please wait until the Elastic IP is fully created.",
-		)
-		return
-	}
-
-	// Get region value
-	regionValue := ""
-	if current.Metadata.LocationResponse != nil {
-		regionValue = current.Metadata.LocationResponse.Value
-	}
-	if regionValue == "" {
-		resp.Diagnostics.AddError(
-			"Missing Region",
-			"Unable to determine region value for Elastic IP",
-		)
 		return
 	}
 
@@ -492,129 +230,37 @@ func (r *ElasticIPResource) Update(ctx context.Context, req resource.UpdateReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if tags == nil {
-		tags = current.Metadata.Tags
-	}
 
-	// Build the update request
-	updateRequest := sdktypes.ElasticIPRequest{
-		Metadata: sdktypes.RegionalResourceMetadataRequest{
-			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
-				Name: data.Name.ValueString(),
-				Tags: tags,
-			},
-			Location: sdktypes.LocationRequest{
-				Value: regionValue,
-			},
-		},
-		Properties: sdktypes.ElasticIPPropertiesRequest{
-			BillingPlan: current.Properties.BillingPlan,
-		},
-	}
-
-	// Update the Elastic IP using the SDK
-	response, err := r.client.Client.FromNetwork().ElasticIPs().Update(ctx, projectID, eipID, updateRequest, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error updating Elastic IP",
-			NewTransportError("update", "Elasticip", err).Error(),
-		)
+	eip, err := r.client.Client.FromNetwork().ElasticIPs().Get(ctx, eipRef(&state))
+	if provErr := CheckResponseErr("read", "ElasticIP", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	if apiErr := CheckResponse("update", "Elasticip", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-
-	// Ensure immutable fields are set from state before saving
-	data.Id = state.Id
-	data.ProjectId = state.ProjectId
-	data.Uri = state.Uri         // Preserve URI from state
-	data.Address = state.Address // Preserve address from state (computed field)
-
-	if response != nil && response.Data != nil {
-		// Update from response if available (should match state)
-		if response.Data.Metadata.ID != nil {
-			data.Id = types.StringValue(*response.Data.Metadata.ID)
-		}
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		} else {
-			// If no URI in response, re-read the Elastic IP to get the latest state
-			getResp, err := r.client.Client.FromNetwork().ElasticIPs().Get(ctx, projectID, eipID, nil)
-			if err == nil && getResp != nil && getResp.Data != nil {
-				if getResp.Data.Metadata.URI != nil {
-					data.Uri = types.StringValue(*getResp.Data.Metadata.URI)
-				} else {
-					data.Uri = state.Uri // Fallback to state if not available
-				}
-				// Also update address from re-read if available
-				if getResp.Data.Properties.Address != nil {
-					data.Address = types.StringValue(*getResp.Data.Properties.Address)
-				}
-			} else {
-				data.Uri = state.Uri // Fallback to state if re-read fails
-			}
-		}
-		// Update address from response if available (computed field from ElasticIpPropertiesResponse)
-		if response.Data.Properties.Address != nil {
-			data.Address = types.StringValue(*response.Data.Properties.Address)
-		}
-		// Always set billing_period from response if available
-		if response.Data.Properties.BillingPlan.BillingPeriod != "" {
-			data.BillingPeriod = types.StringValue(billingPeriodFromAPI(response.Data.Properties.BillingPlan.BillingPeriod))
-		} else {
-			// If not in response, re-read to get it
-			getResp, err := r.client.Client.FromNetwork().ElasticIPs().Get(ctx, projectID, eipID, nil)
-			if err == nil && getResp != nil && getResp.Data != nil {
-				if getResp.Data.Properties.BillingPlan.BillingPeriod != "" {
-					data.BillingPeriod = types.StringValue(billingPeriodFromAPI(getResp.Data.Properties.BillingPlan.BillingPeriod))
-				} else {
-					// Fallback to state or default
-					if !state.BillingPeriod.IsNull() && !state.BillingPeriod.IsUnknown() {
-						data.BillingPeriod = state.BillingPeriod
-					} else {
-						data.BillingPeriod = types.StringValue("Hour")
-					}
-				}
-				// Also update address from re-read if available (computed field from ElasticIpPropertiesResponse)
-				if getResp.Data.Properties.Address != nil {
-					data.Address = types.StringValue(*getResp.Data.Properties.Address)
-				}
-			} else {
-				// Fallback to state or default
-				if !state.BillingPeriod.IsNull() && !state.BillingPeriod.IsUnknown() {
-					data.BillingPeriod = state.BillingPeriod
-				} else {
-					data.BillingPeriod = types.StringValue("Hour")
-				}
-			}
-		}
+	eip.Named(data.Name.ValueString())
+	if tags != nil {
+		eip.RetaggedAs(tags...)
 	} else {
-		// If no response, preserve URI from state and set billing_period from API or default
-		data.Uri = state.Uri
-		// Re-read to get billing_period
-		getResp, err := r.client.Client.FromNetwork().ElasticIPs().Get(ctx, projectID, eipID, nil)
-		if err == nil && getResp != nil && getResp.Data != nil {
-			if getResp.Data.Properties.BillingPlan.BillingPeriod != "" {
-				data.BillingPeriod = types.StringValue(billingPeriodFromAPI(getResp.Data.Properties.BillingPlan.BillingPeriod))
-			} else {
-				if !state.BillingPeriod.IsNull() && !state.BillingPeriod.IsUnknown() {
-					data.BillingPeriod = state.BillingPeriod
-				} else {
-					data.BillingPeriod = types.StringValue("Hour")
-				}
-			}
-		} else {
-			// Fallback to state or default
-			if !state.BillingPeriod.IsNull() && !state.BillingPeriod.IsUnknown() {
-				data.BillingPeriod = state.BillingPeriod
-			} else {
-				data.BillingPeriod = types.StringValue("Hour")
-			}
-		}
+		eip.RetaggedAs(eip.Tags()...)
 	}
+	if !data.BillingPeriod.IsNull() && data.BillingPeriod.ValueString() != "" {
+		eip.BilledBy(aruba.BillingPeriod(data.BillingPeriod.ValueString()))
+	}
+
+	updated, err := r.client.Client.FromNetwork().ElasticIPs().Update(ctx, eip)
+	if provErr := CheckResponseErr("update", "ElasticIP", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
+		return
+	}
+
+	data.Id = state.Id
+	data.Uri = state.Uri
+	data.ProjectId = state.ProjectId
+	data.Location = state.Location
+	data.Address = state.Address
+	data.Name = types.StringValue(updated.Name())
+	data.Tags = TagsToListPreserveNull(updated.Tags(), data.Tags)
+	data.BillingPeriod = strVal(string(updated.BillingPeriod()))
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -626,35 +272,12 @@ func (r *ElasticIPResource) Delete(ctx context.Context, req resource.DeleteReque
 		return
 	}
 
-	projectID := data.ProjectId.ValueString()
+	ref := eipRef(&data)
 	eipID := data.Id.ValueString()
 
-	// If ID is unknown or empty, the resource doesn't exist (e.g., during plan or if never created)
-	// Return early without error - this is expected behavior
-	if data.Id.IsUnknown() || data.Id.IsNull() || eipID == "" {
-		tflog.Debug(ctx, "Elastic IP ID is unknown or empty, skipping delete", map[string]interface{}{
-			"eip_id": eipID,
-		})
-		return
-	}
-
-	// Project ID should always be set, but check to be safe
-	if projectID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID is required to delete the Elastic IP",
-		)
-		return
-	}
-
-	// Delete the Elastic IP using the SDK with retry mechanism
-	// Retry on any error except 404 (Resource Not Found)
 	deletionChecker := func(ctx context.Context) (bool, error) {
-		getResp, getErr := r.client.Client.FromNetwork().ElasticIPs().Get(ctx, projectID, eipID, nil)
-		if getErr != nil {
-			return false, NewTransportError("get", "ElasticIP", getErr)
-		}
-		if provErr := CheckResponse("get", "ElasticIP", getResp); provErr != nil {
+		_, getErr := r.client.Client.FromNetwork().ElasticIPs().Get(ctx, ref)
+		if provErr := CheckResponseErr("get", "ElasticIP", getErr); provErr != nil {
 			if IsNotFound(provErr) {
 				return true, nil
 			}
@@ -664,41 +287,19 @@ func (r *ElasticIPResource) Delete(ctx context.Context, req resource.DeleteReque
 	}
 
 	deleteStart := time.Now()
-	err := DeleteResourceWithRetry(
-		ctx,
-		func() error {
-			resp, err := r.client.Client.FromNetwork().ElasticIPs().Delete(ctx, projectID, eipID, nil)
-			if err != nil {
-				return NewTransportError("delete", "ElasticIP", err)
-			}
-			return CheckResponse("delete", "ElasticIP", resp)
-		},
-		"ElasticIP",
-		eipID,
-		r.client.ResourceTimeout,
-		deletionChecker,
-	)
-
+	err := DeleteResourceWithRetry(ctx, func() error {
+		delErr := r.client.Client.FromNetwork().ElasticIPs().Delete(ctx, ref)
+		return CheckResponseErrAsError("delete", "ElasticIP", delErr)
+	}, "ElasticIP", eipID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error deleting Elastic IP",
-			NewTransportError("delete", "Elasticip", err).Error(),
-		)
+		resp.Diagnostics.AddError("Error deleting ElasticIP", err.Error())
 		return
 	}
-
-	// Poll until the Elastic IP is confirmed deleted (async deletion)
 	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "ElasticIP", eipID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
-		resp.Diagnostics.AddError(
-			"Error waiting for ElasticIP deletion",
-			waitErr.Error(),
-		)
+		resp.Diagnostics.AddError("Error waiting for ElasticIP deletion", waitErr.Error())
 		return
 	}
-
-	tflog.Trace(ctx, "deleted an Elastic IP resource", map[string]interface{}{
-		"elasticip_id": eipID,
-	})
+	tflog.Trace(ctx, "deleted an ElasticIP resource", map[string]interface{}{"eip_id": eipID})
 }
 
 func (r *ElasticIPResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

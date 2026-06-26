@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -96,17 +97,11 @@ func (d *DatabaseGrantDataSource) Read(ctx context.Context, req datasource.ReadR
 		return
 	}
 
-	response, err := d.client.Client.FromDatabase().Grants().Get(ctx, projectID, dbaasID, database, userID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError("Error reading database grant", NewTransportError("read", "Databasegrant", err).Error())
-		return
-	}
-	if apiErr := CheckResponse("read", "Databasegrant", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-	if response == nil || response.Data == nil {
-		resp.Diagnostics.AddError("No data returned", "Database Grant Get returned no data")
+	// Use user ID as the grant lookup key within the database.
+	grant, err := d.client.Client.FromDatabase().Grants().Get(ctx,
+		aruba.URI("/projects/"+projectID+"/providers/Aruba.Database/dbaas/"+dbaasID+"/databases/"+database+"/grants/"+userID))
+	if provErr := CheckResponseErr("read", "DatabaseGrant", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
@@ -115,7 +110,7 @@ func (d *DatabaseGrantDataSource) Read(ctx context.Context, req datasource.ReadR
 	data.DBaaSID = types.StringValue(dbaasID)
 	data.Database = types.StringValue(database)
 	data.UserID = types.StringValue(userID)
-	data.Role = types.StringValue(response.Data.Role.Name)
+	data.Role = types.StringValue(grant.RoleName())
 
 	tflog.Trace(ctx, "read a Database Grant data source", map[string]interface{}{"database": database, "user_id": userID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

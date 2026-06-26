@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -85,27 +86,15 @@ func (d *VPCPeeringDataSource) Read(ctx context.Context, req datasource.ReadRequ
 		return
 	}
 
-	response, err := d.client.Client.FromNetwork().VPCPeerings().Get(ctx, projectID, vpcID, peeringID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError("Error reading VPC peering", NewTransportError("read", "Vpcpeering", err).Error())
-		return
-	}
-	if apiErr := CheckResponse("read", "Vpcpeering", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-	if response == nil || response.Data == nil {
-		resp.Diagnostics.AddError("No data returned", "VPC Peering Get returned no data")
+	peering, err := d.client.Client.FromNetwork().VPCPeerings().Get(ctx,
+		aruba.VPCPeeringRef(projectID, vpcID, peeringID))
+	if provErr := CheckResponseErr("read", "VPCPeering", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	peering := response.Data
-	if peering.Metadata.ID != nil {
-		data.Id = types.StringValue(*peering.Metadata.ID)
-	}
-	if peering.Metadata.Name != nil {
-		data.Name = types.StringValue(*peering.Metadata.Name)
-	}
+	data.Id = types.StringValue(peering.ID())
+	data.Name = types.StringValue(peering.Name())
 	data.ProjectId = types.StringValue(projectID)
 	data.VpcId = types.StringValue(vpcID)
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -185,17 +186,16 @@ func testCheckSecurityruleDestroyed(s *terraform.State) error {
 		if rs.Type != "arubacloud_securityrule" {
 			continue
 		}
+		projectID := rs.Primary.Attributes["project_id"]
 		vpcID := rs.Primary.Attributes["vpc_id"]
 		sgID := rs.Primary.Attributes["security_group_id"]
-		resp, err := client.Client.FromNetwork().SecurityGroupRules().Get(ctx, rs.Primary.Attributes["project_id"], vpcID, sgID, rs.Primary.ID, nil)
-		if err != nil {
-			return err
-		}
-		if apiErr := CheckResponse("get", "Securityrule", resp); apiErr != nil {
-			if IsNotFound(apiErr) {
+		ref := aruba.SecurityRuleRef(projectID, vpcID, sgID, rs.Primary.ID)
+		_, err = client.Client.FromNetwork().SecurityGroupRules().Get(ctx, ref)
+		if provErr := CheckResponseErr("get", "Securityrule", err); provErr != nil {
+			if IsNotFound(provErr) {
 				continue
 			}
-			return apiErr
+			return provErr
 		}
 		return fmt.Errorf("SecurityRule %s still exists", rs.Primary.ID)
 	}

@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -216,67 +217,24 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 
 	projectID := data.ProjectID.ValueString()
 	if projectID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Project ID",
-			"Project ID is required to create a cloud server",
-		)
+		resp.Diagnostics.AddError("Missing Project ID", "Project ID is required to create a cloud server")
 		return
 	}
 
-	// Extract network model
 	var networkModel CloudServerNetworkModel
-	diags := data.Network.As(ctx, &networkModel, basetypes.ObjectAsOptions{})
-	resp.Diagnostics.Append(diags...)
+	resp.Diagnostics.Append(data.Network.As(ctx, &networkModel, basetypes.ObjectAsOptions{})...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	// Extract settings model
 	var settingsModel CloudServerSettingsModel
-	diags = data.Settings.As(ctx, &settingsModel, basetypes.ObjectAsOptions{})
-	resp.Diagnostics.Append(diags...)
+	resp.Diagnostics.Append(data.Settings.As(ctx, &settingsModel, basetypes.ObjectAsOptions{})...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	// Extract storage model
 	var storageModel CloudServerStorageModel
-	diags = data.Storage.As(ctx, &storageModel, basetypes.ObjectAsOptions{})
-	resp.Diagnostics.Append(diags...)
+	resp.Diagnostics.Append(data.Storage.As(ctx, &storageModel, basetypes.ObjectAsOptions{})...)
 	if resp.Diagnostics.HasError() {
 		return
-	}
-
-	// Extract subnets from network model
-	var subnetRefs []sdktypes.ReferenceResource
-	if !networkModel.SubnetUriRefs.IsNull() && !networkModel.SubnetUriRefs.IsUnknown() {
-		var subnetURIs []string
-		diags := networkModel.SubnetUriRefs.ElementsAs(ctx, &subnetURIs, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		for _, subnetURI := range subnetURIs {
-			subnetRefs = append(subnetRefs, sdktypes.ReferenceResource{
-				URI: subnetURI,
-			})
-		}
-	}
-
-	// Extract security groups from network model
-	var securityGroupRefs []sdktypes.ReferenceResource
-	if !networkModel.SecurityGroupUriRefs.IsNull() && !networkModel.SecurityGroupUriRefs.IsUnknown() {
-		var sgURIs []string
-		diags := networkModel.SecurityGroupUriRefs.ElementsAs(ctx, &sgURIs, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		for _, sgURI := range sgURIs {
-			securityGroupRefs = append(securityGroupRefs, sdktypes.ReferenceResource{
-				URI: sgURI,
-			})
-		}
 	}
 
 	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
@@ -284,389 +242,274 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
-	// Build the create request
-	flavorName := settingsModel.FlavorName.ValueString()
-	zone := data.Zone.ValueString()
-	createRequest := sdktypes.CloudServerRequest{
-		Metadata: sdktypes.RegionalResourceMetadataRequest{
-			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
-				Name: data.Name.ValueString(),
-				Tags: tags,
-			},
-			Location: sdktypes.LocationRequest{
-				Value: data.Location.ValueString(),
-			},
-		},
-		Properties: sdktypes.CloudServerPropertiesRequest{
-			FlavorName: &flavorName,
-			Zone:       zone,
-			BootVolume: sdktypes.ReferenceResource{
-				URI: storageModel.BootVolumeUriRef.ValueString(),
-			},
-			VPC: sdktypes.ReferenceResource{
-				URI: networkModel.VpcUriRef.ValueString(),
-			},
-			Subnets:        subnetRefs,
-			SecurityGroups: securityGroupRefs,
-		},
-	}
-
-	// Add keypair if provided
-	if !settingsModel.KeyPairUriRef.IsNull() && !settingsModel.KeyPairUriRef.IsUnknown() {
-		createRequest.Properties.KeyPair = sdktypes.ReferenceResource{
-			URI: settingsModel.KeyPairUriRef.ValueString(),
+	var subnetURIs []string
+	if !networkModel.SubnetUriRefs.IsNull() && !networkModel.SubnetUriRefs.IsUnknown() {
+		resp.Diagnostics.Append(networkModel.SubnetUriRefs.ElementsAs(ctx, &subnetURIs, false)...)
+		if resp.Diagnostics.HasError() {
+			return
 		}
 	}
+	subnetRefs := make([]aruba.Ref, len(subnetURIs))
+	for i, u := range subnetURIs {
+		subnetRefs[i] = aruba.URI(u)
+	}
 
-	// Add elastic IP if provided
-	if !networkModel.ElasticIpUriRef.IsNull() && !networkModel.ElasticIpUriRef.IsUnknown() {
-		createRequest.Properties.ElasticIP = sdktypes.ReferenceResource{
-			URI: networkModel.ElasticIpUriRef.ValueString(),
+	var sgURIs []string
+	if !networkModel.SecurityGroupUriRefs.IsNull() && !networkModel.SecurityGroupUriRefs.IsUnknown() {
+		resp.Diagnostics.Append(networkModel.SecurityGroupUriRefs.ElementsAs(ctx, &sgURIs, false)...)
+		if resp.Diagnostics.HasError() {
+			return
 		}
 	}
-
-	// Add user data if provided
-	if !settingsModel.UserData.IsNull() && !settingsModel.UserData.IsUnknown() {
-		userDataRaw := settingsModel.UserData.ValueString()
-		createRequest.Properties.UserData = &userDataRaw
+	sgRefs := make([]aruba.Ref, len(sgURIs))
+	for i, u := range sgURIs {
+		sgRefs[i] = aruba.URI(u)
 	}
 
-	// Create the cloud server using the SDK
-	response, err := r.client.Client.FromCompute().CloudServers().Create(ctx, projectID, createRequest, nil)
+	builder := aruba.NewCloudServer().
+		Named(data.Name.ValueString()).
+		InProject(aruba.URI("/projects/" + projectID)).
+		InRegion(aruba.Region(data.Location.ValueString())).
+		InZone(aruba.Zone(data.Zone.ValueString())).
+		OfFlavor(aruba.CloudServerFlavor(settingsModel.FlavorName.ValueString())).
+		WithVPC(aruba.URI(networkModel.VpcUriRef.ValueString())).
+		BootingFrom(aruba.URI(storageModel.BootVolumeUriRef.ValueString())).
+		OnSubnets(subnetRefs...).
+		WithSecurityGroups(sgRefs...).
+		Tagged(tags...)
 
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error creating cloud server",
-			NewTransportError("create", "Cloudserver", err).Error(),
-		)
+	if !settingsModel.KeyPairUriRef.IsNull() && settingsModel.KeyPairUriRef.ValueString() != "" {
+		builder = builder.UsingKeyPair(aruba.URI(settingsModel.KeyPairUriRef.ValueString()))
+	}
+	if !networkModel.ElasticIpUriRef.IsNull() && networkModel.ElasticIpUriRef.ValueString() != "" {
+		builder = builder.WithElasticIP(aruba.URI(networkModel.ElasticIpUriRef.ValueString()))
+	}
+	if !settingsModel.UserData.IsNull() && settingsModel.UserData.ValueString() != "" {
+		builder = builder.WithUserData(settingsModel.UserData.ValueString())
+	}
+
+	server, err := r.client.Client.FromCompute().CloudServers().Create(ctx, builder)
+	if provErr := CheckResponseErr("create", "CloudServer", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	if apiErr := CheckResponse("create", "Cloudserver", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-
-	// Extract ID and URI from the Create response (SDK v0.1.13+ has ResourceMetadataResponse with ID and URI)
-	if response == nil || response.Data == nil {
-		resp.Diagnostics.AddError(
-			"Invalid API Response",
-			"Cloud server create response is missing data",
-		)
-		return
-	}
-
-	// Get the server ID from the response
-	var serverID string
-	if response.Data.Metadata.ID != nil {
-		serverID = *response.Data.Metadata.ID
-	} else {
-		resp.Diagnostics.AddError(
-			"Invalid API Response",
-			"Cloud server create response is missing ID in metadata",
-		)
-		return
-	}
-
+	serverID := server.ID()
 	data.Id = types.StringValue(serverID)
-
-	// Set URI if available
-	if response.Data.Metadata.URI != nil {
-		data.Uri = types.StringValue(*response.Data.Metadata.URI)
+	if uri := server.URI(); uri != "" {
+		data.Uri = types.StringValue(uri)
 	} else {
 		data.Uri = types.StringNull()
 	}
 
-	// Wait for Cloud Server to be active before returning
-	// This ensures Terraform doesn't proceed until CloudServer is fully ready
-	checker := func(ctx context.Context) (string, error) {
-		getResp, err := r.client.Client.FromCompute().CloudServers().Get(ctx, projectID, serverID, nil)
-		if err != nil {
-			return "", err
-		}
-		// Check if response indicates an error state
-		if getResp != nil && getResp.IsError() {
-			if getResp.Error != nil {
-				errMsg := "Unknown error"
-				if getResp.Error.Title != nil {
-					errMsg = *getResp.Error.Title
-				}
-				if getResp.Error.Detail != nil {
-					errMsg = fmt.Sprintf("%s: %s", errMsg, *getResp.Error.Detail)
-				}
-				return "", fmt.Errorf("cloud server in error state: %s", errMsg)
-			}
-			return "", fmt.Errorf("cloud server API returned error response")
-		}
-		// If we can successfully get the resource, check its status
-		if getResp != nil && getResp.Data != nil {
-			if getResp.Data.Status.State != nil {
-				state := *getResp.Data.Status.State
-				return state, nil
-			}
-		}
-		// If Status.State is nil, assume it's still creating
-		return "InCreation", nil
-	}
-
-	// Wait for Cloud Server to be active - block until ready (using configured timeout)
-	if err := WaitForResourceActive(ctx, checker, "CloudServer", serverID, r.client.ResourceTimeout); err != nil {
-		ReportWaitResult(&resp.Diagnostics, err, "CloudServer", serverID)
-		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	// Save partial state so destroy can clean up on timeout.
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Re-read the Cloud Server to ensure all fields are properly set
-	getResp, err := r.client.Client.FromCompute().CloudServers().Get(ctx, projectID, serverID, nil)
-	if err == nil && getResp != nil && getResp.Data != nil {
-		// Update with values from Get response
-		if getResp.Data.Metadata.ID != nil {
-			data.Id = types.StringValue(*getResp.Data.Metadata.ID)
-		}
-		if getResp.Data.Metadata.Name != nil {
-			data.Name = types.StringValue(*getResp.Data.Metadata.Name)
-		}
-		if getResp.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*getResp.Data.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-	} else if err != nil {
-		// If Get fails, log but don't fail - we already have the ID from create response
-		tflog.Warn(ctx, fmt.Sprintf("Failed to refresh Cloud Server after creation: %v", err))
+	if err := server.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); err != nil {
+		ReportWaitResult(&resp.Diagnostics, err, "CloudServer", serverID)
+		return
+	}
+
+	// Re-read to populate URI and server-assigned fields after provisioning.
+	fresh, freshErr := r.client.Client.FromCompute().CloudServers().Get(ctx, aruba.URI(server.URI()))
+	if freshErr == nil {
+		// Pass &data as originalState so the plan's typed list values for
+		// subnet_uri_refs and securitygroup_uri_refs are preserved — the API
+		// does not return these in a usable form, and zero-value types.List{}
+		// (when originalState is nil) causes an "MISSING TYPE" object error.
+		r.applyServerToState(ctx, fresh, &data, &data, &resp.Diagnostics)
+	} else {
+		tflog.Warn(ctx, fmt.Sprintf("Failed to refresh CloudServer after creation: %v", freshErr))
 	}
 
 	tflog.Trace(ctx, "created a CloudServer resource", map[string]interface{}{
-		"cloudserver_id":   data.Id.ValueString(),
+		"cloudserver_id":   serverID,
 		"cloudserver_name": data.Name.ValueString(),
 	})
-
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
+// cloudServerRef returns the Ref to use for Get/Update/Delete.
+// Falls back to a constructed URI for the import flow where stored URI may be empty.
+func cloudServerRef(data *CloudServerResourceModel) aruba.Ref {
+	if !data.Uri.IsNull() && data.Uri.ValueString() != "" {
+		return aruba.URI(data.Uri.ValueString())
+	}
+	return aruba.URI("/projects/" + data.ProjectID.ValueString() + "/compute/cloudServers/" + data.Id.ValueString())
+}
+
 func (r *CloudServerResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var data CloudServerResourceModel
 	var originalState CloudServerResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &originalState)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	projectID := originalState.ProjectID.ValueString()
 	serverID := originalState.Id.ValueString()
-
 	if originalState.Id.IsUnknown() || originalState.Id.IsNull() || serverID == "" {
-		tflog.Debug(ctx, "Cloud Server ID is empty, removing resource from state", map[string]interface{}{"server_id": serverID})
 		resp.State.RemoveResource(ctx)
 		return
 	}
 
-	if projectID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID is required to read the cloud server",
-		)
-		return
-	}
-
-	// Get cloud server details using the SDK
-	response, err := r.client.Client.FromCompute().CloudServers().Get(ctx, projectID, serverID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading cloud server",
-			NewTransportError("read", "Cloudserver", err).Error(),
-		)
-		return
-	}
-
-	if response != nil && response.IsError() && response.Error != nil {
-		// If cloud server not found, mark as removed
-		if response.StatusCode == 404 {
+	server, err := r.client.Client.FromCompute().CloudServers().Get(ctx, cloudServerRef(&originalState))
+	if provErr := CheckResponseErr("read", "CloudServer", err); provErr != nil {
+		if IsNotFound(provErr) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		apiErr := newResponseError("read", "Cloudserver", response.StatusCode, response.Error, response.RawBody)
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-
-	if response == nil || response.Data == nil {
-		resp.State.RemoveResource(ctx)
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
 	// Resume provisioning wait if the resource is still in a transitional state.
-	if response.Data.Status.State != nil {
-		switch st := *response.Data.Status.State; {
-		case isFailedState(st):
-			resp.Diagnostics.AddWarning(
-				"Resource in Failed State",
-				fmt.Sprintf("CloudServer %q is in a terminal failure state (%s). "+
-					"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", serverID, st),
-			)
-		case IsCreatingState(st):
-			checker := func(ctx context.Context) (string, error) {
-				getResp, err := r.client.Client.FromCompute().CloudServers().Get(ctx, projectID, serverID, nil)
-				if err != nil {
-					return "", err
-				}
-				if getResp != nil && getResp.IsError() {
-					if getResp.Error != nil && getResp.Error.Title != nil {
-						return "", fmt.Errorf("cloud server in error state: %s", *getResp.Error.Title)
-					}
-					return "", fmt.Errorf("cloud server API returned error response")
-				}
-				if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
-					return *getResp.Data.Status.State, nil
-				}
-				return "InCreation", nil
-			}
-			if err := WaitForResourceActive(ctx, checker, "CloudServer", serverID, r.client.ResourceTimeout); err != nil {
-				ReportWaitResult(&resp.Diagnostics, err, "CloudServer", serverID)
-				resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-				return
-			}
-			// Re-read to get the final active state.
-			response, err = r.client.Client.FromCompute().CloudServers().Get(ctx, projectID, serverID, nil)
-			if err != nil {
-				resp.Diagnostics.AddError("Error reading CloudServer after provisioning wait",
-					NewTransportError("read", "Cloudserver", err).Error())
-				return
-			}
-			if response == nil || response.Data == nil {
-				resp.State.RemoveResource(ctx)
-				return
-			}
+	st := string(server.State())
+	switch {
+	case isFailedState(st):
+		resp.Diagnostics.AddWarning(
+			"Resource in Failed State",
+			fmt.Sprintf("CloudServer %q is in a terminal failure state (%s). "+
+				"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", serverID, st),
+		)
+	case IsCreatingState(st):
+		if waitErr := server.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
+			ReportWaitResult(&resp.Diagnostics, waitErr, "CloudServer", serverID)
+			return
+		}
+		// Re-read after wait.
+		server, err = r.client.Client.FromCompute().CloudServers().Get(ctx, cloudServerRef(&originalState))
+		if provErr := CheckResponseErr("read", "CloudServer", err); provErr != nil {
+			resp.Diagnostics.AddError("API Error", provErr.Error())
+			return
 		}
 	}
 
-	server := response.Data
-
-	// Extract original nested models to preserve fields not returned by API
-	var originalNetworkModel CloudServerNetworkModel
-	diags := originalState.Network.As(ctx, &originalNetworkModel, basetypes.ObjectAsOptions{})
-	resp.Diagnostics.Append(diags...)
+	var data CloudServerResourceModel
+	r.applyServerToState(ctx, server, &data, &originalState, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+}
 
-	var originalSettingsModel CloudServerSettingsModel
-	diags = originalState.Settings.As(ctx, &originalSettingsModel, basetypes.ObjectAsOptions{})
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	var originalStorageModel CloudServerStorageModel
-	diags = originalState.Storage.As(ctx, &originalStorageModel, basetypes.ObjectAsOptions{})
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	// Update basic fields from API response
-	if server.Metadata.ID != nil {
-		data.Id = types.StringValue(*server.Metadata.ID)
-	}
-
-	if server.Metadata.URI != nil {
-		data.Uri = types.StringValue(*server.Metadata.URI)
+// applyServerToState populates data from the SDK wrapper, preserving fields from
+// originalState that the API does not return. Pass originalState=nil on first Create.
+func (r *CloudServerResource) applyServerToState(
+	ctx context.Context,
+	server *aruba.CloudServer,
+	data *CloudServerResourceModel,
+	originalState *CloudServerResourceModel,
+	diags *diag.Diagnostics,
+) {
+	data.Id = types.StringValue(server.ID())
+	if uri := server.URI(); uri != "" {
+		data.Uri = types.StringValue(uri)
 	} else {
 		data.Uri = types.StringNull()
 	}
+	data.Name = types.StringValue(server.Name())
+	data.Tags = TagsToListPreserveNull(server.Tags(), data.Tags)
 
-	if server.Metadata.Name != nil {
-		data.Name = types.StringValue(*server.Metadata.Name)
+	raw := server.Raw()
+	if raw != nil {
+		if raw.Metadata.LocationResponse != nil && raw.Metadata.LocationResponse.Value != "" {
+			data.Location = types.StringValue(string(raw.Metadata.LocationResponse.Value))
+		}
+		data.Zone = resolveAPIStringRef(string(raw.Properties.Zone), firstString(originalState, func(s *CloudServerResourceModel) types.String { return s.Zone }))
 	}
 
-	if server.Metadata.LocationResponse != nil && server.Metadata.LocationResponse.Value != "" {
-		data.Location = types.StringValue(server.Metadata.LocationResponse.Value)
+	if originalState != nil {
+		data.ProjectID = originalState.ProjectID
 	}
 
-	data.ProjectID = originalState.ProjectID
-
-	data.Zone = resolveAPIStringRef(server.Properties.Zone, originalState.Zone)
-
-	data.Tags = TagsToListPreserveNull(server.Metadata.Tags, data.Tags)
-
-	// VPC URI is returned by the API; map it directly to detect drift.
-	vpcUriRef := resolveAPIStringRef(server.Properties.VPC.URI, originalNetworkModel.VpcUriRef)
-
-	// Build network object.
-	// vpc_uri_ref:            mapped from API (Properties.VPC.URI)
-	// elastic_ip_uri_ref:     preserved — not present in CloudServerPropertiesResult
-	// subnet_uri_refs:        preserved — only available via NetworkInterfaces[].Subnet
-	//                         which uses a different URI format; mapping is unsafe without
-	//                         live API verification
-	// securitygroup_uri_refs: preserved — not present in CloudServerPropertiesResult
+	// ── Network object ────────────────────────────────────────────────────────
+	// Initialize with properly-typed nulls so types.ObjectValue never receives
+	// a zero-value types.List{} (which has no element type).  We only overwrite
+	// from state when the stored object is non-null and non-unknown.
+	origNetwork := CloudServerNetworkModel{
+		VpcUriRef:            types.StringNull(),
+		ElasticIpUriRef:      types.StringNull(),
+		SubnetUriRefs:        types.ListNull(types.StringType),
+		SecurityGroupUriRefs: types.ListNull(types.StringType),
+	}
+	if originalState != nil && !originalState.Network.IsNull() && !originalState.Network.IsUnknown() {
+		diags.Append(originalState.Network.As(ctx, &origNetwork, basetypes.ObjectAsOptions{})...)
+		if diags.HasError() {
+			return
+		}
+	}
 	networkAttrs := map[string]attr.Value{
-		"vpc_uri_ref":            vpcUriRef,
-		"elastic_ip_uri_ref":     originalNetworkModel.ElasticIpUriRef,
-		"subnet_uri_refs":        originalNetworkModel.SubnetUriRefs,
-		"securitygroup_uri_refs": originalNetworkModel.SecurityGroupUriRefs,
+		"vpc_uri_ref":            resolveAPIStringRef(server.VPC(), origNetwork.VpcUriRef),
+		"elastic_ip_uri_ref":     origNetwork.ElasticIpUriRef, // not in API response; preserve state
+		"subnet_uri_refs":        origNetwork.SubnetUriRefs,   // preserve state (API returns different format)
+		"securitygroup_uri_refs": origNetwork.SecurityGroupUriRefs,
 	}
-	networkObj, diags := types.ObjectValue(
-		map[string]attr.Type{
-			"vpc_uri_ref":            types.StringType,
-			"elastic_ip_uri_ref":     types.StringType,
-			"subnet_uri_refs":        types.ListType{ElemType: types.StringType},
-			"securitygroup_uri_refs": types.ListType{ElemType: types.StringType},
-		},
-		networkAttrs,
-	)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
+	networkObj, d := types.ObjectValue(csNetworkAttrTypes(), networkAttrs)
+	diags.Append(d...)
 	data.Network = networkObj
 
-	// KeyPair URI is returned by the API; map it directly to detect drift.
-	keyPairUriRef := resolveKeyPairUriRef(server.Properties.KeyPair.URI, originalSettingsModel.KeyPairUriRef)
-
-	// Build settings object.
-	// flavor_name:      mapped from API
-	// key_pair_uri_ref: mapped from API (Properties.KeyPair.URI)
-	// user_data:        preserved — write-only, never returned by the API
+	// ── Settings object ───────────────────────────────────────────────────────
+	var origSettings CloudServerSettingsModel
+	if originalState != nil && !originalState.Settings.IsNull() && !originalState.Settings.IsUnknown() {
+		diags.Append(originalState.Settings.As(ctx, &origSettings, basetypes.ObjectAsOptions{})...)
+		if diags.HasError() {
+			return
+		}
+	}
 	settingsAttrs := map[string]attr.Value{
-		"flavor_name":      types.StringValue(server.Properties.Flavor.Name),
-		"key_pair_uri_ref": keyPairUriRef,
-		"user_data":        originalSettingsModel.UserData,
+		"flavor_name":      types.StringValue(string(server.Flavor())),
+		"key_pair_uri_ref": resolveKeyPairUriRef(server.KeyPair(), origSettings.KeyPairUriRef),
+		"user_data":        origSettings.UserData, // write-only; never returned by API
 	}
-	settingsObj, diags := types.ObjectValue(
-		map[string]attr.Type{
-			"flavor_name":      types.StringType,
-			"key_pair_uri_ref": types.StringType,
-			"user_data":        types.StringType,
-		},
-		settingsAttrs,
-	)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
+	settingsObj, d := types.ObjectValue(csSettingsAttrTypes(), settingsAttrs)
+	diags.Append(d...)
 	data.Settings = settingsObj
 
-	// BootVolume URI is returned by the API; map it directly to detect drift.
-	bootVolumeUriRef := resolveAPIStringRef(server.Properties.BootVolume.URI, originalStorageModel.BootVolumeUriRef)
-
-	// Build storage object.
-	// boot_volume_uri_ref: mapped from API (Properties.BootVolume.URI)
+	// ── Storage object ────────────────────────────────────────────────────────
+	var origStorage CloudServerStorageModel
+	if originalState != nil && !originalState.Storage.IsNull() && !originalState.Storage.IsUnknown() {
+		diags.Append(originalState.Storage.As(ctx, &origStorage, basetypes.ObjectAsOptions{})...)
+		if diags.HasError() {
+			return
+		}
+	}
 	storageAttrs := map[string]attr.Value{
-		"boot_volume_uri_ref": bootVolumeUriRef,
+		"boot_volume_uri_ref": resolveAPIStringRef(server.BootVolume(), origStorage.BootVolumeUriRef),
 	}
-	storageObj, diags := types.ObjectValue(
-		map[string]attr.Type{
-			"boot_volume_uri_ref": types.StringType,
-		},
-		storageAttrs,
-	)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
+	storageObj, d := types.ObjectValue(csStorageAttrTypes(), storageAttrs)
+	diags.Append(d...)
 	data.Storage = storageObj
+}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+// firstString is a tiny helper to safely read a field from an optional state pointer.
+func firstString(s *CloudServerResourceModel, fn func(*CloudServerResourceModel) types.String) types.String {
+	if s == nil {
+		return types.StringNull()
+	}
+	return fn(s)
+}
+
+func csNetworkAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"vpc_uri_ref":            types.StringType,
+		"elastic_ip_uri_ref":     types.StringType,
+		"subnet_uri_refs":        types.ListType{ElemType: types.StringType},
+		"securitygroup_uri_refs": types.ListType{ElemType: types.StringType},
+	}
+}
+
+func csSettingsAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"flavor_name":      types.StringType,
+		"key_pair_uri_ref": types.StringType,
+		"user_data":        types.StringType,
+	}
+}
+
+func csStorageAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{"boot_volume_uri_ref": types.StringType}
 }
 
 func (r *CloudServerResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -677,183 +520,87 @@ func (r *CloudServerResource) Update(ctx context.Context, req resource.UpdateReq
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	// Read current state to preserve values
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Extract nested models from plan to preserve for inconsistent result check
+	// Extract nested plan models for state reconstruction.
 	var planNetworkModel CloudServerNetworkModel
-	diags := data.Network.As(ctx, &planNetworkModel, basetypes.ObjectAsOptions{})
-	resp.Diagnostics.Append(diags...)
+	resp.Diagnostics.Append(data.Network.As(ctx, &planNetworkModel, basetypes.ObjectAsOptions{})...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
 	var planSettingsModel CloudServerSettingsModel
-	diags = data.Settings.As(ctx, &planSettingsModel, basetypes.ObjectAsOptions{})
-	resp.Diagnostics.Append(diags...)
+	resp.Diagnostics.Append(data.Settings.As(ctx, &planSettingsModel, basetypes.ObjectAsOptions{})...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
 	var planStorageModel CloudServerStorageModel
-	diags = data.Storage.As(ctx, &planStorageModel, basetypes.ObjectAsOptions{})
-	resp.Diagnostics.Append(diags...)
+	resp.Diagnostics.Append(data.Storage.As(ctx, &planStorageModel, basetypes.ObjectAsOptions{})...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	// Get IDs from state (not plan) - IDs are immutable and should always be in state
-	projectID := state.ProjectID.ValueString()
-	serverID := state.Id.ValueString()
-
-	if projectID == "" || serverID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID and Server ID are required to update the cloud server",
-		)
-		return
-	}
-
-	// Get current cloud server details to preserve existing values
-	getResponse, err := r.client.Client.FromCompute().CloudServers().Get(ctx, projectID, serverID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error fetching current cloud server",
-			NewTransportError("read", "Cloudserver", err).Error(),
-		)
-		return
-	}
-
-	if getResponse == nil || getResponse.Data == nil {
-		resp.Diagnostics.AddError(
-			"Cloud Server Not Found",
-			"Cloud server not found or no data returned",
-		)
-		return
-	}
-
-	current := getResponse.Data
 
 	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if tags == nil {
-		tags = current.Metadata.Tags
-	}
 
-	// Build the update request, preserving existing values
-	flavorName := current.Properties.Flavor.Name
-	updateRequest := sdktypes.CloudServerRequest{
-		Metadata: sdktypes.RegionalResourceMetadataRequest{
-			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
-				Name: data.Name.ValueString(),
-				Tags: tags,
-			},
-			Location: sdktypes.LocationRequest{
-				Value: current.Metadata.LocationResponse.Value,
-			},
-		},
-		Properties: sdktypes.CloudServerPropertiesRequest{
-			FlavorName: &flavorName,
-			BootVolume: current.Properties.BootVolume,
-		},
-	}
-
-	// Preserve keypair if it exists
-	if current.Properties.KeyPair.URI != "" {
-		updateRequest.Properties.KeyPair = current.Properties.KeyPair
-	}
-
-	// Update the cloud server using the SDK
-	response, err := r.client.Client.FromCompute().CloudServers().Update(ctx, projectID, serverID, updateRequest, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error updating cloud server",
-			NewTransportError("update", "Cloudserver", err).Error(),
-		)
+	// Fetch-mutate-update: get current wrapper, apply name/tag mutations, submit.
+	server, err := r.client.Client.FromCompute().CloudServers().Get(ctx, cloudServerRef(&state))
+	if provErr := CheckResponseErr("read", "CloudServer", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	if apiErr := CheckResponse("update", "Cloudserver", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
+	server.Named(data.Name.ValueString())
+	if tags != nil {
+		server.RetaggedAs(tags...)
+	} else {
+		server.RetaggedAs(server.Tags()...)
+	}
+
+	updated, err := r.client.Client.FromCompute().CloudServers().Update(ctx, server)
+	if provErr := CheckResponseErr("update", "CloudServer", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	// Update state with response data if available
-	if response != nil && response.Data != nil {
-		if response.Data.Metadata.Name != nil && *response.Data.Metadata.Name != "" {
-			data.Name = types.StringValue(*response.Data.Metadata.Name)
-		}
-		data.Tags = TagsToListPreserveNull(response.Data.Metadata.Tags, data.Tags)
+	if n := updated.Name(); n != "" {
+		data.Name = types.StringValue(n)
 	}
+	data.Tags = TagsToListPreserveNull(updated.Tags(), data.Tags)
 
-	// Ensure immutable fields are set from state/plan before saving
+	// Preserve immutable fields from state.
 	data.Id = state.Id
+	data.Uri = state.Uri
 	data.ProjectID = state.ProjectID
 	data.Zone = state.Zone
 
-	// Rebuild nested objects from plan to avoid inconsistent result
-	// Network object (preserve from plan)
+	// Rebuild nested objects from plan values.
 	networkAttrs := map[string]attr.Value{
 		"vpc_uri_ref":            planNetworkModel.VpcUriRef,
 		"elastic_ip_uri_ref":     planNetworkModel.ElasticIpUriRef,
 		"subnet_uri_refs":        planNetworkModel.SubnetUriRefs,
 		"securitygroup_uri_refs": planNetworkModel.SecurityGroupUriRefs,
 	}
-	networkObj, diags := types.ObjectValue(
-		map[string]attr.Type{
-			"vpc_uri_ref":            types.StringType,
-			"elastic_ip_uri_ref":     types.StringType,
-			"subnet_uri_refs":        types.ListType{ElemType: types.StringType},
-			"securitygroup_uri_refs": types.ListType{ElemType: types.StringType},
-		},
-		networkAttrs,
-	)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
+	networkObj, d := types.ObjectValue(csNetworkAttrTypes(), networkAttrs)
+	resp.Diagnostics.Append(d...)
 	data.Network = networkObj
 
-	// Settings object (preserve from plan)
 	settingsAttrs := map[string]attr.Value{
 		"flavor_name":      planSettingsModel.FlavorName,
 		"key_pair_uri_ref": planSettingsModel.KeyPairUriRef,
 		"user_data":        planSettingsModel.UserData,
 	}
-	settingsObj, diags := types.ObjectValue(
-		map[string]attr.Type{
-			"flavor_name":      types.StringType,
-			"key_pair_uri_ref": types.StringType,
-			"user_data":        types.StringType,
-		},
-		settingsAttrs,
-	)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
+	settingsObj, d := types.ObjectValue(csSettingsAttrTypes(), settingsAttrs)
+	resp.Diagnostics.Append(d...)
 	data.Settings = settingsObj
 
-	// Storage object (preserve from plan)
-	storageAttrs := map[string]attr.Value{
-		"boot_volume_uri_ref": planStorageModel.BootVolumeUriRef,
-	}
-	storageObj, diags := types.ObjectValue(
-		map[string]attr.Type{
-			"boot_volume_uri_ref": types.StringType,
-		},
-		storageAttrs,
-	)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
+	storageAttrs := map[string]attr.Value{"boot_volume_uri_ref": planStorageModel.BootVolumeUriRef}
+	storageObj, d := types.ObjectValue(csStorageAttrTypes(), storageAttrs)
+	resp.Diagnostics.Append(d...)
 	data.Storage = storageObj
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -866,43 +613,17 @@ func (r *CloudServerResource) Delete(ctx context.Context, req resource.DeleteReq
 		return
 	}
 
-	projectID := data.ProjectID.ValueString()
 	serverID := data.Id.ValueString()
-
-	if projectID == "" || serverID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID and Server ID are required to delete the cloud server",
-		)
+	if serverID == "" {
+		resp.Diagnostics.AddError("Missing Required Fields", "Server ID is required to delete the cloud server")
 		return
 	}
 
-	// Delete the cloud server using the SDK with retry mechanism
-	// Retry on any error except 404 (Resource Not Found)
+	ref := cloudServerRef(&data)
+
 	deletionChecker := func(ctx context.Context) (bool, error) {
-		getResp, getErr := r.client.Client.FromCompute().CloudServers().Get(ctx, projectID, serverID, nil)
-		if getErr != nil {
-			return false, NewTransportError("get", "CloudServer", getErr)
-		}
-		// Log the HTTP status and state so deletion progress is visible at DEBUG level.
-		statusCode := 0
-		if getResp != nil {
-			statusCode = getResp.StatusCode
-		}
-		state := "<nil response>"
-		if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
-			state = *getResp.Data.Status.State
-		} else if getResp != nil && getResp.Data != nil {
-			state = "<Status.State nil>"
-		}
-		tflog.Debug(ctx, "CloudServer deletion check: GET response", map[string]interface{}{
-			"resource_type": "CloudServer",
-			"resource_id":   serverID,
-			"http_status":   statusCode,
-			"state":         state,
-			"is_error":      getResp != nil && getResp.IsError(),
-		})
-		if provErr := CheckResponse("get", "CloudServer", getResp); provErr != nil {
+		_, getErr := r.client.Client.FromCompute().CloudServers().Get(ctx, ref)
+		if provErr := CheckResponseErr("get", "CloudServer", getErr); provErr != nil {
 			if IsNotFound(provErr) {
 				return true, nil
 			}
@@ -915,23 +636,16 @@ func (r *CloudServerResource) Delete(ctx context.Context, req resource.DeleteReq
 	err := DeleteResourceWithRetry(
 		ctx,
 		func() error {
-			resp, err := r.client.Client.FromCompute().CloudServers().Delete(ctx, projectID, serverID, nil)
-			if err != nil {
-				return NewTransportError("delete", "CloudServer", err)
-			}
-			return CheckResponse("delete", "CloudServer", resp)
+			delErr := r.client.Client.FromCompute().CloudServers().Delete(ctx, ref)
+			return CheckResponseErrAsError("delete", "CloudServer", delErr)
 		},
 		"CloudServer",
 		serverID,
 		r.client.ResourceTimeout,
 		deletionChecker,
 	)
-
 	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error deleting cloud server",
-			NewTransportError("delete", "Cloudserver", err).Error(),
-		)
+		resp.Diagnostics.AddError("Error deleting cloud server", err.Error())
 		return
 	}
 
@@ -940,18 +654,17 @@ func (r *CloudServerResource) Delete(ctx context.Context, req resource.DeleteReq
 		return
 	}
 
-	tflog.Trace(ctx, "deleted a CloudServer resource", map[string]interface{}{
-		"cloudserver_id": serverID,
-	})
+	tflog.Trace(ctx, "deleted a CloudServer resource", map[string]interface{}{"cloudserver_id": serverID})
 }
 
 func (r *CloudServerResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
 // resolveAPIStringRef returns a StringValue from the API-provided string when
-// non-empty, falling back to the value preserved from state otherwise. Used to
-// map API-returned URI references so that out-of-band changes are detected.
+// non-empty, falling back to the value preserved from state otherwise.
 func resolveAPIStringRef(apiValue string, stateValue types.String) types.String {
 	if apiValue != "" {
 		return types.StringValue(apiValue)
@@ -959,11 +672,8 @@ func resolveAPIStringRef(apiValue string, stateValue types.String) types.String 
 	return stateValue
 }
 
-// resolveKeyPairUriRef resolves the key_pair_uri_ref for Read state.
-// Three cases:
-//   - API returned a URI  → use it (current value, drift visible to Terraform)
-//   - API returned empty, state had a URI → null (keypair detached outside Terraform)
-//   - API returned empty, state had no URI → preserve state (keypair never configured)
+// resolveKeyPairUriRef resolves key_pair_uri_ref for Read state:
+// API returned URI → use it; API returned empty but state had URI → null (detached); no URI either side → preserve state.
 func resolveKeyPairUriRef(apiURI string, stateRef types.String) types.String {
 	if apiURI != "" {
 		return types.StringValue(apiURI)

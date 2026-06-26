@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -95,38 +96,26 @@ func (d *SnapshotDataSource) Read(ctx context.Context, req datasource.ReadReques
 		return
 	}
 
-	response, err := d.client.Client.FromStorage().Snapshots().Get(ctx, projectID, snapshotID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError("Error reading snapshot", NewTransportError("read", "Snapshot", err).Error())
-		return
-	}
-	if apiErr := CheckResponse("read", "Snapshot", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-	if response == nil || response.Data == nil {
-		resp.Diagnostics.AddError("No data returned", "Snapshot Get returned no data")
+	snap, err := d.client.Client.FromStorage().Snapshots().Get(ctx,
+		aruba.URI("/projects/"+projectID+"/providers/Aruba.Storage/snapshots/"+snapshotID))
+	if provErr := CheckResponseErr("read", "Snapshot", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	snapshot := response.Data
-	if snapshot.Metadata.ID != nil {
-		data.Id = types.StringValue(*snapshot.Metadata.ID)
-	}
-	if snapshot.Metadata.Name != nil {
-		data.Name = types.StringValue(*snapshot.Metadata.Name)
-	}
-	if snapshot.Metadata.LocationResponse != nil {
-		data.Location = types.StringValue(snapshot.Metadata.LocationResponse.Value)
+	data.Id = types.StringValue(snap.ID())
+	data.Name = types.StringValue(snap.Name())
+	data.ProjectId = types.StringValue(projectID)
+	if snap.Region() != "" {
+		data.Location = types.StringValue(string(snap.Region()))
 	} else {
 		data.Location = types.StringNull()
 	}
-	data.ProjectId = types.StringValue(projectID)
-	// billing_period is not returned by the API
+	// billing_period is not returned by the API.
 	data.BillingPeriod = types.StringNull()
-	// Extract volume ID from volume URI
-	if snapshot.Properties.Volume.URI != nil && *snapshot.Properties.Volume.URI != "" {
-		parts := strings.Split(*snapshot.Properties.Volume.URI, "/")
+	// Extract volume ID from volume URI.
+	if volURI := snap.VolumeURI(); volURI != "" {
+		parts := strings.Split(volURI, "/")
 		data.VolumeId = types.StringValue(parts[len(parts)-1])
 	} else {
 		data.VolumeId = types.StringNull()

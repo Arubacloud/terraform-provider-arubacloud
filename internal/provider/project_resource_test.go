@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
@@ -67,15 +68,13 @@ func testCheckProjectDestroyed(s *terraform.State) error {
 		if rs.Type != "arubacloud_project" {
 			continue
 		}
-		resp, err := client.Client.FromProject().Get(ctx, rs.Primary.ID, nil)
-		if err != nil {
-			return err
-		}
-		if apiErr := CheckResponse("get", "Project", resp); apiErr != nil {
-			if IsNotFound(apiErr) {
+		ref := aruba.URI("/projects/" + rs.Primary.ID)
+		_, err = client.Client.FromProject().Get(ctx, ref)
+		if provErr := CheckResponseErr("get", "Project", err); provErr != nil {
+			if IsNotFound(provErr) {
 				continue
 			}
-			return apiErr
+			return provErr
 		}
 		return fmt.Errorf("Project %s still exists", rs.Primary.ID)
 	}

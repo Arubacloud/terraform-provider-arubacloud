@@ -44,8 +44,8 @@ func newMockArubaClient(t *testing.T, apiHandler http.HandlerFunc) (*httptest.Se
 	}
 
 	return srv, &ArubaCloudClient{
-		ApiKey:          "test-key",
-		ApiSecret:       "test-secret",
+		ClientID:        "test-client-id",
+		ClientSecret:    "test-client-secret",
 		Client:          sdkClient,
 		ResourceTimeout: 10 * time.Minute,
 	}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
@@ -70,16 +71,15 @@ func testCheckDatabaseDestroyed(s *terraform.State) error {
 		if rs.Type != "arubacloud_database" {
 			continue
 		}
+		projectID := rs.Primary.Attributes["project_id"]
 		dbaasID := rs.Primary.Attributes["dbaas_id"]
-		resp, err := client.Client.FromDatabase().Databases().Get(ctx, rs.Primary.Attributes["project_id"], dbaasID, rs.Primary.ID, nil)
-		if err != nil {
-			return err
-		}
-		if apiErr := CheckResponse("get", "Database", resp); apiErr != nil {
-			if IsNotFound(apiErr) {
+		ref := aruba.URI("/projects/" + projectID + "/providers/Aruba.Database/dbaas/" + dbaasID + "/databases/" + rs.Primary.ID)
+		_, err = client.Client.FromDatabase().Databases().Get(ctx, ref)
+		if provErr := CheckResponseErr("get", "Database", err); provErr != nil {
+			if IsNotFound(provErr) {
 				continue
 			}
-			return apiErr
+			return provErr
 		}
 		return fmt.Errorf("Database %s still exists", rs.Primary.ID)
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
@@ -55,7 +56,7 @@ func (d *CloudServerDataSource) Schema(ctx context.Context, req datasource.Schem
 				Required:            true,
 			},
 			"uri": schema.StringAttribute{
-				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).",
+				MarkdownDescription: "Computed by the API. Full resource URI.",
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
@@ -63,7 +64,7 @@ func (d *CloudServerDataSource) Schema(ctx context.Context, req datasource.Schem
 				Computed:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).",
+				MarkdownDescription: "Region identifier for the resource (e.g., `ITBG-Bergamo`).",
 				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
@@ -71,7 +72,7 @@ func (d *CloudServerDataSource) Schema(ctx context.Context, req datasource.Schem
 				Required:            true,
 			},
 			"zone": schema.StringAttribute{
-				MarkdownDescription: "Availability zone within the region (e.g., `ITBG-1`). See [available zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).",
+				MarkdownDescription: "Availability zone within the region (e.g., `ITBG-1`).",
 				Computed:            true,
 			},
 			"tags": schema.ListAttribute{
@@ -98,7 +99,7 @@ func (d *CloudServerDataSource) Schema(ctx context.Context, req datasource.Schem
 				Computed:            true,
 			},
 			"flavor_name": schema.StringAttribute{
-				MarkdownDescription: "Compute flavour name (e.g., `CSO4A8` for 4 vCPU / 8 GB RAM). See [available flavours](https://api.arubacloud.com/docs/metadata/#cloudserver-flavors).",
+				MarkdownDescription: "Compute flavour name (e.g., `CSO4A8` for 4 vCPU / 8 GB RAM).",
 				Computed:            true,
 			},
 			"key_pair_uri_ref": schema.StringAttribute{
@@ -146,52 +147,42 @@ func (d *CloudServerDataSource) Read(ctx context.Context, req datasource.ReadReq
 		return
 	}
 
-	response, err := d.client.Client.FromCompute().CloudServers().Get(ctx, projectID, serverID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError("Error reading cloud server", NewTransportError("read", "Cloudserver", err).Error())
-		return
-	}
-	if apiErr := CheckResponse("read", "Cloudserver", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-	if response == nil || response.Data == nil {
-		resp.Diagnostics.AddError("No data returned", "CloudServer Get returned no data")
+	ref := aruba.URI("/projects/" + projectID + "/compute/cloudServers/" + serverID)
+	server, err := d.client.Client.FromCompute().CloudServers().Get(ctx, ref)
+	if provErr := CheckResponseErr("read", "Cloudserver", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	server := response.Data
-	if server.Metadata.ID != nil {
-		data.Id = types.StringValue(*server.Metadata.ID)
-	}
-	if server.Metadata.URI != nil {
-		data.Uri = types.StringValue(*server.Metadata.URI)
+	data.Id = types.StringValue(server.ID())
+	if uri := server.URI(); uri != "" {
+		data.Uri = types.StringValue(uri)
 	} else {
 		data.Uri = types.StringNull()
 	}
-	if server.Metadata.Name != nil {
-		data.Name = types.StringValue(*server.Metadata.Name)
-	}
-	if server.Metadata.LocationResponse != nil {
-		data.Location = types.StringValue(server.Metadata.LocationResponse.Value)
-	} else {
-		data.Location = types.StringNull()
-	}
+	data.Name = types.StringValue(server.Name())
 	data.ProjectID = types.StringValue(projectID)
-	// Zone is not returned by the API
-	data.Zone = types.StringNull()
-	// Flavor name is returned by the API
-	data.FlavorName = types.StringValue(server.Properties.Flavor.Name)
-	// Network/settings/storage URI refs are not returned by the API
-	data.VpcUriRef = types.StringNull()
+	data.Tags = TagsToListPreserveNull(server.Tags(), data.Tags)
+	data.FlavorName = types.StringValue(string(server.Flavor()))
+	data.VpcUriRef = types.StringValue(server.VPC())
+	data.BootVolumeUriRef = types.StringValue(server.BootVolume())
+	data.KeyPairUriRef = types.StringValue(server.KeyPair())
 	data.ElasticIpUriRef = types.StringNull()
+	data.UserData = types.StringNull()
+
+	raw := server.Raw()
+	if raw != nil {
+		if raw.Metadata.LocationResponse != nil {
+			data.Location = types.StringValue(string(raw.Metadata.LocationResponse.Value))
+		} else {
+			data.Location = types.StringNull()
+		}
+		data.Zone = types.StringNull() // Zone not reliably returned; set null to avoid drift
+	}
+
+	// Subnets — not reliably mapped from API response; set empty list.
 	data.SubnetUriRefs = types.ListValueMust(types.StringType, []attr.Value{})
 	data.SecurityGroupUriRefs = types.ListValueMust(types.StringType, []attr.Value{})
-	data.KeyPairUriRef = types.StringNull()
-	data.UserData = types.StringNull()
-	data.BootVolumeUriRef = types.StringNull()
-
-	data.Tags = TagsToListPreserveNull(server.Metadata.Tags, data.Tags)
 
 	tflog.Trace(ctx, "read a CloudServer data source", map[string]interface{}{"server_id": serverID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

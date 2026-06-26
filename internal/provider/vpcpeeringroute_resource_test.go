@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
@@ -70,17 +71,16 @@ func testCheckVpcpeeringrouteDestroyed(s *terraform.State) error {
 		if rs.Type != "arubacloud_vpcpeeringroute" {
 			continue
 		}
+		projectID := rs.Primary.Attributes["project_id"]
 		vpcID := rs.Primary.Attributes["vpc_id"]
 		peeringID := rs.Primary.Attributes["vpc_peering_id"]
-		resp, err := client.Client.FromNetwork().VPCPeeringRoutes().Get(ctx, rs.Primary.Attributes["project_id"], vpcID, peeringID, rs.Primary.ID, nil)
-		if err != nil {
-			return err
-		}
-		if apiErr := CheckResponse("get", "Vpcpeeringroute", resp); apiErr != nil {
-			if IsNotFound(apiErr) {
+		ref := aruba.VPCPeeringRouteRef(projectID, vpcID, peeringID, rs.Primary.ID)
+		_, err = client.Client.FromNetwork().VPCPeeringRoutes().Get(ctx, ref)
+		if provErr := CheckResponseErr("get", "Vpcpeeringroute", err); provErr != nil {
+			if IsNotFound(provErr) {
 				continue
 			}
-			return apiErr
+			return provErr
 		}
 		return fmt.Errorf("VPCPeeringRoute %s still exists", rs.Primary.ID)
 	}

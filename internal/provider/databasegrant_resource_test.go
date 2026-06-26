@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
@@ -70,18 +71,17 @@ func testCheckDatabasegrantDestroyed(s *terraform.State) error {
 		if rs.Type != "arubacloud_databasegrant" {
 			continue
 		}
+		projectID := rs.Primary.Attributes["project_id"]
 		dbaasID := rs.Primary.Attributes["dbaas_id"]
 		database := rs.Primary.Attributes["database"]
 		userID := rs.Primary.Attributes["user_id"]
-		resp, err := client.Client.FromDatabase().Grants().Get(ctx, rs.Primary.Attributes["project_id"], dbaasID, database, userID, nil)
-		if err != nil {
-			return err
-		}
-		if apiErr := CheckResponse("get", "Databasegrant", resp); apiErr != nil {
-			if IsNotFound(apiErr) {
+		ref := aruba.URI("/projects/" + projectID + "/providers/Aruba.Database/dbaas/" + dbaasID + "/databases/" + database + "/grants/" + userID)
+		_, err = client.Client.FromDatabase().Grants().Get(ctx, ref)
+		if provErr := CheckResponseErr("get", "Databasegrant", err); provErr != nil {
+			if IsNotFound(provErr) {
 				continue
 			}
-			return apiErr
+			return provErr
 		}
 		return fmt.Errorf("DatabaseGrant %s still exists", rs.Primary.ID)
 	}

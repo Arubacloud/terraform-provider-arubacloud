@@ -38,14 +38,14 @@ The following arguments are supported:
 
 #### Required
 
-- `location` (String) Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). Changing this value forces a new resource.
 - `name` (String) Display name for the Elastic IP.
-- `project_id` (String) ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `project_id` (String) ID of the project that owns this resource. Changing this value forces a new resource.
 
 #### Optional
 
-- `billing_period` (String) Computed by the API. Billing cycle for the resource. Accepted values: `Hour`, `Month`, `Year`.
-- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
+- `billing_period` (String) Billing cycle. Accepted values: `Hour`, `Month`, `Year`.
+- `tags` (List of String) List of string tags.
 
 ### Attributes Reference
 
@@ -53,9 +53,9 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `address` (String) Computed by the API. Public IPv4 address allocated for this Elastic IP.
+- `address` (String) Computed by the API. The assigned public IP address.
 - `id` (String) Computed by the API. Unique identifier for the resource.
-- `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).
+- `uri` (String) Computed by the API. Full resource URI.
 
 
 

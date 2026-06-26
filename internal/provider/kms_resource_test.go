@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
@@ -47,15 +48,14 @@ func testCheckKmsDestroyed(s *terraform.State) error {
 		if rs.Type != "arubacloud_kms" {
 			continue
 		}
-		resp, err := client.Client.FromSecurity().KMS().Get(ctx, rs.Primary.Attributes["project_id"], rs.Primary.ID, nil)
-		if err != nil {
-			return err
-		}
-		if apiErr := CheckResponse("get", "Kms", resp); apiErr != nil {
-			if IsNotFound(apiErr) {
+		projectID := rs.Primary.Attributes["project_id"]
+		ref := aruba.URI("/projects/" + projectID + "/providers/Aruba.Security/kms/" + rs.Primary.ID)
+		_, err = client.Client.FromSecurity().KMS().Get(ctx, ref)
+		if provErr := CheckResponseErr("get", "Kms", err); provErr != nil {
+			if IsNotFound(provErr) {
 				continue
 			}
-			return apiErr
+			return provErr
 		}
 		return fmt.Errorf("KMS key %s still exists", rs.Primary.ID)
 	}

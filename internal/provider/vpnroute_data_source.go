@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -95,31 +96,19 @@ func (d *VPNRouteDataSource) Read(ctx context.Context, req datasource.ReadReques
 		return
 	}
 
-	response, err := d.client.Client.FromNetwork().VPNRoutes().Get(ctx, projectID, vpnTunnelID, routeID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError("Error reading VPN route", NewTransportError("read", "Vpnroute", err).Error())
-		return
-	}
-	if apiErr := CheckResponse("read", "Vpnroute", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-	if response == nil || response.Data == nil {
-		resp.Diagnostics.AddError("No data returned", "VPN Route Get returned no data")
+	route, err := d.client.Client.FromNetwork().VPNRoutes().Get(ctx,
+		aruba.VPNRouteRef(projectID, vpnTunnelID, routeID))
+	if provErr := CheckResponseErr("read", "VPNRoute", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	route := response.Data
-	if route.Metadata.ID != nil {
-		data.Id = types.StringValue(*route.Metadata.ID)
-	}
-	if route.Metadata.Name != nil {
-		data.Name = types.StringValue(*route.Metadata.Name)
-	}
+	data.Id = types.StringValue(route.ID())
+	data.Name = types.StringValue(route.Name())
 	data.ProjectId = types.StringValue(projectID)
 	data.VpnTunnelId = types.StringValue(vpnTunnelID)
-	data.Destination = types.StringValue(route.Properties.CloudSubnet)
-	data.Gateway = types.StringValue(route.Properties.OnPremSubnet)
+	data.Destination = types.StringValue(route.CloudSubnet())
+	data.Gateway = types.StringValue(route.OnPremSubnet())
 
 	tflog.Trace(ctx, "read a VPN Route data source", map[string]interface{}{"route_id": routeID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

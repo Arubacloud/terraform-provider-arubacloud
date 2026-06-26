@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -43,10 +45,16 @@ func (r *DatabaseResource) Schema(ctx context.Context, req resource.SchemaReques
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Computed by the API. Unique identifier for the resource (same as the database name).",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"uri": schema.StringAttribute{
 				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources.",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project that owns this resource.",
@@ -79,6 +87,12 @@ func (r *DatabaseResource) Configure(ctx context.Context, req resource.Configure
 	r.client = client
 }
 
+func databaseRef(data *DatabaseResourceModel) aruba.Ref {
+	return aruba.URI("/projects/" + data.ProjectID.ValueString() +
+		"/providers/Aruba.Database/dbaas/" + data.DBaaSID.ValueString() +
+		"/databases/" + data.Id.ValueString())
+}
+
 func (r *DatabaseResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data DatabaseResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
@@ -88,73 +102,41 @@ func (r *DatabaseResource) Create(ctx context.Context, req resource.CreateReques
 
 	projectID := data.ProjectID.ValueString()
 	dbaasID := data.DBaaSID.ValueString()
+	dbaasURI := "/projects/" + projectID + "/providers/Aruba.Database/dbaas/" + dbaasID
 
-	if projectID == "" || dbaasID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID and DBaaS ID are required to create a database",
+	var db *aruba.Database
+	if createErr := CreateWithTransientRetry(ctx, func() error {
+		var err error
+		db, err = r.client.Client.FromDatabase().Databases().Create(ctx,
+			aruba.NewDatabase().
+				Named(data.Name.ValueString()).
+				InDBaaS(aruba.URI(dbaasURI)),
 		)
-		return
-	}
-
-	// Build the create request
-	createRequest := sdktypes.DatabaseRequest{
-		Name: data.Name.ValueString(),
-	}
-
-	// Create the database using the SDK, retrying on transient errors (e.g. when the
-	// parent DBaaS is still in InCreation and returns 400 category:transient).
-	var response *sdktypes.Response[sdktypes.DatabaseResponse]
-	if createErr := CreateWithTransientRetry(
-		ctx,
-		func() error {
-			var err error
-			response, err = r.client.Client.FromDatabase().Databases().Create(ctx, projectID, dbaasID, createRequest, nil)
-			if err != nil {
-				return NewTransportError("create", "Database", err)
-			}
-			return CheckResponse("create", "Database", response)
-		},
-		"Database",
-		data.Name.ValueString(),
-		r.client.ResourceTimeout,
-	); createErr != nil {
+		return CheckResponseErrAsError("create", "Database", err)
+	}, "Database", data.Name.ValueString(), r.client.ResourceTimeout); createErr != nil {
 		resp.Diagnostics.AddError("Error creating database", createErr.Error())
 		return
 	}
 
-	if response != nil && response.Data != nil {
-		// Database uses name as ID
-		data.Id = types.StringValue(response.Data.Name)
-		// Database response doesn't have Metadata.URI
-		data.Uri = types.StringNull()
-	} else {
-		resp.Diagnostics.AddError(
-			"Invalid API Response",
-			"Database created but no data returned from API",
-		)
+	// Database uses name as ID.
+	data.Id = types.StringValue(db.Name())
+	data.Uri = strVal(db.URI())
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Wait for Database to be active before returning
-	// This ensures Terraform doesn't proceed until Database is ready
-	databaseName := data.Id.ValueString()
+	// Databases don't have a status; wait until we can successfully Get.
 	checker := func(ctx context.Context) (string, error) {
-		getResp, err := r.client.Client.FromDatabase().Databases().Get(ctx, projectID, dbaasID, databaseName, nil)
-		if err != nil {
-			return "", err
+		_, getErr := r.client.Client.FromDatabase().Databases().Get(ctx, databaseRef(&data))
+		if provErr := CheckResponseErr("get", "Database", getErr); provErr != nil {
+			return "Unknown", provErr
 		}
-		// Databases don't have a status field, so if we can get it, it's ready
-		if getResp != nil && getResp.Data != nil {
-			return "Active", nil
-		}
-		return "Unknown", nil
+		return "Active", nil
 	}
-
-	// Wait for Database to be active - block until ready (using configured timeout)
-	if err := WaitForResourceActive(ctx, checker, "Database", databaseName, r.client.ResourceTimeout); err != nil {
-		ReportWaitResult(&resp.Diagnostics, err, "Database", databaseName)
-		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	if err := WaitForResourceActive(ctx, checker, "Database", data.Id.ValueString(), r.client.ResourceTimeout); err != nil {
+		ReportWaitResult(&resp.Diagnostics, err, "Database", data.Id.ValueString())
 		return
 	}
 
@@ -162,7 +144,6 @@ func (r *DatabaseResource) Create(ctx context.Context, req resource.CreateReques
 		"database_id":   data.Id.ValueString(),
 		"database_name": data.Name.ValueString(),
 	})
-
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -172,54 +153,24 @@ func (r *DatabaseResource) Read(ctx context.Context, req resource.ReadRequest, r
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	projectID := data.ProjectID.ValueString()
-	dbaasID := data.DBaaSID.ValueString()
-	databaseName := data.Id.ValueString()
-
-	if data.Id.IsUnknown() || data.Id.IsNull() || databaseName == "" {
-		tflog.Debug(ctx, "Database ID is empty, removing resource from state", map[string]interface{}{"database_name": databaseName})
+	if data.Id.IsNull() || data.Id.ValueString() == "" {
 		resp.State.RemoveResource(ctx)
 		return
 	}
 
-	if projectID == "" || dbaasID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID and DBaaS ID are required to read the database",
-		)
-		return
-	}
-
-	// Get database details using the SDK
-	response, err := r.client.Client.FromDatabase().Databases().Get(ctx, projectID, dbaasID, databaseName, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading database",
-			NewTransportError("read", "Database", err).Error(),
-		)
-		return
-	}
-
-	if apiErr := CheckResponse("read", "Database", response); apiErr != nil {
-		if IsNotFound(apiErr) {
+	db, err := r.client.Client.FromDatabase().Databases().Get(ctx, databaseRef(&data))
+	if provErr := CheckResponseErr("read", "Database", err); provErr != nil {
+		if IsNotFound(provErr) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	if response != nil && response.Data != nil {
-		db := response.Data
-		data.Id = types.StringValue(db.Name)
-		data.Name = types.StringValue(db.Name)
-		// Database response doesn't have Metadata.URI
-		data.Uri = types.StringNull()
-	} else {
-		resp.State.RemoveResource(ctx)
-		return
-	}
+	data.Id = types.StringValue(db.Name())
+	data.Name = types.StringValue(db.Name())
+	data.Uri = strVal(db.URI())
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -229,64 +180,30 @@ func (r *DatabaseResource) Update(ctx context.Context, req resource.UpdateReques
 	var state DatabaseResourceModel
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Get IDs from state (not plan) - IDs are immutable and should always be in state
-	projectID := state.ProjectID.ValueString()
-	dbaasID := state.DBaaSID.ValueString()
-	oldDatabaseName := state.Id.ValueString()
-
-	if projectID == "" || dbaasID == "" || oldDatabaseName == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID, DBaaS ID, and Database Name are required to update the database",
-		)
+	db, err := r.client.Client.FromDatabase().Databases().Get(ctx, databaseRef(&state))
+	if provErr := CheckResponseErr("read", "Database", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	// Build update request
-	updateRequest := sdktypes.DatabaseRequest{
-		Name: data.Name.ValueString(),
-	}
+	db.Named(data.Name.ValueString())
 
-	// Update the database using the SDK
-	response, err := r.client.Client.FromDatabase().Databases().Update(ctx, projectID, dbaasID, oldDatabaseName, updateRequest, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error updating database",
-			NewTransportError("update", "Database", err).Error(),
-		)
+	updated, err := r.client.Client.FromDatabase().Databases().Update(ctx, db)
+	if provErr := CheckResponseErr("update", "Database", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	if apiErr := CheckResponse("update", "Database", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-
-	if response != nil && response.Data != nil {
-		// Update ID to new name
-		data.Id = types.StringValue(response.Data.Name)
-		// Database response doesn't have Metadata.URI
-		data.Uri = types.StringNull()
-	}
-
-	// Ensure immutable fields are set from state before saving
-	data.Id = state.Id
+	data.Id = types.StringValue(updated.Name()) // name can change
 	data.ProjectID = state.ProjectID
 	data.DBaaSID = state.DBaaSID
-
-	if response != nil && response.Data != nil {
-		// Update ID from response (database name can change, so use response)
-		data.Id = types.StringValue(response.Data.Name)
-	}
+	data.Name = types.StringValue(updated.Name())
+	data.Uri = strVal(updated.URI())
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -298,26 +215,12 @@ func (r *DatabaseResource) Delete(ctx context.Context, req resource.DeleteReques
 		return
 	}
 
-	projectID := data.ProjectID.ValueString()
-	dbaasID := data.DBaaSID.ValueString()
+	ref := databaseRef(&data)
 	databaseName := data.Id.ValueString()
 
-	if projectID == "" || dbaasID == "" || databaseName == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID, DBaaS ID, and Database Name are required to delete the database",
-		)
-		return
-	}
-
-	// Delete the database using the SDK with retry mechanism
-	// Retry on any error except 404 (Resource Not Found)
 	deletionChecker := func(ctx context.Context) (bool, error) {
-		getResp, getErr := r.client.Client.FromDatabase().Databases().Get(ctx, projectID, dbaasID, databaseName, nil)
-		if getErr != nil {
-			return false, NewTransportError("get", "Database", getErr)
-		}
-		if provErr := CheckResponse("get", "Database", getResp); provErr != nil {
+		_, getErr := r.client.Client.FromDatabase().Databases().Get(ctx, ref)
+		if provErr := CheckResponseErr("get", "Database", getErr); provErr != nil {
 			if IsNotFound(provErr) {
 				return true, nil
 			}
@@ -327,37 +230,19 @@ func (r *DatabaseResource) Delete(ctx context.Context, req resource.DeleteReques
 	}
 
 	deleteStart := time.Now()
-	err := DeleteResourceWithRetry(
-		ctx,
-		func() error {
-			resp, err := r.client.Client.FromDatabase().Databases().Delete(ctx, projectID, dbaasID, databaseName, nil)
-			if err != nil {
-				return NewTransportError("delete", "Database", err)
-			}
-			return CheckResponse("delete", "Database", resp)
-		},
-		"Database",
-		databaseName,
-		r.client.ResourceTimeout,
-		deletionChecker,
-	)
-
+	err := DeleteResourceWithRetry(ctx, func() error {
+		return CheckResponseErrAsError("delete", "Database",
+			r.client.Client.FromDatabase().Databases().Delete(ctx, ref))
+	}, "Database", databaseName, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error deleting database",
-			NewTransportError("delete", "Database", err).Error(),
-		)
+		resp.Diagnostics.AddError("Error deleting database", err.Error())
 		return
 	}
-
 	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "Database", databaseName, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for Database deletion", waitErr.Error())
 		return
 	}
-
-	tflog.Trace(ctx, "deleted a Database resource", map[string]interface{}{
-		"database_id": databaseName,
-	})
+	tflog.Trace(ctx, "deleted a Database resource", map[string]interface{}{"database_id": databaseName})
 }
 
 func (r *DatabaseResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

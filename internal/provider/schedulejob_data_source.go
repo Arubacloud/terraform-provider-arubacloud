@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -89,31 +90,23 @@ func (d *ScheduleJobDataSource) Read(ctx context.Context, req datasource.ReadReq
 		return
 	}
 
-	response, err := d.client.Client.FromSchedule().Jobs().Get(ctx, projectID, jobID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError("Error reading schedule job", NewTransportError("read", "Schedulejob", err).Error())
-		return
-	}
-	if apiErr := CheckResponse("read", "Schedulejob", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-	if response == nil || response.Data == nil {
-		resp.Diagnostics.AddError("No data returned", "Schedule Job Get returned no data")
+	ref := aruba.URI("/projects/" + projectID + "/providers/Aruba.Schedule/jobs/" + jobID)
+	job, err := d.client.Client.FromSchedule().Jobs().Get(ctx, ref)
+	if provErr := CheckResponseErr("read", "ScheduleJob", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	job := response.Data
-	if job.Metadata.ID != nil {
-		data.Id = types.StringValue(*job.Metadata.ID)
-	}
-	if job.Metadata.Name != nil {
-		data.Name = types.StringValue(*job.Metadata.Name)
-	}
+	data.Id = types.StringValue(job.ID())
+	data.Name = types.StringValue(job.Name())
 	data.ProjectID = types.StringValue(projectID)
-	// description and cron are not returned in the metadata response
+	if cron := job.Cron(); cron != "" {
+		data.Cron = types.StringValue(cron)
+	} else {
+		data.Cron = types.StringNull()
+	}
+	// description is not returned by the API
 	data.Description = types.StringNull()
-	data.Cron = types.StringNull()
 
 	tflog.Trace(ctx, "read a Schedule Job data source", map[string]interface{}{"job_id": jobID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

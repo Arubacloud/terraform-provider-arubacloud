@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -108,10 +108,7 @@ func (r *KeypairResource) Create(ctx context.Context, req resource.CreateRequest
 
 	projectID := data.ProjectID.ValueString()
 	if projectID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Project ID",
-			"Project ID is required to create a keypair",
-		)
+		resp.Diagnostics.AddError("Missing Project ID", "Project ID is required to create a keypair")
 		return
 	}
 
@@ -120,90 +117,50 @@ func (r *KeypairResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
-	// Build the create request
-	createRequest := sdktypes.KeyPairRequest{
-		Metadata: sdktypes.RegionalResourceMetadataRequest{
-			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
-				Name: data.Name.ValueString(),
-				Tags: tags,
-			},
-			Location: sdktypes.LocationRequest{
-				Value: data.Location.ValueString(),
-			},
-		},
-		Properties: sdktypes.KeyPairPropertiesRequest{
-			Value: data.Value.ValueString(),
-		},
-	}
+	builder := aruba.NewKeyPair().
+		Named(data.Name.ValueString()).
+		InProject(aruba.URI("/projects/" + projectID)).
+		InRegion(aruba.Region(data.Location.ValueString())).
+		WithPublicKey(data.Value.ValueString()).
+		Tagged(tags...)
 
-	// Create the keypair using the SDK
-	response, err := r.client.Client.FromCompute().KeyPairs().Create(ctx, projectID, createRequest, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error creating keypair",
-			NewTransportError("create", "Keypair", err).Error(),
-		)
+	kp, err := r.client.Client.FromCompute().KeyPairs().Create(ctx, builder)
+	if provErr := CheckResponseErr("create", "Keypair", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	if apiErr := CheckResponse("create", "Keypair", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-
-	if response != nil && response.Data != nil {
-		// Get ID from Metadata.ID (like other resources)
-		if response.Data.Metadata.ID != nil {
-			data.Id = types.StringValue(*response.Data.Metadata.ID)
-		} else {
-			resp.Diagnostics.AddError(
-				"Invalid API Response",
-				"Keypair created but ID is missing from response",
-			)
-			return
-		}
-
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
+	data.Id = types.StringValue(kp.ID())
+	if uri := kp.URI(); uri != "" {
+		data.Uri = types.StringValue(uri)
 	} else {
-		resp.Diagnostics.AddError(
-			"Invalid API Response",
-			"Keypair created but no data returned from API",
-		)
-		return
+		data.Uri = types.StringNull()
 	}
 
-	// Wait for Keypair to be active before returning (Keypair is referenced by CloudServer)
-	// This ensures Terraform doesn't proceed to create dependent resources until Keypair is ready
 	keypairID := data.Id.ValueString()
-	checker := func(ctx context.Context) (string, error) {
-		getResp, err := r.client.Client.FromCompute().KeyPairs().Get(ctx, projectID, keypairID, nil)
-		if err != nil {
-			return "", err
-		}
-		// Keypairs don't have a Status field - if we can get it, it's ready
-		if getResp != nil && getResp.Data != nil {
-			return "Active", nil
-		}
-		return "Unknown", nil
-	}
 
-	// Wait for Keypair to be active - block until ready (using configured timeout)
-	if err := WaitForResourceActive(ctx, checker, "Keypair", keypairID, r.client.ResourceTimeout); err != nil {
+	// KeyPairs may go through a short provisioning phase; wait until ready.
+	if err := kp.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); err != nil {
 		ReportWaitResult(&resp.Diagnostics, err, "Keypair", keypairID)
 		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 		return
 	}
 
 	tflog.Trace(ctx, "created a Keypair resource", map[string]interface{}{
-		"keypair_id":   data.Id.ValueString(),
+		"keypair_id":   keypairID,
 		"keypair_name": data.Name.ValueString(),
 	})
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+}
+
+// keypairRef returns the Ref to use for Get/Update/Delete.
+// Uses the stored URI when available (normal flow); falls back to a constructed URI for the import flow.
+func keypairRef(data *KeypairResourceModel) aruba.Ref {
+	if !data.Uri.IsNull() && data.Uri.ValueString() != "" {
+		return aruba.URI(data.Uri.ValueString())
+	}
+	return aruba.URI("/projects/" + data.ProjectID.ValueString() + "/compute/keyPairs/" + data.Id.ValueString())
 }
 
 func (r *KeypairResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -213,111 +170,48 @@ func (r *KeypairResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
-	// Get project ID and keypair ID from state
-	projectID := data.ProjectID.ValueString()
-	keypairID := data.Id.ValueString()
-
-	if data.Id.IsUnknown() || data.Id.IsNull() || keypairID == "" {
-		tflog.Debug(ctx, "Keypair ID is empty, removing resource from state", map[string]interface{}{"keypair_id": keypairID})
+	if data.Id.IsUnknown() || data.Id.IsNull() || data.Id.ValueString() == "" {
 		resp.State.RemoveResource(ctx)
 		return
 	}
 
-	if projectID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID is required to read the keypair",
-		)
-		return
-	}
-
-	// Get keypair details using the SDK
-	// The API Get method accepts the keypair ID
 	tflog.Debug(ctx, "Reading keypair", map[string]interface{}{
-		"project_id":   projectID,
-		"keypair_id":   keypairID,
-		"keypair_name": data.Name.ValueString(),
-		"keypair_uri":  data.Uri.ValueString(),
+		"project_id":  data.ProjectID.ValueString(),
+		"keypair_id":  data.Id.ValueString(),
+		"keypair_uri": data.Uri.ValueString(),
 	})
 
-	response, err := r.client.Client.FromCompute().KeyPairs().Get(ctx, projectID, keypairID, nil)
-	if err != nil {
-		tflog.Error(ctx, "Error calling keypair Get API", map[string]interface{}{
-			"error":      err,
-			"project_id": projectID,
-			"keypair_id": keypairID,
-		})
-		resp.Diagnostics.AddError(
-			"Error reading keypair",
-			NewTransportError("read", "Keypair", err).Error(),
-		)
-		return
-	}
-
-	if response != nil && response.IsError() && response.Error != nil {
-		if response.StatusCode == 404 {
-			tflog.Info(ctx, "Keypair not found (404), removing from state", map[string]interface{}{
-				"project_id": projectID,
-				"keypair_id": keypairID,
-			})
+	kp, err := r.client.Client.FromCompute().KeyPairs().Get(ctx, keypairRef(&data))
+	if provErr := CheckResponseErr("read", "Keypair", err); provErr != nil {
+		if IsNotFound(provErr) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		apiErr := newResponseError("read", "Keypair", response.StatusCode, response.Error, response.RawBody)
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	if response != nil && response.Data != nil {
-		keypair := response.Data
+	// Preserve write-only / non-returned fields from state.
+	projectIDFromState := data.ProjectID
+	valueFromState := data.Value
 
-		// Preserve ProjectID and Value from state (they're not in the API response)
-		projectIDFromState := data.ProjectID
-		valueFromState := data.Value
-		idFromState := data.Id
-
-		// Get ID from Metadata.ID (like other resources)
-		if keypair.Metadata.ID != nil {
-			data.Id = types.StringValue(*keypair.Metadata.ID)
-		} else {
-			// If API doesn't provide ID, preserve from state
-			data.Id = idFromState
-		}
-
-		if keypair.Metadata.Name != nil {
-			data.Name = types.StringValue(*keypair.Metadata.Name)
-		}
-		if keypair.Metadata.URI != nil {
-			data.Uri = types.StringValue(*keypair.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-		if keypair.Metadata.LocationResponse != nil {
-			data.Location = types.StringValue(keypair.Metadata.LocationResponse.Value)
-		}
-
-		// Update tags from response
-		if len(keypair.Metadata.Tags) > 0 {
-			tagValues := make([]types.String, len(keypair.Metadata.Tags))
-			for i, tag := range keypair.Metadata.Tags {
-				tagValues[i] = types.StringValue(tag)
-			}
-			tagsList, diags := types.ListValueFrom(ctx, types.StringType, tagValues)
-			resp.Diagnostics.Append(diags...)
-			if !resp.Diagnostics.HasError() {
-				data.Tags = tagsList
-			}
-		} else {
-			data.Tags = types.ListNull(types.StringType)
-		}
-
-		// Restore ProjectID and Value from state (they're not returned by the API)
-		data.ProjectID = projectIDFromState
-		data.Value = valueFromState
+	data.Id = types.StringValue(kp.ID())
+	data.Name = types.StringValue(kp.Name())
+	if uri := kp.URI(); uri != "" {
+		data.Uri = types.StringValue(uri)
 	} else {
-		resp.State.RemoveResource(ctx)
-		return
+		data.Uri = types.StringNull()
 	}
+
+	raw := kp.Raw()
+	if raw != nil && raw.Metadata.LocationResponse != nil {
+		data.Location = types.StringValue(string(raw.Metadata.LocationResponse.Value))
+	}
+
+	data.Tags = TagsToListPreserveNull(kp.Tags(), data.Tags)
+
+	data.ProjectID = projectIDFromState
+	data.Value = valueFromState
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -330,94 +224,49 @@ func (r *KeypairResource) Update(ctx context.Context, req resource.UpdateRequest
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Use IDs from state (they are immutable)
-	projectID := state.ProjectID.ValueString()
-	keypairID := state.Id.ValueString()
-
-	if projectID == "" || keypairID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID and Keypair ID are required to update the keypair",
-		)
-		return
-	}
-
-	// Keypair update is not supported by the API
-	// Check if immutable fields changed
+	// Keypair update is not supported by the API — validate that no updatable fields changed.
 	if !data.Name.Equal(state.Name) {
-		resp.Diagnostics.AddError(
-			"Keypair Name Update Not Supported",
-			"Changing the keypair name is not supported by the API. Please delete and recreate the keypair with the new name.",
-		)
+		resp.Diagnostics.AddError("Keypair Name Update Not Supported",
+			"Changing the keypair name is not supported by the API. Please delete and recreate the keypair with the new name.")
 		return
 	}
-
 	if !data.Value.Equal(state.Value) {
-		resp.Diagnostics.AddError(
-			"Keypair Public Key Update Not Supported",
-			"Changing the public key value is not supported by the API. Please delete and recreate the keypair with the new public key.",
-		)
+		resp.Diagnostics.AddError("Keypair Public Key Update Not Supported",
+			"Changing the public key value is not supported by the API. Please delete and recreate the keypair with the new public key.")
 		return
 	}
-
 	if !data.Location.Equal(state.Location) {
-		resp.Diagnostics.AddError(
-			"Keypair Location Update Not Supported",
-			"Changing the keypair location is not supported by the API. Please delete and recreate the keypair in the new location.",
-		)
+		resp.Diagnostics.AddError("Keypair Location Update Not Supported",
+			"Changing the keypair location is not supported by the API. Please delete and recreate the keypair in the new location.")
 		return
 	}
 
-	// Since updates aren't supported, we just read the resource to refresh state
-	// This ensures URI and other computed fields are up to date
-	getResponse, err := r.client.Client.FromCompute().KeyPairs().Get(ctx, projectID, keypairID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading keypair",
-			NewTransportError("read", "Keypair", err).Error(),
-		)
-		return
-	}
-
-	if getResponse == nil || getResponse.IsError() || getResponse.Data == nil {
-		if getResponse != nil && getResponse.StatusCode == 404 {
-			tflog.Info(ctx, "Keypair not found (404), removing from state", map[string]interface{}{
-				"project_id": projectID,
-				"keypair_id": keypairID,
-			})
+	// Refresh state via Get so URI and computed fields stay current.
+	kp, err := r.client.Client.FromCompute().KeyPairs().Get(ctx, keypairRef(&state))
+	if provErr := CheckResponseErr("read", "Keypair", err); provErr != nil {
+		if IsNotFound(provErr) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError(
-			"Keypair Not Found",
-			"Keypair not found or no data returned",
-		)
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	keypair := getResponse.Data
-
-	// Ensure immutable fields are set from state before saving
+	// Preserve immutable and write-only fields from state.
 	data.Id = state.Id
 	data.ProjectID = state.ProjectID
 	data.Location = state.Location
 	data.Value = state.Value
-
-	// Update URI from API response
-	if keypair.Metadata.URI != nil {
-		data.Uri = types.StringValue(*keypair.Metadata.URI)
+	if uri := kp.URI(); uri != "" {
+		data.Uri = types.StringValue(uri)
 	} else {
 		data.Uri = state.Uri
 	}
-
-	// Tags can't be updated via API; use plan value so state stays consistent with config.
-	// (data.Tags already holds the plan value from req.Plan.Get above)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -429,25 +278,17 @@ func (r *KeypairResource) Delete(ctx context.Context, req resource.DeleteRequest
 		return
 	}
 
-	projectID := data.ProjectID.ValueString()
 	keypairID := data.Id.ValueString()
-
-	if projectID == "" || keypairID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID and Keypair ID are required to delete the keypair",
-		)
+	if keypairID == "" {
+		resp.Diagnostics.AddError("Missing Required Fields", "Keypair ID is required to delete the keypair")
 		return
 	}
 
-	// Delete the keypair using the SDK with retry mechanism
-	// Retry on any error except 404 (Resource Not Found)
+	ref := keypairRef(&data)
+
 	deletionChecker := func(ctx context.Context) (bool, error) {
-		getResp, getErr := r.client.Client.FromCompute().KeyPairs().Get(ctx, projectID, keypairID, nil)
-		if getErr != nil {
-			return false, NewTransportError("get", "Keypair", getErr)
-		}
-		if provErr := CheckResponse("get", "Keypair", getResp); provErr != nil {
+		_, getErr := r.client.Client.FromCompute().KeyPairs().Get(ctx, ref)
+		if provErr := CheckResponseErr("get", "Keypair", getErr); provErr != nil {
 			if IsNotFound(provErr) {
 				return true, nil
 			}
@@ -460,23 +301,16 @@ func (r *KeypairResource) Delete(ctx context.Context, req resource.DeleteRequest
 	err := DeleteResourceWithRetry(
 		ctx,
 		func() error {
-			resp, err := r.client.Client.FromCompute().KeyPairs().Delete(ctx, projectID, keypairID, nil)
-			if err != nil {
-				return NewTransportError("delete", "Keypair", err)
-			}
-			return CheckResponse("delete", "Keypair", resp)
+			delErr := r.client.Client.FromCompute().KeyPairs().Delete(ctx, ref)
+			return CheckResponseErrAsError("delete", "Keypair", delErr)
 		},
 		"Keypair",
 		keypairID,
 		r.client.ResourceTimeout,
 		deletionChecker,
 	)
-
 	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error deleting keypair",
-			NewTransportError("delete", "Keypair", err).Error(),
-		)
+		resp.Diagnostics.AddError("Error deleting keypair", err.Error())
 		return
 	}
 
@@ -485,9 +319,7 @@ func (r *KeypairResource) Delete(ctx context.Context, req resource.DeleteRequest
 		return
 	}
 
-	tflog.Trace(ctx, "deleted a Keypair resource", map[string]interface{}{
-		"keypair_id": keypairID,
-	})
+	tflog.Trace(ctx, "deleted a Keypair resource", map[string]interface{}{"keypair_id": keypairID})
 }
 
 func (r *KeypairResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

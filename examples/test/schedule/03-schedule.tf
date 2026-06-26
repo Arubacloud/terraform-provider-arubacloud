@@ -19,14 +19,14 @@ resource "arubacloud_schedulejob" "recurring" {
   properties = {
     enabled            = true
     schedule_job_type  = "Recurring"
-    schedule_at        = "2026-06-01T10:00:00Z"  # Start date/time
-    execute_until      = "2026-08-01T10:00:00Z"  # End date/time
+    schedule_at        = "2027-06-01T10:00:00Z"  # Start date/time
+    execute_until      = "2027-08-01T10:00:00Z"  # End date/time
     cron               = "0 10 * * *"             # Daily at 10:00 AM
     steps = [
       {
         name         = "Power Off Server"
         # TODO: Replace with your actual resource URI
-        resource_uri = "/projects/68398923fb2cb026400d4d31/providers/Aruba.Compute/cloudServers/69007ece4e7d691466d86223"
+        resource_uri = "/projects/69fdbc392a18af75c66f720b/providers/Aruba.Compute/cloudServers/69fdbce6425e1589d960a3d1"
         action_uri   = "poweroff"
         http_verb    = "POST"
         body         = null

@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
+	"github.com/Arubacloud/sdk-go/pkg/aruba"
 )
 
 // ProviderErrorCategory classifies an API error as semantic, transient, or technical.
@@ -145,63 +145,18 @@ func NewTransportError(operation, resource string, err error) *ProviderError {
 	}
 }
 
-// newResponseError creates a ProviderError from a non-success HTTP response.
-// For HTTP 4xx: Semantic when ErrorResponse.Errors is non-empty (field-level validation
+// newResponseError creates a ProviderError from pre-extracted HTTP response fields.
+// For HTTP 4xx: Semantic when hasValidationErrors is true (field-level validation
 // failures), Transient otherwise. For everything else: Technical.
-func newResponseError(operation, resource string, statusCode int, errResp *sdktypes.ErrorResponse, rawBody []byte) *ProviderError {
+func newResponseError(operation, resource string, statusCode int, title, detail, instance string, hasValidationErrors bool) *ProviderError {
 	category := ProviderErrorCategoryTechnical
 	if statusCode >= 400 && statusCode < 500 {
-		if errResp != nil && len(errResp.Errors) > 0 {
+		if hasValidationErrors {
 			category = ProviderErrorCategorySemantic
 		} else {
 			category = ProviderErrorCategoryTransient
 		}
 	}
-
-	title, detail, instance := "", "", ""
-	if errResp != nil {
-		if errResp.Title != nil {
-			title = sanitizeAPIString(*errResp.Title)
-		}
-		if errResp.Detail != nil {
-			detail = sanitizeAPIString(*errResp.Detail)
-		}
-		if errResp.Instance != nil {
-			instance = sanitizeAPIString(*errResp.Instance)
-		}
-		if len(errResp.Errors) > 0 {
-			parts := make([]string, 0, len(errResp.Errors))
-			for _, ve := range errResp.Errors {
-				switch {
-				case ve.Field != "" && ve.Message != "":
-					parts = append(parts, ve.Field+": "+ve.Message)
-				case ve.Message != "":
-					parts = append(parts, ve.Message)
-				case ve.Field != "":
-					parts = append(parts, ve.Field+": invalid")
-				}
-			}
-			if len(parts) > 0 {
-				validationDetail := sanitizeAPIString(strings.Join(parts, "; "))
-				if detail != "" {
-					detail = detail + " | Validation: " + validationDetail
-				} else {
-					detail = "Validation: " + validationDetail
-				}
-			} else {
-				// Typed Field/Message extraction produced nothing; fall back to raw body.
-				rawDetail := formatRawValidationErrors(rawBody)
-				if rawDetail != "" {
-					if detail != "" {
-						detail = detail + " | Validation: " + rawDetail
-					} else {
-						detail = "Validation: " + rawDetail
-					}
-				}
-			}
-		}
-	}
-
 	return &ProviderError{
 		Category:   category,
 		StatusCode: statusCode,
@@ -213,43 +168,97 @@ func newResponseError(operation, resource string, statusCode int, errResp *sdkty
 	}
 }
 
-// CheckResponse inspects a typed SDK response and returns nil if the status code
-// is 2xx, or a *ProviderError otherwise. A nil response is treated as a Technical error.
-func CheckResponse[T any](operation, resource string, resp *sdktypes.Response[T]) error {
-	if resp == nil {
-		return &ProviderError{
-			Category:  ProviderErrorCategoryTechnical,
-			Operation: operation,
-			Resource:  resource,
-			Cause:     fmt.Errorf("nil response"),
-		}
-	}
-	if resp.IsSuccess() {
+// CheckResponseErr inspects the error returned by a sdk-go v1 builder call and
+// returns a classified *ProviderError, or nil on success (err == nil).
+// It handles both API-level errors (*aruba.HTTPError, produced by 4xx/5xx responses)
+// and transport-level errors (network failures, TLS errors, etc.).
+func CheckResponseErr(operation, resource string, err error) *ProviderError {
+	if err == nil {
 		return nil
 	}
-	return newResponseError(operation, resource, resp.StatusCode, resp.Error, resp.RawBody)
+	var httpErr *aruba.HTTPError
+	if errors.As(err, &httpErr) {
+		title, detail, instance := "", "", ""
+		hasValidationErrors := false
+		if httpErr.ErrResp != nil {
+			if httpErr.ErrResp.Title != nil {
+				title = sanitizeAPIString(*httpErr.ErrResp.Title)
+			}
+			if httpErr.ErrResp.Detail != nil {
+				detail = sanitizeAPIString(*httpErr.ErrResp.Detail)
+			}
+			if httpErr.ErrResp.Instance != nil {
+				instance = sanitizeAPIString(*httpErr.ErrResp.Instance)
+			}
+			if len(httpErr.ErrResp.Errors) > 0 {
+				hasValidationErrors = true
+				parts := make([]string, 0, len(httpErr.ErrResp.Errors))
+				for _, ve := range httpErr.ErrResp.Errors {
+					switch {
+					case ve.Field != "" && ve.Message != "":
+						parts = append(parts, ve.Field+": "+ve.Message)
+					case ve.Message != "":
+						parts = append(parts, ve.Message)
+					case ve.Field != "":
+						parts = append(parts, ve.Field+": invalid")
+					}
+				}
+				if len(parts) > 0 {
+					validationDetail := sanitizeAPIString(strings.Join(parts, "; "))
+					if detail != "" {
+						detail = detail + " | Validation: " + validationDetail
+					} else {
+						detail = "Validation: " + validationDetail
+					}
+				} else {
+					rawDetail := formatRawValidationErrors(httpErr.Body)
+					if rawDetail != "" {
+						if detail != "" {
+							detail = detail + " | Validation: " + rawDetail
+						} else {
+							detail = "Validation: " + rawDetail
+						}
+					}
+				}
+			}
+		}
+		return newResponseError(operation, resource, httpErr.StatusCode, title, detail, instance, hasValidationErrors)
+	}
+	return NewTransportError(operation, resource, err)
+}
+
+// CheckResponseErrAsError is like CheckResponseErr but returns a plain error
+// interface instead of *ProviderError. Use this in func() error closures passed
+// to CreateWithTransientRetry and DeleteResourceWithRetry to avoid the typed-nil
+// interface bug: a nil *ProviderError returned as error is a non-nil interface,
+// which triggers spurious error handling and can panic on .Error() dereference.
+func CheckResponseErrAsError(operation, resource string, err error) error {
+	if provErr := CheckResponseErr(operation, resource, err); provErr != nil {
+		return provErr
+	}
+	return nil
 }
 
 // IsNotFound reports whether err (or any error in its chain) represents a 404 Not Found response.
 func IsNotFound(err error) bool {
 	var provErr *ProviderError
-	return errors.As(err, &provErr) && provErr.StatusCode == 404
+	return errors.As(err, &provErr) && provErr != nil && provErr.StatusCode == 404
 }
 
 // ErrorIsSemantic reports whether err is a *ProviderError with category Semantic.
 func ErrorIsSemantic(err error) bool {
 	var provErr *ProviderError
-	return errors.As(err, &provErr) && provErr.Category == ProviderErrorCategorySemantic
+	return errors.As(err, &provErr) && provErr != nil && provErr.Category == ProviderErrorCategorySemantic
 }
 
 // ErrorIsTransient reports whether err is a *ProviderError with category Transient.
 func ErrorIsTransient(err error) bool {
 	var provErr *ProviderError
-	return errors.As(err, &provErr) && provErr.Category == ProviderErrorCategoryTransient
+	return errors.As(err, &provErr) && provErr != nil && provErr.Category == ProviderErrorCategoryTransient
 }
 
 // ErrorIsTechnical reports whether err is a *ProviderError with category Technical.
 func ErrorIsTechnical(err error) bool {
 	var provErr *ProviderError
-	return errors.As(err, &provErr) && provErr.Category == ProviderErrorCategoryTechnical
+	return errors.As(err, &provErr) && provErr != nil && provErr.Category == ProviderErrorCategoryTechnical
 }

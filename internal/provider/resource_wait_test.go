@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 	tfdiag "github.com/hashicorp/terraform-plugin-framework/diag"
 )
@@ -312,7 +313,7 @@ func TestDeleteResourceWithRetry_SucceedsOnFirstAttempt(t *testing.T) {
 func TestDeleteResourceWithRetry_NotFoundTreatedAsSuccess(t *testing.T) {
 	withFastDeleteRetry(t)
 
-	notFound := newResponseError("delete", "kaas", 404, nil, nil)
+	notFound := newResponseError("delete", "kaas", 404, "", "", "", false)
 	deleteFunc := func() error { return notFound }
 
 	if err := DeleteResourceWithRetry(context.Background(), deleteFunc, "kaas", "abc", time.Second); err != nil {
@@ -323,7 +324,7 @@ func TestDeleteResourceWithRetry_NotFoundTreatedAsSuccess(t *testing.T) {
 func TestDeleteResourceWithRetry_SucceedsAfterRetry(t *testing.T) {
 	withFastDeleteRetry(t)
 
-	boom := newResponseError("delete", "kaas", 500, nil, nil)
+	boom := newResponseError("delete", "kaas", 500, "", "", "", false)
 	var calls int32
 	deleteFunc := func() error {
 		n := atomic.AddInt32(&calls, 1)
@@ -344,7 +345,7 @@ func TestDeleteResourceWithRetry_SucceedsAfterRetry(t *testing.T) {
 func TestDeleteResourceWithRetry_TimeoutReturnsError(t *testing.T) {
 	withFastDeleteRetry(t)
 
-	boom := newResponseError("delete", "kaas", 500, nil, nil)
+	boom := newResponseError("delete", "kaas", 500, "", "", "", false)
 	deleteFunc := func() error { return boom }
 
 	err := DeleteResourceWithRetry(context.Background(), deleteFunc, "kaas", "abc", 20*time.Millisecond)
@@ -356,7 +357,7 @@ func TestDeleteResourceWithRetry_TimeoutReturnsError(t *testing.T) {
 func TestDeleteResourceWithRetry_ContextCancelledReturnsError(t *testing.T) {
 	withFastDeleteRetry(t)
 
-	boom := newResponseError("delete", "kaas", 500, nil, nil)
+	boom := newResponseError("delete", "kaas", 500, "", "", "", false)
 	deleteFunc := func() error { return boom }
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -371,7 +372,7 @@ func TestDeleteResourceWithRetry_ContextCancelledReturnsError(t *testing.T) {
 func TestDeleteResourceWithRetry_ExistsCheckerShortCircuitsAfterFailedDelete(t *testing.T) {
 	withFastDeleteRetry(t)
 
-	boom := newResponseError("delete", "kaas", 400, nil, nil)
+	boom := newResponseError("delete", "kaas", 400, "", "", "", false)
 	var deleteCalls, checkerCalls int32
 
 	deleteFunc := func() error {
@@ -469,7 +470,7 @@ func TestReportWaitResult_OtherErrorAddsError(t *testing.T) {
 func TestWaitForResourceDeleted_RecognisesNotFoundPattern(t *testing.T) {
 	withFastPoll(t)
 
-	notFound := newResponseError("get", "kaas", 404, nil, nil)
+	notFound := newResponseError("get", "kaas", 404, "", "", "", false)
 	if !IsNotFound(notFound) {
 		t.Fatalf("test setup: expected IsNotFound to recognise 404 ProviderError")
 	}
@@ -550,6 +551,19 @@ func TestReportWaitResult_NonTimeoutProducesError(t *testing.T) {
 	}
 }
 
+// SDK WaitUntilReady returns context.DeadlineExceeded on timeout, which must be
+// treated as a warning (no taint), not an error.
+func TestReportWaitResult_SDKDeadlineExceededProducesWarning(t *testing.T) {
+	var d tfdiag.Diagnostics
+	ReportWaitResult(&d, context.DeadlineExceeded, "ContainerRegistry", "abc")
+	if d.HasError() {
+		t.Error("expected no error diagnostic for context.DeadlineExceeded timeout, got error")
+	}
+	if len(d) == 0 {
+		t.Error("expected at least one warning diagnostic, got none")
+	}
+}
+
 // ── remainingTimeout ─────────────────────────────────────────────────────────
 
 func TestRemainingTimeout(t *testing.T) {
@@ -587,9 +601,12 @@ func TestCreateWithTransientRetry_SucceedsImmediately(t *testing.T) {
 }
 
 func TestCreateWithTransientRetry_NonTransientErrorReturnedImmediately(t *testing.T) {
-	semantic := newResponseError("create", "vpc", 400, &sdktypes.ErrorResponse{
-		Errors: []sdktypes.ValidationError{{Field: "name", Message: "required"}},
-	}, nil)
+	semantic := CheckResponseErr("create", "vpc", &aruba.HTTPError{
+		StatusCode: 400,
+		ErrResp: &sdktypes.ErrorResponse{
+			Errors: []sdktypes.ValidationError{{Field: "name", Message: "required"}},
+		},
+	})
 	var calls int32
 	createFunc := func() error {
 		atomic.AddInt32(&calls, 1)
@@ -605,7 +622,7 @@ func TestCreateWithTransientRetry_NonTransientErrorReturnedImmediately(t *testin
 }
 
 func TestCreateWithTransientRetry_TransientErrorTimesOut(t *testing.T) {
-	transient := newResponseError("create", "vpc", 400, nil, nil)
+	transient := newResponseError("create", "vpc", 400, "", "", "", false)
 	if !ErrorIsTransient(transient) {
 		t.Fatal("test setup: expected 400 with no validation errors to be transient")
 	}

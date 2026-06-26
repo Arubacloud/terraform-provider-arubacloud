@@ -53,8 +53,8 @@ Acceptance tests exercise the real ArubaCloud API — they create, read, update,
 
 ```bash
 export TF_ACC=1
-export ARUBACLOUD_API_KEY=<your-api-key>
-export ARUBACLOUD_API_SECRET=<your-api-secret>
+export ARUBACLOUD_CLIENT_ID=<your-client-id>
+export ARUBACLOUD_CLIENT_SECRET=<your-client-secret>
 export ARUBACLOUD_PROJECT_ID=<an-existing-project-id>
 
 # Run all acceptance tests (slow — provisions real infra)
@@ -85,8 +85,8 @@ The following variables must be set as [repository secrets](https://docs.github.
 | Variable | Purpose |
 |---|---|
 | `TF_ACC` | Must be `"1"` to activate acceptance tests |
-| `ARUBACLOUD_API_KEY` | API authentication |
-| `ARUBACLOUD_API_SECRET` | API authentication |
+| `ARUBACLOUD_CLIENT_ID` | OAuth2 Client ID for API authentication |
+| `ARUBACLOUD_CLIENT_SECRET` | OAuth2 Client Secret for API authentication |
 
 #### Resource tests
 

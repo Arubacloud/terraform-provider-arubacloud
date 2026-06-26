@@ -2,9 +2,11 @@ package provider
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
 )
 
@@ -102,7 +104,7 @@ func contains(s, sub string) bool {
 		}())
 }
 
-func TestNewResponseError_TypedExtractionWorks(t *testing.T) {
+func TestCheckResponseErr_TypedExtractionWorks(t *testing.T) {
 	errResp := &sdktypes.ErrorResponse{
 		Title: strPtr("One or more validation errors occurred."),
 		Errors: []sdktypes.ValidationError{
@@ -110,8 +112,9 @@ func TestNewResponseError_TypedExtractionWorks(t *testing.T) {
 		},
 	}
 	rawBody := []byte(`{"title":"One or more validation errors occurred.","errors":[{"propertyName":"Tag","errorMessage":"length must be at least 4"}]}`)
+	httpErr := &aruba.HTTPError{StatusCode: 400, ErrResp: errResp, Body: rawBody}
 
-	err := newResponseError("create", "Schedulejob", 400, errResp, rawBody)
+	err := CheckResponseErr("create", "Schedulejob", httpErr)
 
 	if err.Category != ProviderErrorCategorySemantic {
 		t.Errorf("expected semantic, got %v", err.Category)
@@ -125,7 +128,7 @@ func TestNewResponseError_TypedExtractionWorks(t *testing.T) {
 	}
 }
 
-func TestNewResponseError_FallbackToRawBody(t *testing.T) {
+func TestCheckResponseErr_FallbackToRawBody(t *testing.T) {
 	// Errors array has entries but Field/Message are empty (API uses different keys).
 	errResp := &sdktypes.ErrorResponse{
 		Title: strPtr("One or more validation errors occurred."),
@@ -134,8 +137,9 @@ func TestNewResponseError_FallbackToRawBody(t *testing.T) {
 		},
 	}
 	rawBody := []byte(`{"title":"One or more validation errors occurred.","errors":[{"propertyName":"CronExpression","errorMessage":"invalid cron format"}]}`)
+	httpErr := &aruba.HTTPError{StatusCode: 400, ErrResp: errResp, Body: rawBody}
 
-	err := newResponseError("create", "Schedulejob", 400, errResp, rawBody)
+	err := CheckResponseErr("create", "Schedulejob", httpErr)
 
 	if err.Category != ProviderErrorCategorySemantic {
 		t.Errorf("expected semantic, got %v", err.Category)
@@ -145,13 +149,14 @@ func TestNewResponseError_FallbackToRawBody(t *testing.T) {
 	}
 }
 
-func TestNewResponseError_NilRawBodyDoesNotPanic(t *testing.T) {
+func TestCheckResponseErr_NilBodyDoesNotPanic(t *testing.T) {
 	errResp := &sdktypes.ErrorResponse{
 		Title:  strPtr("One or more validation errors occurred."),
 		Errors: []sdktypes.ValidationError{{}},
 	}
+	httpErr := &aruba.HTTPError{StatusCode: 400, ErrResp: errResp, Body: nil}
 
-	err := newResponseError("create", "Schedulejob", 400, errResp, nil)
+	err := CheckResponseErr("create", "Schedulejob", httpErr)
 
 	if err.Category != ProviderErrorCategorySemantic {
 		t.Errorf("expected semantic, got %v", err.Category)
@@ -160,14 +165,15 @@ func TestNewResponseError_NilRawBodyDoesNotPanic(t *testing.T) {
 	_ = err.Error()
 }
 
-func TestNewResponseError_TransientNotConsultingRawBody(t *testing.T) {
+func TestCheckResponseErr_TransientNotConsultingRawBody(t *testing.T) {
 	errResp := &sdktypes.ErrorResponse{
 		Title:  strPtr("Conflict"),
 		Errors: []sdktypes.ValidationError{}, // empty → transient
 	}
 	rawBody := []byte(`{"title":"Conflict","errors":[{"propertyName":"Name","errorMessage":"must be unique"}]}`)
+	httpErr := &aruba.HTTPError{StatusCode: 409, ErrResp: errResp, Body: rawBody}
 
-	err := newResponseError("create", "Resource", 409, errResp, rawBody)
+	err := CheckResponseErr("create", "Resource", httpErr)
 
 	if err.Category != ProviderErrorCategoryTransient {
 		t.Errorf("expected transient, got %v", err.Category)
@@ -178,86 +184,86 @@ func TestNewResponseError_TransientNotConsultingRawBody(t *testing.T) {
 	}
 }
 
-func TestNewResponseError_NilErrResp(t *testing.T) {
-	err := newResponseError("create", "Resource", 500, nil, nil)
+func TestCheckResponseErr_NilErrResp(t *testing.T) {
+	err := CheckResponseErr("create", "Resource", &aruba.HTTPError{StatusCode: 500, ErrResp: nil})
 	if err.Category != ProviderErrorCategoryTechnical {
 		t.Errorf("expected technical, got %v", err.Category)
 	}
 	_ = err.Error()
 }
 
-func TestCheckResponse(t *testing.T) {
+func makeHTTPErr(statusCode int, errResp *sdktypes.ErrorResponse) error {
+	return &aruba.HTTPError{StatusCode: statusCode, ErrResp: errResp}
+}
+
+func TestCheckResponseErr(t *testing.T) {
 	title404 := "Not Found"
 	title400 := "Validation failed"
 
 	cases := []struct {
 		name         string
-		resp         *sdktypes.Response[struct{}]
+		err          error
 		wantNil      bool
 		wantCategory ProviderErrorCategory
 	}{
 		{
-			name:         "nil response → technical error",
-			resp:         nil,
-			wantCategory: ProviderErrorCategoryTechnical,
-		},
-		{
-			name:    "200 OK → nil",
-			resp:    &sdktypes.Response[struct{}]{StatusCode: 200},
+			name:    "nil error → nil (success)",
+			err:     nil,
 			wantNil: true,
 		},
 		{
-			name:    "201 Created → nil",
-			resp:    &sdktypes.Response[struct{}]{StatusCode: 201},
-			wantNil: true,
-		},
-		{
-			name: "404 Not Found (no validation errors) → transient",
-			resp: &sdktypes.Response[struct{}]{
-				StatusCode: 404,
-				Error:      &sdktypes.ErrorResponse{Title: &title404},
-			},
+			name:         "404 Not Found (no validation errors) → transient",
+			err:          makeHTTPErr(404, &sdktypes.ErrorResponse{Title: &title404}),
 			wantCategory: ProviderErrorCategoryTransient,
 		},
 		{
 			name: "400 with validation errors → semantic",
-			resp: &sdktypes.Response[struct{}]{
-				StatusCode: 400,
-				Error: &sdktypes.ErrorResponse{
-					Title: &title400,
-					Errors: []sdktypes.ValidationError{
-						{Field: "name", Message: "is required"},
-					},
+			err: makeHTTPErr(400, &sdktypes.ErrorResponse{
+				Title: &title400,
+				Errors: []sdktypes.ValidationError{
+					{Field: "name", Message: "is required"},
 				},
-			},
+			}),
 			wantCategory: ProviderErrorCategorySemantic,
 		},
 		{
 			name:         "500 Internal Server Error → technical",
-			resp:         &sdktypes.Response[struct{}]{StatusCode: 500},
+			err:          makeHTTPErr(500, nil),
+			wantCategory: ProviderErrorCategoryTechnical,
+		},
+		{
+			name:         "non-HTTP transport error → technical",
+			err:          fmt.Errorf("dial tcp: connection refused"),
 			wantCategory: ProviderErrorCategoryTechnical,
 		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := CheckResponse("create", "Resource", tc.resp)
+			provErr := CheckResponseErr("create", "Resource", tc.err)
 			if tc.wantNil {
-				if err != nil {
-					t.Errorf("expected nil error, got %v", err)
+				if provErr != nil {
+					t.Errorf("expected nil, got %v", provErr)
 				}
 				return
 			}
-			if err == nil {
-				t.Fatal("expected non-nil error, got nil")
-			}
-			var provErr *ProviderError
-			if !errors.As(err, &provErr) {
-				t.Fatalf("expected *ProviderError, got %T", err)
+			if provErr == nil {
+				t.Fatal("expected non-nil *ProviderError, got nil")
 			}
 			if provErr.Category != tc.wantCategory {
 				t.Errorf("category: got %v, want %v", provErr.Category, tc.wantCategory)
 			}
 		})
+	}
+}
+
+func TestCheckResponseErr_IsNotFound(t *testing.T) {
+	title := "Not Found"
+	err := CheckResponseErr("get", "VPC", makeHTTPErr(404, &sdktypes.ErrorResponse{Title: &title}))
+	if err == nil {
+		t.Fatal("expected non-nil error for 404")
+	}
+	if !IsNotFound(err) {
+		t.Errorf("IsNotFound should return true for 404, got false; err=%v", err)
 	}
 }
 

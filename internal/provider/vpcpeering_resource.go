@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -96,6 +96,27 @@ func (r *VpcPeeringResource) Configure(ctx context.Context, req resource.Configu
 	r.client = client
 }
 
+func vpcPeeringRef(data *VpcPeeringResourceModel) aruba.Ref {
+	if !data.Uri.IsNull() && data.Uri.ValueString() != "" {
+		return aruba.URI(data.Uri.ValueString())
+	}
+	return aruba.VPCPeeringRef(data.ProjectId.ValueString(), data.VpcId.ValueString(), data.Id.ValueString())
+}
+
+func applyVPCPeeringToModel(p *aruba.VPCPeering, data *VpcPeeringResourceModel) {
+	data.Id = types.StringValue(p.ID())
+	data.Uri = strVal(p.URI())
+	data.Name = types.StringValue(p.Name())
+	data.Tags = TagsToListPreserveNull(p.Tags(), data.Tags)
+	if p.RemoteVPCURI() != "" {
+		data.PeerVpc = types.StringValue(p.RemoteVPCURI())
+	}
+	raw := p.Raw()
+	if raw != nil && raw.Metadata.LocationResponse != nil {
+		data.Location = types.StringValue(string(raw.Metadata.LocationResponse.Value))
+	}
+}
+
 func (r *VpcPeeringResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data VpcPeeringResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
@@ -106,101 +127,59 @@ func (r *VpcPeeringResource) Create(ctx context.Context, req resource.CreateRequ
 	projectID := data.ProjectId.ValueString()
 	vpcID := data.VpcId.ValueString()
 
-	if projectID == "" || vpcID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID and VPC ID are required to create a VPC peering",
-		)
-		return
-	}
-
 	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Build peer VPC URI
+	// Normalise peer VPC value: if bare ID, construct the full URI.
 	peerVPCURI := data.PeerVpc.ValueString()
 	if !strings.HasPrefix(peerVPCURI, "/") {
 		peerVPCURI = fmt.Sprintf("/projects/%s/providers/Aruba.Network/vpcs/%s", projectID, peerVPCURI)
 	}
 
-	// Build the create request
-	createRequest := sdktypes.VPCPeeringRequest{
-		Metadata: sdktypes.RegionalResourceMetadataRequest{
-			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
-				Name: data.Name.ValueString(),
-				Tags: tags,
-			},
-			Location: sdktypes.LocationRequest{
-				Value: data.Location.ValueString(),
-			},
-		},
-		Properties: sdktypes.VPCPeeringPropertiesRequest{
-			RemoteVPC: &sdktypes.ReferenceResource{
-				URI: peerVPCURI,
-			},
-		},
-	}
-
-	// Create the VPC peering using the SDK
-	response, err := r.client.Client.FromNetwork().VPCPeerings().Create(ctx, projectID, vpcID, createRequest, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error creating VPC peering",
-			NewTransportError("create", "Vpcpeering", err).Error(),
-		)
+	vpcURI := aruba.URI("/projects/" + projectID + "/network/vpcs/" + vpcID)
+	peering, err := r.client.Client.FromNetwork().VPCPeerings().Create(ctx,
+		aruba.NewVPCPeering().
+			Named(data.Name.ValueString()).
+			InVPC(vpcURI).
+			InRegion(aruba.Region(data.Location.ValueString())).
+			Tagged(tags...).
+			PeeredWith(aruba.URI(peerVPCURI)),
+	)
+	if provErr := CheckResponseErr("create", "VPCPeering", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	if apiErr := CheckResponse("create", "Vpcpeering", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
+	data.Id = types.StringValue(peering.ID())
+	data.Uri = strVal(peering.URI())
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	if response != nil && response.Data != nil {
-		if response.Data.Metadata.ID != nil {
-			data.Id = types.StringValue(*response.Data.Metadata.ID)
-		}
-		if response.Data.Metadata.URI != nil {
-			data.Uri = types.StringValue(*response.Data.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
+	if waitErr := peering.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
+		ReportWaitResult(&resp.Diagnostics, waitErr, "VPCPeering", data.Id.ValueString())
+		return
+	}
+
+	fresh, freshErr := r.client.Client.FromNetwork().VPCPeerings().Get(ctx, vpcPeeringRef(&data))
+	if freshErr == nil {
+		projectID := data.ProjectId
+		vpcID := data.VpcId
+		applyVPCPeeringToModel(fresh, &data)
+		data.ProjectId = projectID
+		data.VpcId = vpcID
 	} else {
-		resp.Diagnostics.AddError(
-			"Invalid API Response",
-			"VPC peering created but no data returned from API",
-		)
-		return
-	}
-
-	// Wait for VPC Peering to be active before returning (VpcPeering is referenced by VpcPeeringRoute)
-	// This ensures Terraform doesn't proceed to create dependent resources until VPC Peering is ready
-	peeringID := data.Id.ValueString()
-	checker := func(ctx context.Context) (string, error) {
-		getResp, err := r.client.Client.FromNetwork().VPCPeerings().Get(ctx, projectID, vpcID, peeringID, nil)
-		if err != nil {
-			return "", err
-		}
-		if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
-			return *getResp.Data.Status.State, nil
-		}
-		return "Unknown", nil
-	}
-
-	// Wait for VPC Peering to be active - block until ready (using configured timeout)
-	if err := WaitForResourceActive(ctx, checker, "VpcPeering", peeringID, r.client.ResourceTimeout); err != nil {
-		ReportWaitResult(&resp.Diagnostics, err, "VpcPeering", peeringID)
-		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-		return
+		tflog.Warn(ctx, fmt.Sprintf("Failed to refresh VPCPeering after creation: %v", freshErr))
 	}
 
 	tflog.Trace(ctx, "created a VPC Peering resource", map[string]interface{}{
 		"vpcpeering_id":   data.Id.ValueString(),
 		"vpcpeering_name": data.Name.ValueString(),
 	})
-
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -210,114 +189,44 @@ func (r *VpcPeeringResource) Read(ctx context.Context, req resource.ReadRequest,
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	projectID := data.ProjectId.ValueString()
-	vpcID := data.VpcId.ValueString()
-	peeringID := data.Id.ValueString()
-
-	if data.Id.IsUnknown() || data.Id.IsNull() || peeringID == "" {
-		tflog.Debug(ctx, "VPC Peering ID is empty, removing resource from state", map[string]interface{}{"peering_id": peeringID})
+	if data.Id.IsNull() || data.Id.ValueString() == "" {
 		resp.State.RemoveResource(ctx)
 		return
 	}
-	if projectID == "" || vpcID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID and VPC ID are required to read the VPC peering",
-		)
-		return
-	}
 
-	// Get VPC peering details using the SDK
-	response, err := r.client.Client.FromNetwork().VPCPeerings().Get(ctx, projectID, vpcID, peeringID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading VPC peering",
-			NewTransportError("read", "Vpcpeering", err).Error(),
-		)
-		return
-	}
-
-	if apiErr := CheckResponse("read", "Vpcpeering", response); apiErr != nil {
-		if IsNotFound(apiErr) {
+	peering, err := r.client.Client.FromNetwork().VPCPeerings().Get(ctx, vpcPeeringRef(&data))
+	if provErr := CheckResponseErr("read", "VPCPeering", err); provErr != nil {
+		if IsNotFound(provErr) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	// If the resource is still provisioning (e.g. after a Create timeout that saved
-	// partial state), resume the wait so the next terraform apply reconciles correctly.
-	if response.Data.Status.State != nil {
-		switch st := *response.Data.Status.State; {
-		case isFailedState(st):
-			resp.Diagnostics.AddWarning(
-				"Resource in Failed State",
-				fmt.Sprintf("VpcPeering %q is in a terminal failure state (%s). "+
-					"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", peeringID, st),
-			)
-		case IsCreatingState(st):
-			checker := func(ctx context.Context) (string, error) {
-				getResp, err := r.client.Client.FromNetwork().VPCPeerings().Get(ctx, projectID, vpcID, peeringID, nil)
-				if err != nil {
-					return "", err
-				}
-				if getResp != nil && getResp.Data != nil && getResp.Data.Status.State != nil {
-					return *getResp.Data.Status.State, nil
-				}
-				return "Unknown", nil
-			}
-			if err := WaitForResourceActive(ctx, checker, "VpcPeering", peeringID, r.client.ResourceTimeout); err != nil {
-				ReportWaitResult(&resp.Diagnostics, err, "VpcPeering", peeringID)
-				resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-				return
-			}
-			// Re-read to get the final active state.
-			response, err = r.client.Client.FromNetwork().VPCPeerings().Get(ctx, projectID, vpcID, peeringID, nil)
-			if err != nil {
-				resp.Diagnostics.AddError("Error reading VpcPeering after provisioning wait",
-					NewTransportError("read", "Vpcpeering", err).Error())
-				return
-			}
-			if apiErr := CheckResponse("read", "Vpcpeering", response); apiErr != nil {
-				if IsNotFound(apiErr) {
-					resp.State.RemoveResource(ctx)
-					return
-				}
-				resp.Diagnostics.AddError("API Error", apiErr.Error())
-				return
-			}
+	st := string(peering.State())
+	switch {
+	case isFailedState(st):
+		resp.Diagnostics.AddWarning("Resource in Failed State",
+			fmt.Sprintf("VPCPeering %q is in a terminal failure state (%s). "+
+				"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", data.Id.ValueString(), st))
+	case IsCreatingState(st):
+		if waitErr := peering.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
+			ReportWaitResult(&resp.Diagnostics, waitErr, "VPCPeering", data.Id.ValueString())
+			return
+		}
+		peering, err = r.client.Client.FromNetwork().VPCPeerings().Get(ctx, vpcPeeringRef(&data))
+		if provErr := CheckResponseErr("read", "VPCPeering", err); provErr != nil {
+			resp.Diagnostics.AddError("API Error", provErr.Error())
+			return
 		}
 	}
 
-	if response != nil && response.Data != nil {
-		peering := response.Data
-
-		if peering.Metadata.ID != nil {
-			data.Id = types.StringValue(*peering.Metadata.ID)
-		}
-		if peering.Metadata.URI != nil {
-			data.Uri = types.StringValue(*peering.Metadata.URI)
-		} else {
-			data.Uri = types.StringNull()
-		}
-		if peering.Metadata.Name != nil {
-			data.Name = types.StringValue(*peering.Metadata.Name)
-		}
-		if peering.Metadata.LocationResponse != nil {
-			data.Location = types.StringValue(peering.Metadata.LocationResponse.Value)
-		}
-		if peering.Properties.RemoteVPC != nil {
-			data.PeerVpc = types.StringValue(peering.Properties.RemoteVPC.URI)
-		}
-
-		data.Tags = TagsToListPreserveNull(peering.Metadata.Tags, data.Tags)
-	} else {
-		resp.State.RemoveResource(ctx)
-		return
-	}
-
+	projectID := data.ProjectId
+	vpcID := data.VpcId
+	applyVPCPeeringToModel(peering, &data)
+	data.ProjectId = projectID
+	data.VpcId = vpcID
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -326,67 +235,8 @@ func (r *VpcPeeringResource) Update(ctx context.Context, req resource.UpdateRequ
 	var state VpcPeeringResourceModel
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	// Get IDs from state (not plan) - IDs are immutable and should always be in state
-	projectID := state.ProjectId.ValueString()
-	vpcID := state.VpcId.ValueString()
-	peeringID := state.Id.ValueString()
-
-	if projectID == "" || vpcID == "" || peeringID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID, VPC ID, and Peering ID are required to update the VPC peering",
-		)
-		return
-	}
-
-	// Get current VPC peering details
-	getResponse, err := r.client.Client.FromNetwork().VPCPeerings().Get(ctx, projectID, vpcID, peeringID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error fetching current VPC peering",
-			NewTransportError("read", "Vpcpeering", err).Error(),
-		)
-		return
-	}
-
-	if getResponse == nil || getResponse.Data == nil {
-		resp.Diagnostics.AddError(
-			"VPC Peering Not Found",
-			"VPC peering not found or no data returned",
-		)
-		return
-	}
-
-	current := getResponse.Data
-
-	// Check if VPC peering is in InCreation state
-	if current.Status.State != nil && *current.Status.State == "InCreation" {
-		resp.Diagnostics.AddError(
-			"Cannot Update VPC Peering",
-			"Cannot update VPC peering while it is in 'InCreation' state. Please wait until the VPC peering is fully created.",
-		)
-		return
-	}
-
-	// Get region value
-	regionValue := ""
-	if current.Metadata.LocationResponse != nil {
-		regionValue = current.Metadata.LocationResponse.Value
-	}
-	if regionValue == "" {
-		resp.Diagnostics.AddError(
-			"Missing Region",
-			"Unable to determine region value for VPC peering",
-		)
 		return
 	}
 
@@ -394,53 +244,34 @@ func (r *VpcPeeringResource) Update(ctx context.Context, req resource.UpdateRequ
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if tags == nil {
-		tags = current.Metadata.Tags
-	}
 
-	// Build update request - only name and tags can be updated, peer VPC must remain unchanged
-	updateRequest := sdktypes.VPCPeeringRequest{
-		Metadata: sdktypes.RegionalResourceMetadataRequest{
-			ResourceMetadataRequest: sdktypes.ResourceMetadataRequest{
-				Name: data.Name.ValueString(),
-				Tags: tags,
-			},
-			Location: sdktypes.LocationRequest{
-				Value: regionValue,
-			},
-		},
-		Properties: sdktypes.VPCPeeringPropertiesRequest{
-			// Peer VPC cannot be updated - use current value
-			RemoteVPC: current.Properties.RemoteVPC,
-		},
-	}
-
-	// Update the VPC peering using the SDK
-	response, err := r.client.Client.FromNetwork().VPCPeerings().Update(ctx, projectID, vpcID, peeringID, updateRequest, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error updating VPC peering",
-			NewTransportError("update", "Vpcpeering", err).Error(),
-		)
+	peering, err := r.client.Client.FromNetwork().VPCPeerings().Get(ctx, vpcPeeringRef(&state))
+	if provErr := CheckResponseErr("read", "VPCPeering", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	if apiErr := CheckResponse("update", "Vpcpeering", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
+	peering.Named(data.Name.ValueString())
+	if tags != nil {
+		peering.RetaggedAs(tags...)
+	} else {
+		peering.RetaggedAs(peering.Tags()...)
+	}
+
+	updated, err := r.client.Client.FromNetwork().VPCPeerings().Update(ctx, peering)
+	if provErr := CheckResponseErr("update", "VPCPeering", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	// Ensure immutable fields are set from state before saving
 	data.Id = state.Id
+	data.Uri = state.Uri
 	data.ProjectId = state.ProjectId
 	data.VpcId = state.VpcId
-
-	if response != nil && response.Data != nil {
-		// Update from response if available (should match state)
-		if response.Data.Metadata.ID != nil {
-			data.Id = types.StringValue(*response.Data.Metadata.ID)
-		}
-	}
+	data.PeerVpc = state.PeerVpc
+	data.Location = state.Location
+	data.Name = types.StringValue(updated.Name())
+	data.Tags = TagsToListPreserveNull(updated.Tags(), data.Tags)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -452,26 +283,12 @@ func (r *VpcPeeringResource) Delete(ctx context.Context, req resource.DeleteRequ
 		return
 	}
 
-	projectID := data.ProjectId.ValueString()
-	vpcID := data.VpcId.ValueString()
+	ref := vpcPeeringRef(&data)
 	peeringID := data.Id.ValueString()
 
-	if projectID == "" || vpcID == "" || peeringID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID, VPC ID, and Peering ID are required to delete the VPC peering",
-		)
-		return
-	}
-
-	// Delete the VPC peering using the SDK with retry mechanism
-	// Retry on any error except 404 (Resource Not Found)
 	deletionChecker := func(ctx context.Context) (bool, error) {
-		getResp, getErr := r.client.Client.FromNetwork().VPCPeerings().Get(ctx, projectID, vpcID, peeringID, nil)
-		if getErr != nil {
-			return false, NewTransportError("get", "VPCPeering", getErr)
-		}
-		if provErr := CheckResponse("get", "VPCPeering", getResp); provErr != nil {
+		_, getErr := r.client.Client.FromNetwork().VPCPeerings().Get(ctx, ref)
+		if provErr := CheckResponseErr("get", "VPCPeering", getErr); provErr != nil {
 			if IsNotFound(provErr) {
 				return true, nil
 			}
@@ -481,37 +298,19 @@ func (r *VpcPeeringResource) Delete(ctx context.Context, req resource.DeleteRequ
 	}
 
 	deleteStart := time.Now()
-	err := DeleteResourceWithRetry(
-		ctx,
-		func() error {
-			resp, err := r.client.Client.FromNetwork().VPCPeerings().Delete(ctx, projectID, vpcID, peeringID, nil)
-			if err != nil {
-				return NewTransportError("delete", "VPCPeering", err)
-			}
-			return CheckResponse("delete", "VPCPeering", resp)
-		},
-		"VPCPeering",
-		peeringID,
-		r.client.ResourceTimeout,
-		deletionChecker,
-	)
-
+	err := DeleteResourceWithRetry(ctx, func() error {
+		return CheckResponseErrAsError("delete", "VPCPeering",
+			r.client.Client.FromNetwork().VPCPeerings().Delete(ctx, ref))
+	}, "VPCPeering", peeringID, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error deleting VPC peering",
-			NewTransportError("delete", "Vpcpeering", err).Error(),
-		)
+		resp.Diagnostics.AddError("Error deleting VPCPeering", err.Error())
 		return
 	}
-
 	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "VPCPeering", peeringID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for VPCPeering deletion", waitErr.Error())
 		return
 	}
-
-	tflog.Trace(ctx, "deleted a VPC Peering resource", map[string]interface{}{
-		"vpcpeering_id": peeringID,
-	})
+	tflog.Trace(ctx, "deleted a VPC Peering resource", map[string]interface{}{"vpcpeering_id": peeringID})
 }
 
 func (r *VpcPeeringResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

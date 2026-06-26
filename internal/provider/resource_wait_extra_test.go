@@ -21,7 +21,7 @@ import (
 // starts the sleep (5 s for attempt=1) — but the context cancels at 10 ms and
 // the ctx.Done() case fires, covering the sleep select branch.
 func TestCreateWithTransientRetry_ContextCancelDuringRetryWait(t *testing.T) {
-	transient := newResponseError("create", "vpc", 400, nil, nil)
+	transient := newResponseError("create", "vpc", 400, "", "", "", false)
 	if !ErrorIsTransient(transient) {
 		t.Fatal("test setup: expected 400 with no validation errors to be transient")
 	}
@@ -52,7 +52,7 @@ func TestCreateWithTransientRetry_ContextCancelDuringRetryWait(t *testing.T) {
 // We achieve this by cancelling the context from inside createFunc so the
 // context is already done when the loop iterates for the second time.
 func TestCreateWithTransientRetry_ContextCancelAtLoopTop(t *testing.T) {
-	transient := newResponseError("create", "vpc", 400, nil, nil)
+	transient := newResponseError("create", "vpc", 400, "", "", "", false)
 
 	ctx, cancel := context.WithCancel(context.Background())
 

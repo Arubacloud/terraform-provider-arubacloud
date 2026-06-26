@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -135,55 +136,43 @@ func (d *BlockStorageDataSource) Read(ctx context.Context, req datasource.ReadRe
 		return
 	}
 
-	response, err := d.client.Client.FromStorage().Volumes().Get(ctx, projectID, volumeID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError("Error reading block storage", NewTransportError("read", "Blockstorage", err).Error())
-		return
-	}
-	if apiErr := CheckResponse("read", "Blockstorage", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-	if response == nil || response.Data == nil {
-		resp.Diagnostics.AddError("No data returned", "Block Storage Get returned no data")
+	vol, err := d.client.Client.FromStorage().Volumes().Get(ctx,
+		aruba.URI("/projects/"+projectID+"/providers/Aruba.Storage/blockStorages/"+volumeID))
+	if provErr := CheckResponseErr("read", "BlockStorage", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	volume := response.Data
-	if volume.Metadata.ID != nil {
-		data.Id = types.StringValue(*volume.Metadata.ID)
-	}
-	if volume.Metadata.Name != nil {
-		data.Name = types.StringValue(*volume.Metadata.Name)
-	}
-	if volume.Metadata.LocationResponse != nil {
-		data.Location = types.StringValue(volume.Metadata.LocationResponse.Value)
+	data.Id = types.StringValue(vol.ID())
+	data.Name = types.StringValue(vol.Name())
+	data.ProjectId = types.StringValue(projectID)
+	if vol.Region() != "" {
+		data.Location = types.StringValue(string(vol.Region()))
 	} else {
 		data.Location = types.StringNull()
 	}
-	data.ProjectId = types.StringValue(projectID)
-	data.SizeGB = types.Int64Value(int64(volume.Properties.SizeGB))
-	data.Type = types.StringValue(string(volume.Properties.Type))
-	if volume.Properties.Zone != "" {
-		data.Zone = types.StringValue(volume.Properties.Zone)
+	data.SizeGB = types.Int64Value(int64(vol.SizeGB()))
+	data.Type = types.StringValue(string(vol.Type()))
+	if z := string(vol.Zone()); z != "" {
+		data.Zone = types.StringValue(z)
 	} else {
 		data.Zone = types.StringNull()
 	}
-	if volume.Properties.Bootable != nil {
-		data.Bootable = types.BoolValue(*volume.Properties.Bootable)
+	if vol.IsBootable() {
+		data.Bootable = types.BoolValue(true)
 	} else {
 		data.Bootable = types.BoolNull()
 	}
-	if volume.Properties.Image != nil {
-		data.Image = types.StringValue(*volume.Properties.Image)
+	if img := vol.Image(); img != "" {
+		data.Image = types.StringValue(img)
 	} else {
 		data.Image = types.StringNull()
 	}
-	// billing_period and snapshot_id are not returned by the API
+	// billing_period and snapshot_id are not returned by the API.
 	data.BillingPeriod = types.StringNull()
 	data.SnapshotId = types.StringNull()
 
-	data.Tags = TagsToListPreserveNull(volume.Metadata.Tags, data.Tags)
+	data.Tags = TagsToListPreserveNull(vol.Tags(), data.Tags)
 
 	tflog.Trace(ctx, "read a Block Storage data source", map[string]interface{}{"volume_id": volumeID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

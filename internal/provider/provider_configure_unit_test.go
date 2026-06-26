@@ -50,44 +50,44 @@ func buildProviderConfig(t *testing.T, p *ArubaCloudProvider, overrides map[stri
 }
 
 // TestProviderConfigure_MissingAPIKey verifies that Configure() adds an
-// attribute-level error diagnostic when api_key is absent.
+// attribute-level error diagnostic when client_id is absent.
 func TestProviderConfigure_MissingAPIKey(t *testing.T) {
 	ctx := context.Background()
 	p := newTestProvider(t)
 
-	// Provide api_secret but NOT api_key.
+	// Provide client_secret but NOT client_id.
 	config := buildProviderConfig(t, p, map[string]tftypes.Value{
-		"api_secret": tftypes.NewValue(tftypes.String, "test-secret"),
+		"client_secret": tftypes.NewValue(tftypes.String, "test-secret"),
 	})
 	req := providerframe.ConfigureRequest{Config: config}
 	resp := &providerframe.ConfigureResponse{}
 	p.Configure(ctx, req, resp)
 
 	if !resp.Diagnostics.HasError() {
-		t.Fatal("expected error diagnostic for missing api_key, got none")
+		t.Fatal("expected error diagnostic for missing client_id, got none")
 	}
 }
 
 // TestProviderConfigure_MissingAPISecret verifies that Configure() adds an
-// attribute-level error diagnostic when api_secret is absent.
+// attribute-level error diagnostic when client_secret is absent.
 func TestProviderConfigure_MissingAPISecret(t *testing.T) {
 	ctx := context.Background()
 	p := newTestProvider(t)
 
 	config := buildProviderConfig(t, p, map[string]tftypes.Value{
-		"api_key": tftypes.NewValue(tftypes.String, "test-key"),
+		"client_id": tftypes.NewValue(tftypes.String, "test-key"),
 	})
 	req := providerframe.ConfigureRequest{Config: config}
 	resp := &providerframe.ConfigureResponse{}
 	p.Configure(ctx, req, resp)
 
 	if !resp.Diagnostics.HasError() {
-		t.Fatal("expected error diagnostic for missing api_secret, got none")
+		t.Fatal("expected error diagnostic for missing client_secret, got none")
 	}
 }
 
 // TestProviderConfigure_MissingBothCredentials verifies that Configure() adds
-// two error diagnostics when both api_key and api_secret are absent.
+// two error diagnostics when both client_id and client_secret are absent.
 func TestProviderConfigure_MissingBothCredentials(t *testing.T) {
 	ctx := context.Background()
 	p := newTestProvider(t)
@@ -100,7 +100,7 @@ func TestProviderConfigure_MissingBothCredentials(t *testing.T) {
 	if !resp.Diagnostics.HasError() {
 		t.Fatal("expected error diagnostics for missing credentials, got none")
 	}
-	// Expect exactly two errors: one for api_key, one for api_secret.
+	// Expect exactly two errors: one for client_id, one for client_secret.
 	var errCount int
 	for _, d := range resp.Diagnostics {
 		if d.Severity() == 1 { // Error severity
@@ -121,8 +121,8 @@ func TestProviderConfigure_Success(t *testing.T) {
 	p := newTestProvider(t)
 
 	config := buildProviderConfig(t, p, map[string]tftypes.Value{
-		"api_key":    tftypes.NewValue(tftypes.String, "test-key"),
-		"api_secret": tftypes.NewValue(tftypes.String, "test-secret"),
+		"client_id":     tftypes.NewValue(tftypes.String, "test-key"),
+		"client_secret": tftypes.NewValue(tftypes.String, "test-secret"),
 	})
 	req := providerframe.ConfigureRequest{Config: config}
 	resp := &providerframe.ConfigureResponse{}
@@ -141,11 +141,11 @@ func TestProviderConfigure_Success(t *testing.T) {
 	if !ok {
 		t.Fatalf("ResourceData is %T, want *ArubaCloudClient", resp.ResourceData)
 	}
-	if client.ApiKey != "test-key" {
-		t.Errorf("client.ApiKey = %q, want %q", client.ApiKey, "test-key")
+	if client.ClientID != "test-key" {
+		t.Errorf("client.ClientID = %q, want %q", client.ClientID, "test-key")
 	}
-	if client.ApiSecret != "test-secret" {
-		t.Errorf("client.ApiSecret = %q, want %q", client.ApiSecret, "test-secret")
+	if client.ClientSecret != "test-secret" {
+		t.Errorf("client.ClientSecret = %q, want %q", client.ClientSecret, "test-secret")
 	}
 }
 
@@ -156,8 +156,8 @@ func TestProviderConfigure_WithBaseURL(t *testing.T) {
 	p := newTestProvider(t)
 
 	config := buildProviderConfig(t, p, map[string]tftypes.Value{
-		"api_key":          tftypes.NewValue(tftypes.String, "test-key"),
-		"api_secret":       tftypes.NewValue(tftypes.String, "test-secret"),
+		"client_id":        tftypes.NewValue(tftypes.String, "test-key"),
+		"client_secret":    tftypes.NewValue(tftypes.String, "test-secret"),
 		"base_url":         tftypes.NewValue(tftypes.String, "https://example.com/api"),
 		"token_issuer_url": tftypes.NewValue(tftypes.String, "https://example.com/token"),
 	})
@@ -178,9 +178,9 @@ func TestProviderConfigure_InvalidLogLevel(t *testing.T) {
 	p := newTestProvider(t)
 
 	config := buildProviderConfig(t, p, map[string]tftypes.Value{
-		"api_key":    tftypes.NewValue(tftypes.String, "test-key"),
-		"api_secret": tftypes.NewValue(tftypes.String, "test-secret"),
-		"log_level":  tftypes.NewValue(tftypes.String, "INVALID_LEVEL"),
+		"client_id":     tftypes.NewValue(tftypes.String, "test-key"),
+		"client_secret": tftypes.NewValue(tftypes.String, "test-secret"),
+		"log_level":     tftypes.NewValue(tftypes.String, "INVALID_LEVEL"),
 	})
 	req := providerframe.ConfigureRequest{Config: config}
 	resp := &providerframe.ConfigureResponse{}
@@ -208,8 +208,8 @@ func TestProviderConfigure_ValidResourceTimeout(t *testing.T) {
 	p := newTestProvider(t)
 
 	config := buildProviderConfig(t, p, map[string]tftypes.Value{
-		"api_key":          tftypes.NewValue(tftypes.String, "test-key"),
-		"api_secret":       tftypes.NewValue(tftypes.String, "test-secret"),
+		"client_id":        tftypes.NewValue(tftypes.String, "test-key"),
+		"client_secret":    tftypes.NewValue(tftypes.String, "test-secret"),
 		"resource_timeout": tftypes.NewValue(tftypes.String, "5m"),
 	})
 	req := providerframe.ConfigureRequest{Config: config}

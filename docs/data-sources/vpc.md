@@ -49,8 +49,8 @@ In addition to all arguments above, the following attributes are exported:
 
 #### Read-Only
 
-- `location` (String) Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
+- `location` (String) Region identifier for the resource (e.g., `ITBG-Bergamo`).
 - `name` (String) Display name for the VPC.
-- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
+- `tags` (List of String) List of string tags attached to the resource.
 
 

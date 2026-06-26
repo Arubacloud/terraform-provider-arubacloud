@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -96,36 +97,24 @@ func (d *SecurityGroupDataSource) Read(ctx context.Context, req datasource.ReadR
 		return
 	}
 
-	response, err := d.client.Client.FromNetwork().SecurityGroups().Get(ctx, projectID, vpcID, sgID, nil)
-	if err != nil {
-		resp.Diagnostics.AddError("Error reading security group", NewTransportError("read", "Securitygroup", err).Error())
-		return
-	}
-	if apiErr := CheckResponse("read", "Securitygroup", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
-		return
-	}
-	if response == nil || response.Data == nil {
-		resp.Diagnostics.AddError("No data returned", "Security Group Get returned no data")
+	sg, err := d.client.Client.FromNetwork().SecurityGroups().Get(ctx,
+		aruba.SecurityGroupRef(projectID, vpcID, sgID))
+	if provErr := CheckResponseErr("read", "SecurityGroup", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	sg := response.Data
-	if sg.Metadata.ID != nil {
-		data.Id = types.StringValue(*sg.Metadata.ID)
-	}
-	if sg.Metadata.Name != nil {
-		data.Name = types.StringValue(*sg.Metadata.Name)
-	}
-	if sg.Metadata.LocationResponse != nil {
-		data.Location = types.StringValue(sg.Metadata.LocationResponse.Value)
+	data.Id = types.StringValue(sg.ID())
+	data.Name = types.StringValue(sg.Name())
+	data.ProjectId = types.StringValue(projectID)
+	data.VpcId = types.StringValue(vpcID)
+	raw := sg.Raw()
+	if raw != nil && raw.Metadata.LocationResponse != nil {
+		data.Location = types.StringValue(string(raw.Metadata.LocationResponse.Value))
 	} else {
 		data.Location = types.StringNull()
 	}
-	data.ProjectId = types.StringValue(projectID)
-	data.VpcId = types.StringValue(vpcID)
-
-	data.Tags = TagsToListPreserveNull(sg.Metadata.Tags, data.Tags)
+	data.Tags = TagsToListPreserveNull(sg.Tags(), data.Tags)
 
 	tflog.Trace(ctx, "read a Security Group data source", map[string]interface{}{"security_group_id": sgID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

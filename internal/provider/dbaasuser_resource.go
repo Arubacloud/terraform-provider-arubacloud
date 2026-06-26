@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"time"
 
-	sdktypes "github.com/Arubacloud/sdk-go/pkg/types"
+	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -45,10 +47,16 @@ func (r *DBaaSUserResource) Schema(ctx context.Context, req resource.SchemaReque
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Computed by the API. Unique identifier for the resource (same as the username).",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"uri": schema.StringAttribute{
 				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources.",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project that owns this resource.",
@@ -86,6 +94,12 @@ func (r *DBaaSUserResource) Configure(ctx context.Context, req resource.Configur
 	r.client = client
 }
 
+func dbaasUserRef(data *DBaaSUserResourceModel) aruba.Ref {
+	return aruba.URI("/projects/" + data.ProjectID.ValueString() +
+		"/providers/Aruba.Database/dbaas/" + data.DBaaSID.ValueString() +
+		"/users/" + data.Id.ValueString())
+}
+
 func (r *DBaaSUserResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data DBaaSUserResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
@@ -95,76 +109,44 @@ func (r *DBaaSUserResource) Create(ctx context.Context, req resource.CreateReque
 
 	projectID := data.ProjectID.ValueString()
 	dbaasID := data.DBaaSID.ValueString()
-
-	if projectID == "" || dbaasID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID and DBaaS ID are required to create a DBaaS user",
-		)
-		return
-	}
-
-	// Build the create request
-	// Password must be base64 encoded for the API
+	username := data.Username.ValueString()
 	passwordBase64 := base64.StdEncoding.EncodeToString([]byte(data.Password.ValueString()))
-	createRequest := sdktypes.UserRequest{
-		Username: data.Username.ValueString(),
-		Password: passwordBase64,
-	}
 
-	// Create the user using the SDK, retrying on transient errors (e.g. when the
-	// parent DBaaS is still in InCreation and returns 400 category:transient).
-	var response *sdktypes.Response[sdktypes.UserResponse]
-	if createErr := CreateWithTransientRetry(
-		ctx,
-		func() error {
-			var err error
-			response, err = r.client.Client.FromDatabase().Users().Create(ctx, projectID, dbaasID, createRequest, nil)
-			if err != nil {
-				return NewTransportError("create", "Dbaasuser", err)
-			}
-			return CheckResponse("create", "Dbaasuser", response)
-		},
-		"DBaaSUser",
-		data.Username.ValueString(),
-		r.client.ResourceTimeout,
-	); createErr != nil {
+	dbaasURI := "/projects/" + projectID + "/providers/Aruba.Database/dbaas/" + dbaasID
+
+	var user *aruba.User
+	if createErr := CreateWithTransientRetry(ctx, func() error {
+		var err error
+		user, err = r.client.Client.FromDatabase().Users().Create(ctx,
+			aruba.NewUser().
+				WithUsername(username).
+				WithPassword(passwordBase64).
+				InDBaaS(aruba.URI(dbaasURI)),
+		)
+		return CheckResponseErrAsError("create", "DBaaSUser", err)
+	}, "DBaaSUser", username, r.client.ResourceTimeout); createErr != nil {
 		resp.Diagnostics.AddError("Error creating DBaaS user", createErr.Error())
 		return
 	}
 
-	if response != nil && response.Data != nil {
-		// User uses username as ID
-		data.Id = types.StringValue(response.Data.Username)
-		// UserResponse doesn't have Metadata.URI
-		data.Uri = types.StringNull()
-	} else {
-		resp.Diagnostics.AddError(
-			"Invalid API Response",
-			"DBaaS user created but no data returned from API",
-		)
+	data.Id = types.StringValue(user.Username())
+	data.Uri = strVal(user.URI())
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Wait for DBaaS User to be active before returning
-	// This ensures Terraform doesn't proceed until User is ready
-	username := data.Id.ValueString()
+	// Users don't have a status field; wait until we can successfully Get the user.
 	checker := func(ctx context.Context) (string, error) {
-		getResp, err := r.client.Client.FromDatabase().Users().Get(ctx, projectID, dbaasID, username, nil)
-		if err != nil {
-			return "", err
+		_, getErr := r.client.Client.FromDatabase().Users().Get(ctx, dbaasUserRef(&data))
+		if provErr := CheckResponseErr("get", "DBaaSUser", getErr); provErr != nil {
+			return "Unknown", provErr
 		}
-		// Users don't have a status field, so if we can get it, it's ready
-		if getResp != nil && getResp.Data != nil {
-			return "Active", nil
-		}
-		return "Unknown", nil
+		return "Active", nil
 	}
-
-	// Wait for DBaaS User to be active - block until ready (using configured timeout)
 	if err := WaitForResourceActive(ctx, checker, "DBaaSUser", username, r.client.ResourceTimeout); err != nil {
 		ReportWaitResult(&resp.Diagnostics, err, "DBaaSUser", username)
-		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 		return
 	}
 
@@ -172,7 +154,6 @@ func (r *DBaaSUserResource) Create(ctx context.Context, req resource.CreateReque
 		"user_id":  data.Id.ValueString(),
 		"username": data.Username.ValueString(),
 	})
-
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -182,55 +163,25 @@ func (r *DBaaSUserResource) Read(ctx context.Context, req resource.ReadRequest, 
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	projectID := data.ProjectID.ValueString()
-	dbaasID := data.DBaaSID.ValueString()
-	username := data.Id.ValueString()
-
-	if data.Id.IsUnknown() || data.Id.IsNull() || username == "" {
-		tflog.Debug(ctx, "DBaaS User ID is empty, removing resource from state", map[string]interface{}{"username": username})
+	if data.Id.IsNull() || data.Id.ValueString() == "" {
 		resp.State.RemoveResource(ctx)
 		return
 	}
 
-	if projectID == "" || dbaasID == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID and DBaaS ID are required to read the DBaaS user",
-		)
-		return
-	}
-
-	// Get user details using the SDK
-	response, err := r.client.Client.FromDatabase().Users().Get(ctx, projectID, dbaasID, username, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading DBaaS user",
-			NewTransportError("read", "Dbaasuser", err).Error(),
-		)
-		return
-	}
-
-	if apiErr := CheckResponse("read", "Dbaasuser", response); apiErr != nil {
-		if IsNotFound(apiErr) {
+	user, err := r.client.Client.FromDatabase().Users().Get(ctx, dbaasUserRef(&data))
+	if provErr := CheckResponseErr("read", "DBaaSUser", err); provErr != nil {
+		if IsNotFound(provErr) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	if response != nil && response.Data != nil {
-		user := response.Data
-		data.Id = types.StringValue(user.Username)
-		// UserResponse doesn't have Metadata.URI
-		data.Uri = types.StringNull()
-		data.Username = types.StringValue(user.Username)
-		// Password is not returned from API, so we keep the existing value
-	} else {
-		resp.State.RemoveResource(ctx)
-		return
-	}
+	data.Id = types.StringValue(user.Username())
+	data.Uri = strVal(user.URI())
+	data.Username = types.StringValue(user.Username())
+	// Password is not returned from API; preserve existing state value.
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -240,68 +191,32 @@ func (r *DBaaSUserResource) Update(ctx context.Context, req resource.UpdateReque
 	var state DBaaSUserResourceModel
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Get IDs from state (not plan) - IDs are immutable and should always be in state
-	projectID := state.ProjectID.ValueString()
-	dbaasID := state.DBaaSID.ValueString()
-	username := state.Id.ValueString()
-
-	if projectID == "" || dbaasID == "" || username == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID, DBaaS ID, and Username are required to update the DBaaS user",
-		)
-		return
-	}
-
-	// Only password can be updated
-	// Password must be base64 encoded for the API
 	passwordBase64 := base64.StdEncoding.EncodeToString([]byte(data.Password.ValueString()))
-	updateRequest := sdktypes.UserRequest{
-		Username: username,
-		Password: passwordBase64,
-	}
 
-	// Update the user using the SDK
-	response, err := r.client.Client.FromDatabase().Users().Update(ctx, projectID, dbaasID, username, updateRequest, nil)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error updating DBaaS user",
-			NewTransportError("update", "Dbaasuser", err).Error(),
-		)
+	user, err := r.client.Client.FromDatabase().Users().Get(ctx, dbaasUserRef(&state))
+	if provErr := CheckResponseErr("read", "DBaaSUser", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	if apiErr := CheckResponse("update", "Dbaasuser", response); apiErr != nil {
-		resp.Diagnostics.AddError("API Error", apiErr.Error())
+	user.WithPassword(passwordBase64)
+
+	updated, err := r.client.Client.FromDatabase().Users().Update(ctx, user)
+	if provErr := CheckResponseErr("update", "DBaaSUser", err); provErr != nil {
+		resp.Diagnostics.AddError("API Error", provErr.Error())
 		return
 	}
 
-	if response != nil && response.Data != nil {
-		data.Id = types.StringValue(response.Data.Username)
-		// UserResponse doesn't have Metadata.URI
-		data.Uri = types.StringNull()
-		data.Username = types.StringValue(response.Data.Username)
-	}
-
-	// Ensure immutable fields are set from state before saving
 	data.Id = state.Id
 	data.ProjectID = state.ProjectID
 	data.DBaaSID = state.DBaaSID
-
-	if response != nil && response.Data != nil {
-		// Update ID from response (username can change, so use response)
-		data.Id = types.StringValue(response.Data.Username)
-		data.Username = types.StringValue(response.Data.Username)
-	}
+	data.Username = types.StringValue(updated.Username())
+	data.Uri = strVal(updated.URI())
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -313,26 +228,12 @@ func (r *DBaaSUserResource) Delete(ctx context.Context, req resource.DeleteReque
 		return
 	}
 
-	projectID := data.ProjectID.ValueString()
-	dbaasID := data.DBaaSID.ValueString()
+	ref := dbaasUserRef(&data)
 	username := data.Id.ValueString()
 
-	if projectID == "" || dbaasID == "" || username == "" {
-		resp.Diagnostics.AddError(
-			"Missing Required Fields",
-			"Project ID, DBaaS ID, and Username are required to delete the DBaaS user",
-		)
-		return
-	}
-
-	// Delete the user using the SDK with retry mechanism
-	// Retry on any error except 404 (Resource Not Found)
 	deletionChecker := func(ctx context.Context) (bool, error) {
-		getResp, getErr := r.client.Client.FromDatabase().Users().Get(ctx, projectID, dbaasID, username, nil)
-		if getErr != nil {
-			return false, NewTransportError("get", "DBaaSUser", getErr)
-		}
-		if provErr := CheckResponse("get", "DBaaSUser", getResp); provErr != nil {
+		_, getErr := r.client.Client.FromDatabase().Users().Get(ctx, ref)
+		if provErr := CheckResponseErr("get", "DBaaSUser", getErr); provErr != nil {
 			if IsNotFound(provErr) {
 				return true, nil
 			}
@@ -342,37 +243,19 @@ func (r *DBaaSUserResource) Delete(ctx context.Context, req resource.DeleteReque
 	}
 
 	deleteStart := time.Now()
-	err := DeleteResourceWithRetry(
-		ctx,
-		func() error {
-			resp, err := r.client.Client.FromDatabase().Users().Delete(ctx, projectID, dbaasID, username, nil)
-			if err != nil {
-				return NewTransportError("delete", "DBaaSUser", err)
-			}
-			return CheckResponse("delete", "DBaaSUser", resp)
-		},
-		"DBaaSUser",
-		username,
-		r.client.ResourceTimeout,
-		deletionChecker,
-	)
-
+	err := DeleteResourceWithRetry(ctx, func() error {
+		return CheckResponseErrAsError("delete", "DBaaSUser",
+			r.client.Client.FromDatabase().Users().Delete(ctx, ref))
+	}, "DBaaSUser", username, r.client.ResourceTimeout, deletionChecker)
 	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error deleting DBaaS user",
-			NewTransportError("delete", "Dbaasuser", err).Error(),
-		)
+		resp.Diagnostics.AddError("Error deleting DBaaS user", err.Error())
 		return
 	}
-
 	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "DBaaSUser", username, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for DBaaSUser deletion", waitErr.Error())
 		return
 	}
-
-	tflog.Trace(ctx, "deleted a DBaaS User resource", map[string]interface{}{
-		"user_id": username,
-	})
+	tflog.Trace(ctx, "deleted a DBaaS User resource", map[string]interface{}{"user_id": username})
 }
 
 func (r *DBaaSUserResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
