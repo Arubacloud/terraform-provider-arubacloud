@@ -551,6 +551,19 @@ func TestReportWaitResult_NonTimeoutProducesError(t *testing.T) {
 	}
 }
 
+// SDK WaitUntilReady returns context.DeadlineExceeded on timeout, which must be
+// treated as a warning (no taint), not an error.
+func TestReportWaitResult_SDKDeadlineExceededProducesWarning(t *testing.T) {
+	var d tfdiag.Diagnostics
+	ReportWaitResult(&d, context.DeadlineExceeded, "ContainerRegistry", "abc")
+	if d.HasError() {
+		t.Error("expected no error diagnostic for context.DeadlineExceeded timeout, got error")
+	}
+	if len(d) == 0 {
+		t.Error("expected at least one warning diagnostic, got none")
+	}
+}
+
 // ── remainingTimeout ─────────────────────────────────────────────────────────
 
 func TestRemainingTimeout(t *testing.T) {

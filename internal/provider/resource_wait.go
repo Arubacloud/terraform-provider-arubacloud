@@ -30,10 +30,15 @@ func (e *ErrWaitTimeout) Error() string {
 	return fmt.Sprintf("timeout waiting for %s %s to %s (timeout: %v)", e.ResourceType, e.ResourceID, op, e.Timeout)
 }
 
-// IsWaitTimeout reports whether err is an *ErrWaitTimeout.
+// IsWaitTimeout reports whether err represents a provisioning timeout.
+// It recognises both the provider's own *ErrWaitTimeout and context.DeadlineExceeded,
+// which is what the SDK's WaitUntilReady returns when its internal context fires.
 func IsWaitTimeout(err error) bool {
 	var t *ErrWaitTimeout
-	return errors.As(err, &t)
+	if errors.As(err, &t) {
+		return true
+	}
+	return errors.Is(err, context.DeadlineExceeded)
 }
 
 // IsCreatingState reports whether a resource status string indicates the resource

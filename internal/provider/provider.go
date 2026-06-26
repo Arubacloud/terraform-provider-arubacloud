@@ -61,7 +61,7 @@ func (p *ArubaCloudProvider) Schema(ctx context.Context, req provider.SchemaRequ
 				Sensitive:           true,
 			},
 			"resource_timeout": schema.StringAttribute{
-				MarkdownDescription: "Timeout for waiting for resources to become active after creation (e.g., \"5m\", \"10m\", \"15m\"). This timeout applies to all resources that need to wait for active state. Default: \"10m\"",
+				MarkdownDescription: "Timeout for waiting for resources to become active after creation (e.g., \"10m\", \"20m\", \"30m\"). This timeout applies to all resources that need to wait for active state. Default: \"30m\"",
 				Optional:            true,
 			},
 			"base_url": schema.StringAttribute{
@@ -178,8 +178,8 @@ func (p *ArubaCloudProvider) Configure(ctx context.Context, req provider.Configu
 		return
 	}
 
-	// Parse timeout configuration with default (10 minutes - enough for most resources including CloudServer)
-	resourceTimeout := parseTimeout(config.ResourceTimeout, 10*time.Minute, resp.Diagnostics)
+	// Parse timeout configuration with default (30 minutes - covers long-running resources like KaaS and ContainerRegistry)
+	resourceTimeout := parseTimeout(config.ResourceTimeout, 30*time.Minute, resp.Diagnostics)
 
 	// Create a new ArubaCloud client using the SDK client
 	client := &ArubaCloudClient{
