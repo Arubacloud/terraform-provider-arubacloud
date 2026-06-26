@@ -56,14 +56,14 @@ The following arguments are supported:
 
 #### Required
 
-- `engine_id` (String) Database engine type and version identifier (e.g., `mysql-8.0` for MySQL 8.0, `postgresql-15` for PostgreSQL 15). See the [available engines](https://api.arubacloud.com/docs/metadata/#dbaas-engines).
+- `engine_id` (String) Database engine type and version identifier (e.g., `mysql-8.0` for MySQL 8.0, `postgresql-15` for PostgreSQL 15). See the [available engines](https://api.arubacloud.com/docs/metadata/#dbaas-engines). (Immutable — changing this value forces the resource to be destroyed and re-created.)
 - `flavor` (String) Compute flavour for the DBaaS cluster nodes. See [available flavours](https://api.arubacloud.com/docs/metadata/#dbaas-flavors). For example, `DBO2A4` means 2 vCPU and 4 GB RAM.
-- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
+- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). (Immutable — changing this value forces the resource to be destroyed and re-created.)
 - `name` (String) Display name for the DBaaS cluster.
 - `network` (Attributes) Network configuration for the DBaaS instance. All URI references are immutable after creation. (see [below for nested schema](#nestedatt--network))
-- `project_id` (String) ID of the project that owns this resource.
+- `project_id` (String) ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)
 - `storage` (Attributes) Storage configuration for the DBaaS instance. (see [below for nested schema](#nestedatt--storage))
-- `zone` (String) Availability zone within the region where the DBaaS cluster is deployed.
+- `zone` (String) Availability zone within the region where the DBaaS cluster is deployed. (Immutable — changing this value forces the resource to be destroyed and re-created.)
 
 #### Optional
 
