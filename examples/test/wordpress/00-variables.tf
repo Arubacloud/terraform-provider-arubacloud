@@ -14,7 +14,7 @@ variable "database_password" {
   description = "Password for the WordPress database user"
   type        = string
   sensitive   = true
-  default     = "ChangeMe123!WordPress"
+  default     = "K7m@P4z!L9"
 }
 
 variable "wordpress_admin_password" {

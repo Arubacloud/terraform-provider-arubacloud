@@ -53,6 +53,9 @@ func (r *DBaaSResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"uri": schema.StringAttribute{
 				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources.",
@@ -395,12 +398,9 @@ func (r *DBaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp
 		data.Location = types.StringValue(string(dbaas.Region()))
 	}
 
-	// EngineID and Flavor: use API values if available, else preserve state.
-	if e := string(dbaas.Engine()); e != "" {
-		data.EngineID = types.StringValue(e)
-	} else {
-		data.EngineID = engineID
-	}
+	// engine_id is immutable and the API may normalize the value (e.g. "mysql" → "mysql-8.0"),
+	// so always preserve the state value to avoid a perpetual diff.
+	data.EngineID = engineID
 	if f := string(dbaas.Flavor()); f != "" {
 		data.Flavor = types.StringValue(f)
 	} else {

@@ -45,7 +45,7 @@ resource "arubacloud_dbaasuser" "test" {
   project_id = arubacloud_project.test.id
   dbaas_id   = arubacloud_dbaas.test.id
   username   = "restapi"
-  password   = "Prova123456789AC@" # In production, use a secure password or variable
+  password   = "K7m@P4z!L9" # In production, use a secure password or variable
 }
 
 # Database Grant - Associate the user with the database and grant permissions
