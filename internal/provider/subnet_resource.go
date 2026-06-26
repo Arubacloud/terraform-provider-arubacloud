@@ -719,7 +719,14 @@ func (r *SubnetResource) Delete(ctx context.Context, req resource.DeleteRequest,
 }
 
 func (r *SubnetResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	parts, err := parseImportID(req.ID, "<project_id>/<vpc_id>/<subnet_id>", "proj-abc/vpc-xyz/sub-xyz", 3)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid Import ID", err.Error())
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("project_id"), parts[0])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("vpc_id"), parts[1])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), parts[2])...)
 }
 
 func (r *SubnetResource) ConfigValidators(_ context.Context) []resource.ConfigValidator {

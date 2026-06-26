@@ -362,5 +362,12 @@ func (r *VPNRouteResource) Delete(ctx context.Context, req resource.DeleteReques
 }
 
 func (r *VPNRouteResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	parts, err := parseImportID(req.ID, "<project_id>/<tunnel_id>/<route_id>", "proj-abc/tun-xyz/rte-xyz", 3)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid Import ID", err.Error())
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("project_id"), parts[0])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("vpn_tunnel_id"), parts[1])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), parts[2])...)
 }
