@@ -81,10 +81,10 @@ The following arguments are supported:
 
 #### Required
 
-- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
+- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). (Immutable — changing this value forces the resource to be destroyed and re-created.)
 - `name` (String) Display name for the KaaS cluster.
 - `network` (Attributes) Network configuration for the KaaS cluster. (see [below for nested schema](#nestedatt--network))
-- `project_id` (String) ID of the project that owns this resource.
+- `project_id` (String) ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)
 - `settings` (Attributes) Kubernetes version and node-pool configuration. (see [below for nested schema](#nestedatt--settings))
 
 #### Optional
@@ -110,8 +110,8 @@ Required:
 
 - `node_cidr` (Attributes) CIDR block assigned to cluster nodes. (see [below for nested schema](#nestedatt--network--node_cidr))
 - `security_group_name` (String) Name of the security group applied to cluster nodes.
-- `subnet_uri_ref` (String) URI of the subnet within the VPC (e.g., `arubacloud_subnet.example.uri`).
-- `vpc_uri_ref` (String) URI of the VPC that hosts the cluster (e.g., `arubacloud_vpc.example.uri`).
+- `subnet_uri_ref` (String) URI of the subnet within the VPC (e.g., `arubacloud_subnet.example.uri`). (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `vpc_uri_ref` (String) URI of the VPC that hosts the cluster (e.g., `arubacloud_vpc.example.uri`). (Immutable — changing this value forces the resource to be destroyed and re-created.)
 
 Optional:
 

@@ -41,3 +41,20 @@ func ListToTags(ctx context.Context, list types.List, diags *diag.Diagnostics) [
 	diags.Append(list.ElementsAs(ctx, &tags, false)...)
 	return tags
 }
+
+// billingPeriodFromAPI normalizes legacy API billing period values to their
+// canonical Terraform form. The API has historically returned lowercase variants
+// ("hourly", "monthly", "yearly") that differ from the accepted input values
+// ("Hour", "Month", "Year"). Values already in canonical form pass through unchanged.
+func billingPeriodFromAPI(s string) string {
+	switch s {
+	case "hourly":
+		return "Hour"
+	case "monthly":
+		return "Month"
+	case "yearly":
+		return "Year"
+	default:
+		return s
+	}
+}

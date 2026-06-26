@@ -28,11 +28,11 @@ The following arguments are supported:
 
 #### Required
 
-- `backup_id` (String) ID of the backup to restore from.
-- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
+- `backup_id` (String) ID of the backup to restore from. (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). (Immutable — changing this value forces the resource to be destroyed and re-created.)
 - `name` (String) Display name for the restore operation.
-- `project_id` (String) ID of the project that owns this resource.
-- `volume_id` (String) ID of the target block storage volume to restore the backup onto.
+- `project_id` (String) ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `volume_id` (String) ID of the target block storage volume to restore the backup onto. (Immutable — changing this value forces the resource to be destroyed and re-created.)
 
 #### Optional
 

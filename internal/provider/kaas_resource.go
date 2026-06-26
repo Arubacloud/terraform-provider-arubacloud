@@ -95,8 +95,9 @@ func (r *KaaSResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				Required:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).",
+				MarkdownDescription: "Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
@@ -104,8 +105,9 @@ func (r *KaaSResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				Optional:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project that owns this resource.",
+				MarkdownDescription: "ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"billing_period": schema.StringAttribute{
 				MarkdownDescription: "Billing cycle. Accepted values: `Hour`, `Month`, `Year`.",
@@ -125,14 +127,14 @@ func (r *KaaSResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				Required:            true,
 				Attributes: map[string]schema.Attribute{
 					"vpc_uri_ref": schema.StringAttribute{
-						MarkdownDescription: "URI of the VPC that hosts the cluster (e.g., `arubacloud_vpc.example.uri`).",
+						MarkdownDescription: "URI of the VPC that hosts the cluster (e.g., `arubacloud_vpc.example.uri`). (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 						Required:            true,
-						PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+						PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown(), stringplanmodifier.RequiresReplace()},
 					},
 					"subnet_uri_ref": schema.StringAttribute{
-						MarkdownDescription: "URI of the subnet within the VPC (e.g., `arubacloud_subnet.example.uri`).",
+						MarkdownDescription: "URI of the subnet within the VPC (e.g., `arubacloud_subnet.example.uri`). (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 						Required:            true,
-						PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+						PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown(), stringplanmodifier.RequiresReplace()},
 					},
 					"node_cidr": schema.SingleNestedAttribute{
 						MarkdownDescription: "CIDR block assigned to cluster nodes.",
@@ -547,7 +549,7 @@ func (r *KaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	if kaas.Region() != "" {
 		data.Location = types.StringValue(string(kaas.Region()))
 	}
-	if bp := string(kaas.BillingPeriod()); bp != "" {
+	if bp := billingPeriodFromAPI(string(kaas.BillingPeriod())); bp != "" {
 		data.BillingPeriod = types.StringValue(bp)
 	}
 	if raw.Properties.ManagementIP != nil && *raw.Properties.ManagementIP != "" {
@@ -733,7 +735,7 @@ func (r *KaaSResource) Update(ctx context.Context, req resource.UpdateRequest, r
 			} else {
 				data.ManagementIP = types.StringNull()
 			}
-			if bp := string(fresh.BillingPeriod()); bp != "" {
+			if bp := billingPeriodFromAPI(string(fresh.BillingPeriod())); bp != "" {
 				data.BillingPeriod = types.StringValue(bp)
 			}
 		}

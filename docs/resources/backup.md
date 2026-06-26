@@ -37,11 +37,11 @@ The following arguments are supported:
 
 #### Required
 
-- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
+- `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). (Immutable — changing this value forces the resource to be destroyed and re-created.)
 - `name` (String) Display name for the backup.
-- `project_id` (String) ID of the project that owns this resource.
-- `type` (String) Backup type. Accepted values: `Full`, `Incremental`.
-- `volume_id` (String) ID of the block storage volume to back up.
+- `project_id` (String) ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `type` (String) Backup type. Accepted values: `Full`, `Incremental`. (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `volume_id` (String) ID of the block storage volume to back up. (Immutable — changing this value forces the resource to be destroyed and re-created.)
 
 #### Optional
 
