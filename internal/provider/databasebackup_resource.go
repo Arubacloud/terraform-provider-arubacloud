@@ -9,6 +9,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -48,10 +50,16 @@ func (r *DatabaseBackupResource) Schema(ctx context.Context, req resource.Schema
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"uri": schema.StringAttribute{
 				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources.",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project that owns this resource.",
@@ -217,7 +225,7 @@ func (r *DatabaseBackupResource) Read(ctx context.Context, req resource.ReadRequ
 	if z := string(backup.Zone()); z != "" {
 		data.Zone = types.StringValue(z)
 	}
-	if bp := string(backup.BillingPeriod()); bp != "" {
+	if bp := billingPeriodFromAPI(string(backup.BillingPeriod())); bp != "" {
 		data.BillingPeriod = types.StringValue(bp)
 	}
 	// DBaaSID and Database are preserved from state (not in API response directly).

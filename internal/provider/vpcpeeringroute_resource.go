@@ -9,6 +9,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -48,10 +50,16 @@ func (r *VpcPeeringRouteResource) Schema(ctx context.Context, req resource.Schem
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"uri": schema.StringAttribute{
 				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Display name for the VPC peering route.",
@@ -129,8 +137,8 @@ func applyVPCPeeringRouteToModel(route *aruba.VPCPeeringRoute, data *VpcPeeringR
 	if route.RemoteCIDR() != "" {
 		data.RemoteNetworkAddress = types.StringValue(route.RemoteCIDR())
 	}
-	if route.BillingPeriod() != "" {
-		data.BillingPeriod = types.StringValue(string(route.BillingPeriod()))
+	if bp := billingPeriodFromAPI(string(route.BillingPeriod())); bp != "" {
+		data.BillingPeriod = types.StringValue(bp)
 	}
 }
 

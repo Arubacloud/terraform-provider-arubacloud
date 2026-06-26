@@ -118,7 +118,7 @@ func applyKMSToModel(kms *aruba.KMS, data *KMSResourceModel) {
 	if r := string(kms.Region()); r != "" {
 		data.Location = types.StringValue(r)
 	}
-	if bp := string(kms.BillingPeriod()); bp != "" {
+	if bp := billingPeriodFromAPI(string(kms.BillingPeriod())); bp != "" {
 		data.BillingPeriod = types.StringValue(bp)
 	}
 }

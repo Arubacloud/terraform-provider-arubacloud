@@ -10,6 +10,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -49,18 +51,27 @@ func (r *BackupResource) Schema(ctx context.Context, req resource.SchemaRequest,
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"uri": schema.StringAttribute{
 				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources.",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Display name for the backup.",
 				Required:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).",
+				MarkdownDescription: "Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
@@ -68,16 +79,25 @@ func (r *BackupResource) Schema(ctx context.Context, req resource.SchemaRequest,
 				Optional:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project that owns this resource.",
+				MarkdownDescription: "ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"type": schema.StringAttribute{
-				MarkdownDescription: "Backup type. Accepted values: `Full`, `Incremental`.",
+				MarkdownDescription: "Backup type. Accepted values: `Full`, `Incremental`. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"volume_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the block storage volume to back up.",
+				MarkdownDescription: "ID of the block storage volume to back up. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"retention_days": schema.Int64Attribute{
 				MarkdownDescription: "Number of days to retain the backup before automatic deletion. Optional — if omitted, the backup is retained indefinitely.",
@@ -240,7 +260,7 @@ func (r *BackupResource) Read(ctx context.Context, req resource.ReadRequest, res
 	if days := backup.RetentionDays(); days > 0 {
 		data.RetentionDays = types.Int64Value(int64(days))
 	}
-	if bp := string(backup.BillingPeriod()); bp != "" {
+	if bp := billingPeriodFromAPI(string(backup.BillingPeriod())); bp != "" {
 		data.BillingPeriod = types.StringValue(bp)
 	}
 

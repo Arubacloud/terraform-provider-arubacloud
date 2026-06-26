@@ -69,12 +69,18 @@ func (r *DBaaSResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				Required:            true,
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).",
+				MarkdownDescription: "Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"zone": schema.StringAttribute{
-				MarkdownDescription: "Availability zone within the region where the DBaaS cluster is deployed.",
+				MarkdownDescription: "Availability zone within the region where the DBaaS cluster is deployed. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
@@ -82,12 +88,18 @@ func (r *DBaaSResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				Optional:            true,
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project that owns this resource.",
+				MarkdownDescription: "ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"engine_id": schema.StringAttribute{
-				MarkdownDescription: "Database engine type and version identifier (e.g., `mysql-8.0` for MySQL 8.0, `postgresql-15` for PostgreSQL 15). See the [available engines](https://api.arubacloud.com/docs/metadata/#dbaas-engines).",
+				MarkdownDescription: "Database engine type and version identifier (e.g., `mysql-8.0` for MySQL 8.0, `postgresql-15` for PostgreSQL 15). See the [available engines](https://api.arubacloud.com/docs/metadata/#dbaas-engines). (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"flavor": schema.StringAttribute{
 				MarkdownDescription: "Compute flavour for the DBaaS cluster nodes. See [available flavours](https://api.arubacloud.com/docs/metadata/#dbaas-flavors). For example, `DBO2A4` means 2 vCPU and 4 GB RAM.",
@@ -406,7 +418,7 @@ func (r *DBaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp
 	} else {
 		data.Flavor = flavor
 	}
-	if bp := string(dbaas.BillingPeriod()); bp != "" {
+	if bp := billingPeriodFromAPI(string(dbaas.BillingPeriod())); bp != "" {
 		data.BillingPeriod = types.StringValue(bp)
 	} else {
 		data.BillingPeriod = types.StringNull()
