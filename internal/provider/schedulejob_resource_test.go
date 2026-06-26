@@ -45,6 +45,7 @@ func TestAccSchedulejobResource(t *testing.T) {
 				ResourceName:      "arubacloud_schedulejob.test",
 				ImportState:       true,
 				ImportStateVerify: true,
+				ImportStateIdFunc: importIDFromAttrs("arubacloud_schedulejob.test", "project_id", "id"),
 			},
 			// Update and Read testing
 			{

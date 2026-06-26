@@ -160,6 +160,7 @@ func TestAccSecurityruleResource(t *testing.T) {
 				ResourceName:      "arubacloud_securityrule.test",
 				ImportState:       true,
 				ImportStateVerify: true,
+				ImportStateIdFunc: importIDFromAttrs("arubacloud_securityrule.test", "project_id", "vpc_id", "security_group_id", "id"),
 			},
 			// Update and Read testing
 			{

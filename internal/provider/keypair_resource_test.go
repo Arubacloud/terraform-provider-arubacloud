@@ -37,9 +37,11 @@ func TestAccKeypairResource(t *testing.T) {
 			},
 			// ImportState testing
 			{
-				ResourceName:      "arubacloud_keypair.test",
-				ImportState:       true,
-				ImportStateVerify: true,
+				ResourceName:            "arubacloud_keypair.test",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"value"},
+				ImportStateIdFunc:       importIDFromAttrs("arubacloud_keypair.test", "project_id", "id"),
 			},
 			// Update and Read testing
 			{

@@ -45,6 +45,7 @@ func TestAccVpcpeeringrouteResource(t *testing.T) {
 				ResourceName:      "arubacloud_vpcpeeringroute.test",
 				ImportState:       true,
 				ImportStateVerify: true,
+				ImportStateIdFunc: importIDFromAttrs("arubacloud_vpcpeeringroute.test", "project_id", "vpc_id", "vpc_peering_id", "id"),
 			},
 			// Update and Read testing
 			{

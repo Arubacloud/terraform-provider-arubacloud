@@ -45,6 +45,7 @@ func TestAccVpntunnelResource(t *testing.T) {
 				ResourceName:      "arubacloud_vpntunnel.test",
 				ImportState:       true,
 				ImportStateVerify: true,
+				ImportStateIdFunc: importIDFromAttrs("arubacloud_vpntunnel.test", "project_id", "id"),
 			},
 			// Update and Read testing
 			{

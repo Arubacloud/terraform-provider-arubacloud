@@ -42,6 +42,7 @@ func TestAccProjectResource(t *testing.T) {
 				ResourceName:      "arubacloud_project.test",
 				ImportState:       true,
 				ImportStateVerify: true,
+				ImportStateIdFunc: importIDFromAttrs("arubacloud_project.test", "id"),
 			},
 			// Update and Read testing
 			{

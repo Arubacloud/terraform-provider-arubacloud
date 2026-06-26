@@ -27,7 +27,12 @@ func TestAccKmsResource(t *testing.T) {
 					statecheck.ExpectKnownValue("arubacloud_kms.test", tfjsonpath.New("location"), knownvalue.NotNull()),
 				},
 			},
-			{ResourceName: "arubacloud_kms.test", ImportState: true, ImportStateVerify: true},
+			{
+				ResourceName:      "arubacloud_kms.test",
+				ImportState:       true,
+				ImportStateVerify: true,
+				ImportStateIdFunc: importIDFromAttrs("arubacloud_kms.test", "project_id", "id"),
+			},
 			{
 				Config: testAccKmsResourceConfig("test-kms-updated"),
 				ConfigStateChecks: []statecheck.StateCheck{

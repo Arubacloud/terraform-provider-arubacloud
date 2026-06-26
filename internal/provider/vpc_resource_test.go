@@ -50,6 +50,7 @@ func TestAccVpcResource(t *testing.T) {
 				ResourceName:      "arubacloud_vpc.test",
 				ImportState:       true,
 				ImportStateVerify: true,
+				ImportStateIdFunc: importIDFromAttrs("arubacloud_vpc.test", "project_id", "id"),
 			},
 			// Update and Read testing
 			{

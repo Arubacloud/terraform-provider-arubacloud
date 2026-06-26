@@ -45,6 +45,7 @@ func TestAccSnapshotResource(t *testing.T) {
 				ResourceName:      "arubacloud_snapshot.test",
 				ImportState:       true,
 				ImportStateVerify: true,
+				ImportStateIdFunc: importIDFromAttrs("arubacloud_snapshot.test", "project_id", "id"),
 			},
 			// Update and Read testing
 			{
