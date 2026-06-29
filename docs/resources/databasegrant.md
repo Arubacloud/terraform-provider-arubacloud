@@ -38,6 +38,10 @@ The following arguments are supported:
 - `role` (String) Privilege level granted. Accepted values depend on the database engine (e.g., `ALL`, `READ`, `WRITE`).
 - `user_id` (String) Name or ID of the DBaaS user receiving the grant.
 
+#### Optional
+
+- `timeout` (String) Per-resource timeout override (e.g. `"15m"`, `"1h"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.
+
 ### Attributes Reference
 
 In addition to all arguments above, the following attributes are exported:

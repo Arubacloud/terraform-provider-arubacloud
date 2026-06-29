@@ -459,11 +459,13 @@ func (r *CloudServerResource) applyServerToState(
 		}
 	}
 
+	// elastic_ip_uri_ref and securitygroup_uri_refs are not returned by the API;
+	// preserve them from the prior state to avoid spurious diffs.
 	networkAttrs := map[string]attr.Value{
 		"vpc_uri_ref":            resolveAPIStringRef(server.VPC(), origNetwork.VpcUriRef),
-		"elastic_ip_uri_ref":     origNetwork.ElasticIpUriRef,     // not returned by API; preserve state
+		"elastic_ip_uri_ref":     origNetwork.ElasticIpUriRef,
 		"subnet_uri_refs":        subnetUriRefs,
-		"securitygroup_uri_refs": origNetwork.SecurityGroupUriRefs, // not returned by API; preserve state
+		"securitygroup_uri_refs": origNetwork.SecurityGroupUriRefs,
 	}
 	networkObj, d := types.ObjectValue(csNetworkAttrTypes(), networkAttrs)
 	diags.Append(d...)

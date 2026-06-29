@@ -73,6 +73,7 @@ The following arguments are supported:
 
 - `network` (Attributes) Network configuration block. Required when `type` is `Advanced`. (see [below for nested schema](#nestedatt--network))
 - `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
+- `timeout` (String) Per-resource timeout override (e.g. `"15m"`, `"1h"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.
 
 ### Attributes Reference
 

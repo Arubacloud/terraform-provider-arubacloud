@@ -43,6 +43,7 @@ The following arguments are supported:
 #### Optional
 
 - `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
+- `timeout` (String) Per-resource timeout override (e.g. `"15m"`, `"1h"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.
 
 ### Attributes Reference
 
@@ -86,6 +87,7 @@ Optional:
 
 Optional:
 
+- `cidr` (String) CIDR block of the subnet (e.g. `192.168.10.0/24`). Required by the API.
 - `id` (String) ID of the subnet.
 
 
@@ -116,7 +118,7 @@ Optional:
 - `encryption` (String) ESP encryption algorithm (e.g., `aes256`).
 - `hash` (String) ESP integrity/hash algorithm (e.g., `sha256`).
 - `lifetime` (Number) ESP phase-2 lifetime in seconds.
-- `pfs` (String) ESP Perfect Forward Secrecy group (e.g., `modp2048`).
+- `pfs` (String) ESP Perfect Forward Secrecy group. Use `"enable"`, `"disable"`, or `"dh-group<N>"` (e.g. `"dh-group14"` for MODP-2048).
 
 
 <a id="nestedatt--properties--vpn_client_settings--ike"></a>
@@ -124,7 +126,7 @@ Optional:
 
 Optional:
 
-- `dh_group` (String) IKE Diffie-Hellman group (e.g., `modp2048`).
+- `dh_group` (String) IKE Diffie-Hellman group. Use the numeric group identifier: `"1"`, `"2"`, `"5"`, `"14"` … `"32"`. The common choice for IKEv2 is `"14"` (MODP-2048).
 - `dpd_action` (String) Dead Peer Detection action on failure (e.g., `restart`).
 - `dpd_interval` (Number) DPD keep-alive interval in seconds.
 - `dpd_timeout` (Number) DPD timeout before the peer is considered dead, in seconds.

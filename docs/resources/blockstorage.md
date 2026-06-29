@@ -62,6 +62,7 @@ The following arguments are supported:
 - `bootable` (Boolean) Whether this volume can be used as a boot volume for an `arubacloud_cloudserver`. Must be `true` when `image` is set.
 - `image` (String) Image ID to use when creating a bootable volume. Required when `bootable` is `true`. See the [available images](https://api.arubacloud.com/docs/metadata/#cloud-server-bootvolume).
 - `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
+- `timeout` (String) Per-resource timeout override (e.g. `"15m"`, `"1h"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.
 - `zone` (String) Availability zone within the region. If omitted the volume is regional (accessible across all zones).
 
 ### Attributes Reference
