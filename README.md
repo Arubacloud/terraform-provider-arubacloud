@@ -14,13 +14,14 @@ Manage your [ArubaCloud](https://arubacloud.com/) infrastructure with Terraform 
 
 | Category | Resources & Data Sources |
 |---|---|
-| **Compute** | `arubacloud_cloudserver`, `arubacloud_keypair`, `arubacloud_elasticip` |
-| **Network** | `arubacloud_vpc`, `arubacloud_subnet`, `arubacloud_securitygroup`, `arubacloud_securityrule`, `arubacloud_vpcpeering`, `arubacloud_vpcpeeringroute`, `arubacloud_vpntunnel`, `arubacloud_vpnroute` |
+| **Management** | `arubacloud_project` |
+| **Compute** | `arubacloud_cloudserver`, `arubacloud_keypair` |
 | **Storage** | `arubacloud_blockstorage`, `arubacloud_snapshot`, `arubacloud_backup`, `arubacloud_restore` |
+| **Network** | `arubacloud_vpc`, `arubacloud_subnet`, `arubacloud_securitygroup`, `arubacloud_securityrule`, `arubacloud_elasticip`, `arubacloud_vpcpeering`, `arubacloud_vpcpeeringroute`, `arubacloud_vpntunnel`, `arubacloud_vpnroute` |
 | **Container** | `arubacloud_kaas`, `arubacloud_containerregistry` |
-| **Database** | `arubacloud_dbaas`, `arubacloud_database`, `arubacloud_databasegrant`, `arubacloud_databasebackup`, `arubacloud_dbaasuser` |
-| **Management** | `arubacloud_project`, `arubacloud_schedulejob` |
+| **Database** | `arubacloud_dbaas`, `arubacloud_database`, `arubacloud_dbaasuser`, `arubacloud_databasegrant`, `arubacloud_databasebackup` |
 | **Security** | `arubacloud_kms` |
+| **Schedule** | `arubacloud_schedulejob` |
 
 ## Documentation
 
@@ -42,7 +43,7 @@ terraform {
   required_providers {
     arubacloud = {
       source  = "arubacloud/arubacloud"
-      version = ">= 0.2.0"
+      version = ">= 0.3.0"
     }
   }
 }
