@@ -13,12 +13,9 @@ import (
 
 func TestAccSchedulejobDataSource(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
-	if projectID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
-	}
-	cloudserverID := os.Getenv("ARUBACLOUD_CLOUDSERVER_ID")
-	if cloudserverID == "" {
-		t.Skip("ARUBACLOUD_CLOUDSERVER_ID must be set for schedulejob acceptance tests (step resource_uri requires an existing cloud server)")
+	osImageID := os.Getenv("ARUBACLOUD_OS_IMAGE_ID")
+	if projectID == "" || osImageID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_OS_IMAGE_ID must be set for acceptance tests")
 	}
 
 	resource.Test(t, resource.TestCase{
@@ -26,7 +23,7 @@ func TestAccSchedulejobDataSource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccSchedulejobDataSourceConfig(projectID, cloudserverID),
+				Config: testAccSchedulejobDataSourceConfig(projectID, osImageID),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_schedulejob.test",
@@ -36,7 +33,7 @@ func TestAccSchedulejobDataSource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_schedulejob.test",
 						tfjsonpath.New("name"),
-						knownvalue.NotNull(),
+						knownvalue.StringExact("test-ds-schedulejob"),
 					),
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_schedulejob.test",
@@ -49,8 +46,62 @@ func TestAccSchedulejobDataSource(t *testing.T) {
 	})
 }
 
-func testAccSchedulejobDataSourceConfig(projectID, cloudserverID string) string {
+func testAccSchedulejobDataSourceConfig(projectID, osImageID string) string {
 	return fmt.Sprintf(`
+resource "arubacloud_vpc" "sj_prereq" {
+  name       = "test-ds-sj-vpc"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+}
+
+resource "arubacloud_subnet" "sj_prereq" {
+  name       = "test-ds-sj-subnet"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+  vpc_id     = arubacloud_vpc.sj_prereq.id
+  type       = "Basic"
+}
+
+resource "arubacloud_securitygroup" "sj_prereq" {
+  name       = "test-ds-sj-sg"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+  vpc_id     = arubacloud_vpc.sj_prereq.id
+}
+
+resource "arubacloud_blockstorage" "sj_boot" {
+  name           = "test-ds-sj-boot"
+  project_id     = %[1]q
+  location       = "ITBG-Bergamo"
+  size_gb        = 30
+  billing_period = "Hour"
+  zone           = "ITBG-1"
+  type           = "Standard"
+  bootable       = true
+  image          = %[2]q
+}
+
+resource "arubacloud_cloudserver" "sj_prereq" {
+  name       = "test-ds-sj-server"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+  zone       = "ITBG-1"
+
+  network = {
+    vpc_uri_ref            = arubacloud_vpc.sj_prereq.uri
+    subnet_uri_refs        = [arubacloud_subnet.sj_prereq.uri]
+    securitygroup_uri_refs = [arubacloud_securitygroup.sj_prereq.uri]
+  }
+
+  settings = {
+    flavor_name = "CSO4A8"
+  }
+
+  storage = {
+    boot_volume_uri_ref = arubacloud_blockstorage.sj_boot.uri
+  }
+}
+
 resource "arubacloud_schedulejob" "test" {
   name       = "test-ds-schedulejob"
   project_id = %[1]q
@@ -64,7 +115,7 @@ resource "arubacloud_schedulejob" "test" {
     steps = [
       {
         name         = "Power Off Server"
-        resource_uri = "/projects/%[1]s/providers/Aruba.Compute/cloudServers/%[2]s"
+        resource_uri = "/projects/%[1]s/providers/Aruba.Compute/cloudServers/${arubacloud_cloudserver.sj_prereq.id}"
         action_uri   = "/poweroff"
         http_verb    = "POST"
         body         = null
@@ -77,5 +128,5 @@ data "arubacloud_schedulejob" "test" {
   id         = arubacloud_schedulejob.test.id
   project_id = %[1]q
 }
-`, projectID, cloudserverID)
+`, projectID, osImageID)
 }
