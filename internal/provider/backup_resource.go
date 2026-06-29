@@ -194,6 +194,15 @@ func (r *BackupResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
+	// Re-read to capture server-assigned fields (normalised URI, billing period, etc.)
+	// that may differ between the Create response and the fully-provisioned state.
+	fresh, freshErr := r.client.Client.FromStorage().Backups().Get(ctx, backupRef(&data))
+	if freshErr == nil {
+		applyBackupToState(fresh, &data)
+	} else {
+		tflog.Warn(ctx, fmt.Sprintf("Failed to refresh Backup after creation: %v", freshErr))
+	}
+
 	tflog.Trace(ctx, "created a Backup resource", map[string]interface{}{
 		"backup_id":   data.Id.ValueString(),
 		"backup_name": data.Name.ValueString(),
@@ -240,6 +249,13 @@ func (r *BackupResource) Read(ctx context.Context, req resource.ReadRequest, res
 		}
 	}
 
+	applyBackupToState(backup, &data)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+}
+
+// applyBackupToState maps fields from the SDK StorageBackup wrapper into data.
+// Called from both Create (post-wait re-read) and Read.
+func applyBackupToState(backup *aruba.StorageBackup, data *BackupResourceModel) {
 	data.Id = types.StringValue(backup.ID())
 	data.Uri = strVal(backup.URI())
 	data.Name = types.StringValue(backup.Name())
@@ -263,8 +279,6 @@ func (r *BackupResource) Read(ctx context.Context, req resource.ReadRequest, res
 	if bp := billingPeriodFromAPI(string(backup.BillingPeriod())); bp != "" {
 		data.BillingPeriod = types.StringValue(bp)
 	}
-
-	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
 func (r *BackupResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {

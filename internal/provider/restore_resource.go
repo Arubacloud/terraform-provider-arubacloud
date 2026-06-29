@@ -179,6 +179,14 @@ func (r *RestoreResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
+	// Re-read to capture server-assigned fields after provisioning.
+	fresh, freshErr := r.client.Client.FromStorage().Restores().Get(ctx, restoreRef(&data))
+	if freshErr == nil {
+		applyRestoreToState(fresh, &data)
+	} else {
+		tflog.Warn(ctx, fmt.Sprintf("Failed to refresh Restore after creation: %v", freshErr))
+	}
+
 	tflog.Trace(ctx, "created a Restore resource", map[string]interface{}{
 		"restore_id":   data.Id.ValueString(),
 		"restore_name": data.Name.ValueString(),
@@ -225,6 +233,14 @@ func (r *RestoreResource) Read(ctx context.Context, req resource.ReadRequest, re
 		}
 	}
 
+	applyRestoreToState(restore, &data)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+}
+
+// applyRestoreToState maps fields from the SDK StorageRestore wrapper into data.
+// Called from both Create (post-wait re-read) and Read.
+// VolumeID, BackupID, and ProjectID are not returned by the API and are preserved from state.
+func applyRestoreToState(restore *aruba.StorageRestore, data *RestoreResourceModel) {
 	data.Id = types.StringValue(restore.ID())
 	data.Uri = strVal(restore.URI())
 	data.Name = types.StringValue(restore.Name())
@@ -232,9 +248,6 @@ func (r *RestoreResource) Read(ctx context.Context, req resource.ReadRequest, re
 	if restore.Region() != "" {
 		data.Location = types.StringValue(string(restore.Region()))
 	}
-	// VolumeID is preserved from state (not returned by API).
-
-	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
 func (r *RestoreResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
