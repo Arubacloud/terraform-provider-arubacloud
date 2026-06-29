@@ -134,7 +134,11 @@ func (d *BackupDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 	}
 	if originURI := backup.OriginURI(); originURI != "" {
 		parts := strings.Split(originURI, "/")
-		data.VolumeID = types.StringValue(parts[len(parts)-1])
+		if last := parts[len(parts)-1]; last != "" {
+			data.VolumeID = types.StringValue(last)
+		} else {
+			data.VolumeID = types.StringNull()
+		}
 	} else {
 		data.VolumeID = types.StringNull()
 	}

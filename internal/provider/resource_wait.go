@@ -229,10 +229,10 @@ func WaitForResourceDeleted(ctx context.Context, checker ResourceDeletedChecker,
 		return false, nil
 	}
 
-	// Immediate check — returns promptly if the resource is already gone.
-	if deleted, err := checkDeletion(); err != nil {
-		return err
-	} else if deleted {
+	// Immediate check — returns promptly if already gone.
+	// A single transient error on this first call does NOT abort; fall through
+	// to the ticker loop where the 3-consecutive-error tolerance applies.
+	if deleted, err := checkDeletion(); err == nil && deleted {
 		return nil
 	}
 
@@ -325,14 +325,20 @@ func CreateWithTransientRetry(
 	}
 }
 
+// minRemainingTimeout is the floor applied by remainingTimeout so that
+// WaitForResourceDeleted always has enough budget to run at least the
+// initial immediate check, even when DeleteResourceWithRetry has exhausted
+// nearly all of the ResourceTimeout budget through retries.
+const minRemainingTimeout = 10 * time.Second
+
 // remainingTimeout returns how much of the original timeout budget is left
-// since start, clamped to zero. Pass this as the timeout to WaitForResourceDeleted
-// so that DeleteResourceWithRetry and WaitForResourceDeleted share a single
-// overall budget instead of each consuming the full ResourceTimeout.
+// since start, floored at minRemainingTimeout. Pass this as the timeout to
+// WaitForResourceDeleted so that DeleteResourceWithRetry and WaitForResourceDeleted
+// share a single overall budget instead of each consuming the full ResourceTimeout.
 func remainingTimeout(start time.Time, total time.Duration) time.Duration {
 	r := total - time.Since(start)
-	if r < 0 {
-		r = 0
+	if r < minRemainingTimeout {
+		return minRemainingTimeout
 	}
 	return r
 }

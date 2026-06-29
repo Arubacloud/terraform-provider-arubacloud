@@ -575,11 +575,11 @@ func TestRemainingTimeout(t *testing.T) {
 		t.Errorf("remainingTimeout for fresh start = %v, expected (0, %v]", got, total)
 	}
 
-	// Start was 20 minutes ago, total is 10 minutes: budget exhausted → 0.
+	// Start was 20 minutes ago, total is 10 minutes: budget exhausted → floor (minRemainingTimeout).
 	old := time.Now().Add(-20 * time.Minute)
 	got2 := remainingTimeout(old, total)
-	if got2 != 0 {
-		t.Errorf("remainingTimeout for exhausted budget = %v, expected 0", got2)
+	if got2 != minRemainingTimeout {
+		t.Errorf("remainingTimeout for exhausted budget = %v, expected minRemainingTimeout (%v)", got2, minRemainingTimeout)
 	}
 }
 

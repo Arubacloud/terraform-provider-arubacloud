@@ -253,8 +253,8 @@ func (r *BackupResource) Read(ctx context.Context, req resource.ReadRequest, res
 	// Extract volume ID from origin URI.
 	if originURI := backup.OriginURI(); originURI != "" {
 		parts := strings.Split(originURI, "/")
-		if len(parts) > 0 {
-			data.VolumeID = types.StringValue(parts[len(parts)-1])
+		if last := parts[len(parts)-1]; last != "" {
+			data.VolumeID = types.StringValue(last)
 		}
 	}
 	if days := backup.RetentionDays(); days > 0 {
