@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
@@ -14,6 +15,11 @@ import (
 )
 
 func TestAccDatabaseResource(t *testing.T) {
+	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
+	dbaasID := os.Getenv("ARUBACLOUD_DBAAS_ID")
+	if projectID == "" || dbaasID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_DBAAS_ID must be set for acceptance tests")
+	}
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -21,7 +27,7 @@ func TestAccDatabaseResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccDatabaseResourceConfig("test-database"),
+				Config: testAccDatabaseResourceConfig(projectID, dbaasID, "test-database"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_database.test",
@@ -49,7 +55,7 @@ func TestAccDatabaseResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccDatabaseResourceConfig("test-database-updated"),
+				Config: testAccDatabaseResourceConfig(projectID, dbaasID, "test-database-updated"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_database.test",
@@ -87,12 +93,12 @@ func testCheckDatabaseDestroyed(s *terraform.State) error {
 	return nil
 }
 
-func testAccDatabaseResourceConfig(name string) string {
+func testAccDatabaseResourceConfig(projectID, dbaasID, name string) string {
 	return fmt.Sprintf(`
 resource "arubacloud_database" "test" {
-  name       = %[1]q
-  project_id = "test-project-id"
-  dbaas_id   = "test-dbaas-id"
+  name       = %[3]q
+  project_id = %[1]q
+  dbaas_id   = %[2]q
 }
-`, name)
+`, projectID, dbaasID, name)
 }

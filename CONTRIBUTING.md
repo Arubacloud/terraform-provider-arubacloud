@@ -96,6 +96,13 @@ Resource tests (Create / Update / Delete lifecycle) only need the three variable
 |---|---|
 | `ARUBACLOUD_PROJECT_ID` | Project scope for every resource creation |
 
+Some resource tests require additional variables for prerequisites they provision inline:
+
+| Variable | Required by |
+|---|---|
+| `ARUBACLOUD_OS_IMAGE_ID` | `TestAccBlockStorageResource_Bootable`, `TestAccCloudserverResource` — OS image slug for bootable disk creation |
+| `ARUBACLOUD_DBAAS_ID` | `TestAccDatabaseResource` — ID of an existing DBaaS cluster to create the database in |
+
 #### Data source tests
 
 Data source tests look up an **existing** resource by ID. Each data source test skips (rather than fails) when its variable is absent — set only the ones you need.
@@ -104,7 +111,7 @@ Data source tests look up an **existing** resource by ID. Each data source test 
 |---|---|
 | `ARUBACLOUD_PROJECT_ID` | All data sources |
 | `ARUBACLOUD_VPC_ID` | vpc, subnet, securitygroup, securityrule, vpcpeering, vpcpeeringroute |
-| `ARUBACLOUD_CLOUDSERVER_ID` | cloudserver |
+| `ARUBACLOUD_OS_IMAGE_ID` | cloudserver |
 | `ARUBACLOUD_KEYPAIR_ID` | keypair |
 | `ARUBACLOUD_BLOCKSTORAGE_ID` | blockstorage |
 | `ARUBACLOUD_SNAPSHOT_ID` | snapshot |

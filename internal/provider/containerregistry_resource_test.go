@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
@@ -14,6 +15,10 @@ import (
 )
 
 func TestAccContainerregistryResource(t *testing.T) {
+	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
+	if projectID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
+	}
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -21,7 +26,7 @@ func TestAccContainerregistryResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccContainerregistryResourceConfig("test-containerregistry"),
+				Config: testAccContainerregistryResourceConfig(projectID, "test-containerregistry"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_containerregistry.test",
@@ -49,7 +54,7 @@ func TestAccContainerregistryResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccContainerregistryResourceConfig("test-containerregistry-updated"),
+				Config: testAccContainerregistryResourceConfig(projectID, "test-containerregistry-updated"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_containerregistry.test",
@@ -86,29 +91,66 @@ func testCheckContainerregistryDestroyed(s *terraform.State) error {
 	return nil
 }
 
-func testAccContainerregistryResourceConfig(name string) string {
+func testAccContainerregistryResourceConfig(projectID, name string) string {
 	return fmt.Sprintf(`
+resource "arubacloud_vpc" "cr_prereq" {
+  name       = "test-acc-cr-vpc"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+}
+
+resource "arubacloud_subnet" "cr_prereq" {
+  name       = "test-acc-cr-subnet"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+  vpc_id     = arubacloud_vpc.cr_prereq.id
+  type       = "Basic"
+}
+
+resource "arubacloud_securitygroup" "cr_prereq" {
+  name       = "test-acc-cr-sg"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+  vpc_id     = arubacloud_vpc.cr_prereq.id
+}
+
+resource "arubacloud_elasticip" "cr_prereq" {
+  name           = "test-acc-cr-eip"
+  location       = "ITBG-Bergamo"
+  project_id     = %[1]q
+  billing_period = "Hour"
+}
+
+resource "arubacloud_blockstorage" "cr_prereq" {
+  name           = "test-acc-cr-storage"
+  project_id     = %[1]q
+  location       = "ITBG-Bergamo"
+  size_gb        = 50
+  billing_period = "Hour"
+  zone           = "ITBG-1"
+  type           = "Standard"
+}
+
 resource "arubacloud_containerregistry" "test" {
-  name           = %[1]q
-  location       = "it-1"
-  project_id     = "test-project-id"
+  name           = %[2]q
+  location       = "ITBG-Bergamo"
+  project_id     = %[1]q
   billing_period = "Hour"
 
   network = {
-    vpc_uri_ref              = "test-vpc-uri"
-    subnet_uri_ref           = "test-subnet-uri"
-    security_group_uri_ref   = "test-sg-uri"
-    public_ip_uri_ref        = "test-eip-uri"
+    vpc_uri_ref            = arubacloud_vpc.cr_prereq.uri
+    subnet_uri_ref         = arubacloud_subnet.cr_prereq.uri
+    security_group_uri_ref = arubacloud_securitygroup.cr_prereq.uri
+    public_ip_uri_ref      = arubacloud_elasticip.cr_prereq.uri
   }
 
   storage = {
-    block_storage_uri_ref = "test-storage-uri"
+    block_storage_uri_ref = arubacloud_blockstorage.cr_prereq.uri
   }
 
   settings = {
-    admin_user               = "admin"
-    concurrent_users_flavor  = "small"
+    concurrent_users_flavor = "Small"
   }
 }
-`, name)
+`, projectID, name)
 }
