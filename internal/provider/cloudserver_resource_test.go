@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
@@ -15,6 +16,11 @@ import (
 )
 
 func TestAccCloudserverResource(t *testing.T) {
+	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
+	osImageID := os.Getenv("ARUBACLOUD_OS_IMAGE_ID")
+	if projectID == "" || osImageID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_OS_IMAGE_ID must be set for acceptance tests")
+	}
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -22,7 +28,7 @@ func TestAccCloudserverResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccCloudserverResourceConfig("test-cloudserver"),
+				Config: testAccCloudserverResourceConfig(projectID, osImageID, "test-cloudserver"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_cloudserver.test",
@@ -56,7 +62,7 @@ func TestAccCloudserverResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccCloudserverResourceConfig("test-cloudserver-updated"),
+				Config: testAccCloudserverResourceConfig(projectID, osImageID, "test-cloudserver-updated"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_cloudserver.test",
@@ -171,27 +177,60 @@ func TestResolveKeyPairUriRef(t *testing.T) {
 	}
 }
 
-func testAccCloudserverResourceConfig(name string) string {
+func testAccCloudserverResourceConfig(projectID, osImageID, name string) string {
 	return fmt.Sprintf(`
+resource "arubacloud_vpc" "cs_prereq" {
+  name       = "test-acc-cs-vpc"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+}
+
+resource "arubacloud_subnet" "cs_prereq" {
+  name       = "test-acc-cs-subnet"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+  vpc_id     = arubacloud_vpc.cs_prereq.id
+  type       = "Basic"
+}
+
+resource "arubacloud_securitygroup" "cs_prereq" {
+  name       = "test-acc-cs-sg"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+  vpc_id     = arubacloud_vpc.cs_prereq.id
+}
+
+resource "arubacloud_blockstorage" "cs_boot" {
+  name           = "test-acc-cs-boot"
+  project_id     = %[1]q
+  location       = "ITBG-Bergamo"
+  size_gb        = 30
+  billing_period = "Hour"
+  zone           = "ITBG-1"
+  type           = "Standard"
+  bootable       = true
+  image          = %[2]q
+}
+
 resource "arubacloud_cloudserver" "test" {
-  name       = %[1]q
-  location   = "it-1"
-  project_id = "test-project-id"
-  zone       = "it-1"
-  
+  name       = %[3]q
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+  zone       = "ITBG-1"
+
   network = {
-    vpc_uri_ref              = "test-vpc-uri"
-    subnet_uri_refs          = ["test-subnet-uri"]
-    securitygroup_uri_refs   = ["test-sg-uri"]
+    vpc_uri_ref            = arubacloud_vpc.cs_prereq.uri
+    subnet_uri_refs        = [arubacloud_subnet.cs_prereq.uri]
+    securitygroup_uri_refs = [arubacloud_securitygroup.cs_prereq.uri]
   }
-  
+
   settings = {
-    flavor_name = "test-flavor"
+    flavor_name = "CSO4A8"
   }
-  
+
   storage = {
-    boot_volume_uri_ref = "test-volume-uri"
+    boot_volume_uri_ref = arubacloud_blockstorage.cs_boot.uri
   }
 }
-`, name)
+`, projectID, osImageID, name)
 }

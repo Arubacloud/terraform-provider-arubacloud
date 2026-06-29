@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
@@ -14,6 +15,10 @@ import (
 )
 
 func TestAccBlockStorageResource(t *testing.T) {
+	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
+	if projectID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
+	}
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -21,7 +26,7 @@ func TestAccBlockStorageResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccBlockStorageResourceConfig("test-blockstorage", 100, "Standard"),
+				Config: testAccBlockStorageResourceConfig(projectID, "test-blockstorage", 100, "Standard"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_blockstorage.test",
@@ -64,7 +69,7 @@ func TestAccBlockStorageResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccBlockStorageResourceConfig("test-blockstorage-updated", 200, "Performance"),
+				Config: testAccBlockStorageResourceConfig(projectID, "test-blockstorage-updated", 200, "Performance"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_blockstorage.test",
@@ -88,13 +93,18 @@ func TestAccBlockStorageResource(t *testing.T) {
 }
 
 func TestAccBlockStorageResource_Bootable(t *testing.T) {
+	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
+	osImageID := os.Getenv("ARUBACLOUD_OS_IMAGE_ID")
+	if projectID == "" || osImageID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_OS_IMAGE_ID must be set for acceptance tests")
+	}
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:             testCheckBlockstorageDestroyed,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccBlockStorageResourceConfigBootable("test-bootable", 50),
+				Config: testAccBlockStorageResourceConfigBootable(projectID, osImageID, "test-bootable", 50),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_blockstorage.test",
@@ -109,7 +119,7 @@ func TestAccBlockStorageResource_Bootable(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"arubacloud_blockstorage.test",
 						tfjsonpath.New("image"),
-						knownvalue.StringExact("ubuntu-22.04"),
+						knownvalue.StringExact(osImageID),
 					),
 				},
 			},
@@ -141,32 +151,32 @@ func testCheckBlockstorageDestroyed(s *terraform.State) error {
 	return nil
 }
 
-func testAccBlockStorageResourceConfig(name string, sizeGB int, storageType string) string {
+func testAccBlockStorageResourceConfig(projectID, name string, sizeGB int, storageType string) string {
 	return fmt.Sprintf(`
 resource "arubacloud_blockstorage" "test" {
-  name           = %[1]q
-  project_id     = "test-project-id"
-  location       = "it-1"
-  size_gb        = %[2]d
+  name           = %[2]q
+  project_id     = %[1]q
+  location       = "ITBG-Bergamo"
+  size_gb        = %[3]d
   billing_period = "Hour"
-  zone           = "it-1"
-  type           = %[3]q
+  zone           = "ITBG-1"
+  type           = %[4]q
 }
-`, name, sizeGB, storageType)
+`, projectID, name, sizeGB, storageType)
 }
 
-func testAccBlockStorageResourceConfigBootable(name string, sizeGB int) string {
+func testAccBlockStorageResourceConfigBootable(projectID, osImageID, name string, sizeGB int) string {
 	return fmt.Sprintf(`
 resource "arubacloud_blockstorage" "test" {
-  name           = %[1]q
-  project_id     = "test-project-id"
-  location       = "it-1"
-  size_gb        = %[2]d
+  name           = %[3]q
+  project_id     = %[1]q
+  location       = "ITBG-Bergamo"
+  size_gb        = %[4]d
   billing_period = "Hour"
-  zone           = "it-1"
+  zone           = "ITBG-1"
   type           = "Standard"
   bootable       = true
-  image          = "ubuntu-22.04"
+  image          = %[2]q
 }
-`, name, sizeGB)
+`, projectID, osImageID, name, sizeGB)
 }

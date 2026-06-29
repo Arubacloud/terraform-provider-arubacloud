@@ -18,7 +18,14 @@ make ci-test      # Full CI pipeline locally (build, lint, generate, test, mod t
 
 ## Acceptance Tests
 
-Require environment variables `ARUBACLOUD_CLIENT_ID` and `ARUBACLOUD_CLIENT_SECRET`, or use `run-acceptance-tests.sh` to load them from `terraform.tfvars`.
+Require environment variables `ARUBACLOUD_CLIENT_ID`, `ARUBACLOUD_CLIENT_SECRET`, and `ARUBACLOUD_PROJECT_ID`. Some resource tests need additional variables:
+
+| Variable | Required by |
+|---|---|
+| `ARUBACLOUD_OS_IMAGE_ID` | `TestAccBlockStorageResource_Bootable`, `TestAccCloudserverResource` |
+| `ARUBACLOUD_DBAAS_ID` | `TestAccDatabaseResource` |
+
+Data source tests require per-resource fixture IDs. See [`CONTRIBUTING.md`](../CONTRIBUTING.md#acceptance-tests) or [`docs/guides/acceptance-testing.md`](../docs/guides/acceptance-testing.md) for the full variable reference.
 
 ## Local Terraform Development
 

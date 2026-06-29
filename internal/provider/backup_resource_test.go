@@ -21,7 +21,7 @@ func TestAccBackupResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccBackupResourceConfig("test-backup", "ITBG-Bergamo", "full", 30),
+				Config: testAccBackupResourceConfig("test-backup", "ITBG-Bergamo", "Full", 30),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_backup.test",
@@ -36,7 +36,7 @@ func TestAccBackupResource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"arubacloud_backup.test",
 						tfjsonpath.New("type"),
-						knownvalue.StringExact("full"),
+						knownvalue.StringExact("Full"),
 					),
 					statecheck.ExpectKnownValue(
 						"arubacloud_backup.test",
@@ -59,7 +59,7 @@ func TestAccBackupResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccBackupResourceConfig("test-backup-updated", "ITBG-Bergamo", "incremental", 60),
+				Config: testAccBackupResourceConfig("test-backup-updated", "ITBG-Bergamo", "Incremental", 60),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_backup.test",
@@ -69,7 +69,7 @@ func TestAccBackupResource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"arubacloud_backup.test",
 						tfjsonpath.New("type"),
-						knownvalue.StringExact("incremental"),
+						knownvalue.StringExact("Incremental"),
 					),
 					statecheck.ExpectKnownValue(
 						"arubacloud_backup.test",
@@ -140,7 +140,7 @@ resource "arubacloud_backup" "test" {
   project_id     = "project-123"
   type           = %[3]q
   volume_id      = "volume-123"
-  billing_period = "monthly"
+  billing_period = "Month"
   retention_days = %[4]d
 }
 `, name, location, backupType, retentionDays)
@@ -152,9 +152,9 @@ resource "arubacloud_backup" "test" {
   name           = %[1]q
   location       = %[2]q
   project_id     = "project-123"
-  type           = "full"
+  type           = "Full"
   volume_id      = "volume-123"
-  billing_period = "monthly"
+  billing_period = "Month"
   retention_days = 30
   tags           = ["env:test", "managed:terraform"]
 }

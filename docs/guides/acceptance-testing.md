@@ -78,11 +78,18 @@ The workflow also runs automatically on every push to `main`.
 
 ### Resource Tests
 
-Resource tests exercise the full Create → Read → Update → Delete lifecycle and only need:
+Resource tests exercise the full Create → Read → Update → Delete lifecycle. Most only need:
 
 | Variable | Purpose |
 |---|---|
 | `ARUBACLOUD_PROJECT_ID` | Scopes all resource creation to an existing project |
+
+Some resource tests have additional prerequisites:
+
+| Variable | Required by |
+|---|---|
+| `ARUBACLOUD_OS_IMAGE_ID` | `TestAccBlockStorageResource_Bootable`, `TestAccCloudserverResource` — OS image used to create a bootable disk |
+| `ARUBACLOUD_DBAAS_ID` | `TestAccDatabaseResource` — existing DBaaS cluster to create a database in |
 
 ### Data Source Tests
 
@@ -92,7 +99,7 @@ Data source tests look up an **existing** resource by ID. A data source test ski
 |---|---|
 | `ARUBACLOUD_PROJECT_ID` | All data sources |
 | `ARUBACLOUD_VPC_ID` | `arubacloud_vpc`, `arubacloud_subnet`, `arubacloud_securitygroup`, `arubacloud_securityrule`, `arubacloud_vpcpeering`, `arubacloud_vpcpeeringroute` |
-| `ARUBACLOUD_CLOUDSERVER_ID` | `arubacloud_cloudserver` |
+| `ARUBACLOUD_OS_IMAGE_ID` | `arubacloud_cloudserver` |
 | `ARUBACLOUD_KEYPAIR_ID` | `arubacloud_keypair` |
 | `ARUBACLOUD_BLOCKSTORAGE_ID` | `arubacloud_blockstorage` |
 | `ARUBACLOUD_SNAPSHOT_ID` | `arubacloud_snapshot` |
