@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
@@ -14,14 +15,17 @@ import (
 )
 
 func TestAccDbaasResource(t *testing.T) {
+	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
+	if projectID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
+	}
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:             testCheckDbaasDestroyed,
 		Steps: []resource.TestStep{
-			// Create and Read testing
 			{
-				Config: testAccDbaasResourceConfig("test-dbaas"),
+				Config: testAccDbaasResourceConfig(projectID, "test-dbaas"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_dbaas.test",
@@ -40,16 +44,14 @@ func TestAccDbaasResource(t *testing.T) {
 					),
 				},
 			},
-			// ImportState testing
 			{
 				ResourceName:      "arubacloud_dbaas.test",
 				ImportState:       true,
 				ImportStateVerify: true,
 				ImportStateIdFunc: importIDFromAttrs("arubacloud_dbaas.test", "project_id", "id"),
 			},
-			// Update and Read testing
 			{
-				Config: testAccDbaasResourceConfig("test-dbaas-updated"),
+				Config: testAccDbaasResourceConfig(projectID, "test-dbaas-updated"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_dbaas.test",
@@ -86,13 +88,34 @@ func testCheckDbaasDestroyed(s *terraform.State) error {
 	return nil
 }
 
-func testAccDbaasResourceConfig(name string) string {
+func testAccDbaasResourceConfig(projectID, name string) string {
 	return fmt.Sprintf(`
+resource "arubacloud_vpc" "dbaas_prereq" {
+  name       = "test-acc-dbaas-vpc"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+}
+
+resource "arubacloud_subnet" "dbaas_prereq" {
+  name       = "test-acc-dbaas-subnet"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+  vpc_id     = arubacloud_vpc.dbaas_prereq.id
+  type       = "Basic"
+}
+
+resource "arubacloud_securitygroup" "dbaas_prereq" {
+  name       = "test-acc-dbaas-sg"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+  vpc_id     = arubacloud_vpc.dbaas_prereq.id
+}
+
 resource "arubacloud_dbaas" "test" {
-  name       = %[1]q
-  location   = "it-1"
-  zone       = "it-1"
-  project_id = "test-project-id"
+  name       = %[2]q
+  location   = "ITBG-Bergamo"
+  zone       = "ITBG-1"
+  project_id = %[1]q
   engine_id  = "mysql-8.0"
   flavor     = "DBO2A4"
 
@@ -101,10 +124,10 @@ resource "arubacloud_dbaas" "test" {
   }
 
   network = {
-    vpc_uri_ref            = "test-vpc-uri"
-    subnet_uri_ref         = "test-subnet-uri"
-    security_group_uri_ref = "test-sg-uri"
+    vpc_uri_ref            = arubacloud_vpc.dbaas_prereq.uri
+    subnet_uri_ref         = arubacloud_subnet.dbaas_prereq.uri
+    security_group_uri_ref = arubacloud_securitygroup.dbaas_prereq.uri
   }
 }
-`, name)
+`, projectID, name)
 }
