@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
@@ -14,14 +15,17 @@ import (
 )
 
 func TestAccBackupResource(t *testing.T) {
+	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
+	if projectID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
+	}
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:             testCheckBackupDestroyed,
 		Steps: []resource.TestStep{
-			// Create and Read testing
 			{
-				Config: testAccBackupResourceConfig("test-backup", "ITBG-Bergamo", "Full", 30),
+				Config: testAccBackupResourceConfig(projectID, "test-backup", "ITBG-Bergamo", "Full", 30),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_backup.test",
@@ -50,16 +54,14 @@ func TestAccBackupResource(t *testing.T) {
 					),
 				},
 			},
-			// ImportState testing
 			{
 				ResourceName:      "arubacloud_backup.test",
 				ImportState:       true,
 				ImportStateVerify: true,
 				ImportStateIdFunc: importIDFromAttrs("arubacloud_backup.test", "project_id", "id"),
 			},
-			// Update and Read testing
 			{
-				Config: testAccBackupResourceConfig("test-backup-updated", "ITBG-Bergamo", "Incremental", 60),
+				Config: testAccBackupResourceConfig(projectID, "test-backup-updated", "ITBG-Bergamo", "Incremental", 60),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_backup.test",
@@ -78,19 +80,22 @@ func TestAccBackupResource(t *testing.T) {
 					),
 				},
 			},
-			// Delete testing automatically occurs in TestCase
 		},
 	})
 }
 
 func TestAccBackupResource_WithTags(t *testing.T) {
+	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
+	if projectID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
+	}
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:             testCheckBackupDestroyed,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccBackupResourceConfigWithTags("test-backup-tags", "ITBG-Bergamo"),
+				Config: testAccBackupResourceConfigWithTags(projectID, "test-backup-tags", "ITBG-Bergamo"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_backup.test",
@@ -132,31 +137,51 @@ func testCheckBackupDestroyed(s *terraform.State) error {
 	return nil
 }
 
-func testAccBackupResourceConfig(name, location, backupType string, retentionDays int) string {
+func testAccBackupResourceConfig(projectID, name, location, backupType string, retentionDays int) string {
 	return fmt.Sprintf(`
-resource "arubacloud_backup" "test" {
-  name           = %[1]q
-  location       = %[2]q
-  project_id     = "project-123"
-  type           = %[3]q
-  volume_id      = "volume-123"
-  billing_period = "Month"
-  retention_days = %[4]d
-}
-`, name, location, backupType, retentionDays)
+resource "arubacloud_blockstorage" "backup_vol" {
+  name           = "test-acc-backup-vol"
+  project_id     = %[1]q
+  location       = %[3]q
+  size_gb        = 10
+  billing_period = "Hour"
+  zone           = "ITBG-1"
+  type           = "Standard"
 }
 
-func testAccBackupResourceConfigWithTags(name, location string) string {
-	return fmt.Sprintf(`
 resource "arubacloud_backup" "test" {
-  name           = %[1]q
-  location       = %[2]q
-  project_id     = "project-123"
+  name           = %[2]q
+  location       = %[3]q
+  project_id     = %[1]q
+  type           = %[4]q
+  volume_id      = arubacloud_blockstorage.backup_vol.id
+  billing_period = "Month"
+  retention_days = %[5]d
+}
+`, projectID, name, location, backupType, retentionDays)
+}
+
+func testAccBackupResourceConfigWithTags(projectID, name, location string) string {
+	return fmt.Sprintf(`
+resource "arubacloud_blockstorage" "backup_vol" {
+  name           = "test-acc-backup-tags-vol"
+  project_id     = %[1]q
+  location       = %[3]q
+  size_gb        = 10
+  billing_period = "Hour"
+  zone           = "ITBG-1"
+  type           = "Standard"
+}
+
+resource "arubacloud_backup" "test" {
+  name           = %[2]q
+  location       = %[3]q
+  project_id     = %[1]q
   type           = "Full"
-  volume_id      = "volume-123"
+  volume_id      = arubacloud_blockstorage.backup_vol.id
   billing_period = "Month"
   retention_days = 30
   tags           = ["env:test", "managed:terraform"]
 }
-`, name, location)
+`, projectID, name, location)
 }
