@@ -137,9 +137,13 @@ func testCheckBlockstorageDestroyed(s *terraform.State) error {
 		if rs.Type != "arubacloud_blockstorage" {
 			continue
 		}
-		projectID := rs.Primary.Attributes["project_id"]
-		ref := aruba.URI("/projects/" + projectID + "/providers/Aruba.Storage/volumes/" + rs.Primary.ID)
-		_, err = client.Client.FromStorage().Volumes().Get(ctx, ref)
+		// Use the stored URI directly rather than reconstructing the path,
+		// since the SDK path format (/blockStorages/ vs /volumes/) can differ.
+		uri := rs.Primary.Attributes["uri"]
+		if uri == "" {
+			continue
+		}
+		_, err = client.Client.FromStorage().Volumes().Get(ctx, aruba.URI(uri))
 		if provErr := CheckResponseErr("get", "Blockstorage", err); provErr != nil {
 			if IsNotFound(provErr) {
 				continue

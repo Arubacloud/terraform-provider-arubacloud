@@ -95,8 +95,11 @@ func (r *BlockStorageResource) Schema(ctx context.Context, req resource.SchemaRe
 				Optional:            true,
 			},
 			"type": schema.StringAttribute{
-				MarkdownDescription: "Storage type. Accepted values: `Standard`, `Performance`.",
+				MarkdownDescription: "Storage type. Accepted values: `Standard`, `Performance`. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"bootable": schema.BoolAttribute{
 				MarkdownDescription: "Whether this volume can be used as a boot volume for an `arubacloud_cloudserver`. Must be `true` when `image` is set.",
@@ -344,18 +347,28 @@ func (r *BlockStorageResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
-	data.Id = state.Id
-	data.ProjectID = state.ProjectID
-	data.Uri = state.Uri
-	data.Zone = state.Zone
-	data.Location = state.Location
-	data.Type = state.Type
-	data.Bootable = state.Bootable
-	data.Image = state.Image
-	data.Name = types.StringValue(updated.Name())
-	data.Tags = TagsToListPreserveNull(updated.Tags(), data.Tags)
-	data.SizeGB = types.Int64Value(int64(updated.SizeGB()))
-	data.BillingPeriod = strVal(string(updated.BillingPeriod()))
+	// Re-read from the API to ensure all computed fields reflect the server's actual state.
+	fresh, freshErr := r.client.Client.FromStorage().Volumes().Get(ctx, blockStorageRef(&state))
+	if freshErr != nil {
+		tflog.Warn(ctx, fmt.Sprintf("Failed to refresh BlockStorage after update: %v", freshErr))
+		// Fall back to combining state immutables with updated response fields.
+		data.Id = state.Id
+		data.ProjectID = state.ProjectID
+		data.Uri = state.Uri
+		data.Zone = state.Zone
+		data.Location = state.Location
+		data.Type = state.Type
+		data.Bootable = state.Bootable
+		data.Image = state.Image
+		data.Name = types.StringValue(updated.Name())
+		data.Tags = TagsToListPreserveNull(updated.Tags(), data.Tags)
+		data.SizeGB = types.Int64Value(int64(updated.SizeGB()))
+		data.BillingPeriod = strVal(string(updated.BillingPeriod()))
+	} else {
+		projectID := state.ProjectID
+		applyBlockStorageToModel(fresh, &data)
+		data.ProjectID = projectID
+	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
