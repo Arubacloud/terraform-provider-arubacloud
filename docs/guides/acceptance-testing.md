@@ -93,34 +93,14 @@ Some resource tests have additional prerequisites:
 
 ### Data Source Tests
 
-Data source tests look up an **existing** resource by ID. A data source test skips gracefully when its variable is missing — set only the variables for the resources you want to test.
+All data source tests create their own infrastructure inline and destroy it on completion — only `ARUBACLOUD_PROJECT_ID` is required for most. Two additional variables are needed for tests that provision a cloud server as a prerequisite, and two VPN tests are exceptions that read pre-existing fixtures because VPN tunnels are too complex to provision inline.
 
-| Variable | Data source(s) tested |
-|---|---|
-| `ARUBACLOUD_PROJECT_ID` | All data sources |
-| `ARUBACLOUD_VPC_ID` | `arubacloud_vpc`, `arubacloud_subnet`, `arubacloud_securitygroup`, `arubacloud_securityrule`, `arubacloud_vpcpeering`, `arubacloud_vpcpeeringroute` |
-| `ARUBACLOUD_OS_IMAGE_ID` | `arubacloud_cloudserver` |
-| `ARUBACLOUD_KEYPAIR_ID` | `arubacloud_keypair` |
-| `ARUBACLOUD_BLOCKSTORAGE_ID` | `arubacloud_blockstorage` |
-| `ARUBACLOUD_SNAPSHOT_ID` | `arubacloud_snapshot` |
-| `ARUBACLOUD_ELASTICIP_ID` | `arubacloud_elasticip` |
-| `ARUBACLOUD_BACKUP_ID` | `arubacloud_backup`, `arubacloud_restore` |
-| `ARUBACLOUD_RESTORE_ID` | `arubacloud_restore` |
-| `ARUBACLOUD_DBAAS_ID` | `arubacloud_dbaas`, `arubacloud_dbaasuser`, `arubacloud_database`, `arubacloud_databasegrant` |
-| `ARUBACLOUD_DATABASE_ID` | `arubacloud_database`, `arubacloud_databasegrant` |
-| `ARUBACLOUD_DATABASE_BACKUP_ID` | `arubacloud_databasebackup` |
-| `ARUBACLOUD_DBAAS_USERNAME` | `arubacloud_dbaasuser` |
-| `ARUBACLOUD_DBAAS_USER_ID` | `arubacloud_databasegrant` |
-| `ARUBACLOUD_KAAS_ID` | `arubacloud_kaas` |
-| `ARUBACLOUD_CONTAINERREGISTRY_ID` | `arubacloud_containerregistry` |
-| `ARUBACLOUD_SECURITYGROUP_ID` | `arubacloud_securitygroup`, `arubacloud_securityrule` |
-| `ARUBACLOUD_SECURITYRULE_ID` | `arubacloud_securityrule` |
-| `ARUBACLOUD_KMS_ID` | `arubacloud_kms` |
-| `ARUBACLOUD_SCHEDULEJOB_ID` | `arubacloud_schedulejob` |
-| `ARUBACLOUD_VPNTUNNEL_ID` | `arubacloud_vpntunnel`, `arubacloud_vpnroute` |
-| `ARUBACLOUD_VPNROUTE_ID` | `arubacloud_vpnroute` |
-| `ARUBACLOUD_VPCPEERING_ID` | `arubacloud_vpcpeering`, `arubacloud_vpcpeeringroute` |
-| `ARUBACLOUD_VPCPEERINGROUTE_ID` | `arubacloud_vpcpeeringroute` |
+| Variable | Required by | Notes |
+|---|---|---|
+| `ARUBACLOUD_PROJECT_ID` | All data sources | |
+| `ARUBACLOUD_OS_IMAGE_ID` | `arubacloud_cloudserver`, `arubacloud_schedulejob` | OS image slug for bootable disk (e.g. `ubuntu-22.04`) |
+| `ARUBACLOUD_VPNTUNNEL_ID` | `arubacloud_vpntunnel`, `arubacloud_vpnroute` | Pre-existing VPN tunnel — inline provisioning not feasible |
+| `ARUBACLOUD_VPNROUTE_ID` | `arubacloud_vpnroute` | Pre-existing VPN route within the above tunnel |
 
 ## GitHub Actions Secrets
 

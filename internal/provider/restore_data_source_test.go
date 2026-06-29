@@ -76,7 +76,7 @@ resource "arubacloud_backup" "test" {
   name           = "test-ds-restore-backup"
   location       = "ITBG-Bergamo"
   project_id     = %[1]q
-  type           = "full"
+  type           = "Full"
   volume_id      = arubacloud_blockstorage.source.id
   billing_period = "Hour"
   retention_days = 7

@@ -13,9 +13,8 @@ import (
 
 func TestAccDatabaseDataSource(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
-	dbaasID := os.Getenv("ARUBACLOUD_DBAAS_ID")
-	if projectID == "" || dbaasID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_DBAAS_ID must be set for acceptance tests")
+	if projectID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
 	}
 
 	resource.Test(t, resource.TestCase{
@@ -23,7 +22,7 @@ func TestAccDatabaseDataSource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccDatabaseDataSourceConfig(projectID, dbaasID),
+				Config: testAccDatabaseDataSourceConfig(projectID),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_database.test",
@@ -33,7 +32,7 @@ func TestAccDatabaseDataSource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_database.test",
 						tfjsonpath.New("name"),
-						knownvalue.NotNull(),
+						knownvalue.StringExact("testdsdb"),
 					),
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_database.test",
@@ -43,7 +42,7 @@ func TestAccDatabaseDataSource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_database.test",
 						tfjsonpath.New("dbaas_id"),
-						knownvalue.StringExact(dbaasID),
+						knownvalue.NotNull(),
 					),
 				},
 			},
@@ -51,18 +50,58 @@ func TestAccDatabaseDataSource(t *testing.T) {
 	})
 }
 
-func testAccDatabaseDataSourceConfig(projectID, dbaasID string) string {
+func testAccDatabaseDataSourceConfig(projectID string) string {
 	return fmt.Sprintf(`
+resource "arubacloud_vpc" "test" {
+  name       = "test-ds-database-vpc"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+}
+
+resource "arubacloud_subnet" "test" {
+  name       = "test-ds-database-subnet"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+  vpc_id     = arubacloud_vpc.test.id
+  type       = "Basic"
+}
+
+resource "arubacloud_securitygroup" "test" {
+  name       = "test-ds-database-sg"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+  vpc_id     = arubacloud_vpc.test.id
+}
+
+resource "arubacloud_dbaas" "test" {
+  name       = "test-ds-database-dbaas"
+  location   = "ITBG-Bergamo"
+  zone       = "ITBG-1"
+  project_id = %[1]q
+  engine_id  = "mysql-8.0"
+  flavor     = "DBO2A4"
+
+  storage = {
+    size_gb = 20
+  }
+
+  network = {
+    vpc_uri_ref            = arubacloud_vpc.test.uri
+    subnet_uri_ref         = arubacloud_subnet.test.uri
+    security_group_uri_ref = arubacloud_securitygroup.test.uri
+  }
+}
+
 resource "arubacloud_database" "test" {
   name       = "testdsdb"
   project_id = %[1]q
-  dbaas_id   = %[2]q
+  dbaas_id   = arubacloud_dbaas.test.id
 }
 
 data "arubacloud_database" "test" {
   id         = arubacloud_database.test.id
   project_id = %[1]q
-  dbaas_id   = %[2]q
+  dbaas_id   = arubacloud_dbaas.test.id
 }
-`, projectID, dbaasID)
+`, projectID)
 }

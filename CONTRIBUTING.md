@@ -105,34 +105,14 @@ Some resource tests require additional variables for prerequisites they provisio
 
 #### Data source tests
 
-Data source tests look up an **existing** resource by ID. Each data source test skips (rather than fails) when its variable is absent — set only the ones you need.
+All data source tests create their own infrastructure inline and tear it down on completion — only `ARUBACLOUD_PROJECT_ID` is required for most.
 
-| Variable | Data source(s) |
-|---|---|
-| `ARUBACLOUD_PROJECT_ID` | All data sources |
-| `ARUBACLOUD_VPC_ID` | vpc, subnet, securitygroup, securityrule, vpcpeering, vpcpeeringroute |
-| `ARUBACLOUD_OS_IMAGE_ID` | cloudserver |
-| `ARUBACLOUD_KEYPAIR_ID` | keypair |
-| `ARUBACLOUD_BLOCKSTORAGE_ID` | blockstorage |
-| `ARUBACLOUD_SNAPSHOT_ID` | snapshot |
-| `ARUBACLOUD_ELASTICIP_ID` | elasticip |
-| `ARUBACLOUD_BACKUP_ID` | backup, restore |
-| `ARUBACLOUD_RESTORE_ID` | restore |
-| `ARUBACLOUD_DBAAS_ID` | dbaas, dbaasuser, database, databasegrant |
-| `ARUBACLOUD_DATABASE_ID` | database, databasegrant |
-| `ARUBACLOUD_DATABASE_BACKUP_ID` | databasebackup |
-| `ARUBACLOUD_DBAAS_USERNAME` | dbaasuser |
-| `ARUBACLOUD_DBAAS_USER_ID` | databasegrant |
-| `ARUBACLOUD_KAAS_ID` | kaas |
-| `ARUBACLOUD_CONTAINERREGISTRY_ID` | containerregistry |
-| `ARUBACLOUD_SECURITYGROUP_ID` | securitygroup, securityrule |
-| `ARUBACLOUD_SECURITYRULE_ID` | securityrule |
-| `ARUBACLOUD_KMS_ID` | kms |
-| `ARUBACLOUD_SCHEDULEJOB_ID` | schedulejob |
-| `ARUBACLOUD_VPNTUNNEL_ID` | vpntunnel, vpnroute |
-| `ARUBACLOUD_VPNROUTE_ID` | vpnroute |
-| `ARUBACLOUD_VPCPEERING_ID` | vpcpeering, vpcpeeringroute |
-| `ARUBACLOUD_VPCPEERINGROUTE_ID` | vpcpeeringroute |
+| Variable | Required by | Notes |
+|---|---|---|
+| `ARUBACLOUD_PROJECT_ID` | All data sources | |
+| `ARUBACLOUD_OS_IMAGE_ID` | cloudserver, schedulejob | OS image slug for bootable disk (e.g. `ubuntu-22.04`) |
+| `ARUBACLOUD_VPNTUNNEL_ID` | vpntunnel, vpnroute | Pre-existing VPN tunnel — inline provisioning not feasible |
+| `ARUBACLOUD_VPNROUTE_ID` | vpnroute | Pre-existing VPN route within the above tunnel |
 
 ## When to regenerate docs
 
