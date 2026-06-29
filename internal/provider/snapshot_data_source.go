@@ -116,7 +116,11 @@ func (d *SnapshotDataSource) Read(ctx context.Context, req datasource.ReadReques
 	// Extract volume ID from volume URI.
 	if volURI := snap.VolumeURI(); volURI != "" {
 		parts := strings.Split(volURI, "/")
-		data.VolumeId = types.StringValue(parts[len(parts)-1])
+		if last := parts[len(parts)-1]; last != "" {
+			data.VolumeId = types.StringValue(last)
+		} else {
+			data.VolumeId = types.StringNull()
+		}
 	} else {
 		data.VolumeId = types.StringNull()
 	}
