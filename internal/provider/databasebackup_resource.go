@@ -148,6 +148,39 @@ func (r *DatabaseBackupResource) Create(ctx context.Context, req resource.Create
 	dbaasURI := "/projects/" + projectID + "/providers/Aruba.Database/dbaas/" + dbaasID
 	databaseURI := dbaasURI + "/databases/" + databaseName
 
+	// Poll until the database is reachable before creating the backup.
+	// There is a propagation delay between database creation completing and the
+	// database becoming visible to the backup API endpoint.
+	const dbPollInterval = 5 * time.Second
+	const dbPollMaxAttempts = 30 // up to 150 s
+	for attempt := 0; attempt < dbPollMaxAttempts; attempt++ {
+		_, getErr := r.client.Client.FromDatabase().Databases().Get(ctx, aruba.URI(databaseURI))
+		if getErr == nil {
+			break
+		}
+		if pe := CheckResponseErr("get", "Database", getErr); pe != nil && !IsNotFound(pe) {
+			resp.Diagnostics.AddError("Error checking database availability", pe.Error())
+			return
+		}
+		if attempt == dbPollMaxAttempts-1 {
+			resp.Diagnostics.AddError("Timeout waiting for database",
+				fmt.Sprintf("Database %q in DBaaS %q was not visible after %v. "+
+					"It may still be propagating; retry the apply.",
+					databaseName, dbaasID, time.Duration(dbPollMaxAttempts)*dbPollInterval))
+			return
+		}
+		tflog.Info(ctx, "database not yet visible, retrying", map[string]interface{}{
+			"database": databaseName,
+			"attempt":  attempt + 1,
+		})
+		select {
+		case <-ctx.Done():
+			resp.Diagnostics.AddError("Context cancelled", "Cancelled while waiting for database to become visible")
+			return
+		case <-time.After(dbPollInterval):
+		}
+	}
+
 	backup, err := r.client.Client.FromDatabase().Backups().Create(ctx,
 		aruba.NewDBaaSBackup().
 			Named(data.Name.ValueString()).
