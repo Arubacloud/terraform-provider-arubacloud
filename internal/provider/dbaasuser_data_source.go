@@ -13,6 +13,7 @@ import (
 
 type DBaaSUserDataSourceModel struct {
 	Id        types.String `tfsdk:"id"`
+	Uri       types.String `tfsdk:"uri"`
 	ProjectID types.String `tfsdk:"project_id"`
 	DBaaSID   types.String `tfsdk:"dbaas_id"`
 	Username  types.String `tfsdk:"username"`
@@ -43,6 +44,10 @@ func (d *DBaaSUserDataSource) Schema(ctx context.Context, req datasource.SchemaR
 			},
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Computed by the API. Unique identifier for the resource (same as the username).",
+				Computed:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "Computed by the API. Full resource URI. Use this value in `*_uri_ref` attributes of other resources.",
 				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
@@ -100,6 +105,7 @@ func (d *DBaaSUserDataSource) Read(ctx context.Context, req datasource.ReadReque
 	}
 
 	data.Id = types.StringValue(user.Username())
+	data.Uri = strVal(user.URI())
 	data.Username = types.StringValue(user.Username())
 	data.ProjectID = types.StringValue(projectID)
 	data.DBaaSID = types.StringValue(dbaasID)

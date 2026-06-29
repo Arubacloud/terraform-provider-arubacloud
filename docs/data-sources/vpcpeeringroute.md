@@ -45,5 +45,6 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `name` (String) Display name for the VPC peering route.
+- `uri` (String) Computed by the API. Full resource URI. Use this value in `*_uri_ref` attributes of other resources.
 
 

@@ -43,5 +43,6 @@ In addition to all arguments above, the following attributes are exported:
 - `name` (String) Display name for the VPN tunnel.
 - `remote_peer` (String) Public IP address of the remote peer (on-premises gateway).
 - `status` (String) Current operational status of the VPN tunnel.
+- `uri` (String) Computed by the API. Full resource URI. Use this value in `*_uri_ref` attributes of other resources.
 
 

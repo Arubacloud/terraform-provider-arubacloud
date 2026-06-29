@@ -49,5 +49,6 @@ In addition to all arguments above, the following attributes are exported:
 - `description` (String) Optional human-readable description of the KMS instance.
 - `endpoint` (String) Computed by the API. Endpoint URL used to interact with the KMS service.
 - `name` (String) Display name for the KMS instance.
+- `uri` (String) Computed by the API. Full resource URI. Use this value in `*_uri_ref` attributes of other resources.
 
 

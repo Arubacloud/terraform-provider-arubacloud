@@ -23,6 +23,7 @@ type VPNRouteDataSource struct {
 
 type VPNRouteDataSourceModel struct {
 	Id          types.String `tfsdk:"id"`
+	Uri         types.String `tfsdk:"uri"`
 	Name        types.String `tfsdk:"name"`
 	ProjectId   types.String `tfsdk:"project_id"`
 	VpnTunnelId types.String `tfsdk:"vpn_tunnel_id"`
@@ -41,6 +42,10 @@ func (d *VPNRouteDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Unique identifier of the VPN route to look up.",
 				Required:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "Computed by the API. Full resource URI. Use this value in `*_uri_ref` attributes of other resources.",
+				Computed:            true,
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Display name for the VPN route.",
@@ -104,6 +109,7 @@ func (d *VPNRouteDataSource) Read(ctx context.Context, req datasource.ReadReques
 	}
 
 	data.Id = types.StringValue(route.ID())
+	data.Uri = strVal(route.URI())
 	data.Name = types.StringValue(route.Name())
 	data.ProjectId = types.StringValue(projectID)
 	data.VpnTunnelId = types.StringValue(vpnTunnelID)

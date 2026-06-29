@@ -24,6 +24,7 @@ type SnapshotDataSource struct {
 
 type SnapshotDataSourceModel struct {
 	Id            types.String `tfsdk:"id"`
+	Uri           types.String `tfsdk:"uri"`
 	Name          types.String `tfsdk:"name"`
 	ProjectId     types.String `tfsdk:"project_id"`
 	Location      types.String `tfsdk:"location"`
@@ -42,6 +43,10 @@ func (d *SnapshotDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Unique identifier of the snapshot to look up.",
 				Required:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "Computed by the API. Full resource URI. Use this value in `*_uri_ref` attributes of other resources.",
+				Computed:            true,
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Display name for the snapshot.",
@@ -104,6 +109,7 @@ func (d *SnapshotDataSource) Read(ctx context.Context, req datasource.ReadReques
 	}
 
 	data.Id = types.StringValue(snap.ID())
+	data.Uri = strVal(snap.URI())
 	data.Name = types.StringValue(snap.Name())
 	data.ProjectId = types.StringValue(projectID)
 	if snap.Region() != "" {

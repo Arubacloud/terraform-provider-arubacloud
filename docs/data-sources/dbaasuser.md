@@ -44,5 +44,6 @@ In addition to all arguments above, the following attributes are exported:
 
 - `id` (String) Computed by the API. Unique identifier for the resource (same as the username).
 - `password` (String, Sensitive) Password for the DBaaS user. Write-only — this value is sent to the API but is not returned in subsequent read responses.
+- `uri` (String) Computed by the API. Full resource URI. Use this value in `*_uri_ref` attributes of other resources.
 
 

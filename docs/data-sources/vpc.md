@@ -52,5 +52,6 @@ In addition to all arguments above, the following attributes are exported:
 - `location` (String) Region identifier for the resource (e.g., `ITBG-Bergamo`).
 - `name` (String) Display name for the VPC.
 - `tags` (List of String) List of string tags attached to the resource.
+- `uri` (String) Computed by the API. Full resource URI. Use this value in `*_uri_ref` attributes of other resources.
 
 

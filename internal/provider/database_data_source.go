@@ -23,6 +23,7 @@ type DatabaseDataSource struct {
 
 type DatabaseDataSourceModel struct {
 	Id        types.String `tfsdk:"id"`
+	Uri       types.String `tfsdk:"uri"`
 	ProjectID types.String `tfsdk:"project_id"`
 	DBaaSID   types.String `tfsdk:"dbaas_id"`
 	Name      types.String `tfsdk:"name"`
@@ -39,6 +40,10 @@ func (d *DatabaseDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Unique identifier of the database to look up (same as the database name).",
 				Required:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "Computed by the API. Full resource URI. Use this value in `*_uri_ref` attributes of other resources.",
+				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project that owns this resource.",
@@ -94,6 +99,7 @@ func (d *DatabaseDataSource) Read(ctx context.Context, req datasource.ReadReques
 	}
 
 	data.Id = types.StringValue(db.Name())
+	data.Uri = strVal(db.URI())
 	data.Name = types.StringValue(db.Name())
 	data.ProjectID = types.StringValue(projectID)
 	data.DBaaSID = types.StringValue(dbaasID)

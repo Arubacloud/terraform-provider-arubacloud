@@ -51,5 +51,6 @@ In addition to all arguments above, the following attributes are exported:
 - `destination` (String) CIDR of the ArubaCloud-side subnet routed over this tunnel (maps to `cloud_subnet`).
 - `gateway` (String) CIDR of the on-premises subnet reachable through this tunnel (maps to `on_prem_subnet`).
 - `name` (String) Display name for the VPN route.
+- `uri` (String) Computed by the API. Full resource URI. Use this value in `*_uri_ref` attributes of other resources.
 
 

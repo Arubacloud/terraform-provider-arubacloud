@@ -42,5 +42,6 @@ In addition to all arguments above, the following attributes are exported:
 
 - `id` (String) Computed by the API. Unique identifier for the grant (composite key: `project_id/dbaas_id/database/user_id`).
 - `role` (String) Privilege level granted to the user on the database.
+- `uri` (String) Computed by the API. Full resource URI. Use this value in `*_uri_ref` attributes of other resources.
 
 

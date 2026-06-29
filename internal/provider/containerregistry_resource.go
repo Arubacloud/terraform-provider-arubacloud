@@ -6,12 +6,14 @@ import (
 	"time"
 
 	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -96,6 +98,7 @@ func (r *ContainerRegistryResource) Schema(ctx context.Context, req resource.Sch
 			"billing_period": schema.StringAttribute{
 				MarkdownDescription: "Billing cycle. Accepted values: `Hour`, `Month`, `Year`.",
 				Optional:            true,
+				Validators:          []validator.String{stringvalidator.OneOf("Hour", "Month", "Year")},
 			},
 			"network": schema.SingleNestedAttribute{
 				MarkdownDescription: "Network resources attached to the registry.",

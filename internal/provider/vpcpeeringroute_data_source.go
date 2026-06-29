@@ -23,6 +23,7 @@ type VPCPeeringRouteDataSource struct {
 
 type VPCPeeringRouteDataSourceModel struct {
 	Id           types.String `tfsdk:"id"`
+	Uri          types.String `tfsdk:"uri"`
 	Name         types.String `tfsdk:"name"`
 	ProjectId    types.String `tfsdk:"project_id"`
 	VpcId        types.String `tfsdk:"vpc_id"`
@@ -40,6 +41,10 @@ func (d *VPCPeeringRouteDataSource) Schema(ctx context.Context, req datasource.S
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Unique identifier of the VPC peering route to look up (same as the route name).",
 				Required:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "Computed by the API. Full resource URI. Use this value in `*_uri_ref` attributes of other resources.",
+				Computed:            true,
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Display name for the VPC peering route.",
@@ -101,6 +106,7 @@ func (d *VPCPeeringRouteDataSource) Read(ctx context.Context, req datasource.Rea
 
 	// VPCPeeringRoute uses name as ID.
 	data.Id = types.StringValue(route.Name())
+	data.Uri = strVal(route.URI())
 	data.Name = types.StringValue(route.Name())
 	data.ProjectId = types.StringValue(projectID)
 	data.VpcId = types.StringValue(vpcID)

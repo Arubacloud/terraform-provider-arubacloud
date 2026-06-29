@@ -6,11 +6,13 @@ import (
 	"time"
 
 	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -93,6 +95,7 @@ func (r *DatabaseBackupResource) Schema(ctx context.Context, req resource.Schema
 			"billing_period": schema.StringAttribute{
 				MarkdownDescription: "Billing cycle. Accepted values: `Hour`, `Month`, `Year`.",
 				Required:            true,
+				Validators:          []validator.String{stringvalidator.OneOf("Hour", "Month", "Year")},
 			},
 		},
 	}

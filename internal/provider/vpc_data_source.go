@@ -23,6 +23,7 @@ type VPCDataSource struct {
 
 type VPCDataSourceModel struct {
 	Id        types.String `tfsdk:"id"`
+	Uri       types.String `tfsdk:"uri"`
 	Name      types.String `tfsdk:"name"`
 	Location  types.String `tfsdk:"location"`
 	ProjectId types.String `tfsdk:"project_id"`
@@ -40,6 +41,10 @@ func (d *VPCDataSource) Schema(ctx context.Context, req datasource.SchemaRequest
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Unique identifier of the VPC to look up.",
 				Required:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "Computed by the API. Full resource URI. Use this value in `*_uri_ref` attributes of other resources.",
+				Computed:            true,
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Display name for the VPC.",
@@ -97,6 +102,7 @@ func (d *VPCDataSource) Read(ctx context.Context, req datasource.ReadRequest, re
 	}
 
 	data.Id = types.StringValue(vpc.ID())
+	data.Uri = strVal(vpc.URI())
 	data.Name = types.StringValue(vpc.Name())
 	data.ProjectId = types.StringValue(projectID)
 	data.Tags = TagsToListPreserveNull(vpc.Tags(), data.Tags)

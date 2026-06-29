@@ -55,6 +55,7 @@ In addition to all arguments above, the following attributes are exported:
 - `location` (String) Region identifier where the backup is stored.
 - `name` (String) Display name for the database backup.
 - `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
+- `uri` (String) Computed by the API. Full resource URI. Use this value in `*_uri_ref` attributes of other resources.
 - `zone` (String) Availability zone within the region where the backup is stored.
 
 
