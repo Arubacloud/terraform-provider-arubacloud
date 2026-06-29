@@ -121,7 +121,7 @@ func (r *KaaSResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				Computed:            true,
 			},
 			"kubeconfig": schema.StringAttribute{
-				MarkdownDescription: "Computed by the API. Kubeconfig YAML for kubectl access, downloaded when the cluster is active. Write-only — this value is sent to the API but is not returned in subsequent read responses.",
+				MarkdownDescription: "Kubeconfig YAML for `kubectl` access. Populated automatically when the cluster becomes active. Sensitive — stored in Terraform state but redacted from plan output.",
 				Computed:            true,
 				Sensitive:           true,
 			},

@@ -567,6 +567,11 @@ func (r *CloudServerResource) Update(ctx context.Context, req resource.UpdateReq
 		return
 	}
 
+	if waitErr := updated.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
+		ReportWaitResult(&resp.Diagnostics, waitErr, "CloudServer", state.Id.ValueString())
+		return
+	}
+
 	if n := updated.Name(); n != "" {
 		data.Name = types.StringValue(n)
 	}

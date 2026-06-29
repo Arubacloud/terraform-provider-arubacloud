@@ -117,6 +117,10 @@ func (r *VPNTunnelResource) Schema(ctx context.Context, req resource.SchemaReque
 										MarkdownDescription: "ID of the subnet.",
 										Optional:            true,
 									},
+									"cidr": schema.StringAttribute{
+										MarkdownDescription: "CIDR block of the subnet (e.g. `192.168.10.0/24`). Required by the API.",
+										Optional:            true,
+									},
 								},
 							},
 							"public_ip": schema.SingleNestedAttribute{
@@ -152,8 +156,11 @@ func (r *VPNTunnelResource) Schema(ctx context.Context, req resource.SchemaReque
 										Optional:            true,
 									},
 									"dh_group": schema.StringAttribute{
-										MarkdownDescription: "IKE Diffie-Hellman group (e.g., `modp2048`).",
+										MarkdownDescription: "IKE Diffie-Hellman group. Use the numeric group identifier: `\"1\"`, `\"2\"`, `\"5\"`, `\"14\"` … `\"32\"`. The common choice for IKEv2 is `\"14\"` (MODP-2048).",
 										Optional:            true,
+										Validators: []validator.String{
+											stringvalidator.OneOf("1", "2", "5", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32"),
+										},
 									},
 									"dpd_action": schema.StringAttribute{
 										MarkdownDescription: "Dead Peer Detection action on failure (e.g., `restart`).",
@@ -186,8 +193,11 @@ func (r *VPNTunnelResource) Schema(ctx context.Context, req resource.SchemaReque
 										Optional:            true,
 									},
 									"pfs": schema.StringAttribute{
-										MarkdownDescription: "ESP Perfect Forward Secrecy group (e.g., `modp2048`).",
+										MarkdownDescription: "ESP Perfect Forward Secrecy group. Use `\"enable\"`, `\"disable\"`, or `\"dh-group<N>\"` (e.g. `\"dh-group14\"` for MODP-2048).",
 										Optional:            true,
+										Validators: []validator.String{
+											stringvalidator.OneOf("enable", "disable", "dh-group1", "dh-group2", "dh-group5", "dh-group14", "dh-group15", "dh-group16", "dh-group17", "dh-group18", "dh-group19", "dh-group20", "dh-group21", "dh-group22", "dh-group23", "dh-group24", "dh-group25", "dh-group26", "dh-group27", "dh-group28", "dh-group29", "dh-group30", "dh-group31", "dh-group32"),
+										},
 									},
 								},
 							},
@@ -295,11 +305,21 @@ func buildVPNTunnel(_ context.Context, data *VPNTunnelResourceModel, tags []stri
 			}
 			if subnetAttr, ok := ipCfgAttrs["subnet"]; ok {
 				if subnetObj, ok := subnetAttr.(types.Object); ok && !subnetObj.IsNull() {
-					if idAttr, ok := subnetObj.Attributes()["id"]; ok {
+					subnetAttrs := subnetObj.Attributes()
+					subnetName := ""
+					subnetCIDR := ""
+					if idAttr, ok := subnetAttrs["id"]; ok {
 						if s, ok := idAttr.(types.String); ok && !s.IsNull() {
-							// subnet name and CIDR — we use the id as name, CIDR left empty
-							ipCfg.WithSubnet(s.ValueString(), "")
+							subnetName = s.ValueString()
 						}
+					}
+					if cidrAttr, ok := subnetAttrs["cidr"]; ok {
+						if s, ok := cidrAttr.(types.String); ok && !s.IsNull() {
+							subnetCIDR = s.ValueString()
+						}
+					}
+					if subnetName != "" || subnetCIDR != "" {
+						ipCfg.WithSubnet(subnetName, subnetCIDR)
 					}
 				}
 			}
