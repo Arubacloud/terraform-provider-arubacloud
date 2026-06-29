@@ -13,6 +13,7 @@ import (
 
 type KeypairDataSourceModel struct {
 	Id        types.String `tfsdk:"id"`
+	Uri       types.String `tfsdk:"uri"`
 	Name      types.String `tfsdk:"name"`
 	Location  types.String `tfsdk:"location"`
 	ProjectID types.String `tfsdk:"project_id"`
@@ -41,6 +42,10 @@ func (d *KeypairDataSource) Schema(ctx context.Context, req datasource.SchemaReq
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
 				Required:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "Computed by the API. Full resource URI. Use this value in `*_uri_ref` attributes of other resources.",
+				Computed:            true,
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Display name for the KeyPair.",
@@ -104,6 +109,7 @@ func (d *KeypairDataSource) Read(ctx context.Context, req datasource.ReadRequest
 	}
 
 	data.Id = types.StringValue(kp.ID())
+	data.Uri = strVal(kp.URI())
 	data.Name = types.StringValue(kp.Name())
 	data.ProjectID = types.StringValue(projectID)
 

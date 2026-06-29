@@ -57,5 +57,6 @@ In addition to all arguments above, the following attributes are exported:
 - `location` (String) Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
 - `name` (String) Display name for the Elastic IP.
 - `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
+- `uri` (String) Computed by the API. Full resource URI. Use this value in `*_uri_ref` attributes of other resources.
 
 

@@ -23,6 +23,7 @@ type ElasticIPDataSource struct {
 
 type ElasticIPDataSourceModel struct {
 	Id            types.String `tfsdk:"id"`
+	Uri           types.String `tfsdk:"uri"`
 	Name          types.String `tfsdk:"name"`
 	Location      types.String `tfsdk:"location"`
 	ProjectId     types.String `tfsdk:"project_id"`
@@ -42,6 +43,10 @@ func (d *ElasticIPDataSource) Schema(ctx context.Context, req datasource.SchemaR
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
 				Required:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "Computed by the API. Full resource URI. Use this value in `*_uri_ref` attributes of other resources.",
+				Computed:            true,
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Display name for the Elastic IP.",
@@ -109,6 +114,7 @@ func (d *ElasticIPDataSource) Read(ctx context.Context, req datasource.ReadReque
 	}
 
 	data.Id = types.StringValue(eip.ID())
+	data.Uri = strVal(eip.URI())
 	data.Name = types.StringValue(eip.Name())
 	data.ProjectId = types.StringValue(projectID)
 	data.Tags = TagsToListPreserveNull(eip.Tags(), data.Tags)

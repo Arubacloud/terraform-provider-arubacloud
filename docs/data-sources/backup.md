@@ -42,6 +42,7 @@ In addition to all arguments above, the following attributes are exported:
 - `retention_days` (Number) Number of days to retain the backup before automatic deletion. Optional — if omitted, the backup is retained indefinitely.
 - `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
 - `type` (String) Backup type. Accepted values: `Full`, `Incremental`.
+- `uri` (String) Computed by the API. Full resource URI. Use this value in `*_uri_ref` attributes of other resources.
 - `volume_id` (String) ID of the block storage volume this backup was taken from.
 
 

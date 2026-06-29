@@ -23,6 +23,7 @@ type DatabaseBackupDataSource struct {
 
 type DatabaseBackupDataSourceModel struct {
 	Id            types.String `tfsdk:"id"`
+	Uri           types.String `tfsdk:"uri"`
 	Name          types.String `tfsdk:"name"`
 	Location      types.String `tfsdk:"location"`
 	Tags          types.List   `tfsdk:"tags"`
@@ -44,6 +45,10 @@ func (d *DatabaseBackupDataSource) Schema(ctx context.Context, req datasource.Sc
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Unique identifier of the database backup to look up.",
 				Required:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "Computed by the API. Full resource URI. Use this value in `*_uri_ref` attributes of other resources.",
+				Computed:            true,
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Display name for the database backup.",
@@ -119,6 +124,7 @@ func (d *DatabaseBackupDataSource) Read(ctx context.Context, req datasource.Read
 	}
 
 	data.Id = types.StringValue(backup.ID())
+	data.Uri = strVal(backup.URI())
 	data.Name = types.StringValue(backup.Name())
 	data.ProjectID = types.StringValue(projectID)
 	data.Tags = TagsToListPreserveNull(backup.Tags(), data.Tags)

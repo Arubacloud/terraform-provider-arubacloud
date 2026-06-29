@@ -79,6 +79,7 @@ In addition to all arguments above, the following attributes are exported:
 - `snapshot_id` (String) ID of the snapshot this volume was created from, if any.
 - `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
 - `type` (String) Storage type. Accepted values: `Standard`, `Performance`.
+- `uri` (String) Computed by the API. Full resource URI. Use this value in `*_uri_ref` attributes of other resources.
 - `zone` (String) Availability zone within the region. If omitted the volume is regional (accessible across all zones).
 
 

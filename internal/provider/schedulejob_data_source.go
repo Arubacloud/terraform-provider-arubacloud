@@ -23,6 +23,7 @@ type ScheduleJobDataSource struct {
 
 type ScheduleJobDataSourceModel struct {
 	Id          types.String `tfsdk:"id"`
+	Uri         types.String `tfsdk:"uri"`
 	Name        types.String `tfsdk:"name"`
 	ProjectID   types.String `tfsdk:"project_id"`
 	Description types.String `tfsdk:"description"`
@@ -40,6 +41,10 @@ func (d *ScheduleJobDataSource) Schema(ctx context.Context, req datasource.Schem
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Unique identifier of the scheduled job to look up.",
 				Required:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "Computed by the API. Full resource URI. Use this value in `*_uri_ref` attributes of other resources.",
+				Computed:            true,
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Display name for the scheduled job.",
@@ -98,6 +103,7 @@ func (d *ScheduleJobDataSource) Read(ctx context.Context, req datasource.ReadReq
 	}
 
 	data.Id = types.StringValue(job.ID())
+	data.Uri = strVal(job.URI())
 	data.Name = types.StringValue(job.Name())
 	data.ProjectID = types.StringValue(projectID)
 	if cron := job.Cron(); cron != "" {

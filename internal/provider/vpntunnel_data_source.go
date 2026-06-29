@@ -23,6 +23,7 @@ type VPNTunnelDataSource struct {
 
 type VPNTunnelDataSourceModel struct {
 	Id         types.String `tfsdk:"id"`
+	Uri        types.String `tfsdk:"uri"`
 	Name       types.String `tfsdk:"name"`
 	ProjectId  types.String `tfsdk:"project_id"`
 	RemotePeer types.String `tfsdk:"remote_peer"`
@@ -40,6 +41,10 @@ func (d *VPNTunnelDataSource) Schema(ctx context.Context, req datasource.SchemaR
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Unique identifier of the VPN tunnel to look up.",
 				Required:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "Computed by the API. Full resource URI. Use this value in `*_uri_ref` attributes of other resources.",
+				Computed:            true,
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Display name for the VPN tunnel.",
@@ -98,6 +103,7 @@ func (d *VPNTunnelDataSource) Read(ctx context.Context, req datasource.ReadReque
 	}
 
 	data.Id = types.StringValue(tunnel.ID())
+	data.Uri = strVal(tunnel.URI())
 	data.Name = types.StringValue(tunnel.Name())
 	data.ProjectId = types.StringValue(projectID)
 	// PeerClientPublicIP is the remote peer — exposed via wrapper accessor.

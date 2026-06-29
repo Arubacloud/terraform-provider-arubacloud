@@ -49,5 +49,6 @@ In addition to all arguments above, the following attributes are exported:
 - `cron` (String) Cron expression defining the job schedule (e.g., `0 * * * *` for hourly). Standard 5-field cron format.
 - `description` (String) Optional human-readable description of the scheduled job.
 - `name` (String) Display name for the scheduled job.
+- `uri` (String) Computed by the API. Full resource URI. Use this value in `*_uri_ref` attributes of other resources.
 
 

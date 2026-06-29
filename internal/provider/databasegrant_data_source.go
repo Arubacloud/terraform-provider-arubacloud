@@ -23,6 +23,7 @@ type DatabaseGrantDataSource struct {
 
 type DatabaseGrantDataSourceModel struct {
 	Id        types.String `tfsdk:"id"`
+	Uri       types.String `tfsdk:"uri"`
 	ProjectID types.String `tfsdk:"project_id"`
 	DBaaSID   types.String `tfsdk:"dbaas_id"`
 	Database  types.String `tfsdk:"database"`
@@ -40,6 +41,10 @@ func (d *DatabaseGrantDataSource) Schema(ctx context.Context, req datasource.Sch
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Computed by the API. Unique identifier for the grant (composite key: `project_id/dbaas_id/database/user_id`).",
+				Computed:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "Computed by the API. Full resource URI. Use this value in `*_uri_ref` attributes of other resources.",
 				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
@@ -106,6 +111,7 @@ func (d *DatabaseGrantDataSource) Read(ctx context.Context, req datasource.ReadR
 	}
 
 	data.Id = types.StringValue(fmt.Sprintf("%s/%s/%s/%s", projectID, dbaasID, database, userID))
+	data.Uri = strVal(grant.URI())
 	data.ProjectID = types.StringValue(projectID)
 	data.DBaaSID = types.StringValue(dbaasID)
 	data.Database = types.StringValue(database)

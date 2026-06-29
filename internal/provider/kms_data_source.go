@@ -13,6 +13,7 @@ import (
 
 type KMSDataSourceModel struct {
 	Id          types.String `tfsdk:"id"`
+	Uri         types.String `tfsdk:"uri"`
 	ProjectID   types.String `tfsdk:"project_id"`
 	Name        types.String `tfsdk:"name"`
 	Description types.String `tfsdk:"description"`
@@ -40,6 +41,10 @@ func (d *KMSDataSource) Schema(ctx context.Context, req datasource.SchemaRequest
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Unique identifier of the KMS instance to look up.",
 				Required:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "Computed by the API. Full resource URI. Use this value in `*_uri_ref` attributes of other resources.",
+				Computed:            true,
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project that owns this resource.",
@@ -98,6 +103,7 @@ func (d *KMSDataSource) Read(ctx context.Context, req datasource.ReadRequest, re
 	}
 
 	data.Id = types.StringValue(kms.ID())
+	data.Uri = strVal(kms.URI())
 	data.Name = types.StringValue(kms.Name())
 	data.ProjectID = types.StringValue(projectID)
 	// description and endpoint are not returned by the API

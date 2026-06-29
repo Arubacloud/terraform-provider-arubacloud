@@ -23,6 +23,7 @@ type SecurityGroupDataSource struct {
 
 type SecurityGroupDataSourceModel struct {
 	Id        types.String `tfsdk:"id"`
+	Uri       types.String `tfsdk:"uri"`
 	Name      types.String `tfsdk:"name"`
 	Location  types.String `tfsdk:"location"`
 	Tags      types.List   `tfsdk:"tags"`
@@ -41,6 +42,10 @@ func (d *SecurityGroupDataSource) Schema(ctx context.Context, req datasource.Sch
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Unique identifier of the security group to look up.",
 				Required:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "Computed by the API. Full resource URI. Use this value in `*_uri_ref` attributes of other resources.",
+				Computed:            true,
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Display name for the security group.",
@@ -105,6 +110,7 @@ func (d *SecurityGroupDataSource) Read(ctx context.Context, req datasource.ReadR
 	}
 
 	data.Id = types.StringValue(sg.ID())
+	data.Uri = strVal(sg.URI())
 	data.Name = types.StringValue(sg.Name())
 	data.ProjectId = types.StringValue(projectID)
 	data.VpcId = types.StringValue(vpcID)

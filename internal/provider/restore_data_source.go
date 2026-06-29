@@ -23,6 +23,7 @@ type RestoreDataSource struct {
 
 type RestoreDataSourceModel struct {
 	Id        types.String   `tfsdk:"id"`
+	Uri       types.String   `tfsdk:"uri"`
 	Name      types.String   `tfsdk:"name"`
 	Location  types.String   `tfsdk:"location"`
 	Tags      []types.String `tfsdk:"tags"`
@@ -42,6 +43,10 @@ func (d *RestoreDataSource) Schema(ctx context.Context, req datasource.SchemaReq
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Unique identifier of the restore operation to look up.",
 				Required:            true,
+			},
+			"uri": schema.StringAttribute{
+				MarkdownDescription: "Computed by the API. Full resource URI. Use this value in `*_uri_ref` attributes of other resources.",
+				Computed:            true,
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Display name for the restore operation.",
@@ -110,6 +115,7 @@ func (d *RestoreDataSource) Read(ctx context.Context, req datasource.ReadRequest
 	}
 
 	data.Id = types.StringValue(restore.ID())
+	data.Uri = strVal(restore.URI())
 	data.Name = types.StringValue(restore.Name())
 	data.ProjectId = types.StringValue(projectID)
 	data.BackupId = types.StringValue(backupID)
