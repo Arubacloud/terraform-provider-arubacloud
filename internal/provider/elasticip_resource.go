@@ -37,6 +37,7 @@ type ElasticIPResourceModel struct {
 	BillingPeriod types.String `tfsdk:"billing_period"`
 	Address       types.String `tfsdk:"address"`
 	ProjectId     types.String `tfsdk:"project_id"`
+	Timeout       types.String `tfsdk:"timeout"`
 }
 
 func (r *ElasticIPResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -85,6 +86,10 @@ func (r *ElasticIPResource) Schema(ctx context.Context, req resource.SchemaReque
 				MarkdownDescription: "ID of the project that owns this resource. Changing this value forces a new resource.",
 				Required:            true,
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"timeout": schema.StringAttribute{
+				MarkdownDescription: "Per-resource timeout override (e.g. `\"15m\"`, `\"1h\"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.",
+				Optional:            true,
 			},
 		},
 	}
@@ -140,7 +145,7 @@ func (r *ElasticIPResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 
-	if waitErr := eip.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
+	if waitErr := eip.WaitUntilReady(ctx, sdkWaitOptions(effectiveTimeout(data.Timeout, r.client.ResourceTimeout))...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "ElasticIP", data.Id.ValueString())
 		return
 	}
@@ -290,12 +295,12 @@ func (r *ElasticIPResource) Delete(ctx context.Context, req resource.DeleteReque
 	err := DeleteResourceWithRetry(ctx, func() error {
 		delErr := r.client.Client.FromNetwork().ElasticIPs().Delete(ctx, ref)
 		return CheckResponseErrAsError("delete", "ElasticIP", delErr)
-	}, "ElasticIP", eipID, r.client.ResourceTimeout, deletionChecker)
+	}, "ElasticIP", eipID, effectiveTimeout(data.Timeout, r.client.ResourceTimeout), deletionChecker)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting ElasticIP", err.Error())
 		return
 	}
-	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "ElasticIP", eipID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "ElasticIP", eipID, remainingTimeout(deleteStart, effectiveTimeout(data.Timeout, r.client.ResourceTimeout))); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for ElasticIP deletion", waitErr.Error())
 		return
 	}

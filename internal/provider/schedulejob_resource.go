@@ -25,6 +25,7 @@ type ScheduleJobResourceModel struct {
 	Tags       types.List   `tfsdk:"tags"`
 	Location   types.String `tfsdk:"location"`
 	Properties types.Object `tfsdk:"properties"`
+	Timeout    types.String `tfsdk:"timeout"`
 }
 
 type ScheduleJobResource struct {
@@ -76,6 +77,10 @@ func (r *ScheduleJobResource) Schema(ctx context.Context, req resource.SchemaReq
 			"location": schema.StringAttribute{
 				MarkdownDescription: "Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).",
 				Required:            true,
+			},
+			"timeout": schema.StringAttribute{
+				MarkdownDescription: "Per-resource timeout override (e.g. `\"15m\"`, `\"1h\"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.",
+				Optional:            true,
 			},
 			"properties": schema.SingleNestedAttribute{
 				MarkdownDescription: "Job scheduling and execution configuration.",
@@ -446,7 +451,7 @@ func (r *ScheduleJobResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
-	if waitErr := job.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
+	if waitErr := job.WaitUntilReady(ctx, sdkWaitOptions(effectiveTimeout(data.Timeout, r.client.ResourceTimeout))...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "ScheduleJob", data.Id.ValueString())
 		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 		return
@@ -599,13 +604,13 @@ func (r *ScheduleJobResource) Delete(ctx context.Context, req resource.DeleteReq
 	err := DeleteResourceWithRetry(ctx, func() error {
 		return CheckResponseErrAsError("delete", "ScheduleJob",
 			r.client.Client.FromSchedule().Jobs().Delete(ctx, ref))
-	}, "ScheduleJob", jobID, r.client.ResourceTimeout, deletionChecker)
+	}, "ScheduleJob", jobID, effectiveTimeout(data.Timeout, r.client.ResourceTimeout), deletionChecker)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting schedule job", err.Error())
 		return
 	}
 
-	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "ScheduleJob", jobID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "ScheduleJob", jobID, remainingTimeout(deleteStart, effectiveTimeout(data.Timeout, r.client.ResourceTimeout))); waitErr != nil {
 		if IsWaitTimeout(waitErr) {
 			resp.Diagnostics.AddWarning(
 				"ScheduleJob Deletion Pending",

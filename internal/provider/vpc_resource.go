@@ -26,6 +26,7 @@ type VPCResourceModel struct {
 	Location  types.String `tfsdk:"location"`
 	ProjectID types.String `tfsdk:"project_id"`
 	Tags      types.List   `tfsdk:"tags"`
+	Timeout   types.String `tfsdk:"timeout"`
 }
 
 var _ resource.Resource = &VPCResource{}
@@ -70,6 +71,10 @@ func (r *VPCResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
 				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
+				Optional:            true,
+			},
+			"timeout": schema.StringAttribute{
+				MarkdownDescription: "Per-resource timeout override (e.g. `\"15m\"`, `\"1h\"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.",
 				Optional:            true,
 			},
 		},
@@ -124,7 +129,7 @@ func (r *VPCResource) Create(ctx context.Context, req resource.CreateRequest, re
 		return
 	}
 
-	if waitErr := vpc.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
+	if waitErr := vpc.WaitUntilReady(ctx, sdkWaitOptions(effectiveTimeout(data.Timeout, r.client.ResourceTimeout))...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "VPC", data.Id.ValueString())
 		return
 	}
@@ -275,12 +280,12 @@ func (r *VPCResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 	err := DeleteResourceWithRetry(ctx, func() error {
 		delErr := r.client.Client.FromNetwork().VPCs().Delete(ctx, ref)
 		return CheckResponseErrAsError("delete", "VPC", delErr)
-	}, "VPC", vpcID, r.client.ResourceTimeout, deletionChecker)
+	}, "VPC", vpcID, effectiveTimeout(data.Timeout, r.client.ResourceTimeout), deletionChecker)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting VPC", err.Error())
 		return
 	}
-	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "VPC", vpcID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "VPC", vpcID, remainingTimeout(deleteStart, effectiveTimeout(data.Timeout, r.client.ResourceTimeout))); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for VPC deletion", waitErr.Error())
 		return
 	}

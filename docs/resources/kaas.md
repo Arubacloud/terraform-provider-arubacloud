@@ -91,6 +91,7 @@ The following arguments are supported:
 
 - `billing_period` (String) Billing cycle. Accepted values: `Hour`, `Month`, `Year`.
 - `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
+- `timeout` (String) Per-resource timeout override (e.g. `"15m"`, `"1h"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.
 
 ### Attributes Reference
 
@@ -99,7 +100,7 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) Computed by the API. Unique identifier for the resource.
-- `kubeconfig` (String, Sensitive) Computed by the API. Kubeconfig YAML for kubectl access, downloaded when the cluster is active. Write-only — this value is sent to the API but is not returned in subsequent read responses.
+- `kubeconfig` (String, Sensitive) Kubeconfig YAML for `kubectl` access. Populated automatically when the cluster becomes active. Sensitive — stored in Terraform state but redacted from plan output.
 - `management_ip` (String) Computed by the API. Management IP address of the cluster control plane, available once the cluster is active.
 - `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources.
 

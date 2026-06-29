@@ -35,6 +35,10 @@ The following arguments are supported:
 - `project_id` (String) ID of the project that owns this resource.
 - `username` (String) Display name for the DBaaS user.
 
+#### Optional
+
+- `timeout` (String) Per-resource timeout override (e.g. `"15m"`, `"1h"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.
+
 ### Attributes Reference
 
 In addition to all arguments above, the following attributes are exported:

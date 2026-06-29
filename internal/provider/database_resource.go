@@ -21,6 +21,7 @@ type DatabaseResourceModel struct {
 	ProjectID types.String `tfsdk:"project_id"`
 	DBaaSID   types.String `tfsdk:"dbaas_id"`
 	Name      types.String `tfsdk:"name"`
+	Timeout   types.String `tfsdk:"timeout"`
 }
 
 type DatabaseResource struct {
@@ -68,6 +69,10 @@ func (r *DatabaseResource) Schema(ctx context.Context, req resource.SchemaReques
 				MarkdownDescription: "Display name for the database.",
 				Required:            true,
 			},
+			"timeout": schema.StringAttribute{
+				MarkdownDescription: "Per-resource timeout override (e.g. `\"15m\"`, `\"1h\"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.",
+				Optional:            true,
+			},
 		},
 	}
 }
@@ -113,7 +118,7 @@ func (r *DatabaseResource) Create(ctx context.Context, req resource.CreateReques
 				InDBaaS(aruba.URI(dbaasURI)),
 		)
 		return CheckResponseErrAsError("create", "Database", err)
-	}, "Database", data.Name.ValueString(), r.client.ResourceTimeout); createErr != nil {
+	}, "Database", data.Name.ValueString(), effectiveTimeout(data.Timeout, r.client.ResourceTimeout)); createErr != nil {
 		resp.Diagnostics.AddError("Error creating database", createErr.Error())
 		return
 	}
@@ -135,7 +140,7 @@ func (r *DatabaseResource) Create(ctx context.Context, req resource.CreateReques
 		}
 		return "Active", nil
 	}
-	if err := WaitForResourceActive(ctx, checker, "Database", data.Id.ValueString(), r.client.ResourceTimeout); err != nil {
+	if err := WaitForResourceActive(ctx, checker, "Database", data.Id.ValueString(), effectiveTimeout(data.Timeout, r.client.ResourceTimeout)); err != nil {
 		ReportWaitResult(&resp.Diagnostics, err, "Database", data.Id.ValueString())
 		return
 	}
@@ -233,12 +238,12 @@ func (r *DatabaseResource) Delete(ctx context.Context, req resource.DeleteReques
 	err := DeleteResourceWithRetry(ctx, func() error {
 		return CheckResponseErrAsError("delete", "Database",
 			r.client.Client.FromDatabase().Databases().Delete(ctx, ref))
-	}, "Database", databaseName, r.client.ResourceTimeout, deletionChecker)
+	}, "Database", databaseName, effectiveTimeout(data.Timeout, r.client.ResourceTimeout), deletionChecker)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting database", err.Error())
 		return
 	}
-	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "Database", databaseName, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "Database", databaseName, remainingTimeout(deleteStart, effectiveTimeout(data.Timeout, r.client.ResourceTimeout))); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for Database deletion", waitErr.Error())
 		return
 	}

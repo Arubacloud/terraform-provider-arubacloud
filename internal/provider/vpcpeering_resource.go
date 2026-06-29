@@ -36,6 +36,7 @@ type VpcPeeringResourceModel struct {
 	ProjectId types.String `tfsdk:"project_id"`
 	VpcId     types.String `tfsdk:"vpc_id"`
 	PeerVpc   types.String `tfsdk:"peer_vpc"`
+	Timeout   types.String `tfsdk:"timeout"`
 }
 
 func (r *VpcPeeringResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -84,6 +85,10 @@ func (r *VpcPeeringResource) Schema(ctx context.Context, req resource.SchemaRequ
 			"peer_vpc": schema.StringAttribute{
 				MarkdownDescription: "ID or URI of the remote peer VPC to connect to.",
 				Required:            true,
+			},
+			"timeout": schema.StringAttribute{
+				MarkdownDescription: "Per-resource timeout override (e.g. `\"15m\"`, `\"1h\"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.",
+				Optional:            true,
 			},
 		},
 	}
@@ -168,7 +173,7 @@ func (r *VpcPeeringResource) Create(ctx context.Context, req resource.CreateRequ
 		return
 	}
 
-	if waitErr := peering.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
+	if waitErr := peering.WaitUntilReady(ctx, sdkWaitOptions(effectiveTimeout(data.Timeout, r.client.ResourceTimeout))...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "VPCPeering", data.Id.ValueString())
 		return
 	}
@@ -309,12 +314,12 @@ func (r *VpcPeeringResource) Delete(ctx context.Context, req resource.DeleteRequ
 	err := DeleteResourceWithRetry(ctx, func() error {
 		return CheckResponseErrAsError("delete", "VPCPeering",
 			r.client.Client.FromNetwork().VPCPeerings().Delete(ctx, ref))
-	}, "VPCPeering", peeringID, r.client.ResourceTimeout, deletionChecker)
+	}, "VPCPeering", peeringID, effectiveTimeout(data.Timeout, r.client.ResourceTimeout), deletionChecker)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting VPCPeering", err.Error())
 		return
 	}
-	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "VPCPeering", peeringID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "VPCPeering", peeringID, remainingTimeout(deleteStart, effectiveTimeout(data.Timeout, r.client.ResourceTimeout))); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for VPCPeering deletion", waitErr.Error())
 		return
 	}

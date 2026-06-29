@@ -69,6 +69,7 @@ The following arguments are supported:
 
 - `billing_period` (String) Billing cycle. Accepted values: `Hour`, `Month`, `Year`.
 - `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
+- `timeout` (String) Per-resource timeout override (e.g. `"15m"`, `"1h"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.
 
 ### Attributes Reference
 

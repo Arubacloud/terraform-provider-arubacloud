@@ -31,6 +31,7 @@ type DBaaSResourceModel struct {
 	Storage       types.Object `tfsdk:"storage"`
 	Network       types.Object `tfsdk:"network"`
 	BillingPeriod types.String `tfsdk:"billing_period"`
+	Timeout       types.String `tfsdk:"timeout"`
 }
 
 type DBaaSResource struct {
@@ -165,6 +166,10 @@ func (r *DBaaSResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				MarkdownDescription: "Billing cycle. Accepted values: `Hour`, `Month`, `Year`.",
 				Optional:            true,
 				Validators:          []validator.String{stringvalidator.OneOf("Hour", "Month", "Year")},
+			},
+			"timeout": schema.StringAttribute{
+				MarkdownDescription: "Per-resource timeout override (e.g. `\"15m\"`, `\"1h\"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.",
+				Optional:            true,
 			},
 		},
 	}
@@ -333,7 +338,7 @@ func (r *DBaaSResource) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 
-	if waitErr := dbaas.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
+	if waitErr := dbaas.WaitUntilReady(ctx, sdkWaitOptions(effectiveTimeout(data.Timeout, r.client.ResourceTimeout))...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "DBaaS", data.Id.ValueString())
 		return
 	}
@@ -567,12 +572,12 @@ func (r *DBaaSResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 	err := DeleteResourceWithRetry(ctx, func() error {
 		return CheckResponseErrAsError("delete", "DBaaS",
 			r.client.Client.FromDatabase().DBaaS().Delete(ctx, ref))
-	}, "DBaaS", dbaasID, r.client.ResourceTimeout, deletionChecker)
+	}, "DBaaS", dbaasID, effectiveTimeout(data.Timeout, r.client.ResourceTimeout), deletionChecker)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting DBaaS", err.Error())
 		return
 	}
-	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "DBaaS", dbaasID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "DBaaS", dbaasID, remainingTimeout(deleteStart, effectiveTimeout(data.Timeout, r.client.ResourceTimeout))); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for DBaaS deletion", waitErr.Error())
 		return
 	}

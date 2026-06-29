@@ -34,6 +34,7 @@ type SnapshotResourceModel struct {
 	BillingPeriod types.String `tfsdk:"billing_period"`
 	VolumeUri     types.String `tfsdk:"volume_uri"`
 	Tags          types.List   `tfsdk:"tags"`
+	Timeout       types.String `tfsdk:"timeout"`
 }
 
 type SnapshotResource struct {
@@ -97,6 +98,10 @@ func (r *SnapshotResource) Schema(ctx context.Context, req resource.SchemaReques
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
 				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
+				Optional:            true,
+			},
+			"timeout": schema.StringAttribute{
+				MarkdownDescription: "Per-resource timeout override (e.g. `\"15m\"`, `\"1h\"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.",
 				Optional:            true,
 			},
 		},
@@ -166,7 +171,7 @@ func (r *SnapshotResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
-	if waitErr := snap.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
+	if waitErr := snap.WaitUntilReady(ctx, sdkWaitOptions(effectiveTimeout(data.Timeout, r.client.ResourceTimeout))...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "Snapshot", data.Id.ValueString())
 		return
 	}
@@ -338,12 +343,12 @@ func (r *SnapshotResource) Delete(ctx context.Context, req resource.DeleteReques
 	err := DeleteResourceWithRetry(ctx, func() error {
 		return CheckResponseErrAsError("delete", "Snapshot",
 			r.client.Client.FromStorage().Snapshots().Delete(ctx, ref))
-	}, "Snapshot", snapshotID, r.client.ResourceTimeout, deletionChecker)
+	}, "Snapshot", snapshotID, effectiveTimeout(data.Timeout, r.client.ResourceTimeout), deletionChecker)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting Snapshot", err.Error())
 		return
 	}
-	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "Snapshot", snapshotID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "Snapshot", snapshotID, remainingTimeout(deleteStart, effectiveTimeout(data.Timeout, r.client.ResourceTimeout))); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for Snapshot deletion", waitErr.Error())
 		return
 	}

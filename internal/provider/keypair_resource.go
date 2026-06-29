@@ -23,6 +23,7 @@ type KeypairResourceModel struct {
 	ProjectID types.String `tfsdk:"project_id"`
 	Value     types.String `tfsdk:"value"`
 	Tags      types.List   `tfsdk:"tags"`
+	Timeout   types.String `tfsdk:"timeout"`
 }
 
 type KeypairResource struct {
@@ -78,6 +79,10 @@ func (r *KeypairResource) Schema(ctx context.Context, req resource.SchemaRequest
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
 				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
+				Optional:            true,
+			},
+			"timeout": schema.StringAttribute{
+				MarkdownDescription: "Per-resource timeout override (e.g. `\"15m\"`, `\"1h\"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.",
 				Optional:            true,
 			},
 		},
@@ -140,7 +145,7 @@ func (r *KeypairResource) Create(ctx context.Context, req resource.CreateRequest
 	keypairID := data.Id.ValueString()
 
 	// KeyPairs may go through a short provisioning phase; wait until ready.
-	if err := kp.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); err != nil {
+	if err := kp.WaitUntilReady(ctx, sdkWaitOptions(effectiveTimeout(data.Timeout, r.client.ResourceTimeout))...); err != nil {
 		ReportWaitResult(&resp.Diagnostics, err, "Keypair", keypairID)
 		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 		return
@@ -306,7 +311,7 @@ func (r *KeypairResource) Delete(ctx context.Context, req resource.DeleteRequest
 		},
 		"Keypair",
 		keypairID,
-		r.client.ResourceTimeout,
+		effectiveTimeout(data.Timeout, r.client.ResourceTimeout),
 		deletionChecker,
 	)
 	if err != nil {
@@ -314,7 +319,7 @@ func (r *KeypairResource) Delete(ctx context.Context, req resource.DeleteRequest
 		return
 	}
 
-	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "Keypair", keypairID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "Keypair", keypairID, remainingTimeout(deleteStart, effectiveTimeout(data.Timeout, r.client.ResourceTimeout))); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for Keypair deletion", waitErr.Error())
 		return
 	}

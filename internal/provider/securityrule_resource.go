@@ -89,6 +89,7 @@ type SecurityRuleResourceModel struct {
 	VpcId           types.String `tfsdk:"vpc_id"`
 	SecurityGroupId types.String `tfsdk:"security_group_id"`
 	Properties      types.Object `tfsdk:"properties"`
+	Timeout         types.String `tfsdk:"timeout"`
 }
 
 var _ resource.Resource = &SecurityRuleResource{}
@@ -155,6 +156,10 @@ func (r *SecurityRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
 				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
+				Optional:            true,
+			},
+			"timeout": schema.StringAttribute{
+				MarkdownDescription: "Per-resource timeout override (e.g. `\"15m\"`, `\"1h\"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.",
 				Optional:            true,
 			},
 			"properties": schema.SingleNestedAttribute{
@@ -418,7 +423,7 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
-	if waitErr := rule.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
+	if waitErr := rule.WaitUntilReady(ctx, sdkWaitOptions(effectiveTimeout(data.Timeout, r.client.ResourceTimeout))...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "SecurityRule", data.Id.ValueString())
 		return
 	}
@@ -558,12 +563,12 @@ func (r *SecurityRuleResource) Delete(ctx context.Context, req resource.DeleteRe
 	err := DeleteResourceWithRetry(ctx, func() error {
 		return CheckResponseErrAsError("delete", "SecurityRule",
 			r.client.Client.FromNetwork().SecurityGroupRules().Delete(ctx, ref))
-	}, "SecurityRule", ruleID, r.client.ResourceTimeout, deletionChecker)
+	}, "SecurityRule", ruleID, effectiveTimeout(data.Timeout, r.client.ResourceTimeout), deletionChecker)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting SecurityRule", err.Error())
 		return
 	}
-	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "SecurityRule", ruleID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "SecurityRule", ruleID, remainingTimeout(deleteStart, effectiveTimeout(data.Timeout, r.client.ResourceTimeout))); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for SecurityRule deletion", waitErr.Error())
 		return
 	}
