@@ -47,7 +47,7 @@ func TestAccDatabasegrantDataSource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_databasegrant.test",
 						tfjsonpath.New("user_id"),
-						knownvalue.StringExact("test-ds-grantuser"),
+						knownvalue.StringExact("testdsgrantuser"),
 					),
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_databasegrant.test",
@@ -105,8 +105,8 @@ resource "arubacloud_dbaas" "test" {
 resource "arubacloud_dbaasuser" "test" {
   project_id = %[1]q
   dbaas_id   = arubacloud_dbaas.test.id
-  username   = "test-ds-grantuser"
-  password   = "TestPassword123!"
+  username   = "testdsgrantuser"
+  password   = "Acc3ptAbl3P@ss#01"
 }
 
 resource "arubacloud_database" "test" {
