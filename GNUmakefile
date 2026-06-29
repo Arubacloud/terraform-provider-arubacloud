@@ -40,14 +40,31 @@ fmt:
 test:
 	go test -v -cover -timeout=120s -parallel=10 ./...
 
-# Run acceptance tests (requires TF_ACC=1)
+# Run all acceptance tests with structured logging.
+# Credentials via env vars: ARUBACLOUD_CLIENT_ID, ARUBACLOUD_CLIENT_SECRET, ARUBACLOUD_PROJECT_ID
+# Optional: ARUBACLOUD_OS_IMAGE_ID, ARUBACLOUD_DBAAS_ID, ARUBACLOUD_VPNTUNNEL_ID, ARUBACLOUD_VPNROUTE_ID
+# Pass extra flags with ARGS: make testacc ARGS="--log-level DEBUG --timeout 60m"
 testacc:
-	TF_ACC=1 go test -v -cover -timeout=120m ./internal/provider/...
+	@./run-acceptance-tests.sh $(ARGS)
 
-# Run specific acceptance test
+# Run a single acceptance test by name.
+# Usage: make testacc-run TEST=TestAccBackupResource
+# Optional: make testacc-run TEST=TestAccVpc ARGS="--log-level DEBUG"
 testacc-run:
-	@echo "Usage: make testacc-run TEST=TestAccBackupResource"
-	TF_ACC=1 go test -v ./internal/provider/ -run $(TEST)
+	@if [ -z "$(TEST)" ]; then \
+		echo "Usage: make testacc-run TEST=<TestName>"; \
+		echo "  e.g. make testacc-run TEST=TestAccBackupResource"; \
+		exit 1; \
+	fi
+	@./run-acceptance-tests.sh --run '^$(TEST)$$' $(ARGS)
+
+# Show the most recent acceptance test summary.
+testacc-summary:
+	@LATEST=$$(ls -t artifacts/summary-*.txt 2>/dev/null | head -1); \
+	if [ -z "$$LATEST" ]; then \
+		echo "No summary found. Run 'make testacc' first."; exit 1; \
+	fi; \
+	echo "==> $$LATEST"; echo ""; cat "$$LATEST"
 
 # Run tests with coverage report
 testcov:
@@ -121,4 +138,4 @@ ci-test:
 	@echo ""
 	@echo "=== All CI checks passed! ==="
 
-.PHONY: default fmt lint test testacc testacc-run testcov build install docs generate ci-test
+.PHONY: default fmt lint test testacc testacc-run testacc-summary testcov build install docs generate ci-test

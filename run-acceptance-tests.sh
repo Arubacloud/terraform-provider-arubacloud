@@ -1,80 +1,207 @@
 #!/usr/bin/env bash
-# run-acceptance-tests.sh — run ArubaCloud provider acceptance tests
-# Usage: ./run-acceptance-tests.sh --api-key KEY --api-secret SECRET --project-id ID [options]
+#
+# run-acceptance-tests.sh — ArubaCloud Terraform Provider acceptance test runner
+#
+# Credentials and optional fixture IDs are read from environment variables.
+# No secrets are accepted as command-line flags to avoid shell history exposure.
+#
+# Required env vars
+#   ARUBACLOUD_CLIENT_ID       OAuth2 client ID
+#   ARUBACLOUD_CLIENT_SECRET   OAuth2 client secret
+#   ARUBACLOUD_PROJECT_ID      Target project
+#
+# Optional env vars (tests skip gracefully when absent)
+#   ARUBACLOUD_OS_IMAGE_ID     TestAccCloudserverResource, TestAccBlockStorageResource_Bootable,
+#                              TestAccCloudserverDataSource, TestAccSchedulejobDataSource
+#   ARUBACLOUD_DBAAS_ID        TestAccDatabaseResource
+#   ARUBACLOUD_VPNTUNNEL_ID    TestAccVpntunnelDataSource, TestAccVpnrouteDataSource
+#   ARUBACLOUD_VPNROUTE_ID     TestAccVpnrouteDataSource
+#
+# Options
+#   -r, --run PATTERN       go -run regex filter     (default: ^TestAcc)
+#   -t, --timeout DURATION  test timeout             (default: 120m)
+#   -l, --log-level LEVEL   TF_LOG: OFF|WARN|INFO|DEBUG|TRACE  (default: WARN)
+#   -h, --help              show this help
+#
+# Artifacts (written to ./artifacts/)
+#   tests-TIMESTAMP.log        full go test -v output
+#   tf-provider-TIMESTAMP.log  Terraform provider log (set by TF_LOG / TF_LOG_PATH)
+#   summary-TIMESTAMP.txt      concise pass/fail/skip summary (also shown on terminal)
+#
+# Examples
+#   # Run all acceptance tests
+#   ./run-acceptance-tests.sh
+#
+#   # Run a single resource test
+#   ./run-acceptance-tests.sh --run '^TestAccBackupResource$'
+#
+#   # Run the DBaaS stack tests with debug logging
+#   ./run-acceptance-tests.sh --run '^TestAccDatabase' --log-level DEBUG --timeout 60m
+#
+#   # Via make
+#   make testacc
+#   make testacc-run TEST=TestAccBackupResource
+
 set -euo pipefail
 
-TIMEOUT="${TIMEOUT:-120m}"
-PATTERN="${PATTERN:-^TestAcc}"
+# ── defaults ──────────────────────────────────────────────────────────────────
+RUN_FILTER="^TestAcc"
+TIMEOUT="120m"
+LOG_LEVEL="WARN"
 
-print_usage() {
-  cat <<'EOF'
-Usage: run-acceptance-tests.sh [options]
-
-Required:
-  --api-key      <key>     ArubaCloud API key     (or env ARUBACLOUD_API_KEY)
-  --api-secret   <secret>  ArubaCloud API secret  (or env ARUBACLOUD_API_SECRET)
-  --project-id   <id>      Project ID             (or env ARUBACLOUD_PROJECT_ID)
-
-Optional fixture IDs (only needed for unconverted data source tests):
-  --dbaas-id              ARUBACLOUD_DBAAS_ID
-  --vpc-id                ARUBACLOUD_VPC_ID
-  --cloudserver-id        ARUBACLOUD_CLOUDSERVER_ID
-  --containerregistry-id  ARUBACLOUD_CONTAINERREGISTRY_ID
-  --kaas-id               ARUBACLOUD_KAAS_ID
-  --backup-id             ARUBACLOUD_BACKUP_ID
-  --restore-id            ARUBACLOUD_RESTORE_ID
-  --vpcpeering-id         ARUBACLOUD_VPCPEERING_ID
-  --vpcpeeringroute-id    ARUBACLOUD_VPCPEERINGROUTE_ID
-  --database-backup-id    ARUBACLOUD_DATABASE_BACKUP_ID
-
-Test selection:
-  -t, --test     <pattern>  Go -run regex (default: ^TestAcc)
-      --timeout  <dur>      go test timeout (default: 120m)
-  -h, --help                Show this help
-
-Examples:
-  # Smoke test a single data source
-  ./run-acceptance-tests.sh --api-key KEY --api-secret SECRET --project-id PID \
-    -t '^TestAccVpcDataSource$'
-
-  # Run all converted data source tests
-  ./run-acceptance-tests.sh --api-key KEY --api-secret SECRET --project-id PID \
-    -t '^TestAcc(Vpc|Subnet|Keypair|Securitygroup|Securityrule|Blockstorage|Snapshot|Backup|Elasticip|Kms|Schedulejob|Vpntunnel|Vpnroute)DataSource$'
-
-  # Include DBaaS-dependent tests
-  ./run-acceptance-tests.sh --api-key KEY --api-secret SECRET --project-id PID \
-    --dbaas-id DBAAS_ID \
-    -t '^TestAcc(Database|Databasegrant|Dbaasuser)DataSource$'
-EOF
+# ── argument parsing ───────────────────────────────────────────────────────────
+usage() {
+    # Print only the leading comment block (stop at first blank line after shebang)
+    awk 'NR==1{next} /^$/{exit} {sub(/^# ?/,""); print}' "$0"
+    exit 0
 }
 
 while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --api-key)              export ARUBACLOUD_API_KEY="$2";              shift 2 ;;
-    --api-secret)           export ARUBACLOUD_API_SECRET="$2";           shift 2 ;;
-    --project-id)           export ARUBACLOUD_PROJECT_ID="$2";           shift 2 ;;
-    --dbaas-id)             export ARUBACLOUD_DBAAS_ID="$2";             shift 2 ;;
-    --vpc-id)               export ARUBACLOUD_VPC_ID="$2";               shift 2 ;;
-    --cloudserver-id)       export ARUBACLOUD_CLOUDSERVER_ID="$2";       shift 2 ;;
-    --containerregistry-id) export ARUBACLOUD_CONTAINERREGISTRY_ID="$2"; shift 2 ;;
-    --kaas-id)              export ARUBACLOUD_KAAS_ID="$2";              shift 2 ;;
-    --backup-id)            export ARUBACLOUD_BACKUP_ID="$2";            shift 2 ;;
-    --restore-id)           export ARUBACLOUD_RESTORE_ID="$2";           shift 2 ;;
-    --vpcpeering-id)        export ARUBACLOUD_VPCPEERING_ID="$2";        shift 2 ;;
-    --vpcpeeringroute-id)   export ARUBACLOUD_VPCPEERINGROUTE_ID="$2";   shift 2 ;;
-    --database-backup-id)   export ARUBACLOUD_DATABASE_BACKUP_ID="$2";   shift 2 ;;
-    -t|--test)              PATTERN="$2";                                 shift 2 ;;
-    --timeout)              TIMEOUT="$2";                                 shift 2 ;;
-    -h|--help)              print_usage; exit 0 ;;
-    *) echo "error: unknown flag: $1" >&2; echo "Run with --help for usage." >&2; exit 2 ;;
-  esac
+    case "$1" in
+        -r|--run)        RUN_FILTER="$2"; shift 2 ;;
+        -t|--timeout)    TIMEOUT="$2";    shift 2 ;;
+        -l|--log-level)  LOG_LEVEL="$2";  shift 2 ;;
+        -h|--help)       usage ;;
+        *) echo "ERROR: unknown option: $1" >&2
+           echo "Run './run-acceptance-tests.sh --help' for usage." >&2
+           exit 1 ;;
+    esac
 done
 
-: "${ARUBACLOUD_API_KEY:?Required. Pass --api-key or set ARUBACLOUD_API_KEY.}"
-: "${ARUBACLOUD_API_SECRET:?Required. Pass --api-secret or set ARUBACLOUD_API_SECRET.}"
-: "${ARUBACLOUD_PROJECT_ID:?Required. Pass --project-id or set ARUBACLOUD_PROJECT_ID.}"
+# ── validate required env vars ─────────────────────────────────────────────────
+MISSING=()
+for var in ARUBACLOUD_CLIENT_ID ARUBACLOUD_CLIENT_SECRET ARUBACLOUD_PROJECT_ID; do
+    [[ -z "${!var:-}" ]] && MISSING+=("$var")
+done
+if [[ ${#MISSING[@]} -gt 0 ]]; then
+    echo "ERROR: missing required environment variables:" >&2
+    printf '  %s\n' "${MISSING[@]}" >&2
+    echo "" >&2
+    echo "Export them before running:" >&2
+    echo "  export ARUBACLOUD_CLIENT_ID=<id>" >&2
+    echo "  export ARUBACLOUD_CLIENT_SECRET=<secret>" >&2
+    echo "  export ARUBACLOUD_PROJECT_ID=<project-id>" >&2
+    exit 1
+fi
 
+# ── artifact setup ─────────────────────────────────────────────────────────────
+ARTIFACTS_DIR="artifacts"
+mkdir -p "$ARTIFACTS_DIR"
+TS=$(date +"%Y%m%d-%H%M%S")
+LOGFILE="${ARTIFACTS_DIR}/tests-${TS}.log"
+TF_LOGFILE="${ARTIFACTS_DIR}/tf-provider-${TS}.log"
+SUMMARY_FILE="${ARTIFACTS_DIR}/summary-${TS}.txt"
+
+# ── header ─────────────────────────────────────────────────────────────────────
+{
+    echo "========================================================"
+    echo "  ArubaCloud Provider — Acceptance Tests"
+    printf "  Started  : %s\n" "$(date)"
+    printf "  Filter   : %s\n" "$RUN_FILTER"
+    printf "  Timeout  : %s\n" "$TIMEOUT"
+    printf "  TF_LOG   : %s\n" "$LOG_LEVEL"
+    echo "========================================================"
+    echo ""
+    echo "--- toolchain ---"
+    go version
+    if command -v terraform &>/dev/null; then
+        terraform version 2>&1 | head -1
+    else
+        echo "terraform: not in PATH (only needed for make generate)"
+    fi
+    echo ""
+    echo "--- environment (secrets redacted) ---"
+    env | sort \
+        | grep -E '^(TF_|ARUBACLOUD_)' \
+        | sed \
+            -e 's/\(CLIENT_ID=\).*/\1***/' \
+            -e 's/\(CLIENT_SECRET=\).*/\1***/' \
+        || true
+    echo ""
+} | tee "$LOGFILE"
+
+# ── run ────────────────────────────────────────────────────────────────────────
 export TF_ACC=1
+export TF_LOG="${LOG_LEVEL}"
+export TF_LOG_PATH="${TF_LOGFILE}"
 
-echo "Running: go test -v -timeout=$TIMEOUT ./internal/provider/... -run \"$PATTERN\""
-exec go test -v -timeout="$TIMEOUT" ./internal/provider/... -run "$PATTERN"
+echo "--- running: go test -v -count=1 -timeout=${TIMEOUT} -run '${RUN_FILTER}' ---" \
+    | tee -a "$LOGFILE"
+echo "" | tee -a "$LOGFILE"
+
+START_EPOCH=$(date +%s)
+
+set +e
+go test \
+    -v \
+    -count=1 \
+    -timeout="${TIMEOUT}" \
+    ./internal/provider/... \
+    -run "${RUN_FILTER}" \
+    2>&1 | tee -a "$LOGFILE"
+EXIT_CODE=${PIPESTATUS[0]}
+set -e
+
+END_EPOCH=$(date +%s)
+ELAPSED=$(( END_EPOCH - START_EPOCH ))
+ELAPSED_FMT=$(printf '%dm%02ds' $(( ELAPSED / 60 )) $(( ELAPSED % 60 )))
+
+# ── summary ────────────────────────────────────────────────────────────────────
+PASS_COUNT=$(grep -c '^--- PASS:' "$LOGFILE" || true)
+FAIL_COUNT=$(grep -c '^--- FAIL:' "$LOGFILE" || true)
+SKIP_COUNT=$(grep -c '^--- SKIP:' "$LOGFILE" || true)
+TOTAL=$(( PASS_COUNT + FAIL_COUNT + SKIP_COUNT ))
+
+{
+    echo ""
+    echo "========================================================"
+    echo "  SUMMARY"
+    echo "========================================================"
+    printf '  Total    : %d\n' "$TOTAL"
+    printf '  Passed   : %d\n' "$PASS_COUNT"
+    printf '  Failed   : %d\n' "$FAIL_COUNT"
+    printf '  Skipped  : %d\n' "$SKIP_COUNT"
+    printf '  Duration : %s\n' "$ELAPSED_FMT"
+    echo ""
+
+    if [[ $FAIL_COUNT -gt 0 ]]; then
+        echo "  --- failing tests ---"
+        while IFS= read -r fail_line; do
+            test_name=$(echo "$fail_line" | awk '{print $3}')
+            duration=$(echo "$fail_line"  | awk '{print $4}')
+            printf '  ✗  %s %s\n' "$test_name" "$duration"
+            # First error/step line from this test's output block
+            first_error=$(awk -v t="$test_name" '
+                $0 ~ ("^=== RUN[[:space:]]+" t "$") { capture=1; next }
+                capture && /^    / && /\.go:[0-9]+:/ { print; capture=0 }
+                /^--- (PASS|FAIL|SKIP):/ { capture=0 }
+            ' "$LOGFILE" | head -1 | sed 's/^[[:space:]]*//')
+            [[ -n "$first_error" ]] && printf '     %s\n' "$first_error"
+            echo ""
+        done < <(grep '^--- FAIL:' "$LOGFILE")
+    fi
+
+    if [[ $SKIP_COUNT -gt 0 ]]; then
+        echo "  --- skipped tests ---"
+        grep '^--- SKIP:' "$LOGFILE" \
+            | awk '{printf "  ⊘  %s %s\n", $3, $4}' \
+            || true
+        echo ""
+    fi
+
+    echo "  --- artifacts ---"
+    printf '  Test log  : %s\n' "$LOGFILE"
+    printf '  TF log    : %s\n' "$TF_LOGFILE"
+    printf '  Summary   : %s\n' "$SUMMARY_FILE"
+    echo ""
+    echo "========================================================"
+    printf '  Finished : %s\n' "$(date)"
+    if [[ $EXIT_CODE -eq 0 ]]; then
+        echo "  Result   : ✓  PASSED"
+    else
+        echo "  Result   : ✗  FAILED (exit ${EXIT_CODE})"
+    fi
+    echo "========================================================"
+} | tee -a "$LOGFILE" | tee "$SUMMARY_FILE"
+
+exit $EXIT_CODE
