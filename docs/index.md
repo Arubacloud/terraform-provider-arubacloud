@@ -17,7 +17,7 @@ terraform {
   required_providers {
     arubacloud = {
       source  = "arubacloud/arubacloud"
-      version = ">= 0.0.1"
+      version = ">= 0.3.0"
     }
   }
 }
@@ -41,7 +41,7 @@ terraform {
   required_providers {
     arubacloud = {
       source  = "arubacloud/arubacloud"
-      version = ">= 0.0.1"
+      version = ">= 0.3.0"
     }
   }
 }
@@ -197,21 +197,22 @@ output "cloudserver_id" {
 
 | Category | Resources | Data Sources |
 |---|---|---|
-| **Compute** | [`arubacloud_cloudserver`](resources/cloudserver), [`arubacloud_keypair`](resources/keypair), [`arubacloud_elasticip`](resources/elasticip) | [`arubacloud_cloudserver`](data-sources/cloudserver), [`arubacloud_keypair`](data-sources/keypair), [`arubacloud_elasticip`](data-sources/elasticip) |
-| **Network** | [`arubacloud_vpc`](resources/vpc), [`arubacloud_subnet`](resources/subnet), [`arubacloud_securitygroup`](resources/securitygroup), [`arubacloud_securityrule`](resources/securityrule), [`arubacloud_vpcpeering`](resources/vpcpeering), [`arubacloud_vpcpeeringroute`](resources/vpcpeeringroute), [`arubacloud_vpntunnel`](resources/vpntunnel), [`arubacloud_vpnroute`](resources/vpnroute) | [`arubacloud_vpc`](data-sources/vpc), [`arubacloud_subnet`](data-sources/subnet), [`arubacloud_securitygroup`](data-sources/securitygroup), [`arubacloud_securityrule`](data-sources/securityrule), [`arubacloud_vpcpeering`](data-sources/vpcpeering), [`arubacloud_vpcpeeringroute`](data-sources/vpcpeeringroute), [`arubacloud_vpntunnel`](data-sources/vpntunnel), [`arubacloud_vpnroute`](data-sources/vpnroute) |
+| **Management** | [`arubacloud_project`](resources/project) | [`arubacloud_project`](data-sources/project) |
+| **Compute** | [`arubacloud_cloudserver`](resources/cloudserver), [`arubacloud_keypair`](resources/keypair) | [`arubacloud_cloudserver`](data-sources/cloudserver), [`arubacloud_keypair`](data-sources/keypair) |
 | **Storage** | [`arubacloud_blockstorage`](resources/blockstorage), [`arubacloud_snapshot`](resources/snapshot), [`arubacloud_backup`](resources/backup), [`arubacloud_restore`](resources/restore) | [`arubacloud_blockstorage`](data-sources/blockstorage), [`arubacloud_snapshot`](data-sources/snapshot), [`arubacloud_backup`](data-sources/backup), [`arubacloud_restore`](data-sources/restore) |
+| **Network** | [`arubacloud_vpc`](resources/vpc), [`arubacloud_subnet`](resources/subnet), [`arubacloud_securitygroup`](resources/securitygroup), [`arubacloud_securityrule`](resources/securityrule), [`arubacloud_elasticip`](resources/elasticip), [`arubacloud_vpcpeering`](resources/vpcpeering), [`arubacloud_vpcpeeringroute`](resources/vpcpeeringroute), [`arubacloud_vpntunnel`](resources/vpntunnel), [`arubacloud_vpnroute`](resources/vpnroute) | [`arubacloud_vpc`](data-sources/vpc), [`arubacloud_subnet`](data-sources/subnet), [`arubacloud_securitygroup`](data-sources/securitygroup), [`arubacloud_securityrule`](data-sources/securityrule), [`arubacloud_elasticip`](data-sources/elasticip), [`arubacloud_vpcpeering`](data-sources/vpcpeering), [`arubacloud_vpcpeeringroute`](data-sources/vpcpeeringroute), [`arubacloud_vpntunnel`](data-sources/vpntunnel), [`arubacloud_vpnroute`](data-sources/vpnroute) |
 | **Container** | [`arubacloud_kaas`](resources/kaas), [`arubacloud_containerregistry`](resources/containerregistry) | [`arubacloud_kaas`](data-sources/kaas), [`arubacloud_containerregistry`](data-sources/containerregistry) |
-| **Database** | [`arubacloud_dbaas`](resources/dbaas), [`arubacloud_database`](resources/database), [`arubacloud_databasegrant`](resources/databasegrant), [`arubacloud_databasebackup`](resources/databasebackup), [`arubacloud_dbaasuser`](resources/dbaasuser) | [`arubacloud_dbaas`](data-sources/dbaas), [`arubacloud_database`](data-sources/database), [`arubacloud_databasegrant`](data-sources/databasegrant), [`arubacloud_databasebackup`](data-sources/databasebackup), [`arubacloud_dbaasuser`](data-sources/dbaasuser) |
-| **Management** | [`arubacloud_project`](resources/project), [`arubacloud_schedulejob`](resources/schedulejob) | [`arubacloud_project`](data-sources/project), [`arubacloud_schedulejob`](data-sources/schedulejob) |
+| **Database** | [`arubacloud_dbaas`](resources/dbaas), [`arubacloud_database`](resources/database), [`arubacloud_dbaasuser`](resources/dbaasuser), [`arubacloud_databasegrant`](resources/databasegrant), [`arubacloud_databasebackup`](resources/databasebackup) | [`arubacloud_dbaas`](data-sources/dbaas), [`arubacloud_database`](data-sources/database), [`arubacloud_dbaasuser`](data-sources/dbaasuser), [`arubacloud_databasegrant`](data-sources/databasegrant), [`arubacloud_databasebackup`](data-sources/databasebackup) |
 | **Security** | [`arubacloud_kms`](resources/kms) | [`arubacloud_kms`](data-sources/kms) |
+| **Schedule** | [`arubacloud_schedulejob`](resources/schedulejob) | [`arubacloud_schedulejob`](data-sources/schedulejob) |
 
 ## Argument Reference
 
 The following arguments are supported:
 
-- `api_key` - (Required, string) ArubaCloud API key. Can also be specified with the `ARUBACLOUD_API_KEY` environment variable.
-- `api_secret` - (Required, string) ArubaCloud API secret. Can also be specified with the `ARUBACLOUD_API_SECRET` environment variable.
-- `resource_timeout` - (Optional, string) Timeout for waiting for resources to become active after creation (e.g. `"5m"`, `"10m"`). Default: `"10m"`.
+- `client_id` - (Required, string) ArubaCloud OAuth2 client ID. Can also be specified with the `ARUBACLOUD_CLIENT_ID` environment variable.
+- `client_secret` - (Required, string) ArubaCloud OAuth2 client secret. Can also be specified with the `ARUBACLOUD_CLIENT_SECRET` environment variable.
+- `resource_timeout` - (Optional, string) Timeout for waiting for resources to become active after creation (e.g. `"15m"`, `"45m"`). Default: `"30m"`.
 - `base_url` - (Optional, string) Override the ArubaCloud API base URL. Advanced use only.
 - `token_issuer_url` - (Optional, string) Override the ArubaCloud token issuer URL. Advanced use only.
 - `log_level` - (Optional, string) SDK log level for HTTP request/response tracing. Accepted values (case-insensitive): `OFF`, `ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE`. Default: `OFF`. Can also be set via the `ARUBACLOUD_LOG_LEVEL` environment variable; the HCL attribute takes precedence.
@@ -231,9 +232,9 @@ A message is visible only when **both** filters permit it. SDK messages are tagg
 
 ```hcl
 provider "arubacloud" {
-  api_key    = var.api_key
-  api_secret = var.api_secret
-  log_level  = "DEBUG"
+  client_id     = var.client_id
+  client_secret = var.client_secret
+  log_level     = "DEBUG"
 }
 ```
 
