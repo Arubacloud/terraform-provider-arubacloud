@@ -1,6 +1,6 @@
 ---
 page_title: "arubacloud_schedulejob Data Source - ArubaCloud"
-subcategory: "Management"
+subcategory: "Schedule"
 description: |-
   Retrieves information about an existing ArubaCloud Scheduled Job.
 ---

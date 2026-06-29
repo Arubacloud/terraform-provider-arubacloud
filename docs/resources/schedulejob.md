@@ -1,6 +1,6 @@
 ---
 page_title: "arubacloud_schedulejob Resource - ArubaCloud"
-subcategory: "Management"
+subcategory: "Schedule"
 description: |-
   Manages an ArubaCloud Scheduled Job — a cron-triggered automation task.
 ---
