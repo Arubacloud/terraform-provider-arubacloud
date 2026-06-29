@@ -55,7 +55,7 @@ The following arguments are supported:
 - `name` (String) Display name for the block storage volume.
 - `project_id` (String) ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)
 - `size_gb` (Number) Size of the block storage volume in GiB. Must be a positive integer.
-- `type` (String) Storage type. Accepted values: `Standard`, `Performance`.
+- `type` (String) Storage type. Accepted values: `Standard`, `Performance`. (Immutable — changing this value forces the resource to be destroyed and re-created.)
 
 #### Optional
 
