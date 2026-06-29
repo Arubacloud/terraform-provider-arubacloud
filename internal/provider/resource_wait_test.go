@@ -159,6 +159,30 @@ func TestWaitForResourceDeleted_ContextCancelledReturnsError(t *testing.T) {
 	}
 }
 
+func TestWaitForResourceDeleted_InitialCheckTransientErrorFallsThrough(t *testing.T) {
+	withFastPoll(t)
+
+	// First call (initial check) returns a transient error.
+	// Second call (first ticker tick) confirms deletion.
+	// Without the fix the first error would abort the wait immediately.
+	callCount := 0
+	checker := func(_ context.Context) (bool, error) {
+		callCount++
+		if callCount == 1 {
+			return false, fmt.Errorf("transient network error")
+		}
+		return true, nil // deleted on second call
+	}
+
+	err := WaitForResourceDeleted(context.Background(), checker, "backup", "bkp-1", 5*time.Second)
+	if err != nil {
+		t.Fatalf("expected nil, got: %v", err)
+	}
+	if callCount < 2 {
+		t.Fatalf("expected at least 2 checker calls, got %d", callCount)
+	}
+}
+
 // ── WaitForResourceActive ────────────────────────────────────────────────────
 
 // withFastActivePoll sets the active-poll interval to a very short duration for
