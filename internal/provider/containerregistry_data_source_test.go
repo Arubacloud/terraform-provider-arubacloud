@@ -114,6 +114,7 @@ resource "arubacloud_containerregistry" "test" {
   }
 
   settings = {
+    admin_user              = "registryadmin"
     concurrent_users_flavor = "Small"
   }
 }

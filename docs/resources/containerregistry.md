@@ -59,12 +59,12 @@ The following arguments are supported:
 - `name` (String) Display name for the container registry.
 - `network` (Attributes) Network resources attached to the registry. (see [below for nested schema](#nestedatt--network))
 - `project_id` (String) ID of the project that owns this resource.
+- `settings` (Attributes) Registry configuration settings. Required because `admin_user` is mandatory. (see [below for nested schema](#nestedatt--settings))
 - `storage` (Attributes) Block storage volume that backs the registry image store. (see [below for nested schema](#nestedatt--storage))
 
 #### Optional
 
 - `billing_period` (String) Billing cycle. Accepted values: `Hour`, `Month`, `Year`.
-- `settings` (Attributes) Optional registry configuration settings. (see [below for nested schema](#nestedatt--settings))
 - `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
 - `timeout` (String) Per-resource timeout override (e.g. `"15m"`, `"1h"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.
 
@@ -88,21 +88,24 @@ Required:
 - `vpc_uri_ref` (String) URI of the VPC that hosts the registry (e.g., `arubacloud_vpc.example.uri`).
 
 
+<a id="nestedatt--settings"></a>
+### Nested Schema for `settings`
+
+Required:
+
+- `admin_user` (String) Administrator username for the registry. Must not be `"admin"` (reserved by the API).
+
+Optional:
+
+- `concurrent_users_flavor` (String) Concurrency tier that determines how many simultaneous push/pull sessions are supported. Accepted values: `Small`, `Medium`, `HighPerf`.
+
+
 <a id="nestedatt--storage"></a>
 ### Nested Schema for `storage`
 
 Required:
 
 - `block_storage_uri_ref` (String) URI of the block storage volume (e.g., `arubacloud_blockstorage.example.uri`).
-
-
-<a id="nestedatt--settings"></a>
-### Nested Schema for `settings`
-
-Optional:
-
-- `admin_user` (String) Administrator username for the registry.
-- `concurrent_users_flavor` (String) Concurrency tier that determines how many simultaneous push/pull sessions are supported. Accepted values: `Small`, `Medium`, `HighPerf`.
 
 
 

@@ -139,12 +139,12 @@ func (r *ContainerRegistryResource) Schema(ctx context.Context, req resource.Sch
 				},
 			},
 			"settings": schema.SingleNestedAttribute{
-				MarkdownDescription: "Optional registry configuration settings.",
-				Optional:            true,
+				MarkdownDescription: "Registry configuration settings. Required because `admin_user` is mandatory.",
+				Required:            true,
 				Attributes: map[string]schema.Attribute{
 					"admin_user": schema.StringAttribute{
-						MarkdownDescription: "Administrator username for the registry.",
-						Optional:            true,
+						MarkdownDescription: "Administrator username for the registry. Must not be `\"admin\"` (reserved by the API).",
+						Required:            true,
 					},
 					"concurrent_users_flavor": schema.StringAttribute{
 						MarkdownDescription: "Concurrency tier that determines how many simultaneous push/pull sessions are supported. Accepted values: `Small`, `Medium`, `HighPerf`.",
