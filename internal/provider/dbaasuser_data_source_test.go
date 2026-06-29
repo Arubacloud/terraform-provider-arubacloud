@@ -32,7 +32,7 @@ func TestAccDbaasuserDataSource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_dbaasuser.test",
 						tfjsonpath.New("username"),
-						knownvalue.StringExact("test-ds-user"),
+						knownvalue.StringExact("testdsuser"),
 					),
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_dbaasuser.test",
@@ -95,8 +95,8 @@ resource "arubacloud_dbaas" "test" {
 resource "arubacloud_dbaasuser" "test" {
   project_id = %[1]q
   dbaas_id   = arubacloud_dbaas.test.id
-  username   = "test-ds-user"
-  password   = "TestPassword123!"
+  username   = "testdsuser"
+  password   = "Acc3ptAbl3P@ss#01"
 }
 
 data "arubacloud_dbaasuser" "test" {
