@@ -43,6 +43,7 @@ type SubnetResourceModel struct {
 	VpcId     types.String `tfsdk:"vpc_id"`
 	Type      types.String `tfsdk:"type"`
 	Network   types.Object `tfsdk:"network"`
+	Timeout   types.String `tfsdk:"timeout"`
 }
 
 type NetworkModel struct {
@@ -128,6 +129,10 @@ func (r *SubnetResource) Schema(ctx context.Context, req resource.SchemaRequest,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
+			},
+			"timeout": schema.StringAttribute{
+				MarkdownDescription: "Per-resource timeout override (e.g. `\"15m\"`, `\"1h\"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.",
+				Optional:            true,
 			},
 			"network": schema.SingleNestedAttribute{
 				MarkdownDescription: "Network configuration block. Required when `type` is `Advanced`.",
@@ -534,7 +539,7 @@ func (r *SubnetResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
-	if waitErr := subnet.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
+	if waitErr := subnet.WaitUntilReady(ctx, sdkWaitOptions(effectiveTimeout(data.Timeout, r.client.ResourceTimeout))...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "Subnet", data.Id.ValueString())
 		return
 	}
@@ -706,12 +711,12 @@ func (r *SubnetResource) Delete(ctx context.Context, req resource.DeleteRequest,
 	err := DeleteResourceWithRetry(ctx, func() error {
 		return CheckResponseErrAsError("delete", "Subnet",
 			r.client.Client.FromNetwork().Subnets().Delete(ctx, ref))
-	}, "Subnet", subnetID, r.client.ResourceTimeout, deletionChecker)
+	}, "Subnet", subnetID, effectiveTimeout(data.Timeout, r.client.ResourceTimeout), deletionChecker)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting Subnet", err.Error())
 		return
 	}
-	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "Subnet", subnetID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "Subnet", subnetID, remainingTimeout(deleteStart, effectiveTimeout(data.Timeout, r.client.ResourceTimeout))); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for Subnet deletion", waitErr.Error())
 		return
 	}

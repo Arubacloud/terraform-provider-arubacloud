@@ -39,6 +39,7 @@ type VpcPeeringRouteResourceModel struct {
 	LocalNetworkAddress  types.String `tfsdk:"local_network_address"`
 	RemoteNetworkAddress types.String `tfsdk:"remote_network_address"`
 	BillingPeriod        types.String `tfsdk:"billing_period"`
+	Timeout              types.String `tfsdk:"timeout"`
 }
 
 func (r *VpcPeeringRouteResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -96,6 +97,10 @@ func (r *VpcPeeringRouteResource) Schema(ctx context.Context, req resource.Schem
 				MarkdownDescription: "Billing cycle for the resource. Accepted values: `Hour`, `Month`, `Year`.",
 				Required:            true,
 				Validators:          []validator.String{stringvalidator.OneOf("Hour", "Month", "Year")},
+			},
+			"timeout": schema.StringAttribute{
+				MarkdownDescription: "Per-resource timeout override (e.g. `\"15m\"`, `\"1h\"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.",
+				Optional:            true,
 			},
 		},
 	}
@@ -185,7 +190,7 @@ func (r *VpcPeeringRouteResource) Create(ctx context.Context, req resource.Creat
 		return
 	}
 
-	if waitErr := route.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
+	if waitErr := route.WaitUntilReady(ctx, sdkWaitOptions(effectiveTimeout(data.Timeout, r.client.ResourceTimeout))...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "VPCPeeringRoute", data.Id.ValueString())
 		return
 	}
@@ -319,12 +324,12 @@ func (r *VpcPeeringRouteResource) Delete(ctx context.Context, req resource.Delet
 	err := DeleteResourceWithRetry(ctx, func() error {
 		return CheckResponseErrAsError("delete", "VPCPeeringRoute",
 			r.client.Client.FromNetwork().VPCPeeringRoutes().Delete(ctx, ref))
-	}, "VPCPeeringRoute", routeID, r.client.ResourceTimeout, deletionChecker)
+	}, "VPCPeeringRoute", routeID, effectiveTimeout(data.Timeout, r.client.ResourceTimeout), deletionChecker)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting VPCPeeringRoute", err.Error())
 		return
 	}
-	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "VPCPeeringRoute", routeID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "VPCPeeringRoute", routeID, remainingTimeout(deleteStart, effectiveTimeout(data.Timeout, r.client.ResourceTimeout))); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for VPCPeeringRoute deletion", waitErr.Error())
 		return
 	}

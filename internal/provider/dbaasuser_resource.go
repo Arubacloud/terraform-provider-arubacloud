@@ -23,6 +23,7 @@ type DBaaSUserResourceModel struct {
 	DBaaSID   types.String `tfsdk:"dbaas_id"`
 	Username  types.String `tfsdk:"username"`
 	Password  types.String `tfsdk:"password"`
+	Timeout   types.String `tfsdk:"timeout"`
 }
 
 type DBaaSUserResource struct {
@@ -75,6 +76,10 @@ func (r *DBaaSUserResource) Schema(ctx context.Context, req resource.SchemaReque
 				Required:            true,
 				Sensitive:           true,
 			},
+			"timeout": schema.StringAttribute{
+				MarkdownDescription: "Per-resource timeout override (e.g. `\"15m\"`, `\"1h\"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.",
+				Optional:            true,
+			},
 		},
 	}
 }
@@ -124,7 +129,7 @@ func (r *DBaaSUserResource) Create(ctx context.Context, req resource.CreateReque
 				InDBaaS(aruba.URI(dbaasURI)),
 		)
 		return CheckResponseErrAsError("create", "DBaaSUser", err)
-	}, "DBaaSUser", username, r.client.ResourceTimeout); createErr != nil {
+	}, "DBaaSUser", username, effectiveTimeout(data.Timeout, r.client.ResourceTimeout)); createErr != nil {
 		resp.Diagnostics.AddError("Error creating DBaaS user", createErr.Error())
 		return
 	}
@@ -145,7 +150,7 @@ func (r *DBaaSUserResource) Create(ctx context.Context, req resource.CreateReque
 		}
 		return "Active", nil
 	}
-	if err := WaitForResourceActive(ctx, checker, "DBaaSUser", username, r.client.ResourceTimeout); err != nil {
+	if err := WaitForResourceActive(ctx, checker, "DBaaSUser", username, effectiveTimeout(data.Timeout, r.client.ResourceTimeout)); err != nil {
 		ReportWaitResult(&resp.Diagnostics, err, "DBaaSUser", username)
 		return
 	}
@@ -246,12 +251,12 @@ func (r *DBaaSUserResource) Delete(ctx context.Context, req resource.DeleteReque
 	err := DeleteResourceWithRetry(ctx, func() error {
 		return CheckResponseErrAsError("delete", "DBaaSUser",
 			r.client.Client.FromDatabase().Users().Delete(ctx, ref))
-	}, "DBaaSUser", username, r.client.ResourceTimeout, deletionChecker)
+	}, "DBaaSUser", username, effectiveTimeout(data.Timeout, r.client.ResourceTimeout), deletionChecker)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting DBaaS user", err.Error())
 		return
 	}
-	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "DBaaSUser", username, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "DBaaSUser", username, remainingTimeout(deleteStart, effectiveTimeout(data.Timeout, r.client.ResourceTimeout))); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for DBaaSUser deletion", waitErr.Error())
 		return
 	}

@@ -24,6 +24,7 @@ type RestoreResourceModel struct {
 	ProjectID types.String `tfsdk:"project_id"`
 	BackupID  types.String `tfsdk:"backup_id"`
 	VolumeID  types.String `tfsdk:"volume_id"`
+	Timeout   types.String `tfsdk:"timeout"`
 }
 
 type RestoreResource struct {
@@ -95,6 +96,10 @@ func (r *RestoreResource) Schema(ctx context.Context, req resource.SchemaRequest
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
+			},
+			"timeout": schema.StringAttribute{
+				MarkdownDescription: "Per-resource timeout override (e.g. `\"15m\"`, `\"1h\"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.",
+				Optional:            true,
 			},
 		},
 	}
@@ -174,7 +179,7 @@ func (r *RestoreResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
-	if waitErr := restore.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
+	if waitErr := restore.WaitUntilReady(ctx, sdkWaitOptions(effectiveTimeout(data.Timeout, r.client.ResourceTimeout))...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "Restore", data.Id.ValueString())
 		return
 	}
@@ -321,12 +326,12 @@ func (r *RestoreResource) Delete(ctx context.Context, req resource.DeleteRequest
 	err := DeleteResourceWithRetry(ctx, func() error {
 		return CheckResponseErrAsError("delete", "Restore",
 			r.client.Client.FromStorage().Restores().Delete(ctx, ref))
-	}, "Restore", restoreID, r.client.ResourceTimeout, deletionChecker)
+	}, "Restore", restoreID, effectiveTimeout(data.Timeout, r.client.ResourceTimeout), deletionChecker)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting Restore", err.Error())
 		return
 	}
-	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "Restore", restoreID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "Restore", restoreID, remainingTimeout(deleteStart, effectiveTimeout(data.Timeout, r.client.ResourceTimeout))); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for Restore deletion", waitErr.Error())
 		return
 	}

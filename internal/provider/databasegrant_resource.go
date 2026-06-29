@@ -23,6 +23,7 @@ type DatabaseGrantResourceModel struct {
 	Database  types.String `tfsdk:"database"`
 	UserID    types.String `tfsdk:"user_id"`
 	Role      types.String `tfsdk:"role"`
+	Timeout   types.String `tfsdk:"timeout"`
 }
 
 type DatabaseGrantResource struct {
@@ -77,6 +78,10 @@ func (r *DatabaseGrantResource) Schema(ctx context.Context, req resource.SchemaR
 			"role": schema.StringAttribute{
 				MarkdownDescription: "Privilege level granted. Accepted values depend on the database engine (e.g., `ALL`, `READ`, `WRITE`).",
 				Required:            true,
+			},
+			"timeout": schema.StringAttribute{
+				MarkdownDescription: "Per-resource timeout override (e.g. `\"15m\"`, `\"1h\"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.",
+				Optional:            true,
 			},
 		},
 	}
@@ -239,12 +244,12 @@ func (r *DatabaseGrantResource) Delete(ctx context.Context, req resource.DeleteR
 	err := DeleteResourceWithRetry(ctx, func() error {
 		return CheckResponseErrAsError("delete", "DatabaseGrant",
 			r.client.Client.FromDatabase().Grants().Delete(ctx, ref))
-	}, "DatabaseGrant", grantID, r.client.ResourceTimeout, deletionChecker)
+	}, "DatabaseGrant", grantID, effectiveTimeout(data.Timeout, r.client.ResourceTimeout), deletionChecker)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting DatabaseGrant", err.Error())
 		return
 	}
-	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "DatabaseGrant", grantID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "DatabaseGrant", grantID, remainingTimeout(deleteStart, effectiveTimeout(data.Timeout, r.client.ResourceTimeout))); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for DatabaseGrant deletion", waitErr.Error())
 		return
 	}

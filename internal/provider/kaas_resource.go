@@ -43,6 +43,7 @@ type KaaSResourceModel struct {
 	Kubeconfig    types.String `tfsdk:"kubeconfig"`
 	Network       types.Object `tfsdk:"network"`
 	Settings      types.Object `tfsdk:"settings"`
+	Timeout       types.String `tfsdk:"timeout"`
 }
 
 type KaaSNodeCIDRModel struct {
@@ -162,6 +163,10 @@ func (r *KaaSResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 						Optional:            true,
 					},
 				},
+			},
+			"timeout": schema.StringAttribute{
+				MarkdownDescription: "Per-resource timeout override (e.g. `\"15m\"`, `\"1h\"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.",
+				Optional:            true,
 			},
 			"settings": schema.SingleNestedAttribute{
 				MarkdownDescription: "Kubernetes version and node-pool configuration.",
@@ -467,7 +472,7 @@ func (r *KaaSResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
-	if waitErr := kaas.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
+	if waitErr := kaas.WaitUntilReady(ctx, sdkWaitOptions(effectiveTimeout(data.Timeout, r.client.ResourceTimeout))...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "KaaS", data.Id.ValueString())
 		data.Kubeconfig = types.StringNull()
 		data.ManagementIP = types.StringNull()
@@ -806,12 +811,12 @@ func (r *KaaSResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 	err := DeleteResourceWithRetry(ctx, func() error {
 		return CheckResponseErrAsError("delete", "KaaS",
 			r.client.Client.FromContainer().KaaS().Delete(ctx, ref))
-	}, "KaaS", kaasID, r.client.ResourceTimeout, deletionChecker)
+	}, "KaaS", kaasID, effectiveTimeout(data.Timeout, r.client.ResourceTimeout), deletionChecker)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting KaaS cluster", err.Error())
 		return
 	}
-	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "KaaS", kaasID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "KaaS", kaasID, remainingTimeout(deleteStart, effectiveTimeout(data.Timeout, r.client.ResourceTimeout))); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for KaaS cluster deletion", waitErr.Error())
 		return
 	}

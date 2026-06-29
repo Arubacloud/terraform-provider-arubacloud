@@ -31,6 +31,7 @@ type ProjectResourceModel struct {
 	Description types.String `tfsdk:"description"`
 	Tags        types.List   `tfsdk:"tags"`
 	Id          types.String `tfsdk:"id"`
+	Timeout     types.String `tfsdk:"timeout"`
 }
 
 func (r *ProjectResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -58,6 +59,10 @@ func (r *ProjectResource) Schema(ctx context.Context, req resource.SchemaRequest
 				MarkdownDescription: "Computed by the API. Unique identifier for the resource.",
 				Computed:            true,
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+			"timeout": schema.StringAttribute{
+				MarkdownDescription: "Per-resource timeout override (e.g. `\"15m\"`, `\"1h\"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.",
+				Optional:            true,
 			},
 		},
 	}
@@ -229,13 +234,13 @@ func (r *ProjectResource) Delete(ctx context.Context, req resource.DeleteRequest
 	err := DeleteResourceWithRetry(ctx, func() error {
 		return CheckResponseErrAsError("delete", "Project",
 			r.client.Client.FromProject().Delete(ctx, ref))
-	}, "Project", projectID, r.client.ResourceTimeout, deletionChecker)
+	}, "Project", projectID, effectiveTimeout(data.Timeout, r.client.ResourceTimeout), deletionChecker)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting project", err.Error())
 		return
 	}
 
-	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "Project", projectID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "Project", projectID, remainingTimeout(deleteStart, effectiveTimeout(data.Timeout, r.client.ResourceTimeout))); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for Project deletion", waitErr.Error())
 		return
 	}

@@ -34,6 +34,7 @@ type SecurityGroupResourceModel struct {
 	Tags      types.List   `tfsdk:"tags"`
 	ProjectId types.String `tfsdk:"project_id"`
 	VpcId     types.String `tfsdk:"vpc_id"`
+	Timeout   types.String `tfsdk:"timeout"`
 }
 
 func (r *SecurityGroupResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -87,6 +88,10 @@ func (r *SecurityGroupResource) Schema(ctx context.Context, req resource.SchemaR
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
+			},
+			"timeout": schema.StringAttribute{
+				MarkdownDescription: "Per-resource timeout override (e.g. `\"15m\"`, `\"1h\"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.",
+				Optional:            true,
 			},
 		},
 	}
@@ -161,7 +166,7 @@ func (r *SecurityGroupResource) Create(ctx context.Context, req resource.CreateR
 		return
 	}
 
-	if waitErr := sg.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
+	if waitErr := sg.WaitUntilReady(ctx, sdkWaitOptions(effectiveTimeout(data.Timeout, r.client.ResourceTimeout))...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "SecurityGroup", data.Id.ValueString())
 		return
 	}
@@ -295,12 +300,12 @@ func (r *SecurityGroupResource) Delete(ctx context.Context, req resource.DeleteR
 	err := DeleteResourceWithRetry(ctx, func() error {
 		return CheckResponseErrAsError("delete", "SecurityGroup",
 			r.client.Client.FromNetwork().SecurityGroups().Delete(ctx, ref))
-	}, "SecurityGroup", sgID, r.client.ResourceTimeout, deletionChecker)
+	}, "SecurityGroup", sgID, effectiveTimeout(data.Timeout, r.client.ResourceTimeout), deletionChecker)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting SecurityGroup", err.Error())
 		return
 	}
-	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "SecurityGroup", sgID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "SecurityGroup", sgID, remainingTimeout(deleteStart, effectiveTimeout(data.Timeout, r.client.ResourceTimeout))); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for SecurityGroup deletion", waitErr.Error())
 		return
 	}

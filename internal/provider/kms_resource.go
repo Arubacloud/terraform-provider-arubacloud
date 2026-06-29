@@ -25,6 +25,7 @@ type KMSResourceModel struct {
 	Location      types.String `tfsdk:"location"`
 	Tags          types.List   `tfsdk:"tags"`
 	BillingPeriod types.String `tfsdk:"billing_period"`
+	Timeout       types.String `tfsdk:"timeout"`
 }
 
 type KMSResource struct {
@@ -81,6 +82,10 @@ func (r *KMSResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 				Validators:          []validator.String{stringvalidator.OneOf("Hour", "Month", "Year")},
 				Computed:            true,
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+			"timeout": schema.StringAttribute{
+				MarkdownDescription: "Per-resource timeout override (e.g. `\"15m\"`, `\"1h\"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.",
+				Optional:            true,
 			},
 		},
 	}
@@ -169,7 +174,7 @@ func (r *KMSResource) Create(ctx context.Context, req resource.CreateRequest, re
 		return
 	}
 
-	if waitErr := kms.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
+	if waitErr := kms.WaitUntilReady(ctx, sdkWaitOptions(effectiveTimeout(data.Timeout, r.client.ResourceTimeout))...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "KMS", data.Id.ValueString())
 		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 		return
@@ -301,12 +306,12 @@ func (r *KMSResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 	err := DeleteResourceWithRetry(ctx, func() error {
 		return CheckResponseErrAsError("delete", "KMS",
 			r.client.Client.FromSecurity().KMS().Delete(ctx, ref))
-	}, "KMS", kmsID, r.client.ResourceTimeout, deletionChecker)
+	}, "KMS", kmsID, effectiveTimeout(data.Timeout, r.client.ResourceTimeout), deletionChecker)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting KMS", err.Error())
 		return
 	}
-	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "KMS", kmsID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "KMS", kmsID, remainingTimeout(deleteStart, effectiveTimeout(data.Timeout, r.client.ResourceTimeout))); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for KMS deletion", waitErr.Error())
 		return
 	}

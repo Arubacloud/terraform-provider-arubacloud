@@ -30,6 +30,7 @@ type CloudServerResourceModel struct {
 	Network   types.Object `tfsdk:"network"`
 	Settings  types.Object `tfsdk:"settings"`
 	Storage   types.Object `tfsdk:"storage"`
+	Timeout   types.String `tfsdk:"timeout"`
 }
 
 type CloudServerNetworkModel struct {
@@ -189,6 +190,10 @@ func (r *CloudServerResource) Schema(ctx context.Context, req resource.SchemaReq
 					},
 				},
 			},
+			"timeout": schema.StringAttribute{
+				MarkdownDescription: "Per-resource timeout override (e.g. `\"15m\"`, `\"1h\"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.",
+				Optional:            true,
+			},
 		},
 	}
 }
@@ -308,7 +313,7 @@ func (r *CloudServerResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
-	if err := server.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); err != nil {
+	if err := server.WaitUntilReady(ctx, sdkWaitOptions(effectiveTimeout(data.Timeout, r.client.ResourceTimeout))...); err != nil {
 		ReportWaitResult(&resp.Diagnostics, err, "CloudServer", serverID)
 		return
 	}
@@ -440,11 +445,25 @@ func (r *CloudServerResource) applyServerToState(
 			return
 		}
 	}
+	// Subnets are returned by the API via NetworkInterfaces[].Subnet — use the
+	// live value so drift is detected. Fall back to state only when the API
+	// returns nothing (e.g. immediately after create before the response hydrates).
+	subnetUriRefs := origNetwork.SubnetUriRefs
+	if apiSubnets := server.Subnets(); len(apiSubnets) > 0 {
+		vals := make([]attr.Value, len(apiSubnets))
+		for i, s := range apiSubnets {
+			vals[i] = types.StringValue(s)
+		}
+		if lv, d := types.ListValue(types.StringType, vals); !d.HasError() {
+			subnetUriRefs = lv
+		}
+	}
+
 	networkAttrs := map[string]attr.Value{
 		"vpc_uri_ref":            resolveAPIStringRef(server.VPC(), origNetwork.VpcUriRef),
-		"elastic_ip_uri_ref":     origNetwork.ElasticIpUriRef, // not in API response; preserve state
-		"subnet_uri_refs":        origNetwork.SubnetUriRefs,   // preserve state (API returns different format)
-		"securitygroup_uri_refs": origNetwork.SecurityGroupUriRefs,
+		"elastic_ip_uri_ref":     origNetwork.ElasticIpUriRef,     // not returned by API; preserve state
+		"subnet_uri_refs":        subnetUriRefs,
+		"securitygroup_uri_refs": origNetwork.SecurityGroupUriRefs, // not returned by API; preserve state
 	}
 	networkObj, d := types.ObjectValue(csNetworkAttrTypes(), networkAttrs)
 	diags.Append(d...)
@@ -646,7 +665,7 @@ func (r *CloudServerResource) Delete(ctx context.Context, req resource.DeleteReq
 		},
 		"CloudServer",
 		serverID,
-		r.client.ResourceTimeout,
+		effectiveTimeout(data.Timeout, r.client.ResourceTimeout),
 		deletionChecker,
 	)
 	if err != nil {
@@ -654,7 +673,7 @@ func (r *CloudServerResource) Delete(ctx context.Context, req resource.DeleteReq
 		return
 	}
 
-	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "CloudServer", serverID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "CloudServer", serverID, remainingTimeout(deleteStart, effectiveTimeout(data.Timeout, r.client.ResourceTimeout))); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for CloudServer deletion", waitErr.Error())
 		return
 	}

@@ -37,6 +37,7 @@ type BlockStorageResourceModel struct {
 	Bootable      types.Bool   `tfsdk:"bootable"`
 	Image         types.String `tfsdk:"image"`
 	Tags          types.List   `tfsdk:"tags"`
+	Timeout       types.String `tfsdk:"timeout"`
 }
 
 type BlockStorageResource struct {
@@ -108,6 +109,10 @@ func (r *BlockStorageResource) Schema(ctx context.Context, req resource.SchemaRe
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
 				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
+				Optional:            true,
+			},
+			"timeout": schema.StringAttribute{
+				MarkdownDescription: "Per-resource timeout override (e.g. `\"15m\"`, `\"1h\"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.",
 				Optional:            true,
 			},
 		},
@@ -219,7 +224,7 @@ func (r *BlockStorageResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
-	if waitErr := vol.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
+	if waitErr := vol.WaitUntilReady(ctx, sdkWaitOptions(effectiveTimeout(data.Timeout, r.client.ResourceTimeout))...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "BlockStorage", data.Id.ValueString())
 		return
 	}
@@ -380,12 +385,12 @@ func (r *BlockStorageResource) Delete(ctx context.Context, req resource.DeleteRe
 	err := DeleteResourceWithRetry(ctx, func() error {
 		return CheckResponseErrAsError("delete", "BlockStorage",
 			r.client.Client.FromStorage().Volumes().Delete(ctx, ref))
-	}, "BlockStorage", volumeID, r.client.ResourceTimeout, deletionChecker)
+	}, "BlockStorage", volumeID, effectiveTimeout(data.Timeout, r.client.ResourceTimeout), deletionChecker)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting BlockStorage", err.Error())
 		return
 	}
-	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "BlockStorage", volumeID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "BlockStorage", volumeID, remainingTimeout(deleteStart, effectiveTimeout(data.Timeout, r.client.ResourceTimeout))); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for BlockStorage deletion", waitErr.Error())
 		return
 	}

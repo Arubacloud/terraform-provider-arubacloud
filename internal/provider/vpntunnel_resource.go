@@ -33,6 +33,7 @@ type VPNTunnelResourceModel struct {
 	Tags       types.List   `tfsdk:"tags"`
 	ProjectId  types.String `tfsdk:"project_id"`
 	Properties types.Object `tfsdk:"properties"`
+	Timeout    types.String `tfsdk:"timeout"`
 }
 
 type VPNTunnelResource struct {
@@ -77,6 +78,10 @@ func (r *VPNTunnelResource) Schema(ctx context.Context, req resource.SchemaReque
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the project that owns this resource.",
 				Required:            true,
+			},
+			"timeout": schema.StringAttribute{
+				MarkdownDescription: "Per-resource timeout override (e.g. `\"15m\"`, `\"1h\"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.",
+				Optional:            true,
 			},
 			"properties": schema.SingleNestedAttribute{
 				MarkdownDescription: "Configuration properties for the VPN tunnel.",
@@ -476,7 +481,7 @@ func (r *VPNTunnelResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 
-	if waitErr := tunnel.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
+	if waitErr := tunnel.WaitUntilReady(ctx, sdkWaitOptions(effectiveTimeout(data.Timeout, r.client.ResourceTimeout))...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "VPNTunnel", data.Id.ValueString())
 		return
 	}
@@ -609,12 +614,12 @@ func (r *VPNTunnelResource) Delete(ctx context.Context, req resource.DeleteReque
 	err := DeleteResourceWithRetry(ctx, func() error {
 		return CheckResponseErrAsError("delete", "VPNTunnel",
 			r.client.Client.FromNetwork().VPNTunnels().Delete(ctx, ref))
-	}, "VPNTunnel", tunnelID, r.client.ResourceTimeout, deletionChecker)
+	}, "VPNTunnel", tunnelID, effectiveTimeout(data.Timeout, r.client.ResourceTimeout), deletionChecker)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting VPNTunnel", err.Error())
 		return
 	}
-	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "VPNTunnel", tunnelID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "VPNTunnel", tunnelID, remainingTimeout(deleteStart, effectiveTimeout(data.Timeout, r.client.ResourceTimeout))); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for VPNTunnel deletion", waitErr.Error())
 		return
 	}

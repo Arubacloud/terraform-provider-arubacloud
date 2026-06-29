@@ -30,6 +30,7 @@ type ContainerRegistryResourceModel struct {
 	Network       types.Object `tfsdk:"network"`
 	Storage       types.Object `tfsdk:"storage"`
 	Settings      types.Object `tfsdk:"settings"`
+	Timeout       types.String `tfsdk:"timeout"`
 }
 
 type ContainerRegistryNetworkModel struct {
@@ -150,6 +151,10 @@ func (r *ContainerRegistryResource) Schema(ctx context.Context, req resource.Sch
 						Optional:            true,
 					},
 				},
+			},
+			"timeout": schema.StringAttribute{
+				MarkdownDescription: "Per-resource timeout override (e.g. `\"15m\"`, `\"1h\"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.",
+				Optional:            true,
 			},
 		},
 	}
@@ -291,7 +296,7 @@ func (r *ContainerRegistryResource) Create(ctx context.Context, req resource.Cre
 		return
 	}
 
-	if waitErr := registry.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
+	if waitErr := registry.WaitUntilReady(ctx, sdkWaitOptions(effectiveTimeout(data.Timeout, r.client.ResourceTimeout))...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "ContainerRegistry", data.Id.ValueString())
 		return
 	}
@@ -465,12 +470,12 @@ func (r *ContainerRegistryResource) Delete(ctx context.Context, req resource.Del
 	err := DeleteResourceWithRetry(ctx, func() error {
 		return CheckResponseErrAsError("delete", "ContainerRegistry",
 			r.client.Client.FromContainer().ContainerRegistry().Delete(ctx, ref))
-	}, "ContainerRegistry", registryID, r.client.ResourceTimeout, deletionChecker)
+	}, "ContainerRegistry", registryID, effectiveTimeout(data.Timeout, r.client.ResourceTimeout), deletionChecker)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting ContainerRegistry", err.Error())
 		return
 	}
-	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "ContainerRegistry", registryID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "ContainerRegistry", registryID, remainingTimeout(deleteStart, effectiveTimeout(data.Timeout, r.client.ResourceTimeout))); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for ContainerRegistry deletion", waitErr.Error())
 		return
 	}

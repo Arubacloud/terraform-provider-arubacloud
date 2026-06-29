@@ -29,6 +29,7 @@ type BackupResourceModel struct {
 	VolumeID      types.String `tfsdk:"volume_id"`
 	RetentionDays types.Int64  `tfsdk:"retention_days"`
 	BillingPeriod types.String `tfsdk:"billing_period"`
+	Timeout       types.String `tfsdk:"timeout"`
 }
 
 type BackupResource struct {
@@ -113,6 +114,10 @@ func (r *BackupResource) Schema(ctx context.Context, req resource.SchemaRequest,
 				Optional:            true,
 				Validators:          []validator.String{stringvalidator.OneOf("Hour", "Month", "Year")},
 			},
+			"timeout": schema.StringAttribute{
+				MarkdownDescription: "Per-resource timeout override (e.g. `\"15m\"`, `\"1h\"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.",
+				Optional:            true,
+			},
 		},
 	}
 }
@@ -195,7 +200,7 @@ func (r *BackupResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
-	if waitErr := backup.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
+	if waitErr := backup.WaitUntilReady(ctx, sdkWaitOptions(effectiveTimeout(data.Timeout, r.client.ResourceTimeout))...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "Backup", data.Id.ValueString())
 		return
 	}
@@ -360,12 +365,12 @@ func (r *BackupResource) Delete(ctx context.Context, req resource.DeleteRequest,
 	err := DeleteResourceWithRetry(ctx, func() error {
 		return CheckResponseErrAsError("delete", "Backup",
 			r.client.Client.FromStorage().Backups().Delete(ctx, ref))
-	}, "Backup", backupID, r.client.ResourceTimeout, deletionChecker)
+	}, "Backup", backupID, effectiveTimeout(data.Timeout, r.client.ResourceTimeout), deletionChecker)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting Backup", err.Error())
 		return
 	}
-	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "Backup", backupID, remainingTimeout(deleteStart, r.client.ResourceTimeout)); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "Backup", backupID, remainingTimeout(deleteStart, effectiveTimeout(data.Timeout, r.client.ResourceTimeout))); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for Backup deletion", waitErr.Error())
 		return
 	}
