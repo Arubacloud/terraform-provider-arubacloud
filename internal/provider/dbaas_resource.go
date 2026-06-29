@@ -163,8 +163,9 @@ func (r *DBaaSResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				},
 			},
 			"billing_period": schema.StringAttribute{
-				MarkdownDescription: "Billing cycle. Accepted values: `Hour`, `Month`, `Year`.",
+				MarkdownDescription: "Billing cycle. Accepted values: `Hour`, `Month`, `Year`. If omitted, the value returned by the API is used (Computed).",
 				Optional:            true,
+				Computed:            true,
 				Validators:          []validator.String{stringvalidator.OneOf("Hour", "Month", "Year")},
 			},
 			"timeout": schema.StringAttribute{
