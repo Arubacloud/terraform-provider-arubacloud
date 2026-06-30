@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
@@ -14,6 +15,10 @@ import (
 )
 
 func TestAccVpcpeeringrouteResource(t *testing.T) {
+	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
+	if projectID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
+	}
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -21,7 +26,7 @@ func TestAccVpcpeeringrouteResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccVpcpeeringrouteResourceConfig("test-vpcpeeringroute"),
+				Config: testAccVpcpeeringrouteResourceConfig(projectID, "test-vpcpeeringroute"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_vpcpeeringroute.test",
@@ -49,7 +54,7 @@ func TestAccVpcpeeringrouteResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccVpcpeeringrouteResourceConfig("test-vpcpeeringroute-updated"),
+				Config: testAccVpcpeeringrouteResourceConfig(projectID, "test-vpcpeeringroute-updated"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_vpcpeeringroute.test",
@@ -88,16 +93,36 @@ func testCheckVpcpeeringrouteDestroyed(s *terraform.State) error {
 	return nil
 }
 
-func testAccVpcpeeringrouteResourceConfig(name string) string {
+func testAccVpcpeeringrouteResourceConfig(projectID, name string) string {
 	return fmt.Sprintf(`
+resource "arubacloud_vpc" "prtroute_local" {
+  name       = "test-acc-prtroute-local"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+}
+
+resource "arubacloud_vpc" "prtroute_peer" {
+  name       = "test-acc-prtroute-peer"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+}
+
+resource "arubacloud_vpcpeering" "prtroute_prereq" {
+  name       = "test-acc-prtroute-peering"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+  vpc_id     = arubacloud_vpc.prtroute_local.id
+  peer_vpc   = arubacloud_vpc.prtroute_peer.id
+}
+
 resource "arubacloud_vpcpeeringroute" "test" {
-  name                   = %[1]q
-  project_id             = "test-project-id"
-  vpc_id                 = "test-vpc-id"
-  vpc_peering_id         = "test-peering-id"
+  name                   = %[2]q
+  project_id             = %[1]q
+  vpc_id                 = arubacloud_vpc.prtroute_local.id
+  vpc_peering_id         = arubacloud_vpcpeering.prtroute_prereq.id
   local_network_address  = "10.0.0.0/24"
   remote_network_address = "10.1.0.0/24"
   billing_period         = "Hour"
 }
-`, name)
+`, projectID, name)
 }

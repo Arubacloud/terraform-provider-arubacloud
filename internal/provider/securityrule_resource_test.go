@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
@@ -124,6 +125,10 @@ func TestProtocolNormalizePlanModifier(t *testing.T) {
 }
 
 func TestAccSecurityruleResource(t *testing.T) {
+	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
+	if projectID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
+	}
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -131,7 +136,7 @@ func TestAccSecurityruleResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccSecurityruleResourceConfig("test-securityrule"),
+				Config: testAccSecurityruleResourceConfig(projectID, "test-securityrule"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_securityrule.test",
@@ -164,7 +169,7 @@ func TestAccSecurityruleResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccSecurityruleResourceConfig("test-securityrule-updated"),
+				Config: testAccSecurityruleResourceConfig(projectID, "test-securityrule-updated"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_securityrule.test",
@@ -203,24 +208,37 @@ func testCheckSecurityruleDestroyed(s *terraform.State) error {
 	return nil
 }
 
-func testAccSecurityruleResourceConfig(name string) string {
+func testAccSecurityruleResourceConfig(projectID, name string) string {
 	return fmt.Sprintf(`
+resource "arubacloud_vpc" "sr_prereq" {
+  name       = "test-acc-sr-vpc"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+}
+
+resource "arubacloud_securitygroup" "sr_prereq" {
+  name       = "test-acc-sr-sg"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+  vpc_id     = arubacloud_vpc.sr_prereq.id
+}
+
 resource "arubacloud_securityrule" "test" {
-  name               = %[1]q
-  location           = "it-1"
-  project_id         = "test-project-id"
-  vpc_id             = "test-vpc-id"
-  security_group_id  = "test-sg-id"
-  
+  name              = %[2]q
+  location          = "ITBG-Bergamo"
+  project_id        = %[1]q
+  vpc_id            = arubacloud_vpc.sr_prereq.id
+  security_group_id = arubacloud_securitygroup.sr_prereq.id
+
   properties = {
     direction = "Ingress"
     protocol  = "TCP"
     port      = "80"
     target = {
-      kind  = "IP"
+      kind  = "Ip"
       value = "0.0.0.0/0"
     }
   }
 }
-`, name)
+`, projectID, name)
 }

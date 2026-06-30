@@ -90,6 +90,8 @@ Some resource tests have additional prerequisites:
 |---|---|
 | `ARUBACLOUD_OS_IMAGE_ID` | `TestAccBlockStorageResource_Bootable`, `TestAccCloudserverResource` — OS image used to create a bootable disk |
 | `ARUBACLOUD_DBAAS_ID` | `TestAccDatabaseResource`, `TestAccDatabasebackupResource`, `TestAccDatabasegrantResource`, `TestAccDbaasuserResource` — existing DBaaS cluster used as a prerequisite to avoid zone-capacity conflicts when multiple DBaaS tests run sequentially |
+| `ARUBACLOUD_BACKUP_ID` | `TestAccRestoreResource` — existing block storage backup to restore from |
+| `ARUBACLOUD_VPNTUNNEL_ID` | `TestAccVpnrouteResource` — existing VPN tunnel to attach routes to |
 
 ### Data Source Tests
 
