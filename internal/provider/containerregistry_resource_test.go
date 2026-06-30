@@ -114,6 +114,40 @@ resource "arubacloud_securitygroup" "cr_prereq" {
   vpc_id     = arubacloud_vpc.cr_prereq.id
 }
 
+resource "arubacloud_securityrule" "cr_prereq_https_ingress" {
+  name              = "test-acc-cr-https-ingress"
+  location          = "ITBG-Bergamo"
+  project_id        = %[1]q
+  vpc_id            = arubacloud_vpc.cr_prereq.id
+  security_group_id = arubacloud_securitygroup.cr_prereq.id
+  properties = {
+    direction = "Ingress"
+    protocol  = "TCP"
+    port      = "443"
+    target = {
+      kind  = "Ip"
+      value = "0.0.0.0/0"
+    }
+  }
+}
+
+resource "arubacloud_securityrule" "cr_prereq_egress" {
+  name              = "test-acc-cr-egress"
+  location          = "ITBG-Bergamo"
+  project_id        = %[1]q
+  vpc_id            = arubacloud_vpc.cr_prereq.id
+  security_group_id = arubacloud_securitygroup.cr_prereq.id
+  properties = {
+    direction = "Egress"
+    protocol  = "ANY"
+    port      = "*"
+    target = {
+      kind  = "Ip"
+      value = "0.0.0.0/0"
+    }
+  }
+}
+
 resource "arubacloud_elasticip" "cr_prereq" {
   name           = "test-acc-cr-eip"
   location       = "ITBG-Bergamo"
