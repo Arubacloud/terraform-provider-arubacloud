@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
@@ -149,10 +150,10 @@ func (r *DatabaseBackupResource) Create(ctx context.Context, req resource.Create
 	databaseURI := dbaasURI + "/databases/" + databaseName
 
 	// Poll until the database is reachable before creating the backup.
-	// There is a propagation delay between database creation completing and the
-	// database becoming visible to the backup API endpoint.
+	// The backup API may lag behind the Databases.Get() endpoint, so we extend
+	// the poll to 300 s (60 x 5 s) to account for the additional propagation.
 	const dbPollInterval = 5 * time.Second
-	const dbPollMaxAttempts = 30 // up to 150 s
+	const dbPollMaxAttempts = 60 // up to 300 s
 	for attempt := 0; attempt < dbPollMaxAttempts; attempt++ {
 		_, getErr := r.client.Client.FromDatabase().Databases().Get(ctx, aruba.URI(databaseURI))
 		if getErr == nil {
@@ -181,19 +182,51 @@ func (r *DatabaseBackupResource) Create(ctx context.Context, req resource.Create
 		}
 	}
 
-	backup, err := r.client.Client.FromDatabase().Backups().Create(ctx,
-		aruba.NewDBaaSBackup().
-			Named(data.Name.ValueString()).
-			InProject(aruba.URI("/projects/"+projectID)).
-			InRegion(aruba.Region(data.Location.ValueString())).
-			InZone(aruba.Zone(data.Zone.ValueString())).
-			FromDBaaS(aruba.URI(dbaasURI)).
-			FromDatabase(aruba.URI(databaseURI)).
-			BilledBy(aruba.BillingPeriod(data.BillingPeriod.ValueString())).
-			Tagged(tags...),
-	)
-	if provErr := CheckResponseErr("create", "DatabaseBackup", err); provErr != nil {
-		resp.Diagnostics.AddError("API Error", provErr.Error())
+	// The backup API may take additional time to index the database even after
+	// Databases.Get() succeeds. Retry Create on "Database name not found" errors.
+	const backupRetryInterval = 10 * time.Second
+	const backupMaxRetries = 18 // additional 180 s
+
+	backupBuilder := aruba.NewDBaaSBackup().
+		Named(data.Name.ValueString()).
+		InProject(aruba.URI("/projects/" + projectID)).
+		InRegion(aruba.Region(data.Location.ValueString())).
+		InZone(aruba.Zone(data.Zone.ValueString())).
+		FromDBaaS(aruba.URI(dbaasURI)).
+		FromDatabase(aruba.URI(databaseURI)).
+		BilledBy(aruba.BillingPeriod(data.BillingPeriod.ValueString())).
+		Tagged(tags...)
+
+	var backup *aruba.DBaaSBackup
+	var lastProvErr error
+	for attempt := 0; attempt <= backupMaxRetries; attempt++ {
+		var createErr error
+		backup, createErr = r.client.Client.FromDatabase().Backups().Create(ctx, backupBuilder)
+		pe := CheckResponseErr("create", "DatabaseBackup", createErr)
+		if pe == nil {
+			lastProvErr = nil
+			break
+		}
+		lastProvErr = pe
+		if !strings.Contains(pe.Error(), "Database name is not found") {
+			break // not a propagation-related error; stop retrying
+		}
+		if attempt == backupMaxRetries {
+			break
+		}
+		tflog.Info(ctx, "database not yet visible to backup API, retrying", map[string]interface{}{
+			"database": databaseName,
+			"attempt":  attempt + 1,
+		})
+		select {
+		case <-ctx.Done():
+			resp.Diagnostics.AddError("Context cancelled", "Cancelled while waiting for backup API")
+			return
+		case <-time.After(backupRetryInterval):
+		}
+	}
+	if lastProvErr != nil {
+		resp.Diagnostics.AddError("API Error", lastProvErr.Error())
 		return
 	}
 
