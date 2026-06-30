@@ -103,5 +103,5 @@ resource "arubacloud_vpc" "test" {
   location   = "ITBG-Bergamo"
   project_id = %[1]q
 }
-`, name)
+`, projectID, name)
 }
