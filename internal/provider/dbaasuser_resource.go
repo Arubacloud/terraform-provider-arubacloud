@@ -119,6 +119,39 @@ func (r *DBaaSUserResource) Create(ctx context.Context, req resource.CreateReque
 
 	dbaasURI := "/projects/" + projectID + "/providers/Aruba.Database/dbaas/" + dbaasID
 
+	// Poll until the DBaaS user management API is ready to accept requests.
+	// After WaitUntilReady the DBaaS may still reject user creation with a
+	// misleading "Username invalid / Password requirements" error while the
+	// user API initialises. Probe by attempting to GET the not-yet-existing
+	// user and wait for a 404 response, which proves the API is up.
+	const dbaasUserReadyInterval = 5 * time.Second
+	const dbaasUserReadyMaxAttempts = 30 // up to 150 s
+
+	for attempt := 0; attempt < dbaasUserReadyMaxAttempts; attempt++ {
+		_, probeErr := r.client.Client.FromDatabase().Users().Get(ctx,
+			aruba.URI(dbaasURI+"/users/"+username))
+		pe := CheckResponseErr("get", "DBaaSUser", probeErr)
+		if pe != nil && IsNotFound(pe) {
+			break // 404 means the user API is responding; user does not exist yet (expected)
+		}
+		if probeErr == nil {
+			break // user somehow already exists
+		}
+		if attempt == dbaasUserReadyMaxAttempts-1 {
+			break // timed out; proceed and let Create report any remaining error
+		}
+		tflog.Info(ctx, "waiting for DBaaS user API to become ready", map[string]interface{}{
+			"dbaas_id": dbaasID,
+			"attempt":  attempt + 1,
+		})
+		select {
+		case <-ctx.Done():
+			resp.Diagnostics.AddError("Context cancelled", "Cancelled while waiting for DBaaS user API readiness")
+			return
+		case <-time.After(dbaasUserReadyInterval):
+		}
+	}
+
 	var user *aruba.User
 	if createErr := CreateWithTransientRetry(ctx, func() error {
 		var err error
