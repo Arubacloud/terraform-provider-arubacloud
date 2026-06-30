@@ -61,7 +61,7 @@ func TestAccBackupResource(t *testing.T) {
 				ImportStateIdFunc: importIDFromAttrs("arubacloud_backup.test", "project_id", "id"),
 			},
 			{
-				Config: testAccBackupResourceConfig(projectID, "test-backup-updated", "ITBG-Bergamo", "Incremental", 60),
+				Config: testAccBackupResourceConfig(projectID, "test-backup-updated", "ITBG-Bergamo", "Full", 60),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_backup.test",
@@ -71,7 +71,7 @@ func TestAccBackupResource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"arubacloud_backup.test",
 						tfjsonpath.New("type"),
-						knownvalue.StringExact("Incremental"),
+						knownvalue.StringExact("Full"),
 					),
 					statecheck.ExpectKnownValue(
 						"arubacloud_backup.test",
@@ -181,7 +181,7 @@ resource "arubacloud_backup" "test" {
   volume_id      = arubacloud_blockstorage.backup_vol.id
   billing_period = "Month"
   retention_days = 30
-  tags           = ["env:test", "managed:terraform"]
+  tags           = ["acceptance-test", "terraform"]
 }
 `, projectID, name, location)
 }
