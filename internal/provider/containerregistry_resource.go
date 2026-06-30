@@ -456,12 +456,20 @@ func (r *ContainerRegistryResource) Delete(ctx context.Context, req resource.Del
 	registryID := data.Id.ValueString()
 
 	deletionChecker := func(ctx context.Context) (bool, error) {
-		_, getErr := r.client.Client.FromContainer().ContainerRegistry().Get(ctx, ref)
+		reg, getErr := r.client.Client.FromContainer().ContainerRegistry().Get(ctx, ref)
 		if provErr := CheckResponseErr("get", "ContainerRegistry", getErr); provErr != nil {
 			if IsNotFound(provErr) {
 				return true, nil
 			}
 			return false, provErr
+		}
+		// A "Failed" registry will never recover; after the delete call has been
+		// issued treat it as gone so WaitForResourceDeleted does not block until
+		// timeout (the API continues returning 200 for the stuck resource).
+		if isFailedState(string(reg.State())) {
+			tflog.Info(ctx, "ContainerRegistry is in terminal failure state after delete; treating as deleted",
+				map[string]interface{}{"containerregistry_id": registryID})
+			return true, nil
 		}
 		return false, nil
 	}
