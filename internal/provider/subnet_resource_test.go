@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"testing"
 
 	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
@@ -15,6 +16,10 @@ import (
 )
 
 func TestAccSubnetResource(t *testing.T) {
+	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
+	if projectID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
+	}
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -22,7 +27,7 @@ func TestAccSubnetResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccSubnetResourceConfig("test-subnet"),
+				Config: testAccSubnetResourceConfig(projectID, "test-subnet"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_subnet.test",
@@ -55,7 +60,7 @@ func TestAccSubnetResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccSubnetResourceConfig("test-subnet-updated"),
+				Config: testAccSubnetResourceConfig(projectID, "test-subnet-updated"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_subnet.test",
@@ -93,20 +98,26 @@ func testCheckSubnetDestroyed(s *terraform.State) error {
 	return nil
 }
 
-func testAccSubnetResourceConfig(name string) string {
+func testAccSubnetResourceConfig(projectID, name string) string {
 	return fmt.Sprintf(`
+resource "arubacloud_vpc" "subnet_prereq" {
+  name       = "test-acc-subnet-vpc"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+}
+
 resource "arubacloud_subnet" "test" {
-  name       = %[1]q
-  location   = "it-1"
-  project_id = "test-project-id"
-  vpc_id     = "test-vpc-id"
+  name       = %[2]q
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+  vpc_id     = arubacloud_vpc.subnet_prereq.id
   type       = "Basic"
 
   network = {
     address = "10.0.0.0/24"
   }
 }
-`, name)
+`, projectID, name)
 }
 
 // ── cidrContains ──────────────────────────────────────────────────────────────

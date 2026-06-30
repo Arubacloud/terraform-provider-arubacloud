@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
@@ -14,6 +15,10 @@ import (
 )
 
 func TestAccVpcpeeringResource(t *testing.T) {
+	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
+	if projectID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
+	}
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -21,7 +26,7 @@ func TestAccVpcpeeringResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccVpcpeeringResourceConfig("test-vpcpeering"),
+				Config: testAccVpcpeeringResourceConfig(projectID, "test-vpcpeering"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_vpcpeering.test",
@@ -49,7 +54,7 @@ func TestAccVpcpeeringResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccVpcpeeringResourceConfig("test-vpcpeering-updated"),
+				Config: testAccVpcpeeringResourceConfig(projectID, "test-vpcpeering-updated"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_vpcpeering.test",
@@ -87,14 +92,26 @@ func testCheckVpcpeeringDestroyed(s *terraform.State) error {
 	return nil
 }
 
-func testAccVpcpeeringResourceConfig(name string) string {
+func testAccVpcpeeringResourceConfig(projectID, name string) string {
 	return fmt.Sprintf(`
-resource "arubacloud_vpcpeering" "test" {
-  name       = %[1]q
-  location   = "it-1"
-  project_id = "test-project-id"
-  vpc_id     = "test-vpc-id"
-  peer_vpc   = "peer-vpc-id"
+resource "arubacloud_vpc" "peering_local" {
+  name       = "test-acc-peering-local-vpc"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
 }
-`, name)
+
+resource "arubacloud_vpc" "peering_peer" {
+  name       = "test-acc-peering-peer-vpc"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+}
+
+resource "arubacloud_vpcpeering" "test" {
+  name       = %[2]q
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+  vpc_id     = arubacloud_vpc.peering_local.id
+  peer_vpc   = arubacloud_vpc.peering_peer.id
+}
+`, projectID, name)
 }

@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
@@ -14,6 +15,11 @@ import (
 )
 
 func TestAccRestoreResource(t *testing.T) {
+	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
+	backupID := os.Getenv("ARUBACLOUD_BACKUP_ID")
+	if projectID == "" || backupID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_BACKUP_ID must be set for acceptance tests")
+	}
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -21,7 +27,7 @@ func TestAccRestoreResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccRestoreResourceConfig("test-restore"),
+				Config: testAccRestoreResourceConfig(projectID, backupID, "test-restore"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_restore.test",
@@ -49,7 +55,7 @@ func TestAccRestoreResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccRestoreResourceConfig("test-restore-updated"),
+				Config: testAccRestoreResourceConfig(projectID, backupID, "test-restore-updated"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_restore.test",
@@ -87,14 +93,24 @@ func testCheckRestoreDestroyed(s *terraform.State) error {
 	return nil
 }
 
-func testAccRestoreResourceConfig(name string) string {
+func testAccRestoreResourceConfig(projectID, backupID, name string) string {
 	return fmt.Sprintf(`
-resource "arubacloud_restore" "test" {
-  name       = %[1]q
-  location   = "it-1"
-  project_id = "test-project-id"
-  backup_id  = "test-backup-id"
-  volume_id  = "test-volume-id"
+resource "arubacloud_blockstorage" "restore_target" {
+  name           = "test-acc-restore-vol"
+  project_id     = %[1]q
+  location       = "ITBG-Bergamo"
+  size_gb        = 10
+  billing_period = "Hour"
+  zone           = "ITBG-1"
+  type           = "Standard"
 }
-`, name)
+
+resource "arubacloud_restore" "test" {
+  name       = %[3]q
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+  backup_id  = %[2]q
+  volume_id  = arubacloud_blockstorage.restore_target.id
+}
+`, projectID, backupID, name)
 }

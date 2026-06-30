@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
@@ -14,6 +15,10 @@ import (
 )
 
 func TestAccSchedulejobResource(t *testing.T) {
+	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
+	if projectID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
+	}
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -21,7 +26,7 @@ func TestAccSchedulejobResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccSchedulejobResourceConfig("test-schedulejob"),
+				Config: testAccSchedulejobResourceConfig(projectID, "test-schedulejob"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_schedulejob.test",
@@ -49,7 +54,7 @@ func TestAccSchedulejobResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccSchedulejobResourceConfig("test-schedulejob-updated"),
+				Config: testAccSchedulejobResourceConfig(projectID, "test-schedulejob-updated"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_schedulejob.test",
@@ -86,18 +91,18 @@ func testCheckSchedulejobDestroyed(s *terraform.State) error {
 	return nil
 }
 
-func testAccSchedulejobResourceConfig(name string) string {
+func testAccSchedulejobResourceConfig(projectID, name string) string {
 	return fmt.Sprintf(`
 resource "arubacloud_schedulejob" "test" {
-  name       = %[1]q
-  project_id = "test-project-id"
-  location   = "it-1"
+  name       = %[2]q
+  project_id = %[1]q
+  location   = "ITBG-Bergamo"
 
   properties = {
     schedule_job_type = "OneShot"
-    schedule_at       = "2025-12-31T23:59:59Z"
+    schedule_at       = "2030-12-31T23:59:59Z"
     steps             = []
   }
 }
-`, name)
+`, projectID, name)
 }

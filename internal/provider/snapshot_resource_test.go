@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
@@ -14,6 +15,10 @@ import (
 )
 
 func TestAccSnapshotResource(t *testing.T) {
+	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
+	if projectID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
+	}
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -21,7 +26,7 @@ func TestAccSnapshotResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccSnapshotResourceConfig("test-snapshot"),
+				Config: testAccSnapshotResourceConfig(projectID, "test-snapshot"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_snapshot.test",
@@ -49,7 +54,7 @@ func TestAccSnapshotResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccSnapshotResourceConfig("test-snapshot-updated"),
+				Config: testAccSnapshotResourceConfig(projectID, "test-snapshot-updated"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_snapshot.test",
@@ -86,14 +91,24 @@ func testCheckSnapshotDestroyed(s *terraform.State) error {
 	return nil
 }
 
-func testAccSnapshotResourceConfig(name string) string {
+func testAccSnapshotResourceConfig(projectID, name string) string {
 	return fmt.Sprintf(`
-resource "arubacloud_snapshot" "test" {
-  name           = %[1]q
-  project_id     = "test-project-id"
-  location       = "it-1"
+resource "arubacloud_blockstorage" "snap_prereq" {
+  name           = "test-acc-snap-vol"
+  project_id     = %[1]q
+  location       = "ITBG-Bergamo"
+  size_gb        = 10
   billing_period = "Hour"
-  volume_uri     = "/projects/test-project-id/providers/Aruba.Storage/volumes/test-volume-id"
+  zone           = "ITBG-1"
+  type           = "Standard"
 }
-`, name)
+
+resource "arubacloud_snapshot" "test" {
+  name           = %[2]q
+  project_id     = %[1]q
+  location       = "ITBG-Bergamo"
+  billing_period = "Hour"
+  volume_uri     = arubacloud_blockstorage.snap_prereq.uri
+}
+`, projectID, name)
 }

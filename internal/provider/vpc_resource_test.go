@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
@@ -14,6 +15,10 @@ import (
 )
 
 func TestAccVpcResource(t *testing.T) {
+	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
+	if projectID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
+	}
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -21,7 +26,7 @@ func TestAccVpcResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccVpcResourceConfig("test-vpc"),
+				Config: testAccVpcResourceConfig(projectID, "test-vpc"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_vpc.test",
@@ -54,7 +59,7 @@ func TestAccVpcResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccVpcResourceConfig("test-vpc-updated"),
+				Config: testAccVpcResourceConfig(projectID, "test-vpc-updated"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_vpc.test",
@@ -91,12 +96,12 @@ func testCheckVpcDestroyed(s *terraform.State) error {
 	return nil
 }
 
-func testAccVpcResourceConfig(name string) string {
+func testAccVpcResourceConfig(projectID, name string) string {
 	return fmt.Sprintf(`
 resource "arubacloud_vpc" "test" {
-  name       = %[1]q
-  location   = "it-1"
-  project_id = "test-project-id"
+  name       = %[2]q
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
 }
 `, name)
 }

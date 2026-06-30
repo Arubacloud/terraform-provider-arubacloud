@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
@@ -14,6 +15,11 @@ import (
 )
 
 func TestAccVpnrouteResource(t *testing.T) {
+	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
+	vpnTunnelID := os.Getenv("ARUBACLOUD_VPNTUNNEL_ID")
+	if projectID == "" || vpnTunnelID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_VPNTUNNEL_ID must be set for acceptance tests")
+	}
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -21,7 +27,7 @@ func TestAccVpnrouteResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccVpnrouteResourceConfig("test-vpnroute"),
+				Config: testAccVpnrouteResourceConfig(projectID, vpnTunnelID, "test-vpnroute"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_vpnroute.test",
@@ -49,7 +55,7 @@ func TestAccVpnrouteResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccVpnrouteResourceConfig("test-vpnroute-updated"),
+				Config: testAccVpnrouteResourceConfig(projectID, vpnTunnelID, "test-vpnroute-updated"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_vpnroute.test",
@@ -87,18 +93,18 @@ func testCheckVpnrouteDestroyed(s *terraform.State) error {
 	return nil
 }
 
-func testAccVpnrouteResourceConfig(name string) string {
+func testAccVpnrouteResourceConfig(projectID, vpnTunnelID, name string) string {
 	return fmt.Sprintf(`
 resource "arubacloud_vpnroute" "test" {
-  name           = %[1]q
-  location       = "it-1"
-  project_id     = "test-project-id"
-  vpn_tunnel_id  = "test-tunnel-id"
+  name          = %[3]q
+  location      = "ITBG-Bergamo"
+  project_id    = %[1]q
+  vpn_tunnel_id = %[2]q
 
   properties = {
     cloud_subnet   = "10.0.0.0/24"
     on_prem_subnet = "192.168.0.0/24"
   }
 }
-`, name)
+`, projectID, vpnTunnelID, name)
 }
