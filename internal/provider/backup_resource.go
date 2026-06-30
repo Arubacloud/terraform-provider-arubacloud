@@ -159,12 +159,39 @@ func (r *BackupResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
-	// Get the volume to obtain its URI.
-	vol, err := r.client.Client.FromStorage().Volumes().Get(ctx,
-		aruba.URI("/projects/"+projectID+"/providers/Aruba.Storage/blockStorages/"+volumeID))
-	if provErr := CheckResponseErr("read", "Volume", err); provErr != nil {
-		resp.Diagnostics.AddError("Error getting volume details", provErr.Error())
-		return
+	// Poll for the volume to become visible. When the blockstorage is created
+	// inline as a Terraform dependency, there is a short propagation delay before
+	// it appears at the blockStorages API path.
+	const volPollInterval = 5 * time.Second
+	const volPollMaxAttempts = 24 // up to 120 s
+
+	volumeURI := aruba.URI("/projects/" + projectID + "/providers/Aruba.Storage/blockStorages/" + volumeID)
+	var vol *aruba.BlockStorage
+	for attempt := 0; attempt < volPollMaxAttempts; attempt++ {
+		var getErr error
+		vol, getErr = r.client.Client.FromStorage().Volumes().Get(ctx, volumeURI)
+		if pe := CheckResponseErr("read", "Volume", getErr); pe == nil {
+			break
+		} else if !IsNotFound(pe) {
+			resp.Diagnostics.AddError("Error getting volume details", pe.Error())
+			return
+		}
+		if attempt == volPollMaxAttempts-1 {
+			resp.Diagnostics.AddError("Timeout waiting for volume",
+				fmt.Sprintf("Volume %q was not visible within %v. It may still be propagating; retry the apply.",
+					volumeID, time.Duration(volPollMaxAttempts)*volPollInterval))
+			return
+		}
+		tflog.Info(ctx, "volume not yet visible, retrying", map[string]interface{}{
+			"volume_id": volumeID,
+			"attempt":   attempt + 1,
+		})
+		select {
+		case <-ctx.Done():
+			resp.Diagnostics.AddError("Context cancelled", "Cancelled while waiting for volume to become visible")
+			return
+		case <-time.After(volPollInterval):
+		}
 	}
 	if vol.URI() == "" {
 		resp.Diagnostics.AddError("Invalid Volume Response", "Volume URI not found in response")
