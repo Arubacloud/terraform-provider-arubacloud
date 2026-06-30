@@ -10,7 +10,7 @@
 #   ARUBACLOUD_CLIENT_SECRET   OAuth2 client secret
 #   ARUBACLOUD_PROJECT_ID      Target project
 #
-# Optional env vars (tests skip gracefully when absent)
+# Optional env vars (prompt if missing; tests skip gracefully when absent)
 #   ARUBACLOUD_OS_IMAGE_ID     TestAccCloudserverResource, TestAccBlockStorageResource_Bootable,
 #                              TestAccCloudserverDataSource, TestAccSchedulejobDataSource
 #   ARUBACLOUD_DBAAS_ID        TestAccDatabaseResource
@@ -21,6 +21,7 @@
 #   -r, --run PATTERN       go -run regex filter     (default: ^TestAcc)
 #   -t, --timeout DURATION  test timeout             (default: 120m)
 #   -l, --log-level LEVEL   TF_LOG: OFF|WARN|INFO|DEBUG|TRACE  (default: WARN)
+#   -y, --yes               skip prompts for optional vars (auto-confirm skip)
 #   -h, --help              show this help
 #
 # Artifacts (written to ./artifacts/)
@@ -48,6 +49,7 @@ set -euo pipefail
 RUN_FILTER="^TestAcc"
 TIMEOUT="120m"
 LOG_LEVEL="WARN"
+YES=false
 
 # ── argument parsing ───────────────────────────────────────────────────────────
 usage() {
@@ -61,6 +63,7 @@ while [[ $# -gt 0 ]]; do
         -r|--run)        RUN_FILTER="$2"; shift 2 ;;
         -t|--timeout)    TIMEOUT="$2";    shift 2 ;;
         -l|--log-level)  LOG_LEVEL="$2";  shift 2 ;;
+        -y|--yes)        YES=true;        shift   ;;
         -h|--help)       usage ;;
         *) echo "ERROR: unknown option: $1" >&2
            echo "Run './run-acceptance-tests.sh --help' for usage." >&2
@@ -82,6 +85,60 @@ if [[ ${#MISSING[@]} -gt 0 ]]; then
     echo "  export ARUBACLOUD_CLIENT_SECRET=<secret>" >&2
     echo "  export ARUBACLOUD_PROJECT_ID=<project-id>" >&2
     exit 1
+fi
+
+# ── optional env vars ─────────────────────────────────────────────────────────
+# Ordered list of optional vars and the tests they gate.
+OPT_VAR_NAMES=(
+    ARUBACLOUD_OS_IMAGE_ID
+    ARUBACLOUD_DBAAS_ID
+    ARUBACLOUD_VPNTUNNEL_ID
+    ARUBACLOUD_VPNROUTE_ID
+)
+OPT_VAR_TESTS=(
+    "TestAccCloudserverResource, TestAccBlockStorageResource_Bootable, TestAccCloudserverDataSource, TestAccSchedulejobDataSource"
+    "TestAccDatabaseResource"
+    "TestAccVpntunnelDataSource, TestAccVpnrouteDataSource"
+    "TestAccVpnrouteDataSource"
+)
+
+WILL_SKIP=()
+for i in "${!OPT_VAR_NAMES[@]}"; do
+    var="${OPT_VAR_NAMES[$i]}"
+    tests="${OPT_VAR_TESTS[$i]}"
+    if [[ -z "${!var:-}" ]]; then
+        if [[ "$YES" == "false" ]] && [[ -t 0 ]]; then
+            echo ""
+            echo "  Optional var not set: $var"
+            echo "  Skips tests         : $tests"
+            printf "  Enter value to set it, or press Enter to skip those tests: "
+            read -r val </dev/tty
+            if [[ -n "$val" ]]; then
+                export "$var"="$val"
+            else
+                WILL_SKIP+=("$var ($tests)")
+            fi
+        else
+            WILL_SKIP+=("$var ($tests)")
+        fi
+    fi
+done
+
+if [[ ${#WILL_SKIP[@]} -gt 0 ]]; then
+    echo ""
+    echo "  NOTE: the following optional vars are unset — related tests will be skipped:"
+    for entry in "${WILL_SKIP[@]}"; do
+        printf '    %s\n' "$entry"
+    done
+    echo ""
+    if [[ "$YES" == "false" ]] && [[ -t 0 ]]; then
+        printf "  Continue with skipped tests? [Y/n]: "
+        read -r confirm </dev/tty
+        if [[ "${confirm,,}" == "n" ]]; then
+            echo "Aborted." >&2
+            exit 1
+        fi
+    fi
 fi
 
 # ── artifact setup ─────────────────────────────────────────────────────────────
