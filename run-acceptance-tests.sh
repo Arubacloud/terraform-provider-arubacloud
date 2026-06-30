@@ -163,7 +163,7 @@ SUMMARY_FILE="${ARTIFACTS_DIR}/summary-${TS}.txt"
     echo "--- toolchain ---"
     go version
     if command -v terraform &>/dev/null; then
-        terraform version 2>&1 | head -1
+        terraform version 2>&1 | head -1 || true
     else
         echo "terraform: not in PATH (only needed for make generate)"
     fi
