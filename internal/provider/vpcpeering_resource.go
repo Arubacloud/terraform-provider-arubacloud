@@ -121,8 +121,11 @@ func applyVPCPeeringToModel(p *aruba.VPCPeering, data *VpcPeeringResourceModel) 
 	data.Uri = strVal(p.URI())
 	data.Name = types.StringValue(p.Name())
 	data.Tags = TagsToListPreserveNull(p.Tags(), data.Tags)
-	if p.RemoteVPCURI() != "" {
-		data.PeerVpc = types.StringValue(p.RemoteVPCURI())
+	if remoteURI := p.RemoteVPCURI(); remoteURI != "" {
+		// Always store the short VPC ID (last path segment) so that state
+		// matches the user-provided value (arubacloud_vpc.peer.id).
+		parts := strings.Split(strings.TrimRight(remoteURI, "/"), "/")
+		data.PeerVpc = types.StringValue(parts[len(parts)-1])
 	}
 	raw := p.Raw()
 	if raw != nil && raw.Metadata.LocationResponse != nil {
