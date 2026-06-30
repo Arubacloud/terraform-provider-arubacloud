@@ -85,7 +85,8 @@ if [[ ${#MISSING[@]} -gt 0 ]]; then
 fi
 
 # ── artifact setup ─────────────────────────────────────────────────────────────
-ARTIFACTS_DIR="artifacts"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ARTIFACTS_DIR="${SCRIPT_DIR}/artifacts"
 mkdir -p "$ARTIFACTS_DIR"
 TS=$(date +"%Y%m%d-%H%M%S")
 LOGFILE="${ARTIFACTS_DIR}/tests-${TS}.log"
