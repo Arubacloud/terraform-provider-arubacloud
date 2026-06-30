@@ -16,8 +16,9 @@ import (
 
 func TestAccDatabasegrantResource(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
-	if projectID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
+	dbaasID := os.Getenv("ARUBACLOUD_DBAAS_ID")
+	if projectID == "" || dbaasID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_DBAAS_ID must be set for acceptance tests")
 	}
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
@@ -25,7 +26,7 @@ func TestAccDatabasegrantResource(t *testing.T) {
 		CheckDestroy:             testCheckDatabasegrantDestroyed,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccDatabasegrantResourceConfig(projectID, "read"),
+				Config: testAccDatabasegrantResourceConfig(projectID, dbaasID, "read"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_databasegrant.test",
@@ -51,7 +52,7 @@ func TestAccDatabasegrantResource(t *testing.T) {
 				ImportStateIdFunc: importIDFromAttrs("arubacloud_databasegrant.test", "project_id", "dbaas_id", "database", "user_id"),
 			},
 			{
-				Config: testAccDatabasegrantResourceConfig(projectID, "write"),
+				Config: testAccDatabasegrantResourceConfig(projectID, dbaasID, "write"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_databasegrant.test",
@@ -91,51 +92,11 @@ func testCheckDatabasegrantDestroyed(s *terraform.State) error {
 	return nil
 }
 
-func testAccDatabasegrantResourceConfig(projectID, role string) string {
+func testAccDatabasegrantResourceConfig(projectID, dbaasID, role string) string {
 	return fmt.Sprintf(`
-resource "arubacloud_vpc" "dbgrant_prereq" {
-  name       = "test-acc-dbgrant-vpc"
-  location   = "ITBG-Bergamo"
-  project_id = %[1]q
-}
-
-resource "arubacloud_subnet" "dbgrant_prereq" {
-  name       = "test-acc-dbgrant-subnet"
-  location   = "ITBG-Bergamo"
-  project_id = %[1]q
-  vpc_id     = arubacloud_vpc.dbgrant_prereq.id
-  type       = "Basic"
-}
-
-resource "arubacloud_securitygroup" "dbgrant_prereq" {
-  name       = "test-acc-dbgrant-sg"
-  location   = "ITBG-Bergamo"
-  project_id = %[1]q
-  vpc_id     = arubacloud_vpc.dbgrant_prereq.id
-}
-
-resource "arubacloud_dbaas" "dbgrant_prereq" {
-  name       = "test-acc-dbgrant-dbaas"
-  location   = "ITBG-Bergamo"
-  zone       = "ITBG-1"
-  project_id = %[1]q
-  engine_id  = "mysql-8.0"
-  flavor     = "DBO2A4"
-
-  storage = {
-    size_gb = 20
-  }
-
-  network = {
-    vpc_uri_ref            = arubacloud_vpc.dbgrant_prereq.uri
-    subnet_uri_ref         = arubacloud_subnet.dbgrant_prereq.uri
-    security_group_uri_ref = arubacloud_securitygroup.dbgrant_prereq.uri
-  }
-}
-
 resource "arubacloud_dbaasuser" "dbgrant_prereq" {
   project_id = %[1]q
-  dbaas_id   = arubacloud_dbaas.dbgrant_prereq.id
+  dbaas_id   = %[2]q
   username   = "testaccgrantuser"
   password   = "Acc3ptAbl3P@ss#01"
 }
@@ -143,15 +104,15 @@ resource "arubacloud_dbaasuser" "dbgrant_prereq" {
 resource "arubacloud_database" "dbgrant_prereq" {
   name       = "testaccgrantdb"
   project_id = %[1]q
-  dbaas_id   = arubacloud_dbaas.dbgrant_prereq.id
+  dbaas_id   = %[2]q
 }
 
 resource "arubacloud_databasegrant" "test" {
   project_id = %[1]q
-  dbaas_id   = arubacloud_dbaas.dbgrant_prereq.id
+  dbaas_id   = %[2]q
   database   = arubacloud_database.dbgrant_prereq.name
   user_id    = arubacloud_dbaasuser.dbgrant_prereq.username
-  role       = %[2]q
+  role       = %[3]q
 }
-`, projectID, role)
+`, projectID, dbaasID, role)
 }

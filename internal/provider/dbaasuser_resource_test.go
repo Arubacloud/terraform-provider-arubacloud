@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
@@ -14,14 +15,18 @@ import (
 )
 
 func TestAccDbaasuserResource(t *testing.T) {
+	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
+	dbaasID := os.Getenv("ARUBACLOUD_DBAAS_ID")
+	if projectID == "" || dbaasID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_DBAAS_ID must be set for acceptance tests")
+	}
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:             testCheckDbaasuserDestroyed,
 		Steps: []resource.TestStep{
-			// Create and Read testing
 			{
-				Config: testAccDbaasuserResourceConfig("test-dbaasuser"),
+				Config: testAccDbaasuserResourceConfig(projectID, dbaasID, "testaccdbuser"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_dbaasuser.test",
@@ -31,33 +36,21 @@ func TestAccDbaasuserResource(t *testing.T) {
 					statecheck.ExpectKnownValue(
 						"arubacloud_dbaasuser.test",
 						tfjsonpath.New("username"),
-						knownvalue.NotNull(),
+						knownvalue.StringExact("testaccdbuser"),
 					),
 					statecheck.ExpectKnownValue(
 						"arubacloud_dbaasuser.test",
 						tfjsonpath.New("dbaas_id"),
-						knownvalue.NotNull(),
+						knownvalue.StringExact(dbaasID),
 					),
 				},
 			},
-			// ImportState testing
 			{
 				ResourceName:            "arubacloud_dbaasuser.test",
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"password"},
 				ImportStateIdFunc:       importIDFromAttrs("arubacloud_dbaasuser.test", "project_id", "dbaas_id", "id"),
-			},
-			// Update and Read testing
-			{
-				Config: testAccDbaasuserResourceConfig("test-dbaasuser-updated"),
-				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownValue(
-						"arubacloud_dbaasuser.test",
-						tfjsonpath.New("name"),
-						knownvalue.StringExact("test-dbaasuser-updated"),
-					),
-				},
 			},
 		},
 	})
@@ -88,13 +81,13 @@ func testCheckDbaasuserDestroyed(s *terraform.State) error {
 	return nil
 }
 
-func testAccDbaasuserResourceConfig(name string) string {
+func testAccDbaasuserResourceConfig(projectID, dbaasID, username string) string {
 	return fmt.Sprintf(`
 resource "arubacloud_dbaasuser" "test" {
-  project_id = "test-project-id"
-  dbaas_id   = "test-dbaas-id"
-  username   = %[1]q
-  password   = "test-password-123"
+  project_id = %[1]q
+  dbaas_id   = %[2]q
+  username   = %[3]q
+  password   = "Acc3ptAbl3P@ss#01"
 }
-`, name)
+`, projectID, dbaasID, username)
 }
