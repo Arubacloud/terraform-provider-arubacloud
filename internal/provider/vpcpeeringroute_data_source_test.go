@@ -79,7 +79,6 @@ resource "arubacloud_vpcpeering" "test" {
 
 resource "arubacloud_vpcpeeringroute" "test" {
   name                   = "test-ds-vpcpeeringroute"
-  location               = "ITBG-Bergamo"
   project_id             = %[1]q
   vpc_id                 = arubacloud_vpc.local.id
   vpc_peering_id         = arubacloud_vpcpeering.test.id
