@@ -269,16 +269,16 @@ func (r *ContainerRegistryResource) Create(ctx context.Context, req resource.Cre
 	}
 
 	if !data.Settings.IsNull() && !data.Settings.IsUnknown() {
-		var settingsModel ContainerRegistrySettingsModel
-		resp.Diagnostics.Append(data.Settings.As(ctx, &settingsModel, basetypes.ObjectAsOptions{})...)
-		if resp.Diagnostics.HasError() {
-			return
+		settingsAttrs := data.Settings.Attributes()
+		if v, ok := settingsAttrs["admin_user"]; ok {
+			if s, ok2 := v.(types.String); ok2 && !s.IsNull() && !s.IsUnknown() {
+				builder = builder.WithAdminUsername(s.ValueString())
+			}
 		}
-		if !settingsModel.AdminUser.IsNull() && !settingsModel.AdminUser.IsUnknown() {
-			builder = builder.WithAdminUsername(settingsModel.AdminUser.ValueString())
-		}
-		if !settingsModel.ConcurrentUsersFlavor.IsNull() && !settingsModel.ConcurrentUsersFlavor.IsUnknown() {
-			builder = builder.OfSize(aruba.ContainerRegistrySizeFlavor(settingsModel.ConcurrentUsersFlavor.ValueString()))
+		if v, ok := settingsAttrs["concurrent_users_flavor"]; ok {
+			if s, ok2 := v.(types.String); ok2 && !s.IsNull() && !s.IsUnknown() {
+				builder = builder.OfSize(aruba.ContainerRegistrySizeFlavor(s.ValueString()))
+			}
 		}
 	}
 
@@ -416,16 +416,16 @@ func (r *ContainerRegistryResource) Update(ctx context.Context, req resource.Upd
 	}
 
 	if !data.Settings.IsNull() && !data.Settings.IsUnknown() {
-		var settingsModel ContainerRegistrySettingsModel
-		resp.Diagnostics.Append(data.Settings.As(ctx, &settingsModel, basetypes.ObjectAsOptions{})...)
-		if resp.Diagnostics.HasError() {
-			return
+		settingsAttrs := data.Settings.Attributes()
+		if v, ok := settingsAttrs["admin_user"]; ok {
+			if s, ok2 := v.(types.String); ok2 && !s.IsNull() && !s.IsUnknown() {
+				registry.WithAdminUsername(s.ValueString())
+			}
 		}
-		if !settingsModel.AdminUser.IsNull() {
-			registry.WithAdminUsername(settingsModel.AdminUser.ValueString())
-		}
-		if !settingsModel.ConcurrentUsersFlavor.IsNull() {
-			registry.OfSize(aruba.ContainerRegistrySizeFlavor(settingsModel.ConcurrentUsersFlavor.ValueString()))
+		if v, ok := settingsAttrs["concurrent_users_flavor"]; ok {
+			if s, ok2 := v.(types.String); ok2 && !s.IsNull() && !s.IsUnknown() {
+				registry.OfSize(aruba.ContainerRegistrySizeFlavor(s.ValueString()))
+			}
 		}
 	}
 
