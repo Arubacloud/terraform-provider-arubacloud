@@ -78,6 +78,40 @@ resource "arubacloud_securitygroup" "test" {
   vpc_id     = arubacloud_vpc.test.id
 }
 
+resource "arubacloud_securityrule" "test_https_ingress" {
+  name              = "test-ds-cr-https-ingress"
+  location          = "ITBG-Bergamo"
+  project_id        = %[1]q
+  vpc_id            = arubacloud_vpc.test.id
+  security_group_id = arubacloud_securitygroup.test.id
+  properties = {
+    direction = "Ingress"
+    protocol  = "TCP"
+    port      = "443"
+    target = {
+      kind  = "Ip"
+      value = "0.0.0.0/0"
+    }
+  }
+}
+
+resource "arubacloud_securityrule" "test_egress" {
+  name              = "test-ds-cr-egress"
+  location          = "ITBG-Bergamo"
+  project_id        = %[1]q
+  vpc_id            = arubacloud_vpc.test.id
+  security_group_id = arubacloud_securitygroup.test.id
+  properties = {
+    direction = "Egress"
+    protocol  = "ANY"
+    port      = "*"
+    target = {
+      kind  = "Ip"
+      value = "0.0.0.0/0"
+    }
+  }
+}
+
 resource "arubacloud_elasticip" "test" {
   name           = "test-ds-cr-eip"
   location       = "ITBG-Bergamo"
