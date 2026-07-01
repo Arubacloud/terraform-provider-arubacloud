@@ -16,8 +16,9 @@ import (
 
 func TestAccSchedulejobResource(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
-	if projectID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
+	osImageID := os.Getenv("ARUBACLOUD_OS_IMAGE_ID")
+	if projectID == "" || osImageID == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_OS_IMAGE_ID must be set for acceptance tests")
 	}
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
@@ -26,7 +27,7 @@ func TestAccSchedulejobResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccSchedulejobResourceConfig(projectID, "test-schedulejob"),
+				Config: testAccSchedulejobResourceConfig(projectID, osImageID, "test-schedulejob"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_schedulejob.test",
@@ -52,9 +53,9 @@ func TestAccSchedulejobResource(t *testing.T) {
 				ImportStateVerify: true,
 				ImportStateIdFunc: importIDFromAttrs("arubacloud_schedulejob.test", "project_id", "id"),
 			},
-			// Update and Read testing
+			// Update and Read testing (name-only change; steps are immutable)
 			{
-				Config: testAccSchedulejobResourceConfig(projectID, "test-schedulejob-updated"),
+				Config: testAccSchedulejobResourceConfig(projectID, osImageID, "test-schedulejob-updated"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_schedulejob.test",
@@ -91,18 +92,83 @@ func testCheckSchedulejobDestroyed(s *terraform.State) error {
 	return nil
 }
 
-func testAccSchedulejobResourceConfig(projectID, name string) string {
+// testAccSchedulejobResourceConfig builds a config with a prerequisite CloudServer so
+// the schedulejob step has a valid resource_uri. The API rejects requests with zero steps.
+func testAccSchedulejobResourceConfig(projectID, osImageID, name string) string {
 	return fmt.Sprintf(`
+resource "arubacloud_vpc" "sj_rs_prereq" {
+  name       = "test-rs-sj-vpc"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+}
+
+resource "arubacloud_subnet" "sj_rs_prereq" {
+  name       = "test-rs-sj-subnet"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+  vpc_id     = arubacloud_vpc.sj_rs_prereq.id
+  type       = "Basic"
+}
+
+resource "arubacloud_securitygroup" "sj_rs_prereq" {
+  name       = "test-rs-sj-sg"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+  vpc_id     = arubacloud_vpc.sj_rs_prereq.id
+}
+
+resource "arubacloud_blockstorage" "sj_rs_boot" {
+  name           = "test-rs-sj-boot"
+  project_id     = %[1]q
+  location       = "ITBG-Bergamo"
+  size_gb        = 30
+  billing_period = "Hour"
+  zone           = "ITBG-1"
+  type           = "Standard"
+  bootable       = true
+  image          = %[2]q
+}
+
+resource "arubacloud_cloudserver" "sj_rs_prereq" {
+  name       = "test-rs-sj-server"
+  location   = "ITBG-Bergamo"
+  project_id = %[1]q
+  zone       = "ITBG-1"
+
+  network = {
+    vpc_uri_ref            = arubacloud_vpc.sj_rs_prereq.uri
+    subnet_uri_refs        = [arubacloud_subnet.sj_rs_prereq.uri]
+    securitygroup_uri_refs = [arubacloud_securitygroup.sj_rs_prereq.uri]
+  }
+
+  settings = {
+    flavor_name = "CSO4A8"
+  }
+
+  storage = {
+    boot_volume_uri_ref = arubacloud_blockstorage.sj_rs_boot.uri
+  }
+}
+
 resource "arubacloud_schedulejob" "test" {
-  name       = %[2]q
+  name       = %[3]q
   project_id = %[1]q
   location   = "ITBG-Bergamo"
 
   properties = {
     schedule_job_type = "OneShot"
-    schedule_at       = "2030-12-31T23:59:59Z"
-    steps             = []
+    schedule_at       = "2099-12-31T23:59:59Z"
+    enabled           = true
+    steps = [
+      {
+        name         = "Power Off Server"
+        resource_uri = "/projects/%[1]s/providers/Aruba.Compute/cloudServers/${arubacloud_cloudserver.sj_rs_prereq.id}"
+        action_uri   = "/poweroff"
+        http_verb    = "POST"
+        body         = null
+      }
+    ]
   }
 }
-`, projectID, name)
+`, projectID, osImageID, name)
 }
