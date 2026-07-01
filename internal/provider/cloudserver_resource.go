@@ -582,8 +582,22 @@ func (r *CloudServerResource) Update(ctx context.Context, req resource.UpdateReq
 		server.RetaggedAs(server.Tags()...)
 	}
 
-	// Security groups are not returned by the API on Get, so the server object
-	// would send securityGroup=null in the update payload without this call.
+	// Subnets and security groups are not returned by the API on Get, so the
+	// server object would send null for both fields without these explicit calls,
+	// causing a 400 "subnet/securityGroup cannot be null" error.
+	if !planNetworkModel.SubnetUriRefs.IsNull() && !planNetworkModel.SubnetUriRefs.IsUnknown() {
+		var subnetURIs []string
+		resp.Diagnostics.Append(planNetworkModel.SubnetUriRefs.ElementsAs(ctx, &subnetURIs, false)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		subnetRefs := make([]aruba.Ref, len(subnetURIs))
+		for i, u := range subnetURIs {
+			subnetRefs[i] = aruba.URI(u)
+		}
+		server.OnSubnets(subnetRefs...)
+	}
+
 	if !planNetworkModel.SecurityGroupUriRefs.IsNull() && !planNetworkModel.SecurityGroupUriRefs.IsUnknown() {
 		var sgURIs []string
 		resp.Diagnostics.Append(planNetworkModel.SecurityGroupUriRefs.ElementsAs(ctx, &sgURIs, false)...)
