@@ -590,12 +590,17 @@ func (r *ScheduleJobResource) Delete(ctx context.Context, req resource.DeleteReq
 	jobID := data.Id.ValueString()
 
 	deletionChecker := func(ctx context.Context) (bool, error) {
-		_, getErr := r.client.Client.FromSchedule().Jobs().Get(ctx, ref)
+		job, getErr := r.client.Client.FromSchedule().Jobs().Get(ctx, ref)
 		if provErr := CheckResponseErr("get", "ScheduleJob", getErr); provErr != nil {
 			if IsNotFound(provErr) {
 				return true, nil
 			}
 			return false, provErr
+		}
+		if job != nil && isFailedState(string(job.State())) {
+			tflog.Info(ctx, "ScheduleJob is in terminal failure state after delete; treating as deleted",
+				map[string]interface{}{"job_id": jobID})
+			return true, nil
 		}
 		return false, nil
 	}
