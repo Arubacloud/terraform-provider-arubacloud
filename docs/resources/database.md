@@ -29,7 +29,7 @@ The following arguments are supported:
 #### Required
 
 - `dbaas_id` (String) ID of the parent DBaaS cluster this database belongs to.
-- `name` (String) Display name for the database.
+- `name` (String) Display name for the database. The database API does not support renaming — changing this value forces the resource to be destroyed and re-created. (Immutable — changing this value forces the resource to be destroyed and re-created.)
 - `project_id` (String) ID of the project that owns this resource.
 
 #### Optional
