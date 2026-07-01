@@ -346,6 +346,9 @@ func (r *BackupResource) Update(ctx context.Context, req resource.UpdateRequest,
 	} else {
 		backup.RetaggedAs(backup.Tags()...)
 	}
+	if !data.RetentionDays.IsNull() && !data.RetentionDays.IsUnknown() {
+		backup.RetainedForDays(int(data.RetentionDays.ValueInt64()))
+	}
 
 	updated, err := r.client.Client.FromStorage().Backups().Update(ctx, backup)
 	if provErr := CheckResponseErr("update", "Backup", err); provErr != nil {
@@ -353,14 +356,15 @@ func (r *BackupResource) Update(ctx context.Context, req resource.UpdateRequest,
 		return
 	}
 
+	// Preserve truly immutable fields from state.
 	data.Id = state.Id
 	data.ProjectID = state.ProjectID
 	data.Uri = state.Uri
 	data.VolumeID = state.VolumeID
 	data.Type = state.Type
-	data.RetentionDays = state.RetentionDays
 	data.BillingPeriod = state.BillingPeriod
 	data.Location = state.Location
+	// retention_days is mutable: keep the plan value (already in data).
 	data.Name = types.StringValue(updated.Name())
 	data.Tags = TagsToListPreserveNull(updated.Tags(), data.Tags)
 
