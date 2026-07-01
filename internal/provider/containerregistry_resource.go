@@ -176,11 +176,18 @@ func (r *ContainerRegistryResource) Configure(ctx context.Context, req resource.
 }
 
 func containerRegistryRef(data *ContainerRegistryResourceModel) aruba.Ref {
+	// Prefer the ID-based path so the SDK can always extract the resource ID.
+	// The API returns URIs with "containerRegistries" in the path, but the SDK
+	// expects the "registries" path segment — using the stored URI verbatim
+	// would cause "cannot determine registry ID from Ref" errors.
+	if !data.Id.IsNull() && !data.Id.IsUnknown() && data.Id.ValueString() != "" {
+		return aruba.URI("/projects/" + data.ProjectID.ValueString() +
+			"/providers/Aruba.Container/registries/" + data.Id.ValueString())
+	}
 	if !data.Uri.IsNull() && data.Uri.ValueString() != "" {
 		return aruba.URI(data.Uri.ValueString())
 	}
-	return aruba.URI("/projects/" + data.ProjectID.ValueString() +
-		"/providers/Aruba.Container/registries/" + data.Id.ValueString())
+	return aruba.URI("")
 }
 
 func applyContainerRegistryToModel(reg *aruba.ContainerRegistry, data *ContainerRegistryResourceModel) {
