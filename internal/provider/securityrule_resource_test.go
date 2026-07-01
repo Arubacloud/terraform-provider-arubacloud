@@ -124,6 +124,87 @@ func TestProtocolNormalizePlanModifier(t *testing.T) {
 	}
 }
 
+func TestTargetKindNormalizePlanModifier(t *testing.T) {
+	ctx := context.Background()
+	m := targetKindNormalizePlanModifier{}
+
+	cases := []struct {
+		name       string
+		planValue  types.String
+		stateValue types.String
+		wantValue  string
+		wantNull   bool
+	}{
+		{
+			name:      "Ip is normalized to IP (no prior state)",
+			planValue: types.StringValue("Ip"),
+			wantValue: "IP",
+		},
+		{
+			name:      "ip is normalized to IP",
+			planValue: types.StringValue("ip"),
+			wantValue: "IP",
+		},
+		{
+			name:      "IP stays IP",
+			planValue: types.StringValue("IP"),
+			wantValue: "IP",
+		},
+		{
+			name:      "securitygroup normalized to SecurityGroup",
+			planValue: types.StringValue("securitygroup"),
+			wantValue: "SecurityGroup",
+		},
+		{
+			name:       "Ip in plan with Ip in state — preserves state value (no spurious replace)",
+			planValue:  types.StringValue("Ip"),
+			stateValue: types.StringValue("Ip"),
+			wantValue:  "Ip",
+		},
+		{
+			name:       "Ip in plan with IP in state (post-import) — plan becomes IP, no drift",
+			planValue:  types.StringValue("Ip"),
+			stateValue: types.StringValue("IP"),
+			wantValue:  "IP",
+		},
+		{
+			name:       "null plan falls back to state",
+			planValue:  types.StringNull(),
+			stateValue: types.StringValue("IP"),
+			wantValue:  "IP",
+		},
+		{
+			name:       "null plan and null state — stays null",
+			planValue:  types.StringNull(),
+			stateValue: types.StringNull(),
+			wantNull:   true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			stateVal := tc.stateValue
+			if stateVal == (types.String{}) {
+				stateVal = types.StringNull()
+			}
+			req := planmodifier.StringRequest{
+				PlanValue:  tc.planValue,
+				StateValue: stateVal,
+			}
+			resp := &planmodifier.StringResponse{PlanValue: tc.planValue}
+			m.PlanModifyString(ctx, req, resp)
+			if tc.wantNull {
+				if !resp.PlanValue.IsNull() {
+					t.Errorf("expected null, got %q", resp.PlanValue.ValueString())
+				}
+				return
+			}
+			if resp.PlanValue.ValueString() != tc.wantValue {
+				t.Errorf("PlanModifyString: got %q, want %q", resp.PlanValue.ValueString(), tc.wantValue)
+			}
+		})
+	}
+}
+
 func TestAccSecurityruleResource(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
 	if projectID == "" {
@@ -165,7 +246,7 @@ func TestAccSecurityruleResource(t *testing.T) {
 				ResourceName:      "arubacloud_securityrule.test",
 				ImportState:       true,
 				ImportStateVerify: true,
-				ImportStateIdFunc: importIDFromAttrs("arubacloud_securityrule.test", "project_id", "vpc_id", "security_group_id", "id"),
+				ImportStateIdFunc: importIDFromAttrs("arubacloud_securityrule.test", "project_id", "vpc_id", "security_group_id", "id", "location"),
 			},
 			// Update and Read testing
 			{
