@@ -60,24 +60,39 @@ func (r *DatabaseGrantResource) Schema(ctx context.Context, req resource.SchemaR
 				},
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project that owns this resource.",
+				MarkdownDescription: "ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"dbaas_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the parent DBaaS cluster this grant belongs to.",
+				MarkdownDescription: "ID of the parent DBaaS cluster this grant belongs to. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"database": schema.StringAttribute{
-				MarkdownDescription: "ID of the database this grant applies to.",
+				MarkdownDescription: "ID of the database this grant applies to. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"user_id": schema.StringAttribute{
-				MarkdownDescription: "Name or ID of the DBaaS user receiving the grant.",
+				MarkdownDescription: "Name or ID of the DBaaS user receiving the grant. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"role": schema.StringAttribute{
-				MarkdownDescription: "Privilege level granted. Accepted values depend on the database engine (e.g., `ALL`, `READ`, `WRITE`).",
+				MarkdownDescription: "Privilege level granted. Accepted values depend on the database engine (e.g., `ALL`, `READ`, `WRITE`). The DBaaS grant API does not support in-place role changes. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"timeout": schema.StringAttribute{
 				MarkdownDescription: "Per-resource timeout override (e.g. `\"15m\"`, `\"1h\"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.",
@@ -183,40 +198,14 @@ func (r *DatabaseGrantResource) Read(ctx context.Context, req resource.ReadReque
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *DatabaseGrantResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var data DatabaseGrantResourceModel
-	var state DatabaseGrantResourceModel
-
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	grant, err := r.client.Client.FromDatabase().Grants().Get(ctx, grantRefFromModel(&state))
-	if provErr := CheckResponseErr("read", "DatabaseGrant", err); provErr != nil {
-		resp.Diagnostics.AddError("API Error", provErr.Error())
-		return
-	}
-
-	grant.OfRole(data.Role.ValueString())
-
-	updated, err := r.client.Client.FromDatabase().Grants().Update(ctx, grant)
-	if provErr := CheckResponseErr("update", "DatabaseGrant", err); provErr != nil {
-		resp.Diagnostics.AddError("API Error", provErr.Error())
-		return
-	}
-
-	data.Id = state.Id
-	data.ProjectID = state.ProjectID
-	data.DBaaSID = state.DBaaSID
-	data.Database = state.Database
-	data.UserID = state.UserID
-	data.Role = types.StringValue(updated.RoleName())
-	data.Uri = strVal(updated.URI())
-
-	tflog.Trace(ctx, "updated a Database Grant resource", map[string]interface{}{"grant_id": data.Id.ValueString()})
-	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+// Update is unreachable: all attributes carry RequiresReplace so Terraform
+// will never call Update — any change triggers a destroy + create cycle.
+func (r *DatabaseGrantResource) Update(_ context.Context, _ resource.UpdateRequest, resp *resource.UpdateResponse) {
+	resp.Diagnostics.AddError(
+		"Update Not Supported",
+		"The ArubaCloud DBaaS grant API does not support in-place updates. "+
+			"All attribute changes force a new resource (RequiresReplace).",
+	)
 }
 
 func (r *DatabaseGrantResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

@@ -60,21 +60,33 @@ func (r *DBaaSUserResource) Schema(ctx context.Context, req resource.SchemaReque
 				},
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project that owns this resource.",
+				MarkdownDescription: "ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"dbaas_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the parent DBaaS cluster this user belongs to.",
+				MarkdownDescription: "ID of the parent DBaaS cluster this user belongs to. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"username": schema.StringAttribute{
-				MarkdownDescription: "Display name for the DBaaS user.",
+				MarkdownDescription: "Username for the DBaaS user. The DBaaS user API does not support renaming users. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"password": schema.StringAttribute{
-				MarkdownDescription: "Password for the DBaaS user. Write-only — this value is sent to the API but is not returned in subsequent read responses.",
+				MarkdownDescription: "Password for the DBaaS user. Write-only — this value is sent to the API but is not returned in subsequent read responses. The DBaaS user API does not support password updates. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
 				Sensitive:           true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"timeout": schema.StringAttribute{
 				MarkdownDescription: "Per-resource timeout override (e.g. `\"15m\"`, `\"1h\"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.",
@@ -224,39 +236,14 @@ func (r *DBaaSUserResource) Read(ctx context.Context, req resource.ReadRequest, 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *DBaaSUserResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var data DBaaSUserResourceModel
-	var state DBaaSUserResourceModel
-
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	passwordBase64 := base64.StdEncoding.EncodeToString([]byte(data.Password.ValueString()))
-
-	user, err := r.client.Client.FromDatabase().Users().Get(ctx, dbaasUserRef(&state))
-	if provErr := CheckResponseErr("read", "DBaaSUser", err); provErr != nil {
-		resp.Diagnostics.AddError("API Error", provErr.Error())
-		return
-	}
-
-	user.WithPassword(passwordBase64)
-
-	updated, err := r.client.Client.FromDatabase().Users().Update(ctx, user)
-	if provErr := CheckResponseErr("update", "DBaaSUser", err); provErr != nil {
-		resp.Diagnostics.AddError("API Error", provErr.Error())
-		return
-	}
-
-	data.Id = state.Id
-	data.ProjectID = state.ProjectID
-	data.DBaaSID = state.DBaaSID
-	data.Username = types.StringValue(updated.Username())
-	data.Uri = strVal(updated.URI())
-
-	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+// Update is unreachable: all attributes carry RequiresReplace so Terraform
+// will never call Update — any change triggers a destroy + create cycle.
+func (r *DBaaSUserResource) Update(_ context.Context, _ resource.UpdateRequest, resp *resource.UpdateResponse) {
+	resp.Diagnostics.AddError(
+		"Update Not Supported",
+		"The ArubaCloud DBaaS user API does not support in-place updates. "+
+			"All attribute changes force a new resource (RequiresReplace).",
+	)
 }
 
 func (r *DBaaSUserResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

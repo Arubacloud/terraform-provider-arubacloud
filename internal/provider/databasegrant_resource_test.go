@@ -20,13 +20,14 @@ func TestAccDatabasegrantResource(t *testing.T) {
 	if projectID == "" || dbaasID == "" {
 		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_DBAAS_ID must be set for acceptance tests")
 	}
+	password := testAccDBaaSPassword(t)
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:             testCheckDatabasegrantDestroyed,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccDatabasegrantResourceConfig(projectID, dbaasID, "read"),
+				Config: testAccDatabasegrantResourceConfig(projectID, dbaasID, "read", password),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_databasegrant.test",
@@ -51,8 +52,9 @@ func TestAccDatabasegrantResource(t *testing.T) {
 				ImportStateVerify: true,
 				ImportStateIdFunc: importIDFromAttrs("arubacloud_databasegrant.test", "project_id", "dbaas_id", "database", "user_id"),
 			},
+			// Replace testing: role is immutable, changing it destroys and re-creates
 			{
-				Config: testAccDatabasegrantResourceConfig(projectID, dbaasID, "write"),
+				Config: testAccDatabasegrantResourceConfig(projectID, dbaasID, "write", password),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_databasegrant.test",
@@ -92,13 +94,13 @@ func testCheckDatabasegrantDestroyed(s *terraform.State) error {
 	return nil
 }
 
-func testAccDatabasegrantResourceConfig(projectID, dbaasID, role string) string {
+func testAccDatabasegrantResourceConfig(projectID, dbaasID, role, password string) string {
 	return fmt.Sprintf(`
 resource "arubacloud_dbaasuser" "dbgrant_prereq" {
   project_id = %[1]q
   dbaas_id   = %[2]q
   username   = "testaccgrantuser"
-  password   = "TestAcc0untP4ss!"
+  password   = %[4]q
 }
 
 resource "arubacloud_database" "dbgrant_prereq" {
@@ -114,5 +116,5 @@ resource "arubacloud_databasegrant" "test" {
   user_id    = arubacloud_dbaasuser.dbgrant_prereq.username
   role       = %[3]q
 }
-`, projectID, dbaasID, role)
+`, projectID, dbaasID, role, password)
 }
