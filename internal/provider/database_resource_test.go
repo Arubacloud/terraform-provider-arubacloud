@@ -53,14 +53,14 @@ func TestAccDatabaseResource(t *testing.T) {
 				ImportStateVerify: true,
 				ImportStateIdFunc: importIDFromAttrs("arubacloud_database.test", "project_id", "dbaas_id", "id"),
 			},
-			// Update and Read testing
+			// Replace testing: name is immutable, changing it destroys and re-creates
 			{
-				Config: testAccDatabaseResourceConfig(projectID, dbaasID, "testdatabaseupd"),
+				Config: testAccDatabaseResourceConfig(projectID, dbaasID, "testdatabasenew"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_database.test",
 						tfjsonpath.New("name"),
-						knownvalue.StringExact("testdatabaseupd"),
+						knownvalue.StringExact("testdatabasenew"),
 					),
 				},
 			},

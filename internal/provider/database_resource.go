@@ -66,8 +66,11 @@ func (r *DatabaseResource) Schema(ctx context.Context, req resource.SchemaReques
 				Required:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Display name for the database.",
+				MarkdownDescription: "Display name for the database. The database API does not support renaming — changing this value forces the resource to be destroyed and re-created. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"timeout": schema.StringAttribute{
 				MarkdownDescription: "Per-resource timeout override (e.g. `\"15m\"`, `\"1h\"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.",
