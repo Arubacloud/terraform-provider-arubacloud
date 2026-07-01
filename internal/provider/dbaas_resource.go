@@ -345,12 +345,20 @@ func (r *DBaaSResource) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 
-	// Refresh URI from re-read and preserve network from plan.
+	// Refresh URI and billing_period from re-read; preserve network from plan.
 	fresh, freshErr := r.client.Client.FromDatabase().DBaaS().Get(ctx, dbaasRef(&data))
 	if freshErr == nil {
 		data.Uri = strVal(fresh.URI())
+		if bp := billingPeriodFromAPI(string(fresh.BillingPeriod())); bp != "" {
+			data.BillingPeriod = types.StringValue(bp)
+		} else if data.BillingPeriod.IsUnknown() {
+			data.BillingPeriod = types.StringNull()
+		}
 	} else {
 		tflog.Warn(ctx, fmt.Sprintf("Failed to refresh DBaaS after creation: %v", freshErr))
+		if data.BillingPeriod.IsUnknown() {
+			data.BillingPeriod = types.StringNull()
+		}
 	}
 
 	data.Network = buildNetworkObject(vpc, subnet, sg, eip)
