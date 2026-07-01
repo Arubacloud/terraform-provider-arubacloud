@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"crypto/rand"
 	"fmt"
 	"os"
 	"testing"
@@ -19,12 +20,17 @@ func TestAccKaasDataSource(t *testing.T) {
 		t.Skip("ARUBACLOUD_PROJECT_ID, ARUBACLOUD_ZONE, and ARUBACLOUD_KAAS_NODE_INSTANCE must be set for acceptance tests")
 	}
 
+	var sfxBytes [3]byte
+	rand.Read(sfxBytes[:]) //nolint:errcheck
+	sfx := fmt.Sprintf("%x", sfxBytes)
+	k8sVersion := testAccKaasK8sVersion()
+
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccKaasDataSourceConfig(projectID, zone, nodeInstance),
+				Config: testAccKaasDataSourceConfig(projectID, zone, nodeInstance, k8sVersion, sfx),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_kaas.test",
@@ -47,31 +53,26 @@ func TestAccKaasDataSource(t *testing.T) {
 	})
 }
 
-func testAccKaasDataSourceConfig(projectID, zone, nodeInstance string) string {
+// testAccKaasDataSourceConfig builds the HCL for the KaaS data source acceptance test.
+// KaaS creates its own security group (security_group_name); do NOT pre-create one.
+func testAccKaasDataSourceConfig(projectID, zone, nodeInstance, k8sVersion, sfx string) string {
 	return fmt.Sprintf(`
 resource "arubacloud_vpc" "test" {
-  name       = "test-ds-kaas-vpc"
+  name       = "test-ds-kaas-vpc-%[5]s"
   location   = "ITBG-Bergamo"
   project_id = %[1]q
 }
 
 resource "arubacloud_subnet" "test" {
-  name       = "test-ds-kaas-subnet"
+  name       = "test-ds-kaas-subnet-%[5]s"
   location   = "ITBG-Bergamo"
   project_id = %[1]q
   vpc_id     = arubacloud_vpc.test.id
   type       = "Basic"
 }
 
-resource "arubacloud_securitygroup" "test" {
-  name       = "test-ds-kaas-sg"
-  location   = "ITBG-Bergamo"
-  project_id = %[1]q
-  vpc_id     = arubacloud_vpc.test.id
-}
-
 resource "arubacloud_kaas" "test" {
-  name           = "test-ds-kaas"
+  name           = "test-ds-kaas-%[5]s"
   location       = "ITBG-Bergamo"
   project_id     = %[1]q
   billing_period = "Hour"
@@ -79,15 +80,15 @@ resource "arubacloud_kaas" "test" {
   network = {
     vpc_uri_ref         = arubacloud_vpc.test.uri
     subnet_uri_ref      = arubacloud_subnet.test.uri
-    security_group_name = arubacloud_securitygroup.test.name
+    security_group_name = "kaas-ds-sg-%[5]s"
     node_cidr = {
       address = "10.0.1.0/24"
-      name    = "node-cidr"
+      name    = "node-cidr-%[5]s"
     }
   }
 
   settings = {
-    kubernetes_version = "1.28"
+    kubernetes_version = %[4]q
     ha                 = false
     node_pools = [
       {
@@ -104,5 +105,5 @@ data "arubacloud_kaas" "test" {
   id         = arubacloud_kaas.test.id
   project_id = %[1]q
 }
-`, projectID, zone, nodeInstance)
+`, projectID, zone, nodeInstance, k8sVersion, sfx)
 }
