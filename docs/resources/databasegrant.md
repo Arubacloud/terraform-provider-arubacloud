@@ -32,11 +32,11 @@ The following arguments are supported:
 
 #### Required
 
-- `database` (String) ID of the database this grant applies to.
-- `dbaas_id` (String) ID of the parent DBaaS cluster this grant belongs to.
-- `project_id` (String) ID of the project that owns this resource.
-- `role` (String) Privilege level granted. Accepted values depend on the database engine (e.g., `ALL`, `READ`, `WRITE`).
-- `user_id` (String) Name or ID of the DBaaS user receiving the grant.
+- `database` (String) ID of the database this grant applies to. (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `dbaas_id` (String) ID of the parent DBaaS cluster this grant belongs to. (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `project_id` (String) ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `role` (String) Privilege level granted. Accepted values depend on the database engine (e.g., `ALL`, `READ`, `WRITE`). The DBaaS grant API does not support in-place role changes. (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `user_id` (String) Name or ID of the DBaaS user receiving the grant. (Immutable — changing this value forces the resource to be destroyed and re-created.)
 
 #### Optional
 

@@ -30,10 +30,10 @@ The following arguments are supported:
 
 #### Required
 
-- `dbaas_id` (String) ID of the parent DBaaS cluster this user belongs to.
-- `password` (String, Sensitive) Password for the DBaaS user. Write-only — this value is sent to the API but is not returned in subsequent read responses.
-- `project_id` (String) ID of the project that owns this resource.
-- `username` (String) Display name for the DBaaS user.
+- `dbaas_id` (String) ID of the parent DBaaS cluster this user belongs to. (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `password` (String, Sensitive) Password for the DBaaS user. Write-only — this value is sent to the API but is not returned in subsequent read responses. The DBaaS user API does not support password updates. (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `project_id` (String) ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `username` (String) Username for the DBaaS user. The DBaaS user API does not support renaming users. (Immutable — changing this value forces the resource to be destroyed and re-created.)
 
 #### Optional
 
