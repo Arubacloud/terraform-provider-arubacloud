@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"os"
 	"testing"
@@ -14,6 +15,15 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 )
 
+// testAccKaasK8sVersion returns the Kubernetes version for acceptance tests.
+// Falls back to ARUBACLOUD_KAAS_K8S_VERSION; uses "1.33.2" when unset.
+func testAccKaasK8sVersion() string {
+	if v := os.Getenv("ARUBACLOUD_KAAS_K8S_VERSION"); v != "" {
+		return v
+	}
+	return "1.33.2"
+}
+
 func TestAccKaasResource(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
 	location := os.Getenv("ARUBACLOUD_LOCATION")
@@ -22,6 +32,10 @@ func TestAccKaasResource(t *testing.T) {
 	if projectID == "" || location == "" || zone == "" || nodeInstance == "" {
 		t.Skip("ARUBACLOUD_PROJECT_ID, ARUBACLOUD_LOCATION, ARUBACLOUD_ZONE, and ARUBACLOUD_KAAS_NODE_INSTANCE must be set for acceptance tests")
 	}
+	var sfxBytes [3]byte
+	rand.Read(sfxBytes[:]) //nolint:errcheck
+	sfx := fmt.Sprintf("%x", sfxBytes)
+	k8sVersion := testAccKaasK8sVersion()
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -29,7 +43,7 @@ func TestAccKaasResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccKaasResourceConfig(projectID, location, zone, nodeInstance, "test-kaas"),
+				Config: testAccKaasResourceConfig(projectID, location, zone, nodeInstance, k8sVersion, sfx, "test-kaas"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_kaas.test",
@@ -58,7 +72,7 @@ func TestAccKaasResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccKaasResourceConfig(projectID, location, zone, nodeInstance, "test-kaas-updated"),
+				Config: testAccKaasResourceConfig(projectID, location, zone, nodeInstance, k8sVersion, sfx, "test-kaas-updated"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_kaas.test",
@@ -95,31 +109,28 @@ func testCheckKaasDestroyed(s *terraform.State) error {
 	return nil
 }
 
-func testAccKaasResourceConfig(projectID, location, zone, nodeInstance, name string) string {
+// testAccKaasResourceConfig builds the HCL for the KaaS resource acceptance test.
+// sfx is a random suffix appended to resource names to prevent same-name conflicts
+// on repeated runs. KaaS creates its own security group (security_group_name); do
+// NOT pre-create one with the same name or the API will reject the request.
+func testAccKaasResourceConfig(projectID, location, zone, nodeInstance, k8sVersion, sfx, name string) string {
 	return fmt.Sprintf(`
 resource "arubacloud_vpc" "kaas_prereq" {
-  name       = "test-kaas-vpc"
+  name       = "test-kaas-vpc-%[6]s"
   location   = %[2]q
   project_id = %[1]q
 }
 
 resource "arubacloud_subnet" "kaas_prereq" {
-  name       = "test-kaas-subnet"
+  name       = "test-kaas-subnet-%[6]s"
   location   = %[2]q
   project_id = %[1]q
   vpc_id     = arubacloud_vpc.kaas_prereq.id
   type       = "Basic"
 }
 
-resource "arubacloud_securitygroup" "kaas_prereq" {
-  name       = "test-kaas-sg"
-  location   = %[2]q
-  project_id = %[1]q
-  vpc_id     = arubacloud_vpc.kaas_prereq.id
-}
-
 resource "arubacloud_kaas" "test" {
-  name           = %[5]q
+  name           = %[7]q
   location       = %[2]q
   project_id     = %[1]q
   billing_period = "Hour"
@@ -127,15 +138,15 @@ resource "arubacloud_kaas" "test" {
   network = {
     vpc_uri_ref         = arubacloud_vpc.kaas_prereq.uri
     subnet_uri_ref      = arubacloud_subnet.kaas_prereq.uri
-    security_group_name = arubacloud_securitygroup.kaas_prereq.name
+    security_group_name = "kaas-sg-%[6]s"
     node_cidr = {
       address = "10.0.1.0/24"
-      name    = "node-cidr"
+      name    = "node-cidr-%[6]s"
     }
   }
 
   settings = {
-    kubernetes_version = "1.28"
+    kubernetes_version = %[5]q
     ha                 = false
     node_pools = [
       {
@@ -147,5 +158,5 @@ resource "arubacloud_kaas" "test" {
     ]
   }
 }
-`, projectID, location, zone, nodeInstance, name)
+`, projectID, location, zone, nodeInstance, k8sVersion, sfx, name)
 }
