@@ -382,6 +382,17 @@ func (r *BlockStorageResource) Delete(ctx context.Context, req resource.DeleteRe
 
 	ref := blockStorageRef(&data)
 	volumeID := data.Id.ValueString()
+	projectID := data.ProjectID.ValueString()
+	timeout := effectiveTimeout(data.Timeout, r.client.ResourceTimeout)
+
+	// ArubaCloud API bug: a snapshot whose source volume is deleted first
+	// becomes permanently undeletable. To avoid this, list all snapshots in the
+	// project and delete any that reference this volume before touching the
+	// volume itself.
+	if err := r.deleteAssociatedSnapshots(ctx, projectID, volumeID, data.Uri.ValueString(), timeout); err != nil {
+		resp.Diagnostics.AddError("Error deleting Snapshots before BlockStorage", err.Error())
+		return
+	}
 
 	deletionChecker := func(ctx context.Context) (bool, error) {
 		_, getErr := r.client.Client.FromStorage().Volumes().Get(ctx, ref)
@@ -398,16 +409,83 @@ func (r *BlockStorageResource) Delete(ctx context.Context, req resource.DeleteRe
 	err := DeleteResourceWithRetry(ctx, func() error {
 		return CheckResponseErrAsError("delete", "BlockStorage",
 			r.client.Client.FromStorage().Volumes().Delete(ctx, ref))
-	}, "BlockStorage", volumeID, effectiveTimeout(data.Timeout, r.client.ResourceTimeout), deletionChecker)
+	}, "BlockStorage", volumeID, timeout, deletionChecker)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting BlockStorage", err.Error())
 		return
 	}
-	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "BlockStorage", volumeID, remainingTimeout(deleteStart, effectiveTimeout(data.Timeout, r.client.ResourceTimeout))); waitErr != nil {
+	if waitErr := WaitForResourceDeleted(ctx, deletionChecker, "BlockStorage", volumeID, remainingTimeout(deleteStart, timeout)); waitErr != nil {
 		resp.Diagnostics.AddError("Error waiting for BlockStorage deletion", waitErr.Error())
 		return
 	}
 	tflog.Trace(ctx, "deleted a Block Storage resource", map[string]interface{}{"volume_id": volumeID})
+}
+
+// deleteAssociatedSnapshots lists all snapshots for the project and removes any
+// that were taken from this volume. This works around an ArubaCloud API bug where
+// a snapshot becomes permanently undeletable once its source volume is destroyed.
+func (r *BlockStorageResource) deleteAssociatedSnapshots(ctx context.Context, projectID, volumeID, volumeURI string, timeout time.Duration) error {
+	projectRef := aruba.URI("/projects/" + projectID)
+	snapList, listErr := r.client.Client.FromStorage().Snapshots().List(ctx, projectRef)
+	if listErr != nil {
+		// Non-fatal: log and continue so the volume delete can still proceed.
+		tflog.Warn(ctx, fmt.Sprintf(
+			"could not list snapshots before deleting volume %s — proceeding without pre-deletion: %v",
+			volumeID, listErr))
+		return nil
+	}
+
+	// Canonical volume URI path used as the fallback match key.
+	canonicalVolumeURI := "/projects/" + projectID + "/providers/Aruba.Storage/volumes/" + volumeID
+
+	var iterErr error
+	_ = snapList.All(ctx, func(snap *aruba.Snapshot) bool {
+		snapVolumeURI := snap.VolumeURI()
+		if snapVolumeURI != volumeURI && snapVolumeURI != canonicalVolumeURI {
+			return true // continue iteration
+		}
+
+		snapID := snap.ID()
+		snapURI := snap.URI()
+		var snapRef aruba.Ref
+		if snapURI != "" {
+			snapRef = aruba.URI(snapURI)
+		} else {
+			snapRef = aruba.URI("/projects/" + projectID + "/providers/Aruba.Storage/snapshots/" + snapID)
+		}
+
+		tflog.Info(ctx, "deleting snapshot before source volume to avoid API bug",
+			map[string]interface{}{"snapshot_id": snapID, "volume_id": volumeID})
+
+		snapDeletionChecker := func(ctx context.Context) (bool, error) {
+			_, getErr := r.client.Client.FromStorage().Snapshots().Get(ctx, snapRef)
+			if provErr := CheckResponseErr("get", "Snapshot", getErr); provErr != nil {
+				if IsNotFound(provErr) {
+					return true, nil
+				}
+				return false, provErr
+			}
+			return false, nil
+		}
+
+		deleteStart := time.Now()
+		if delErr := DeleteResourceWithRetry(ctx, func() error {
+			return CheckResponseErrAsError("delete", "Snapshot",
+				r.client.Client.FromStorage().Snapshots().Delete(ctx, snapRef))
+		}, "Snapshot", snapID, timeout, snapDeletionChecker); delErr != nil {
+			iterErr = fmt.Errorf("failed to delete snapshot %s before volume %s: %w", snapID, volumeID, delErr)
+			return false // stop iteration
+		}
+		if waitErr := WaitForResourceDeleted(ctx, snapDeletionChecker, "Snapshot", snapID, remainingTimeout(deleteStart, timeout)); waitErr != nil {
+			iterErr = fmt.Errorf("timed out waiting for snapshot %s deletion before volume %s: %w", snapID, volumeID, waitErr)
+			return false // stop iteration
+		}
+
+		tflog.Info(ctx, "deleted snapshot before source volume",
+			map[string]interface{}{"snapshot_id": snapID, "volume_id": volumeID})
+		return true // continue iteration
+	})
+	return iterErr
 }
 
 func (r *BlockStorageResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
