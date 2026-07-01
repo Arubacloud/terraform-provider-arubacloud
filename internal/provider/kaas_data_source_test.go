@@ -13,8 +13,10 @@ import (
 
 func TestAccKaasDataSource(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
-	if projectID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
+	zone := os.Getenv("ARUBACLOUD_ZONE")
+	nodeInstance := os.Getenv("ARUBACLOUD_KAAS_NODE_INSTANCE")
+	if projectID == "" || zone == "" || nodeInstance == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID, ARUBACLOUD_ZONE, and ARUBACLOUD_KAAS_NODE_INSTANCE must be set for acceptance tests")
 	}
 
 	resource.Test(t, resource.TestCase{
@@ -22,7 +24,7 @@ func TestAccKaasDataSource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccKaasDataSourceConfig(projectID),
+				Config: testAccKaasDataSourceConfig(projectID, zone, nodeInstance),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_kaas.test",
@@ -45,7 +47,7 @@ func TestAccKaasDataSource(t *testing.T) {
 	})
 }
 
-func testAccKaasDataSourceConfig(projectID string) string {
+func testAccKaasDataSourceConfig(projectID, zone, nodeInstance string) string {
 	return fmt.Sprintf(`
 resource "arubacloud_vpc" "test" {
   name       = "test-ds-kaas-vpc"
@@ -87,7 +89,14 @@ resource "arubacloud_kaas" "test" {
   settings = {
     kubernetes_version = "1.28"
     ha                 = false
-    node_pools         = []
+    node_pools = [
+      {
+        name     = "default"
+        nodes    = 1
+        instance = %[3]q
+        zone     = %[2]q
+      }
+    ]
   }
 }
 
@@ -95,5 +104,5 @@ data "arubacloud_kaas" "test" {
   id         = arubacloud_kaas.test.id
   project_id = %[1]q
 }
-`, projectID)
+`, projectID, zone, nodeInstance)
 }
