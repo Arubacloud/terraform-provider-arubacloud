@@ -222,27 +222,23 @@ func TestVPCPeeringRouteUpdate_RichMetadata(t *testing.T) {
 	}
 }
 
-// TestDBaaSUserUpdate_RichMetadata covers dbaasuser Update() with rich JSON.
+// TestDBaaSUserUpdate_RichMetadata verifies that dbaasuser Update() returns an
+// error because the API does not support in-place updates (all fields carry
+// RequiresReplace; Terraform will never actually call Update in practice).
 func TestDBaaSUserUpdate_RichMetadata(t *testing.T) {
 	ctx := context.Background()
 
-	dbaasUserUpdateJSON := `{"username":"test-user","status":{"state":"Active"}}`
-
-	handler := func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+	_, mockClient := newMockArubaClient(t, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(dbaasUserUpdateJSON)) //nolint:errcheck
-	}
-
-	_, mockClient := newMockArubaClient(t, handler)
+	})
 	res := NewDBaaSUserResource()
 	configureResource(ctx, t, res, mockClient)
 
 	req, resp := resourceUpdateReqFull(ctx, t, res)
 	res.Update(ctx, req, resp)
 
-	if resp.Diagnostics.HasError() {
-		t.Errorf("dbaasuser Update() error: %v", resp.Diagnostics)
+	if !resp.Diagnostics.HasError() {
+		t.Error("dbaasuser Update() should return an error because update is not supported")
 	}
 }
 
