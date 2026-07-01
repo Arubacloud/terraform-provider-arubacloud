@@ -101,7 +101,7 @@ Optional:
 
 Required:
 
-- `kind` (String) Type of the target endpoint. Accepted values: `IP`, `SecurityGroup`. (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `kind` (String) Type of the target endpoint. Accepted values: `IP`, `SecurityGroup` (case-insensitive at plan time — all variants are normalised to `IP` or `SecurityGroup`). (Immutable — changing this value forces the resource to be destroyed and re-created.)
 - `value` (String) Source (inbound) or destination (outbound) CIDR in notation like `0.0.0.0/0`, or SecurityGroup URI. (Immutable — changing this value forces the resource to be destroyed and re-created.)
 
 
