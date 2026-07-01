@@ -11,6 +11,8 @@
 #   ARUBACLOUD_PROJECT_ID      Target project
 #
 # Optional env vars (prompt if missing; tests skip gracefully when absent)
+#   ARUBACLOUD_LOCATION             TestAccElasticipResource, TestAccKeypairResource,
+#                                   TestAccKmsResource, TestAccVpcResource_DetectsDriftAfterOutOfBandDelete
 #   ARUBACLOUD_ZONE                 TestAccKaasResource, TestAccKaasDataSource
 #   ARUBACLOUD_KAAS_NODE_INSTANCE   TestAccKaasResource, TestAccKaasDataSource
 #   ARUBACLOUD_OS_IMAGE_ID          TestAccCloudserverResource, TestAccBlockStorageResource_Bootable,
@@ -92,6 +94,7 @@ fi
 # ── optional env vars ─────────────────────────────────────────────────────────
 # Ordered list of optional vars and the tests they gate.
 OPT_VAR_NAMES=(
+    ARUBACLOUD_LOCATION
     ARUBACLOUD_ZONE
     ARUBACLOUD_KAAS_NODE_INSTANCE
     ARUBACLOUD_OS_IMAGE_ID
@@ -100,6 +103,7 @@ OPT_VAR_NAMES=(
     ARUBACLOUD_VPNROUTE_ID
 )
 OPT_VAR_TESTS=(
+    "TestAccElasticipResource, TestAccKeypairResource, TestAccKmsResource, TestAccVpcResource_DetectsDriftAfterOutOfBandDelete"
     "TestAccKaasResource, TestAccKaasDataSource"
     "TestAccKaasResource, TestAccKaasDataSource"
     "TestAccCloudserverResource, TestAccBlockStorageResource_Bootable, TestAccCloudserverDataSource, TestAccSchedulejobDataSource"

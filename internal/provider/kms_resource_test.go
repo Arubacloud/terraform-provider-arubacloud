@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
@@ -14,13 +15,18 @@ import (
 )
 
 func TestAccKmsResource(t *testing.T) {
+	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
+	location := os.Getenv("ARUBACLOUD_LOCATION")
+	if projectID == "" || location == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_LOCATION must be set for acceptance tests")
+	}
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:             testCheckKmsDestroyed,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccKmsResourceConfig("test-kms"),
+				Config: testAccKmsResourceConfig(projectID, location, "test-kms"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue("arubacloud_kms.test", tfjsonpath.New("name"), knownvalue.StringExact("test-kms")),
 					statecheck.ExpectKnownValue("arubacloud_kms.test", tfjsonpath.New("id"), knownvalue.NotNull()),
@@ -34,7 +40,7 @@ func TestAccKmsResource(t *testing.T) {
 				ImportStateIdFunc: importIDFromAttrs("arubacloud_kms.test", "project_id", "id"),
 			},
 			{
-				Config: testAccKmsResourceConfig("test-kms-updated"),
+				Config: testAccKmsResourceConfig(projectID, location, "test-kms-updated"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue("arubacloud_kms.test", tfjsonpath.New("name"), knownvalue.StringExact("test-kms-updated")),
 				},
@@ -67,13 +73,13 @@ func testCheckKmsDestroyed(s *terraform.State) error {
 	return nil
 }
 
-func testAccKmsResourceConfig(name string) string {
+func testAccKmsResourceConfig(projectID, location, name string) string {
 	return fmt.Sprintf(`
 resource "arubacloud_kms" "test" {
-  name           = %[1]q
-  project_id     = "test-project-id"
-  location       = "it-1"
+  name           = %[3]q
+  project_id     = %[1]q
+  location       = %[2]q
   billing_period = "Hour"
 }
-`, name)
+`, projectID, location, name)
 }

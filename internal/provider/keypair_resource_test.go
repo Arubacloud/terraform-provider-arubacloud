@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
@@ -14,6 +15,11 @@ import (
 )
 
 func TestAccKeypairResource(t *testing.T) {
+	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
+	location := os.Getenv("ARUBACLOUD_LOCATION")
+	if projectID == "" || location == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_LOCATION must be set for acceptance tests")
+	}
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -21,7 +27,7 @@ func TestAccKeypairResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccKeypairResourceConfig("test-keypair"),
+				Config: testAccKeypairResourceConfig(projectID, location, "test-keypair"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_keypair.test",
@@ -45,7 +51,7 @@ func TestAccKeypairResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccKeypairResourceConfig("test-keypair-updated"),
+				Config: testAccKeypairResourceConfig(projectID, location, "test-keypair-updated"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_keypair.test",
@@ -82,13 +88,13 @@ func testCheckKeypairDestroyed(s *terraform.State) error {
 	return nil
 }
 
-func testAccKeypairResourceConfig(name string) string {
+func testAccKeypairResourceConfig(projectID, location, name string) string {
 	return fmt.Sprintf(`
 resource "arubacloud_keypair" "test" {
-  name       = %[1]q
-  location   = "it-1"
-  project_id = "test-project-id"
+  name       = %[3]q
+  location   = %[2]q
+  project_id = %[1]q
   value      = "ssh-rsa AAAAB3NzaC1yc2EAAAA..."
 }
-`, name)
+`, projectID, location, name)
 }

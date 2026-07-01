@@ -25,18 +25,19 @@ import (
 
 func TestAccVpcResource_DetectsDriftAfterOutOfBandDelete(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
-	if projectID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID must be set for drift tests")
+	location := os.Getenv("ARUBACLOUD_LOCATION")
+	if projectID == "" || location == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_LOCATION must be set for drift tests")
 	}
 
 	var capturedID string
 	cfg := fmt.Sprintf(`
 resource "arubacloud_vpc" "drift" {
   name       = "tf-drift-vpc"
-  location   = "it-1"
+  location   = %q
   project_id = %q
 }
-`, projectID)
+`, location, projectID)
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },

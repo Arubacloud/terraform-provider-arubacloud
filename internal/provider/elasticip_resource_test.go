@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
@@ -14,6 +15,11 @@ import (
 )
 
 func TestAccElasticipResource(t *testing.T) {
+	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
+	location := os.Getenv("ARUBACLOUD_LOCATION")
+	if projectID == "" || location == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_LOCATION must be set for acceptance tests")
+	}
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -21,7 +27,7 @@ func TestAccElasticipResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccElasticipResourceConfig("test-elasticip"),
+				Config: testAccElasticipResourceConfig(projectID, location, "test-elasticip"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_elasticip.test",
@@ -49,7 +55,7 @@ func TestAccElasticipResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccElasticipResourceConfig("test-elasticip-updated"),
+				Config: testAccElasticipResourceConfig(projectID, location, "test-elasticip-updated"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_elasticip.test",
@@ -86,12 +92,12 @@ func testCheckElasticipDestroyed(s *terraform.State) error {
 	return nil
 }
 
-func testAccElasticipResourceConfig(name string) string {
+func testAccElasticipResourceConfig(projectID, location, name string) string {
 	return fmt.Sprintf(`
 resource "arubacloud_elasticip" "test" {
-  name       = %[1]q
-  location   = "it-1"
-  project_id = "test-project-id"
+  name       = %[3]q
+  location   = %[2]q
+  project_id = %[1]q
 }
-`, name)
+`, projectID, location, name)
 }
