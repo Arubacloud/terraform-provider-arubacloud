@@ -589,6 +589,11 @@ func (r *ScheduleJobResource) Delete(ctx context.Context, req resource.DeleteReq
 	ref := jobRef(&data)
 	jobID := data.Id.ValueString()
 
+	// failedAfterDelete records whether the job was observed in a terminal
+	// failure state during the post-delete poll.  Captured inside the checker
+	// closure so the outer Delete function can emit an operator-visible warning.
+	var failedAfterDelete bool
+
 	deletionChecker := func(ctx context.Context) (bool, error) {
 		job, getErr := r.client.Client.FromSchedule().Jobs().Get(ctx, ref)
 		if provErr := CheckResponseErr("get", "ScheduleJob", getErr); provErr != nil {
@@ -597,9 +602,12 @@ func (r *ScheduleJobResource) Delete(ctx context.Context, req resource.DeleteReq
 			}
 			return false, provErr
 		}
+		// The API may acknowledge DELETE without transitioning the resource to
+		// 404 when the job is already in a terminal failure state.  Treat this
+		// as "gone" so we do not block indefinitely, but surface a warning so
+		// operators can verify the resource was actually removed from the project.
 		if job != nil && isFailedState(string(job.State())) {
-			tflog.Info(ctx, "ScheduleJob is in terminal failure state after delete; treating as deleted",
-				map[string]interface{}{"job_id": jobID})
+			failedAfterDelete = true
 			return true, nil
 		}
 		return false, nil
@@ -626,6 +634,16 @@ func (r *ScheduleJobResource) Delete(ctx context.Context, req resource.DeleteReq
 			resp.Diagnostics.AddError("Error waiting for ScheduleJob deletion", waitErr.Error())
 			return
 		}
+	}
+
+	if failedAfterDelete {
+		resp.Diagnostics.AddWarning(
+			"ScheduleJob Left in Failed State",
+			fmt.Sprintf("ScheduleJob %q was in a terminal failure state when the delete poll completed. "+
+				"The DELETE request was sent, but the API did not confirm removal via 404. "+
+				"Verify in the ArubaCloud console that the resource has been removed from the project — "+
+				"a stuck Failed resource may block project deletion.", jobID),
+		)
 	}
 
 	tflog.Trace(ctx, "deleted a Schedule Job resource", map[string]interface{}{"job_id": jobID})
