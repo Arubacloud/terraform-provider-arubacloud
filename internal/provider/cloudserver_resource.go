@@ -582,6 +582,21 @@ func (r *CloudServerResource) Update(ctx context.Context, req resource.UpdateReq
 		server.RetaggedAs(server.Tags()...)
 	}
 
+	// Security groups are not returned by the API on Get, so the server object
+	// would send securityGroup=null in the update payload without this call.
+	if !planNetworkModel.SecurityGroupUriRefs.IsNull() && !planNetworkModel.SecurityGroupUriRefs.IsUnknown() {
+		var sgURIs []string
+		resp.Diagnostics.Append(planNetworkModel.SecurityGroupUriRefs.ElementsAs(ctx, &sgURIs, false)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		sgRefs := make([]aruba.Ref, len(sgURIs))
+		for i, u := range sgURIs {
+			sgRefs[i] = aruba.URI(u)
+		}
+		server.WithSecurityGroups(sgRefs...)
+	}
+
 	updated, err := r.client.Client.FromCompute().CloudServers().Update(ctx, server)
 	if provErr := CheckResponseErr("update", "CloudServer", err); provErr != nil {
 		resp.Diagnostics.AddError("API Error", provErr.Error())
