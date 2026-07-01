@@ -87,7 +87,7 @@ resource "arubacloud_dbaasuser" "test" {
   project_id = %[1]q
   dbaas_id   = %[2]q
   username   = %[3]q
-  password   = "Acc3ptAbl3P@ss#01"
+  password   = "TestAcc0untP4ss!"
 }
 `, projectID, dbaasID, username)
 }

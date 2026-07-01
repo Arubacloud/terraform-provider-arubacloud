@@ -27,12 +27,12 @@ func TestAccDatabaseResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccDatabaseResourceConfig(projectID, dbaasID, "test-database"),
+				Config: testAccDatabaseResourceConfig(projectID, dbaasID, "testdatabase"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_database.test",
 						tfjsonpath.New("name"),
-						knownvalue.StringExact("test-database"),
+						knownvalue.StringExact("testdatabase"),
 					),
 					statecheck.ExpectKnownValue(
 						"arubacloud_database.test",
@@ -55,12 +55,12 @@ func TestAccDatabaseResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccDatabaseResourceConfig(projectID, dbaasID, "test-database-updated"),
+				Config: testAccDatabaseResourceConfig(projectID, dbaasID, "testdatabaseupd"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_database.test",
 						tfjsonpath.New("name"),
-						knownvalue.StringExact("test-database-updated"),
+						knownvalue.StringExact("testdatabaseupd"),
 					),
 				},
 			},

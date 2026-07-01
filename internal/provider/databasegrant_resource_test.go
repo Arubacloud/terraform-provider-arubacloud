@@ -98,7 +98,7 @@ resource "arubacloud_dbaasuser" "dbgrant_prereq" {
   project_id = %[1]q
   dbaas_id   = %[2]q
   username   = "testaccgrantuser"
-  password   = "Acc3ptAbl3P@ss#01"
+  password   = "TestAcc0untP4ss!"
 }
 
 resource "arubacloud_database" "dbgrant_prereq" {
