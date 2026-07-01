@@ -42,6 +42,39 @@ func (m protocolNormalizePlanModifier) PlanModifyString(ctx context.Context, req
 	}
 }
 
+// targetKindNormalizePlanModifier normalizes target.kind values at plan time so
+// that user-written "Ip", "ip", "IP" all plan as "IP" and "SecurityGroup",
+// "securitygroup" etc. plan as "SecurityGroup".  The state value is preserved
+// when it is already canonical-equivalent to avoid spurious RequiresReplace
+// diffs for resources created before this modifier was introduced.
+type targetKindNormalizePlanModifier struct{}
+
+func (m targetKindNormalizePlanModifier) Description(_ context.Context) string {
+	return "Normalizes target.kind values (Ip/ip/IP → IP; SecurityGroup variants → SecurityGroup)"
+}
+
+func (m targetKindNormalizePlanModifier) MarkdownDescription(ctx context.Context) string {
+	return m.Description(ctx)
+}
+
+func (m targetKindNormalizePlanModifier) PlanModifyString(_ context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+	if req.PlanValue.IsNull() || req.PlanValue.IsUnknown() {
+		if !req.StateValue.IsNull() && !req.StateValue.IsUnknown() {
+			resp.PlanValue = req.StateValue
+		}
+		return
+	}
+	normalized := normalizeTargetKind(req.PlanValue.ValueString())
+	// If the existing state is already equivalent (case-insensitive), keep the
+	// state value as the plan value so no diff is generated for old state.
+	if !req.StateValue.IsNull() && !req.StateValue.IsUnknown() &&
+		strings.EqualFold(req.StateValue.ValueString(), normalized) {
+		resp.PlanValue = req.StateValue
+		return
+	}
+	resp.PlanValue = types.StringValue(normalized)
+}
+
 // normalizeProtocol normalizes protocol strings to the canonical API form.
 func normalizeProtocol(p string) string {
 	switch strings.ToLower(p) {
@@ -196,9 +229,10 @@ func (r *SecurityRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 						Required:            true,
 						Attributes: map[string]schema.Attribute{
 							"kind": schema.StringAttribute{
-								MarkdownDescription: "Type of the target endpoint. Accepted values: `IP`, `SecurityGroup`. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
+								MarkdownDescription: "Type of the target endpoint. Accepted values: `IP`, `SecurityGroup` (case-insensitive at plan time — all variants are normalised to `IP` or `SecurityGroup`). (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 								Required:            true,
 								PlanModifiers: []planmodifier.String{
+									targetKindNormalizePlanModifier{},
 									stringplanmodifier.RequiresReplace(),
 								},
 							},
@@ -576,13 +610,28 @@ func (r *SecurityRuleResource) Delete(ctx context.Context, req resource.DeleteRe
 }
 
 func (r *SecurityRuleResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	parts, err := parseImportID(req.ID, "<project_id>/<vpc_id>/<sg_id>/<rule_id>", "proj-abc/vpc-xyz/sg-xyz/rule-xyz", 4)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid Import ID", err.Error())
+	// Accept "<project_id>/<vpc_id>/<sg_id>/<rule_id>" or the 5-segment form
+	// "<project_id>/<vpc_id>/<sg_id>/<rule_id>/<location>".  Location must be
+	// supplied when the operator needs location in state after import (the API
+	// does not return it in the GET response).
+	rawParts := strings.Split(req.ID, "/")
+	if len(rawParts) < 4 || len(rawParts) > 5 {
+		resp.Diagnostics.AddError("Invalid Import ID",
+			fmt.Sprintf(
+				"expected %q (e.g. %q) or %q (e.g. %q), got %q",
+				"<project_id>/<vpc_id>/<sg_id>/<rule_id>",
+				"proj-abc/vpc-xyz/sg-xyz/rule-xyz",
+				"<project_id>/<vpc_id>/<sg_id>/<rule_id>/<location>",
+				"proj-abc/vpc-xyz/sg-xyz/rule-xyz/ITBG-Bergamo",
+				req.ID,
+			))
 		return
 	}
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("project_id"), parts[0])...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("vpc_id"), parts[1])...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("security_group_id"), parts[2])...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), parts[3])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("project_id"), rawParts[0])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("vpc_id"), rawParts[1])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("security_group_id"), rawParts[2])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), rawParts[3])...)
+	if len(rawParts) == 5 && rawParts[4] != "" {
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("location"), rawParts[4])...)
+	}
 }
