@@ -19,62 +19,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-// protocolNormalizePlanModifier normalizes protocol values during planning
-// to prevent case-sensitivity issues.
-type protocolNormalizePlanModifier struct{}
-
-func (m protocolNormalizePlanModifier) Description(ctx context.Context) string {
-	return "Normalizes protocol values to prevent case-sensitivity issues"
-}
-
-func (m protocolNormalizePlanModifier) MarkdownDescription(ctx context.Context) string {
-	return "Normalizes protocol values to prevent case-sensitivity issues"
-}
-
-func (m protocolNormalizePlanModifier) PlanModifyString(ctx context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
-	if !req.PlanValue.IsNull() && !req.PlanValue.IsUnknown() {
-		resp.PlanValue = types.StringValue(strings.ToUpper(req.PlanValue.ValueString()))
-		return
-	}
-	if !req.StateValue.IsNull() && !req.StateValue.IsUnknown() {
-		resp.PlanValue = req.StateValue
-		return
-	}
-}
-
-// targetKindNormalizePlanModifier normalizes target.kind values at plan time so
-// that user-written "Ip", "ip", "IP" all plan as "IP" and "SecurityGroup",
-// "securitygroup" etc. plan as "SecurityGroup".  The state value is preserved
-// when it is already canonical-equivalent to avoid spurious RequiresReplace
-// diffs for resources created before this modifier was introduced.
-type targetKindNormalizePlanModifier struct{}
-
-func (m targetKindNormalizePlanModifier) Description(_ context.Context) string {
-	return "Normalizes target.kind values (Ip/ip/IP → IP; SecurityGroup variants → SecurityGroup)"
-}
-
-func (m targetKindNormalizePlanModifier) MarkdownDescription(ctx context.Context) string {
-	return m.Description(ctx)
-}
-
-func (m targetKindNormalizePlanModifier) PlanModifyString(_ context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
-	if req.PlanValue.IsNull() || req.PlanValue.IsUnknown() {
-		if !req.StateValue.IsNull() && !req.StateValue.IsUnknown() {
-			resp.PlanValue = req.StateValue
-		}
-		return
-	}
-	normalized := normalizeTargetKind(req.PlanValue.ValueString())
-	// If the existing state is already equivalent (case-insensitive), keep the
-	// state value as the plan value so no diff is generated for old state.
-	if !req.StateValue.IsNull() && !req.StateValue.IsUnknown() &&
-		strings.EqualFold(req.StateValue.ValueString(), normalized) {
-		resp.PlanValue = req.StateValue
-		return
-	}
-	resp.PlanValue = types.StringValue(normalized)
-}
-
 // normalizeProtocol normalizes protocol strings to the canonical API form.
 func normalizeProtocol(p string) string {
 	switch strings.ToLower(p) {
@@ -210,10 +154,9 @@ func (r *SecurityRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 						},
 					},
 					"protocol": schema.StringAttribute{
-						MarkdownDescription: "IP protocol. Accepted values: `TCP`, `UDP`, `ICMP`, `ANY` (case-insensitive). (Immutable — changing this value forces the resource to be destroyed and re-created.)",
+						MarkdownDescription: "IP protocol. Accepted values: `TCP`, `UDP`, `ICMP`, `ANY` (case-insensitive — the value is normalised before sending to the API). (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 						Required:            true,
 						PlanModifiers: []planmodifier.String{
-							protocolNormalizePlanModifier{},
 							stringplanmodifier.RequiresReplace(),
 						},
 					},
@@ -229,10 +172,9 @@ func (r *SecurityRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 						Required:            true,
 						Attributes: map[string]schema.Attribute{
 							"kind": schema.StringAttribute{
-								MarkdownDescription: "Type of the target endpoint. Accepted values: `IP`, `SecurityGroup` (case-insensitive at plan time — all variants are normalised to `IP` or `SecurityGroup`). (Immutable — changing this value forces the resource to be destroyed and re-created.)",
+								MarkdownDescription: "Type of the target endpoint. Accepted values: `IP`, `SecurityGroup` (case-insensitive — the value is normalised before sending to the API). (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 								Required:            true,
 								PlanModifiers: []planmodifier.String{
-									targetKindNormalizePlanModifier{},
 									stringplanmodifier.RequiresReplace(),
 								},
 							},
