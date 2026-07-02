@@ -89,7 +89,7 @@ In addition to all arguments above, the following attributes are exported:
 Required:
 
 - `direction` (String) Traffic direction the rule applies to. Accepted values: `Ingress`, `Egress`. (Immutable — changing this value forces the resource to be destroyed and re-created.)
-- `protocol` (String) IP protocol. Accepted values: `TCP`, `UDP`, `ICMP`, `ANY` (case-insensitive). (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `protocol` (String) IP protocol. Accepted values: `TCP`, `UDP`, `ICMP`, `ANY` (case-insensitive — the value is normalised before sending to the API). (Immutable — changing this value forces the resource to be destroyed and re-created.)
 - `target` (Attributes) Source (inbound) or destination (outbound) endpoint for this rule. (Immutable — changing this value forces the resource to be destroyed and re-created.) (see [below for nested schema](#nestedatt--properties--target))
 
 Optional:
@@ -101,7 +101,7 @@ Optional:
 
 Required:
 
-- `kind` (String) Type of the target endpoint. Accepted values: `IP`, `SecurityGroup` (case-insensitive at plan time — all variants are normalised to `IP` or `SecurityGroup`). (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `kind` (String) Type of the target endpoint. Accepted values: `IP`, `SecurityGroup` (case-insensitive — the value is normalised before sending to the API). (Immutable — changing this value forces the resource to be destroyed and re-created.)
 - `value` (String) Source (inbound) or destination (outbound) CIDR in notation like `0.0.0.0/0`, or SecurityGroup URI. (Immutable — changing this value forces the resource to be destroyed and re-created.)
 
 

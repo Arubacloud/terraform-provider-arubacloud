@@ -15,4 +15,3 @@ func TestPtrToString(t *testing.T) {
 		t.Errorf("ptrToString(nil): got %q, want %q", got, "")
 	}
 }
-

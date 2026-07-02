@@ -59,7 +59,6 @@ func TestNormalizeTargetKind(t *testing.T) {
 	}
 }
 
-
 func TestAccSecurityruleResource(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
 	if projectID == "" {
