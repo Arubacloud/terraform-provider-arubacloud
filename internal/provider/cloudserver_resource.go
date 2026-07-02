@@ -575,6 +575,25 @@ func (r *CloudServerResource) Update(ctx context.Context, req resource.UpdateReq
 		return
 	}
 
+	// The API returns "BootVolume in use" for any update to a running server.
+	// Power off first, apply the update, then power back on.
+	serverWasPoweredOn := false
+	if st := string(server.State()); st != "Stopped" && st != "Stopping" {
+		tflog.Info(ctx, "powering off CloudServer before update", map[string]interface{}{
+			"server_id": state.Id.ValueString(),
+			"state":     st,
+		})
+		if offErr := server.PowerOff(ctx); offErr != nil {
+			resp.Diagnostics.AddError("Error powering off CloudServer", offErr.Error())
+			return
+		}
+		if waitErr := server.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
+			ReportWaitResult(&resp.Diagnostics, waitErr, "CloudServer", state.Id.ValueString())
+			return
+		}
+		serverWasPoweredOn = true
+	}
+
 	server.Named(data.Name.ValueString())
 	if tags != nil {
 		server.RetaggedAs(tags...)
@@ -620,6 +639,21 @@ func (r *CloudServerResource) Update(ctx context.Context, req resource.UpdateReq
 	if waitErr := updated.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "CloudServer", state.Id.ValueString())
 		return
+	}
+
+	// Restore running state if we stopped the server for the update.
+	if serverWasPoweredOn {
+		tflog.Info(ctx, "powering on CloudServer after update", map[string]interface{}{
+			"server_id": state.Id.ValueString(),
+		})
+		if onErr := updated.PowerOn(ctx); onErr != nil {
+			resp.Diagnostics.AddError("Error powering on CloudServer after update", onErr.Error())
+			return
+		}
+		if waitErr := updated.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
+			ReportWaitResult(&resp.Diagnostics, waitErr, "CloudServer", state.Id.ValueString())
+			return
+		}
 	}
 
 	if n := updated.Name(); n != "" {
