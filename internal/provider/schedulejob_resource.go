@@ -493,6 +493,12 @@ func (r *ScheduleJobResource) Read(ctx context.Context, req resource.ReadRequest
 
 	st := string(job.State())
 	switch {
+	case st == "Deleted":
+		// API bug workaround: the backend returns HTTP 200 with state=Deleted instead
+		// of 404 for jobs that have been deleted. Treat as gone so Read does not
+		// leave a stale entry in state.
+		resp.State.RemoveResource(ctx)
+		return
 	case isFailedState(st):
 		resp.Diagnostics.AddWarning("Resource in Failed State",
 			fmt.Sprintf("ScheduleJob %q is in a terminal failure state (%s). "+
@@ -602,13 +608,21 @@ func (r *ScheduleJobResource) Delete(ctx context.Context, req resource.DeleteReq
 			}
 			return false, provErr
 		}
-		// The API may acknowledge DELETE without transitioning the resource to
-		// 404 when the job is already in a terminal failure state.  Treat this
-		// as "gone" so we do not block indefinitely, but surface a warning so
-		// operators can verify the resource was actually removed from the project.
-		if job != nil && isFailedState(string(job.State())) {
-			failedAfterDelete = true
-			return true, nil
+		if job != nil {
+			st := string(job.State())
+			// API bug workaround: the backend returns HTTP 200 with state=Deleted
+			// instead of 404 for jobs that have been deleted. Treat as gone.
+			// Also treat Deleting as terminal to avoid infinite polling when the
+			// API acknowledges DELETE but never transitions to 404.
+			if st == "Deleted" || st == "Deleting" {
+				return true, nil
+			}
+			// If the job is in a terminal failure state after delete, surface a
+			// warning so operators can verify the resource was actually removed.
+			if isFailedState(st) {
+				failedAfterDelete = true
+				return true, nil
+			}
 		}
 		return false, nil
 	}
