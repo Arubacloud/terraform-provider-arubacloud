@@ -57,7 +57,7 @@ func TestAccKaasResource(t *testing.T) {
 					),
 					statecheck.ExpectKnownValue(
 						"arubacloud_kaas.test",
-						tfjsonpath.New("zone"),
+						tfjsonpath.New("settings").AtMapKey("node_pools").AtSliceIndex(0).AtMapKey("zone"),
 						knownvalue.NotNull(),
 					),
 				},
