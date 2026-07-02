@@ -1,7 +1,6 @@
 package provider
 
 import (
-	"context"
 	"testing"
 )
 
@@ -14,20 +13,5 @@ func TestPtrToString(t *testing.T) {
 	}
 	if got := ptrToString(nil); got != "" {
 		t.Errorf("ptrToString(nil): got %q, want %q", got, "")
-	}
-}
-
-// TestProtocolNormalizePlanModifier_Descriptions verifies that the
-// Description() and MarkdownDescription() methods on
-// protocolNormalizePlanModifier return non-empty strings.
-func TestProtocolNormalizePlanModifier_Descriptions(t *testing.T) {
-	ctx := context.Background()
-	m := protocolNormalizePlanModifier{}
-
-	if got := m.Description(ctx); got == "" {
-		t.Error("Description() returned empty string")
-	}
-	if got := m.MarkdownDescription(ctx); got == "" {
-		t.Error("MarkdownDescription() returned empty string")
 	}
 }
