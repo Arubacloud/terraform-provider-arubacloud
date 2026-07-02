@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -106,8 +107,11 @@ func (r *BackupResource) Schema(ctx context.Context, req resource.SchemaRequest,
 				},
 			},
 			"retention_days": schema.Int64Attribute{
-				MarkdownDescription: "Number of days to retain the backup before automatic deletion. Optional — if omitted, the backup is retained indefinitely.",
+				MarkdownDescription: "Number of days to retain the backup before automatic deletion. Optional — if omitted, the backup is retained indefinitely. (Immutable — changing this value forces the resource to be destroyed and re-created, because the API does not apply retention_days changes in update requests.)",
 				Optional:            true,
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.RequiresReplace(),
+				},
 			},
 			"billing_period": schema.StringAttribute{
 				MarkdownDescription: "Billing cycle. Accepted values: `Hour`, `Month`, `Year`.",
@@ -356,7 +360,7 @@ func (r *BackupResource) Update(ctx context.Context, req resource.UpdateRequest,
 		return
 	}
 
-	// Preserve truly immutable fields from state.
+	// Preserve immutable fields from state.
 	data.Id = state.Id
 	data.ProjectID = state.ProjectID
 	data.Uri = state.Uri
@@ -364,7 +368,7 @@ func (r *BackupResource) Update(ctx context.Context, req resource.UpdateRequest,
 	data.Type = state.Type
 	data.BillingPeriod = state.BillingPeriod
 	data.Location = state.Location
-	// retention_days is mutable: keep the plan value (already in data).
+	data.RetentionDays = state.RetentionDays
 	data.Name = types.StringValue(updated.Name())
 	data.Tags = TagsToListPreserveNull(updated.Tags(), data.Tags)
 
