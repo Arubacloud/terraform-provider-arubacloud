@@ -195,6 +195,10 @@ func (r *VPCResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	case isFailedState(st):
 		resp.Diagnostics.AddWarning("Resource in Failed State",
 			fmt.Sprintf("VPC %q is in a terminal failure state (%s).", data.Id.ValueString(), st))
+	case st == "Deleting":
+		// VPC was deleted outside of Terraform; remove from state so drift is detected.
+		resp.State.RemoveResource(ctx)
+		return
 	case IsCreatingState(st):
 		if waitErr := vpc.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
 			ReportWaitResult(&resp.Diagnostics, waitErr, "VPC", data.Id.ValueString())
