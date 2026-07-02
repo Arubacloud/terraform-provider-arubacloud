@@ -2,109 +2,35 @@ package provider
 
 import (
 	"context"
-	"fmt"
-	"os"
+	"net/http"
 	"testing"
-
-	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
-	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
-	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
-	"github.com/hashicorp/terraform-plugin-testing/statecheck"
-	"github.com/hashicorp/terraform-plugin-testing/terraform"
-	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 )
 
-func TestAccSecuritygroupResource(t *testing.T) {
-	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
-	if projectID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
-	}
-	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { testAccPreCheck(t) },
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:             testCheckSecuritygroupDestroyed,
-		Steps: []resource.TestStep{
-			// Create and Read testing
-			{
-				Config: testAccSecuritygroupResourceConfig(projectID, "test-securitygroup"),
-				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownValue(
-						"arubacloud_securitygroup.test",
-						tfjsonpath.New("name"),
-						knownvalue.StringExact("test-securitygroup"),
-					),
-					statecheck.ExpectKnownValue(
-						"arubacloud_securitygroup.test",
-						tfjsonpath.New("id"),
-						knownvalue.NotNull(),
-					),
-					statecheck.ExpectKnownValue(
-						"arubacloud_securitygroup.test",
-						tfjsonpath.New("vpc_id"),
-						knownvalue.NotNull(),
-					),
-				},
-			},
-			// ImportState testing
-			{
-				ResourceName:      "arubacloud_securitygroup.test",
-				ImportState:       true,
-				ImportStateVerify: true,
-				ImportStateIdFunc: importIDFromAttrs("arubacloud_securitygroup.test", "project_id", "vpc_id", "id"),
-			},
-			// Update and Read testing
-			{
-				Config: testAccSecuritygroupResourceConfig(projectID, "test-securitygroup-updated"),
-				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownValue(
-						"arubacloud_securitygroup.test",
-						tfjsonpath.New("name"),
-						knownvalue.StringExact("test-securitygroup-updated"),
-					),
-				},
-			},
-		},
-	})
-}
-
-func testCheckSecuritygroupDestroyed(s *terraform.State) error {
-	client, err := testAccClient()
-	if err != nil {
-		return err
-	}
+// TestSecurityGroupRead_WithProperties covers securitygroup Read() with a
+// response that includes a properties block.
+func TestSecurityGroupRead_WithProperties(t *testing.T) {
 	ctx := context.Background()
-	for _, rs := range s.RootModule().Resources {
-		if rs.Type != "arubacloud_securitygroup" {
-			continue
+
+	sgJSON := `{"metadata":{"id":"test-id","name":"test-name"},"status":{"state":"Active"},"properties":{"description":"test-sg","rulesCount":2}}`
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(sgJSON)) //nolint:errcheck
+			return
 		}
-		projectID := rs.Primary.Attributes["project_id"]
-		vpcID := rs.Primary.Attributes["vpc_id"]
-		ref := aruba.SecurityGroupRef(projectID, vpcID, rs.Primary.ID)
-		_, err = client.Client.FromNetwork().SecurityGroups().Get(ctx, ref)
-		if provErr := CheckResponseErr("get", "Securitygroup", err); provErr != nil {
-			if IsNotFound(provErr) {
-				continue
-			}
-			return provErr
-		}
-		return fmt.Errorf("SecurityGroup %s still exists", rs.Primary.ID)
+		apiError(w, http.StatusInternalServerError)
 	}
-	return nil
-}
 
-func testAccSecuritygroupResourceConfig(projectID, name string) string {
-	return fmt.Sprintf(`
-resource "arubacloud_vpc" "sg_prereq" {
-  name       = "test-acc-sg-vpc"
-  location   = "ITBG-Bergamo"
-  project_id = %[1]q
-}
+	_, mockClient := newMockArubaClient(t, handler)
 
-resource "arubacloud_securitygroup" "test" {
-  name       = %[2]q
-  location   = "ITBG-Bergamo"
-  project_id = %[1]q
-  vpc_id     = arubacloud_vpc.sg_prereq.id
-}
-`, projectID, name)
+	res := NewSecurityGroupResource()
+	configureResource(ctx, t, res, mockClient)
+
+	req, resp := resourceReadReq(ctx, t, res)
+	res.Read(ctx, req, resp)
+
+	if resp.Diagnostics.HasError() {
+		t.Errorf("SecurityGroup Read() reported error with properties: %v", resp.Diagnostics)
+	}
 }

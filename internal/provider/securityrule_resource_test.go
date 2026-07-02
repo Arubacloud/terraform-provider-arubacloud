@@ -2,16 +2,13 @@ package provider
 
 import (
 	"context"
-	"fmt"
-	"os"
+	"net/http"
 	"testing"
+	"time"
 
-	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
-	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
-	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
-	"github.com/hashicorp/terraform-plugin-testing/statecheck"
-	"github.com/hashicorp/terraform-plugin-testing/terraform"
-	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-go/tftypes"
 )
 
 func TestNormalizeProtocol(t *testing.T) {
@@ -59,121 +56,175 @@ func TestNormalizeTargetKind(t *testing.T) {
 	}
 }
 
-func TestAccSecurityruleResource(t *testing.T) {
-	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
-	if projectID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
+// buildSecurityRuleCreatePlanWithProtocol creates a CreateRequest for the
+// SecurityRuleResource where properties.protocol is set to the given value
+// and properties.port is null (omitted).  All other string attributes use the
+// "test-<name>" default from resourceCreateReq.
+//
+// This is used to exercise the port-clearing and JSON-manipulation code path
+// that runs when protocol is "Any" or "ICMP".
+func buildSecurityRuleCreatePlanWithProtocol(ctx context.Context, t *testing.T, protocol string) (resource.CreateRequest, *resource.CreateResponse) {
+	t.Helper()
+
+	r := NewSecurityRuleResource()
+	schemaResp := &resource.SchemaResponse{}
+	r.Schema(ctx, resource.SchemaRequest{}, schemaResp)
+
+	objType, ok := schemaResp.Schema.Type().TerraformType(ctx).(tftypes.Object)
+	if !ok {
+		t.Fatal("buildSecurityRuleCreatePlanWithProtocol: schema root is not an object type")
 	}
-	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { testAccPreCheck(t) },
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:             testCheckSecurityruleDestroyed,
-		Steps: []resource.TestStep{
-			// Create and Read testing
-			{
-				Config: testAccSecurityruleResourceConfig(projectID, "test-securityrule"),
-				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownValue(
-						"arubacloud_securityrule.test",
-						tfjsonpath.New("name"),
-						knownvalue.StringExact("test-securityrule"),
-					),
-					statecheck.ExpectKnownValue(
-						"arubacloud_securityrule.test",
-						tfjsonpath.New("id"),
-						knownvalue.NotNull(),
-					),
-					statecheck.ExpectKnownValue(
-						"arubacloud_securityrule.test",
-						tfjsonpath.New("vpc_id"),
-						knownvalue.NotNull(),
-					),
-					statecheck.ExpectKnownValue(
-						"arubacloud_securityrule.test",
-						tfjsonpath.New("security_group_id"),
-						knownvalue.NotNull(),
-					),
-				},
-			},
-			// ImportState testing
-			{
-				ResourceName:      "arubacloud_securityrule.test",
-				ImportState:       true,
-				ImportStateVerify: true,
-				ImportStateIdFunc: importIDFromAttrs("arubacloud_securityrule.test", "project_id", "vpc_id", "security_group_id", "id", "location"),
-			},
-			// Update and Read testing
-			{
-				Config: testAccSecurityruleResourceConfig(projectID, "test-securityrule-updated"),
-				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownValue(
-						"arubacloud_securityrule.test",
-						tfjsonpath.New("name"),
-						knownvalue.StringExact("test-securityrule-updated"),
-					),
-				},
-			},
-		},
+
+	// Get the tftypes for the nested properties and target objects.
+	propsTFType, ok := objType.AttributeTypes["properties"].(tftypes.Object)
+	if !ok {
+		t.Fatal("buildSecurityRuleCreatePlanWithProtocol: properties attribute is not an object type")
+	}
+	targetTFType, ok := propsTFType.AttributeTypes["target"].(tftypes.Object)
+	if !ok {
+		t.Fatal("buildSecurityRuleCreatePlanWithProtocol: target attribute is not an object type")
+	}
+
+	// Build target: kind = "IP", value = "0.0.0.0/0"
+	targetVal := tftypes.NewValue(targetTFType, map[string]tftypes.Value{
+		"kind":  tftypes.NewValue(tftypes.String, "IP"),
+		"value": tftypes.NewValue(tftypes.String, "0.0.0.0/0"),
 	})
-}
 
-func testCheckSecurityruleDestroyed(s *terraform.State) error {
-	client, err := testAccClient()
-	if err != nil {
-		return err
-	}
-	ctx := context.Background()
-	for _, rs := range s.RootModule().Resources {
-		if rs.Type != "arubacloud_securityrule" {
-			continue
-		}
-		projectID := rs.Primary.Attributes["project_id"]
-		vpcID := rs.Primary.Attributes["vpc_id"]
-		sgID := rs.Primary.Attributes["security_group_id"]
-		ref := aruba.SecurityRuleRef(projectID, vpcID, sgID, rs.Primary.ID)
-		_, err = client.Client.FromNetwork().SecurityGroupRules().Get(ctx, ref)
-		if provErr := CheckResponseErr("get", "Securityrule", err); provErr != nil {
-			if IsNotFound(provErr) {
-				continue
+	// Build properties: protocol = caller-provided, port = null
+	propsVal := tftypes.NewValue(propsTFType, map[string]tftypes.Value{
+		"direction": tftypes.NewValue(tftypes.String, "Ingress"),
+		"protocol":  tftypes.NewValue(tftypes.String, protocol),
+		"port":      tftypes.NewValue(tftypes.String, nil), // null → port == "" in Create()
+		"target":    targetVal,
+	})
+
+	// Build root: set all string attributes to "test-<name>",
+	// override properties with the custom value, leave non-strings null.
+	attrs := make(map[string]tftypes.Value, len(objType.AttributeTypes))
+	for name, ty := range objType.AttributeTypes {
+		switch name {
+		case "properties":
+			attrs[name] = propsVal
+		default:
+			if ty.Is(tftypes.String) {
+				attrs[name] = tftypes.NewValue(tftypes.String, "test-"+name)
+			} else {
+				attrs[name] = tftypes.NewValue(ty, nil)
 			}
-			return provErr
 		}
-		return fmt.Errorf("SecurityRule %s still exists", rs.Primary.ID)
 	}
-	return nil
+
+	plan := tfsdk.Plan{
+		Raw:    tftypes.NewValue(objType, attrs),
+		Schema: schemaResp.Schema,
+	}
+	req := resource.CreateRequest{Plan: plan}
+	resp := &resource.CreateResponse{State: tfsdk.State{Schema: schemaResp.Schema}}
+	return req, resp
 }
 
-func testAccSecurityruleResourceConfig(projectID, name string) string {
-	return fmt.Sprintf(`
-resource "arubacloud_vpc" "sr_prereq" {
-  name       = "test-acc-sr-vpc"
-  location   = "ITBG-Bergamo"
-  project_id = %[1]q
+// TestSecurityRuleCreate_AnyProtocol verifies that Create() succeeds when
+// protocol is "Any" (no port required).  This exercises the port-clearing
+// branch (strings.EqualFold(protocol, "Any")), the JSON-marshalling path that
+// omits the port field, and the CRITICAL rebuild guard.
+func TestSecurityRuleCreate_AnyProtocol(t *testing.T) {
+	oldActivePoll := waitForActivePollInterval
+	waitForActivePollInterval = 1 * time.Millisecond
+	t.Cleanup(func() { waitForActivePollInterval = oldActivePoll })
+
+	ctx := context.Background()
+
+	_, mockClient := newMockArubaClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost {
+			w.WriteHeader(http.StatusCreated)
+		} else {
+			w.WriteHeader(http.StatusOK)
+		}
+		w.Write([]byte(minimalActiveJSON)) //nolint:errcheck
+	})
+
+	res := NewSecurityRuleResource()
+	configureResource(ctx, t, res, mockClient)
+
+	req, resp := buildSecurityRuleCreatePlanWithProtocol(ctx, t, "Any")
+	res.Create(ctx, req, resp)
+
+	if resp.Diagnostics.HasError() {
+		t.Fatalf("SecurityRuleResource Create() with 'Any' protocol reported error: %v", resp.Diagnostics)
+	}
 }
 
-resource "arubacloud_securitygroup" "sr_prereq" {
-  name       = "test-acc-sr-sg"
-  location   = "ITBG-Bergamo"
-  project_id = %[1]q
-  vpc_id     = arubacloud_vpc.sr_prereq.id
+// TestSecurityRuleCreate_ICMPProtocol verifies that Create() succeeds when
+// protocol is "ICMP".  This exercises the same port-clearing branch as the
+// "Any" test but via the ICMP condition.
+func TestSecurityRuleCreate_ICMPProtocol(t *testing.T) {
+	oldActivePoll := waitForActivePollInterval
+	waitForActivePollInterval = 1 * time.Millisecond
+	t.Cleanup(func() { waitForActivePollInterval = oldActivePoll })
+
+	ctx := context.Background()
+
+	_, mockClient := newMockArubaClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost {
+			w.WriteHeader(http.StatusCreated)
+		} else {
+			w.WriteHeader(http.StatusOK)
+		}
+		w.Write([]byte(minimalActiveJSON)) //nolint:errcheck
+	})
+
+	res := NewSecurityRuleResource()
+	configureResource(ctx, t, res, mockClient)
+
+	req, resp := buildSecurityRuleCreatePlanWithProtocol(ctx, t, "ICMP")
+	res.Create(ctx, req, resp)
+
+	if resp.Diagnostics.HasError() {
+		t.Fatalf("SecurityRuleResource Create() with 'ICMP' protocol reported error: %v", resp.Diagnostics)
+	}
 }
 
-resource "arubacloud_securityrule" "test" {
-  name              = %[2]q
-  location          = "ITBG-Bergamo"
-  project_id        = %[1]q
-  vpc_id            = arubacloud_vpc.sr_prereq.id
-  security_group_id = arubacloud_securitygroup.sr_prereq.id
+// TestSecurityRuleUpdate_PropertiesChangedError verifies that the securityrule
+// Update() detects when immutable properties (direction, protocol, port, target)
+// differ between the current API state and the Terraform plan, and adds an
+// appropriate error diagnostic without making a PATCH call.
+//
+// This test covers the property-extraction and comparison section of Update()
+// (the largest uncovered block) that the generic TestResourceUpdate_APIError
+// misses because 500 on GET causes an early return before property extraction.
+func TestSecurityRuleUpdate_PropertiesChangedError(t *testing.T) {
+	ctx := context.Background()
 
-  properties = {
-    direction = "Ingress"
-    protocol  = "TCP"
-    port      = "80"
-    target = {
-      kind  = "Ip"
-      value = "0.0.0.0/0"
-    }
-  }
-}
-`, projectID, name)
+	// Return the full security rule JSON for all GET requests so that the
+	// properties extraction section is exercised.  Non-GET (PATCH) should not
+	// be called when properties differ, so returning 500 is a safety net.
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodGet {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(securityruleFullJSON)) //nolint:errcheck
+		} else {
+			apiError(w, http.StatusInternalServerError)
+		}
+	}
+
+	_, mockClient := newMockArubaClient(t, handler)
+
+	res := NewSecurityRuleResource()
+	configureResource(ctx, t, res, mockClient)
+
+	// Use resourceUpdateReqFull so data.Properties is non-null.  All string
+	// attributes are set to "test-value", which differs from the current API
+	// values (direction="Ingress", protocol="TCP", port="80", etc.).
+	// This exercises the propertiesChanged=true branch and the early-return
+	// with "Cannot Update Security Rule Properties" error.
+	req, resp := resourceUpdateReqFull(ctx, t, res)
+	res.Update(ctx, req, resp)
+
+	if !resp.Diagnostics.HasError() {
+		t.Fatal("securityrule Update() should fail when properties differ from current API state")
+	}
 }

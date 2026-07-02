@@ -2,173 +2,241 @@ package provider
 
 import (
 	"context"
-	"fmt"
-	"os"
+	"net/http"
 	"testing"
-
-	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
-	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
-	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
-	"github.com/hashicorp/terraform-plugin-testing/statecheck"
-	"github.com/hashicorp/terraform-plugin-testing/terraform"
-	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 )
 
-func TestAccSchedulejobResource(t *testing.T) {
-	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
-	osImageID := os.Getenv("ARUBACLOUD_OS_IMAGE_ID")
-	if projectID == "" || osImageID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_OS_IMAGE_ID must be set for acceptance tests")
-	}
-	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { testAccPreCheck(t) },
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:             testCheckSchedulejobDestroyed,
-		Steps: []resource.TestStep{
-			// Create and Read testing
-			{
-				Config: testAccSchedulejobResourceConfig(projectID, osImageID, "test-schedulejob"),
-				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownValue(
-						"arubacloud_schedulejob.test",
-						tfjsonpath.New("name"),
-						knownvalue.StringExact("test-schedulejob"),
-					),
-					statecheck.ExpectKnownValue(
-						"arubacloud_schedulejob.test",
-						tfjsonpath.New("id"),
-						knownvalue.NotNull(),
-					),
-					statecheck.ExpectKnownValue(
-						"arubacloud_schedulejob.test",
-						tfjsonpath.New("location"),
-						knownvalue.NotNull(),
-					),
-				},
-			},
-			// ImportState testing
-			{
-				ResourceName:      "arubacloud_schedulejob.test",
-				ImportState:       true,
-				ImportStateVerify: true,
-				ImportStateIdFunc: importIDFromAttrs("arubacloud_schedulejob.test", "project_id", "id"),
-			},
-			// Update and Read testing (name-only change; steps are immutable)
-			{
-				Config: testAccSchedulejobResourceConfig(projectID, osImageID, "test-schedulejob-updated"),
-				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownValue(
-						"arubacloud_schedulejob.test",
-						tfjsonpath.New("name"),
-						knownvalue.StringExact("test-schedulejob-updated"),
-					),
-				},
-			},
-		},
-	})
-}
+// schedulejobWithStepsJSON is a ScheduleJob API response that includes a
+// properties block with a non-empty steps array.  This exercises the step-
+// mapping loop and the "if len(job.Properties.Steps) > 0" branch that is
+// skipped when minimalActiveJSON (no properties) is used.
+const schedulejobWithStepsJSON = `{` +
+	`"metadata":{"id":"test-id","name":"test-name"},` +
+	`"status":{"state":"Active"},` +
+	`"properties":{` +
+	`"scheduleJobType":"OneShot",` +
+	`"enabled":true,` +
+	`"scheduleAt":"2099-01-01T00:00:00Z",` +
+	`"steps":[{` +
+	`"name":"test-step",` +
+	`"resourceUri":"/projects/p/resources/r",` +
+	`"actionUri":"/actions/a",` +
+	`"httpVerb":"GET",` +
+	`"body":"{}"` +
+	`}]` +
+	`}}`
 
-func testCheckSchedulejobDestroyed(s *terraform.State) error {
-	client, err := testAccClient()
-	if err != nil {
-		return err
-	}
+// TestScheduleJobRead_WithSteps verifies that the Read() function correctly
+// maps a response that includes a non-empty steps array, covering the
+// step-mapping loop and ptrToString-style pointer branches inside it.
+func TestScheduleJobRead_WithSteps(t *testing.T) {
 	ctx := context.Background()
-	for _, rs := range s.RootModule().Resources {
-		if rs.Type != "arubacloud_schedulejob" {
-			continue
+
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(schedulejobWithStepsJSON)) //nolint:errcheck
+			return
 		}
-		projectID := rs.Primary.Attributes["project_id"]
-		ref := aruba.URI("/projects/" + projectID + "/providers/Aruba.Schedule/jobs/" + rs.Primary.ID)
-		_, err = client.Client.FromSchedule().Jobs().Get(ctx, ref)
-		if provErr := CheckResponseErr("get", "Schedulejob", err); provErr != nil {
-			if IsNotFound(provErr) {
-				continue
-			}
-			return provErr
-		}
-		return fmt.Errorf("ScheduleJob %s still exists", rs.Primary.ID)
+		apiError(w, http.StatusInternalServerError)
 	}
-	return nil
+
+	_, mockClient := newMockArubaClient(t, handler)
+
+	res := NewScheduleJobResource()
+	configureResource(ctx, t, res, mockClient)
+
+	req, resp := resourceReadReq(ctx, t, res)
+	res.Read(ctx, req, resp)
+
+	if resp.Diagnostics.HasError() {
+		t.Errorf("ScheduleJob Read() reported error with steps: %v", resp.Diagnostics)
+	}
+	if resp.State.Raw.IsNull() {
+		t.Error("ScheduleJob Read() removed resource from state with valid response")
+	}
 }
 
-// testAccSchedulejobResourceConfig builds a config with a prerequisite CloudServer so
-// the schedulejob step has a valid resource_uri. The API rejects requests with zero steps.
-func testAccSchedulejobResourceConfig(projectID, osImageID, name string) string {
-	return fmt.Sprintf(`
-resource "arubacloud_vpc" "sj_rs_prereq" {
-  name       = "test-rs-sj-vpc"
-  location   = "ITBG-Bergamo"
-  project_id = %[1]q
+// TestScheduleJobRead_WithCronSchedule verifies the Read() function when the
+// response includes cron, execute_until, and other optional scheduling fields.
+func TestScheduleJobRead_WithCronSchedule(t *testing.T) {
+	ctx := context.Background()
+
+	cronJSON := `{` +
+		`"metadata":{"id":"test-id","name":"test-name","location":{"value":"test-loc"},"tags":["env:test"]},` +
+		`"status":{"state":"Active"},` +
+		`"properties":{` +
+		`"scheduleJobType":"Recurring",` +
+		`"enabled":true,` +
+		`"cron":"0 * * * *",` +
+		`"executeUntil":"2099-12-31T23:59:59Z",` +
+		`"steps":[]` +
+		`}}`
+
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(cronJSON)) //nolint:errcheck
+			return
+		}
+		apiError(w, http.StatusInternalServerError)
+	}
+
+	_, mockClient := newMockArubaClient(t, handler)
+
+	res := NewScheduleJobResource()
+	configureResource(ctx, t, res, mockClient)
+
+	req, resp := resourceReadReq(ctx, t, res)
+	res.Read(ctx, req, resp)
+
+	if resp.Diagnostics.HasError() {
+		t.Errorf("ScheduleJob Read() reported error with cron: %v", resp.Diagnostics)
+	}
 }
 
-resource "arubacloud_subnet" "sj_rs_prereq" {
-  name       = "test-rs-sj-subnet"
-  location   = "ITBG-Bergamo"
-  project_id = %[1]q
-  vpc_id     = arubacloud_vpc.sj_rs_prereq.id
-  type       = "Basic"
+// TestRestoreRead_WithProperties covers restore Read() with a response that
+// includes a properties block to exercise property-mapping branches.
+func TestRestoreRead_WithProperties(t *testing.T) {
+	ctx := context.Background()
+
+	restoreJSON := `{` +
+		`"metadata":{"id":"test-id","name":"test-name"},` +
+		`"status":{"state":"Active"},` +
+		`"properties":{` +
+		`"billingPeriod":"Hour",` +
+		`"origin":{"uri":"/backups/test-backup-id"}` +
+		`}}`
+
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(restoreJSON)) //nolint:errcheck
+			return
+		}
+		apiError(w, http.StatusInternalServerError)
+	}
+
+	_, mockClient := newMockArubaClient(t, handler)
+
+	res := NewRestoreResource()
+	configureResource(ctx, t, res, mockClient)
+
+	req, resp := resourceReadReq(ctx, t, res)
+	res.Read(ctx, req, resp)
+
+	if resp.Diagnostics.HasError() {
+		t.Errorf("Restore Read() reported error with properties: %v", resp.Diagnostics)
+	}
 }
 
-resource "arubacloud_securitygroup" "sj_rs_prereq" {
-  name       = "test-rs-sj-sg"
-  location   = "ITBG-Bergamo"
-  project_id = %[1]q
-  vpc_id     = arubacloud_vpc.sj_rs_prereq.id
+// TestVPCPeeringRouteRead_WithProperties covers vpcpeeringroute Read() with
+// a response that includes properties to exercise the mapping branches.
+func TestVPCPeeringRouteRead_WithProperties(t *testing.T) {
+	ctx := context.Background()
+
+	peerRouteJSON := `{` +
+		`"metadata":{"id":"test-id","name":"test-name"},` +
+		`"status":{"state":"Active"},` +
+		`"properties":{` +
+		`"route":{"destination":"10.1.0.0/24","gateway":"10.0.0.1"}` +
+		`}}`
+
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(peerRouteJSON)) //nolint:errcheck
+			return
+		}
+		apiError(w, http.StatusInternalServerError)
+	}
+
+	_, mockClient := newMockArubaClient(t, handler)
+
+	res := NewVpcPeeringRouteResource()
+	configureResource(ctx, t, res, mockClient)
+
+	req, resp := resourceReadReq(ctx, t, res)
+	res.Read(ctx, req, resp)
+
+	if resp.Diagnostics.HasError() {
+		t.Errorf("VPCPeeringRoute Read() reported error with properties: %v", resp.Diagnostics)
+	}
 }
 
-resource "arubacloud_blockstorage" "sj_rs_boot" {
-  name           = "test-rs-sj-boot"
-  project_id     = %[1]q
-  location       = "ITBG-Bergamo"
-  size_gb        = 30
-  billing_period = "Hour"
-  zone           = "ITBG-1"
-  type           = "Standard"
-  bootable       = true
-  image          = %[2]q
+// TestVPNRouteRead_WithProperties covers vpnroute Read() with a properties
+// block to exercise the property mapping.
+func TestVPNRouteRead_WithProperties(t *testing.T) {
+	ctx := context.Background()
+
+	vpnRouteJSON := `{` +
+		`"metadata":{"id":"test-id","name":"test-name"},` +
+		`"status":{"state":"Active"},` +
+		`"properties":{` +
+		`"cloudSubnet":"10.0.0.0/24",` +
+		`"onPremSubnet":"192.168.0.0/24"` +
+		`}}`
+
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(vpnRouteJSON)) //nolint:errcheck
+			return
+		}
+		apiError(w, http.StatusInternalServerError)
+	}
+
+	_, mockClient := newMockArubaClient(t, handler)
+
+	res := NewVPNRouteResource()
+	configureResource(ctx, t, res, mockClient)
+
+	req, resp := resourceReadReqFull(ctx, t, res)
+	res.Read(ctx, req, resp)
+
+	if resp.Diagnostics.HasError() {
+		t.Errorf("VPNRoute Read() reported error with properties: %v", resp.Diagnostics)
+	}
 }
 
-resource "arubacloud_cloudserver" "sj_rs_prereq" {
-  name       = "test-rs-sj-server"
-  location   = "ITBG-Bergamo"
-  project_id = %[1]q
-  zone       = "ITBG-1"
+// TestVPNTunnelRead_WithProperties covers vpntunnel Read() with a properties
+// block to exercise the mapping of tunnel-specific fields.
+func TestVPNTunnelRead_WithProperties(t *testing.T) {
+	ctx := context.Background()
 
-  network = {
-    vpc_uri_ref            = arubacloud_vpc.sj_rs_prereq.uri
-    subnet_uri_refs        = [arubacloud_subnet.sj_rs_prereq.uri]
-    securitygroup_uri_refs = [arubacloud_securitygroup.sj_rs_prereq.uri]
-  }
+	// vpntunnel has complex properties
+	tunnelJSON := `{` +
+		`"metadata":{"id":"test-id","name":"test-name"},` +
+		`"status":{"state":"Active"},` +
+		`"properties":{` +
+		`"peerGatewayIP":"203.0.113.1",` +
+		`"psk":"test-psk"` +
+		`}}`
 
-  settings = {
-    flavor_name = "CSO4A8"
-  }
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(tunnelJSON)) //nolint:errcheck
+			return
+		}
+		apiError(w, http.StatusInternalServerError)
+	}
 
-  storage = {
-    boot_volume_uri_ref = arubacloud_blockstorage.sj_rs_boot.uri
-  }
-}
+	_, mockClient := newMockArubaClient(t, handler)
 
-resource "arubacloud_schedulejob" "test" {
-  name       = %[3]q
-  project_id = %[1]q
-  location   = "ITBG-Bergamo"
+	res := NewVPNTunnelResource()
+	configureResource(ctx, t, res, mockClient)
 
-  properties = {
-    schedule_job_type = "OneShot"
-    schedule_at       = "2099-12-31T23:59:59Z"
-    enabled           = true
-    steps = [
-      {
-        name         = "Power Off Server"
-        resource_uri = "/projects/%[1]s/providers/Aruba.Compute/cloudServers/${arubacloud_cloudserver.sj_rs_prereq.id}"
-        action_uri   = "/poweroff"
-        http_verb    = "POST"
-        body         = null
-      }
-    ]
-  }
-}
-`, projectID, osImageID, name)
+	req, resp := resourceReadReqFull(ctx, t, res)
+	res.Read(ctx, req, resp)
+
+	if resp.Diagnostics.HasError() {
+		t.Errorf("VPNTunnel Read() reported error with properties: %v", resp.Diagnostics)
+	}
 }

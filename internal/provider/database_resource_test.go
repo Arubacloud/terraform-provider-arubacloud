@@ -2,103 +2,70 @@ package provider
 
 import (
 	"context"
-	"fmt"
-	"os"
+	"net/http"
 	"testing"
-
-	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
-	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
-	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
-	"github.com/hashicorp/terraform-plugin-testing/statecheck"
-	"github.com/hashicorp/terraform-plugin-testing/terraform"
-	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
+	"time"
 )
 
-func TestAccDatabaseResource(t *testing.T) {
-	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
-	dbaasID := os.Getenv("ARUBACLOUD_DBAAS_ID")
-	if projectID == "" || dbaasID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_DBAAS_ID must be set for acceptance tests")
+// databaseCreateSuccessJSON is a response for the Database Create endpoint
+// that includes a top-level "name" field so that DatabaseResponse.Name is
+// non-empty and the provider can set data.Id = "testdb".
+// The WaitForResourceActive checker then calls Get("testdb") rather than
+// Get("") which the SDK would reject.
+const databaseCreateSuccessJSON = `{"name":"testdb","status":{"state":"Active"}}`
+
+func databaseCreateSuccessHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method == http.MethodPost {
+		w.WriteHeader(http.StatusCreated)
+	} else {
+		w.WriteHeader(http.StatusOK)
 	}
-	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { testAccPreCheck(t) },
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy:             testCheckDatabaseDestroyed,
-		Steps: []resource.TestStep{
-			// Create and Read testing
-			{
-				Config: testAccDatabaseResourceConfig(projectID, dbaasID, "testdatabase"),
-				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownValue(
-						"arubacloud_database.test",
-						tfjsonpath.New("name"),
-						knownvalue.StringExact("testdatabase"),
-					),
-					statecheck.ExpectKnownValue(
-						"arubacloud_database.test",
-						tfjsonpath.New("id"),
-						knownvalue.NotNull(),
-					),
-					statecheck.ExpectKnownValue(
-						"arubacloud_database.test",
-						tfjsonpath.New("dbaas_id"),
-						knownvalue.NotNull(),
-					),
-				},
-			},
-			// ImportState testing
-			{
-				ResourceName:      "arubacloud_database.test",
-				ImportState:       true,
-				ImportStateVerify: true,
-				ImportStateIdFunc: importIDFromAttrs("arubacloud_database.test", "project_id", "dbaas_id", "id"),
-			},
-			// Replace testing: name is immutable, changing it destroys and re-creates
-			{
-				Config: testAccDatabaseResourceConfig(projectID, dbaasID, "testdatabasenew"),
-				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownValue(
-						"arubacloud_database.test",
-						tfjsonpath.New("name"),
-						knownvalue.StringExact("testdatabasenew"),
-					),
-				},
-			},
-		},
-	})
+	w.Write([]byte(databaseCreateSuccessJSON)) //nolint:errcheck
 }
 
-func testCheckDatabaseDestroyed(s *terraform.State) error {
-	client, err := testAccClient()
-	if err != nil {
-		return err
-	}
+// TestDatabaseCreate_Success verifies that database Create() succeeds when the
+// API response includes the database name (used as the resource ID) so that
+// the WaitForResourceActive poll can call Get with the right ID.
+func TestDatabaseCreate_Success(t *testing.T) {
+	oldActivePoll := waitForActivePollInterval
+	waitForActivePollInterval = 1 * time.Millisecond
+	t.Cleanup(func() { waitForActivePollInterval = oldActivePoll })
+
 	ctx := context.Background()
-	for _, rs := range s.RootModule().Resources {
-		if rs.Type != "arubacloud_database" {
-			continue
-		}
-		projectID := rs.Primary.Attributes["project_id"]
-		dbaasID := rs.Primary.Attributes["dbaas_id"]
-		ref := aruba.URI("/projects/" + projectID + "/providers/Aruba.Database/dbaas/" + dbaasID + "/databases/" + rs.Primary.ID)
-		_, err = client.Client.FromDatabase().Databases().Get(ctx, ref)
-		if provErr := CheckResponseErr("get", "Database", err); provErr != nil {
-			if IsNotFound(provErr) {
-				continue
-			}
-			return provErr
-		}
-		return fmt.Errorf("Database %s still exists", rs.Primary.ID)
+
+	_, mockClient := newMockArubaClient(t, databaseCreateSuccessHandler)
+
+	res := NewDatabaseResource()
+	configureResource(ctx, t, res, mockClient)
+
+	req, resp := resourceCreateReq(ctx, t, res)
+	res.Create(ctx, req, resp)
+
+	if resp.Diagnostics.HasError() {
+		t.Errorf("Database Create() reported error: %v", resp.Diagnostics)
 	}
-	return nil
 }
 
-func testAccDatabaseResourceConfig(projectID, dbaasID, name string) string {
-	return fmt.Sprintf(`
-resource "arubacloud_database" "test" {
-  name       = %[3]q
-  project_id = %[1]q
-  dbaas_id   = %[2]q
-}
-`, projectID, dbaasID, name)
+// TestDatabaseUpdate_Success verifies that database Update() succeeds when the
+// API returns valid data.  The Update needs projectID and dbaasID from state,
+// and the GET response needs the current database details.
+func TestDatabaseUpdate_Success(t *testing.T) {
+	ctx := context.Background()
+
+	_, mockClient := newMockArubaClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"name":"testdb","status":{"state":"Active"}}`)) //nolint:errcheck
+	})
+
+	res := NewDatabaseResource()
+	configureResource(ctx, t, res, mockClient)
+
+	req, resp := resourceUpdateReq(ctx, t, res)
+	res.Update(ctx, req, resp)
+
+	if resp.Diagnostics.HasError() {
+		t.Errorf("Database Update() reported error: %v", resp.Diagnostics)
+	}
 }
