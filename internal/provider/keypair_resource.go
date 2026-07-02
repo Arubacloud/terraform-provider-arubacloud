@@ -60,21 +60,33 @@ func (r *KeypairResource) Schema(ctx context.Context, req resource.SchemaRequest
 				},
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Display name for the KeyPair.",
+				MarkdownDescription: "Display name for the KeyPair. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"location": schema.StringAttribute{
-				MarkdownDescription: "Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).",
+				MarkdownDescription: "Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"project_id": schema.StringAttribute{
-				MarkdownDescription: "ID of the project that owns this resource.",
+				MarkdownDescription: "ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"value": schema.StringAttribute{
-				MarkdownDescription: "OpenSSH-format public key string (e.g., `ssh-rsa AAAA...`). The provider uploads this to ArubaCloud; the corresponding private key is never stored. Write-only — this value is sent to the API but is not returned in subsequent read responses.",
+				MarkdownDescription: "OpenSSH-format public key string (e.g., `ssh-rsa AAAA...`). The provider uploads this to ArubaCloud; the corresponding private key is never stored. Write-only — this value is sent to the API but is not returned in subsequent read responses. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 				Required:            true,
 				Sensitive:           true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
@@ -234,24 +246,9 @@ func (r *KeypairResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	// Keypair update is not supported by the API — validate that no updatable fields changed.
-	if !data.Name.Equal(state.Name) {
-		resp.Diagnostics.AddError("Keypair Name Update Not Supported",
-			"Changing the keypair name is not supported by the API. Please delete and recreate the keypair with the new name.")
-		return
-	}
-	if !data.Value.Equal(state.Value) {
-		resp.Diagnostics.AddError("Keypair Public Key Update Not Supported",
-			"Changing the public key value is not supported by the API. Please delete and recreate the keypair with the new public key.")
-		return
-	}
-	if !data.Location.Equal(state.Location) {
-		resp.Diagnostics.AddError("Keypair Location Update Not Supported",
-			"Changing the keypair location is not supported by the API. Please delete and recreate the keypair in the new location.")
-		return
-	}
-
 	// Refresh state via Get so URI and computed fields stay current.
+	// name, value, location, and project_id all have RequiresReplace — the only
+	// mutable field that can trigger Update is tags.
 	kp, err := r.client.Client.FromCompute().KeyPairs().Get(ctx, keypairRef(&state))
 	if provErr := CheckResponseErr("read", "Keypair", err); provErr != nil {
 		if IsNotFound(provErr) {
