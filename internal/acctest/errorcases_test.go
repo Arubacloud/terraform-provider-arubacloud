@@ -1,4 +1,4 @@
-package provider
+package acctest
 
 // Error-case unit tests — exercise schema-level validation that is enforced
 // at plan time before any API call is made. These use resource.UnitTest so
@@ -21,7 +21,7 @@ import (
 
 func TestUnitVpcResource_MissingProjectID(t *testing.T) {
 	resource.UnitTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		ProtoV6ProviderFactories: ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: `
@@ -38,7 +38,7 @@ resource "arubacloud_vpc" "test" {
 
 func TestUnitSubnetResource_MissingVpcID(t *testing.T) {
 	resource.UnitTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		ProtoV6ProviderFactories: ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: `
@@ -57,7 +57,7 @@ resource "arubacloud_subnet" "test" {
 
 func TestUnitElasticipResource_MissingProjectID(t *testing.T) {
 	resource.UnitTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		ProtoV6ProviderFactories: ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: `
@@ -74,7 +74,7 @@ resource "arubacloud_elasticip" "test" {
 
 func TestUnitVpntunnelResource_MissingProjectID(t *testing.T) {
 	resource.UnitTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		ProtoV6ProviderFactories: ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: `
@@ -91,7 +91,7 @@ resource "arubacloud_vpntunnel" "test" {
 
 func TestUnitSecuritygroupResource_MissingVpcID(t *testing.T) {
 	resource.UnitTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		ProtoV6ProviderFactories: ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: `
@@ -111,7 +111,7 @@ resource "arubacloud_securitygroup" "test" {
 
 func TestUnitKeypairResource_MissingProjectID(t *testing.T) {
 	resource.UnitTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		ProtoV6ProviderFactories: ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: `
@@ -131,7 +131,7 @@ resource "arubacloud_keypair" "test" {
 
 func TestUnitBlockstorageResource_MissingProjectID(t *testing.T) {
 	resource.UnitTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		ProtoV6ProviderFactories: ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: `
@@ -152,7 +152,7 @@ resource "arubacloud_blockstorage" "test" {
 
 func TestUnitSnapshotResource_MissingProjectID(t *testing.T) {
 	resource.UnitTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		ProtoV6ProviderFactories: ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: `
@@ -171,7 +171,7 @@ resource "arubacloud_snapshot" "test" {
 
 func TestUnitBackupResource_MissingProjectID(t *testing.T) {
 	resource.UnitTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		ProtoV6ProviderFactories: ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: `
@@ -192,7 +192,7 @@ resource "arubacloud_backup" "test" {
 
 func TestUnitRestoreResource_MissingBackupID(t *testing.T) {
 	resource.UnitTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		ProtoV6ProviderFactories: ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: `
@@ -212,7 +212,7 @@ resource "arubacloud_restore" "test" {
 
 func TestUnitKmsResource_MissingProjectID(t *testing.T) {
 	resource.UnitTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		ProtoV6ProviderFactories: ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: `
@@ -232,7 +232,7 @@ resource "arubacloud_kms" "test" {
 
 func TestUnitSchedulejobResource_MissingProjectID(t *testing.T) {
 	resource.UnitTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		ProtoV6ProviderFactories: ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: `
@@ -256,7 +256,7 @@ resource "arubacloud_schedulejob" "test" {
 
 func TestUnitDbaasResource_MissingProjectID(t *testing.T) {
 	resource.UnitTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		ProtoV6ProviderFactories: ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: `
@@ -273,7 +273,7 @@ resource "arubacloud_dbaas" "test" {
 
 func TestUnitDatabaseResource_MissingDbaasID(t *testing.T) {
 	resource.UnitTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		ProtoV6ProviderFactories: ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: `
@@ -290,7 +290,7 @@ resource "arubacloud_database" "test" {
 
 func TestUnitDbaasuserResource_MissingDbaasID(t *testing.T) {
 	resource.UnitTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		ProtoV6ProviderFactories: ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: `
@@ -310,7 +310,7 @@ resource "arubacloud_dbaasuser" "test" {
 
 func TestUnitKaasResource_MissingProjectID(t *testing.T) {
 	resource.UnitTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		ProtoV6ProviderFactories: ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: `
@@ -327,7 +327,7 @@ resource "arubacloud_kaas" "test" {
 
 func TestUnitContainerregistryResource_MissingProjectID(t *testing.T) {
 	resource.UnitTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		ProtoV6ProviderFactories: ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: `
@@ -346,7 +346,7 @@ resource "arubacloud_containerregistry" "test" {
 
 func TestUnitCloudserverResource_MissingProjectID(t *testing.T) {
 	resource.UnitTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		ProtoV6ProviderFactories: ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: `
@@ -366,7 +366,7 @@ resource "arubacloud_cloudserver" "test" {
 
 func TestUnitSecurityruleResource_MissingSecurityGroupID(t *testing.T) {
 	resource.UnitTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		ProtoV6ProviderFactories: ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: `
@@ -387,7 +387,7 @@ resource "arubacloud_securityrule" "test" {
 
 func TestUnitVpcpeeringResource_MissingVpcID(t *testing.T) {
 	resource.UnitTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		ProtoV6ProviderFactories: ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: `
@@ -406,7 +406,7 @@ resource "arubacloud_vpcpeering" "test" {
 
 func TestUnitVpcpeeringrouteResource_MissingVpcPeeringID(t *testing.T) {
 	resource.UnitTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		ProtoV6ProviderFactories: ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: `
@@ -424,7 +424,7 @@ resource "arubacloud_vpcpeeringroute" "test" {
 
 func TestUnitVpnrouteResource_MissingVpnTunnelID(t *testing.T) {
 	resource.UnitTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		ProtoV6ProviderFactories: ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: `
@@ -444,7 +444,7 @@ resource "arubacloud_vpnroute" "test" {
 
 func TestUnitDatabasegrantResource_MissingDbaasID(t *testing.T) {
 	resource.UnitTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		ProtoV6ProviderFactories: ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: `
@@ -462,7 +462,7 @@ resource "arubacloud_databasegrant" "test" {
 
 func TestUnitDatabasebackupResource_MissingDbaasID(t *testing.T) {
 	resource.UnitTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		ProtoV6ProviderFactories: ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: `
