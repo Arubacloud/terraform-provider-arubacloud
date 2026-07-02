@@ -49,6 +49,19 @@ func TestAccDbaasResource(t *testing.T) {
 				ImportState:       true,
 				ImportStateVerify: true,
 				ImportStateIdFunc: importIDFromAttrs("arubacloud_dbaas.test", "project_id", "id"),
+				// zone, engine_id and network.* are not returned by the API GET response.
+				// Read preserves them from prior state, but on import the initial state
+				// only has project_id + id so they remain null after the first Read.
+				// Users must re-specify these values in their config after import.
+				ImportStateVerifyIgnore: []string{
+					"zone",
+					"engine_id",
+					"network.%",
+					"network.vpc_uri_ref",
+					"network.subnet_uri_ref",
+					"network.security_group_uri_ref",
+					"network.elastic_ip_uri_ref",
+				},
 			},
 			{
 				Config: testAccDbaasResourceConfig(projectID, "test-dbaas-updated"),
