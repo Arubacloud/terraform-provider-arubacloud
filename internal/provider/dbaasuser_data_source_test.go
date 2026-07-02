@@ -16,13 +16,14 @@ func TestAccDbaasuserDataSource(t *testing.T) {
 	if projectID == "" {
 		t.Skip("ARUBACLOUD_PROJECT_ID must be set for acceptance tests")
 	}
+	password := testAccDBaaSPassword(t)
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccDbaasuserDataSourceConfig(projectID),
+				Config: testAccDbaasuserDataSourceConfig(projectID, password),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_dbaasuser.test",
@@ -50,7 +51,7 @@ func TestAccDbaasuserDataSource(t *testing.T) {
 	})
 }
 
-func testAccDbaasuserDataSourceConfig(projectID string) string {
+func testAccDbaasuserDataSourceConfig(projectID, password string) string {
 	return fmt.Sprintf(`
 resource "arubacloud_vpc" "test" {
   name       = "test-ds-dbaasuser-vpc"
@@ -96,7 +97,7 @@ resource "arubacloud_dbaasuser" "test" {
   project_id = %[1]q
   dbaas_id   = arubacloud_dbaas.test.id
   username   = "testdsuser"
-  password   = "Acc3ptAbl3P@ss#01"
+  password   = %[2]q
 }
 
 data "arubacloud_dbaasuser" "test" {
@@ -104,5 +105,5 @@ data "arubacloud_dbaasuser" "test" {
   project_id = %[1]q
   dbaas_id   = arubacloud_dbaas.test.id
 }
-`, projectID)
+`, projectID, password)
 }
