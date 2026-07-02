@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
@@ -161,7 +162,11 @@ func (r *ElasticIPResource) Create(ctx context.Context, req resource.CreateReque
 
 func eipRef(data *ElasticIPResourceModel) aruba.Ref {
 	if !data.Uri.IsNull() && data.Uri.ValueString() != "" {
-		return aruba.URI(data.Uri.ValueString())
+		// The API returns URIs with /network/elasticIPs/ (capital P), but the SDK
+		// path parser expects /network/elasticIps/ (lowercase p). Normalise before
+		// passing to the SDK so Get/Delete work regardless of where the URI came from.
+		uri := strings.ReplaceAll(data.Uri.ValueString(), "/network/elasticIPs/", "/network/elasticIps/")
+		return aruba.URI(uri)
 	}
 	return aruba.URI("/projects/" + data.ProjectId.ValueString() + "/network/elasticIps/" + data.Id.ValueString())
 }
