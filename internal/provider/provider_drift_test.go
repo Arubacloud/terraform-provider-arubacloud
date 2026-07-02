@@ -60,9 +60,21 @@ resource "arubacloud_vpc" "drift" {
 					if err != nil {
 						return
 					}
+					ctx := context.Background()
 					ref := aruba.URI("/projects/" + projectID + "/network/vpcs/" + capturedID)
-					_ = client.Client.FromNetwork().VPCs().Delete(context.Background(), ref)
-					time.Sleep(15 * time.Second)
+					_ = client.Client.FromNetwork().VPCs().Delete(ctx, ref)
+					// Poll until the API returns 404 so that Read() reliably detects
+					// the drift via the 404 path rather than a transient Deleting state.
+					deadline := time.Now().Add(5 * time.Minute)
+					for time.Now().Before(deadline) {
+						time.Sleep(5 * time.Second)
+						_, getErr := client.Client.FromNetwork().VPCs().Get(ctx, ref)
+						if provErr := CheckResponseErr("get", "VPC", getErr); provErr != nil {
+							if IsNotFound(provErr) {
+								return
+							}
+						}
+					}
 				},
 				Config:             cfg,
 				PlanOnly:           true,
