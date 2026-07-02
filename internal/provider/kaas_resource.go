@@ -562,6 +562,10 @@ func (r *KaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	}
 	if raw.Properties.ManagementIP != nil && *raw.Properties.ManagementIP != "" {
 		data.ManagementIP = types.StringValue(*raw.Properties.ManagementIP)
+	} else if !originalState.ManagementIP.IsNull() {
+		// API does not always return ManagementIP after initial provisioning;
+		// preserve from state to avoid perpetual drift.
+		data.ManagementIP = originalState.ManagementIP
 	} else {
 		data.ManagementIP = types.StringNull()
 	}
@@ -612,6 +616,13 @@ func (r *KaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	}
 	if v := kaas.PodCIDR(); v != "" {
 		networkAttrs["pod_cidr"] = types.StringValue(v)
+	} else if !originalState.Network.IsNull() {
+		// API does not reliably return pod_cidr after initial provisioning;
+		// fall back to the state value to avoid perpetual drift.
+		var origNet KaaSNetworkModel
+		if dd := originalState.Network.As(ctx, &origNet, basetypes.ObjectAsOptions{}); !dd.HasError() && !origNet.PodCIDR.IsNull() {
+			networkAttrs["pod_cidr"] = origNet.PodCIDR
+		}
 	}
 	networkObj, dNet := types.ObjectValue(map[string]attr.Type{
 		"vpc_uri_ref": types.StringType, "subnet_uri_ref": types.StringType,
