@@ -204,7 +204,7 @@ go test \
     -v \
     -count=1 \
     -timeout="${TIMEOUT}" \
-    ./internal/provider/... \
+    ./internal/acctest/... \
     -run "${RUN_FILTER}" \
     2>&1 | tee -a "$LOGFILE"
 EXIT_CODE=${PIPESTATUS[0]}
