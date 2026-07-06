@@ -1,3 +1,17 @@
+## 0.5.0 (July 6, 2026)
+
+NOTES:
+
+* This release contains no user-facing changes. All work is internal test-layer refactoring; existing configurations, state files, and import IDs are unaffected.
+
+INTERNAL:
+
+* Introduced `internal/acctest/` package with four shared exported helpers (`ProtoV6ProviderFactories`, `PreCheck`, `AccClient`, `ImportIDFromAttrs`) that replace the private equivalents scattered across `internal/provider/provider_test.go`. The shared package is the canonical home for all acceptance-test infrastructure going forward ([#296](https://github.com/Arubacloud/terraform-provider-arubacloud/pull/296)).
+* Moved all 48 `TestAcc*` files (22 resource tests, 25 data-source tests, and `provider_drift_test.go`) from `internal/provider/` to `internal/acctest/`, and split three mixed files to keep unit tests in `internal/provider/` ([#297](https://github.com/Arubacloud/terraform-provider-arubacloud/pull/297)).
+* Moved `provider_errorcases_test.go` to `internal/acctest/errorcases_test.go`. Schema-level validation tests that use `resource.UnitTest` (no `TF_ACC` required) now live beside the acceptance tests they guard, and the now-empty `internal/provider/provider_test.go` bridge file has been removed ([#298](https://github.com/Arubacloud/terraform-provider-arubacloud/pull/298)).
+* Consolidated 12 fragmented unit-test files into their canonical per-resource `{type}_resource_test.go` homes. Each resource now has a single test file for all its unit tests ([#299](https://github.com/Arubacloud/terraform-provider-arubacloud/pull/299)).
+* Fixed `run-acceptance-tests.sh` to target `./internal/acctest/` after the test migration so `make testacc` correctly discovers `TestAcc*` tests ([#305](https://github.com/Arubacloud/terraform-provider-arubacloud/pull/305)).
+
 ## 0.4.0 (July 2, 2026)
 
 BREAKING CHANGES:
