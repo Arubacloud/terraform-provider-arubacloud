@@ -208,8 +208,12 @@ func (r *DatabaseBackupResource) Create(ctx context.Context, req resource.Create
 			break
 		}
 		lastProvErr = pe
-		if !strings.Contains(pe.Error(), "Database name is not found") {
-			break // not a propagation-related error; stop retrying
+		// Retry on "database not yet visible" AND transport-level failures (EOF after
+		// a long database provisioning wait, indicated by zero StatusCode).
+		// HTTP 5xx server errors have a non-zero StatusCode and are not retried.
+		isTransportFailure := pe.StatusCode == 0
+		if !strings.Contains(pe.Error(), "Database name is not found") && !isTransportFailure {
+			break
 		}
 		if attempt == backupMaxRetries {
 			break
