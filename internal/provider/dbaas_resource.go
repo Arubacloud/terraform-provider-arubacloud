@@ -508,6 +508,21 @@ func (r *DBaaSResource) Update(ctx context.Context, req resource.UpdateRequest, 
 		return
 	}
 
+	// fromResponse hydrates d.engine from Engine.Type ("mysql"), not the catalog ID
+	// ("mysql-8.0"), so the PUT body would contain engine.id="mysql" which the
+	// UPDATE catalog lookup rejects with "Product not found in catalog".
+	// Override from state which holds the correct engine_id value.
+	if !state.EngineID.IsNull() && state.EngineID.ValueString() != "" {
+		dbaas.OfEngine(aruba.DatabaseEngine(state.EngineID.ValueString()))
+	}
+	// fromResponse never calls inZone (only inRegion), so d.zone = nil and the PUT
+	// body omits properties.dataCenter. The API treats an absent zone in a PUT as
+	// "change to null" and rejects with "DataCenter cannot be modified".
+	// Re-inject from state to keep the zone unchanged.
+	if !state.Zone.IsNull() && state.Zone.ValueString() != "" {
+		dbaas.InZone(aruba.Zone(state.Zone.ValueString()))
+	}
+
 	dbaas.Named(data.Name.ValueString())
 	if tags != nil {
 		dbaas.RetaggedAs(tags...)
