@@ -95,7 +95,7 @@ resource "arubacloud_dbaas" "test" {
 }
 
 resource "arubacloud_database" "test" {
-  name       = "testdb"
+  name       = "testaccbackupds"
   project_id = %[1]q
   dbaas_id   = arubacloud_dbaas.test.id
 }

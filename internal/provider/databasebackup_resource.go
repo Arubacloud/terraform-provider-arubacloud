@@ -183,9 +183,10 @@ func (r *DatabaseBackupResource) Create(ctx context.Context, req resource.Create
 	}
 
 	// The backup API may take additional time to index the database even after
-	// Databases.Get() succeeds. Retry Create on "Database name not found" errors.
-	const backupRetryInterval = 10 * time.Second
-	const backupMaxRetries = 18 // additional 180 s
+	// Databases.Get() succeeds (the two APIs use separate indexes). Retry Create
+	// on "Database name not found" errors and transport failures for up to 15 min.
+	const backupRetryInterval = 15 * time.Second
+	const backupMaxRetries = 60 // up to 15 min additional
 
 	backupBuilder := aruba.NewDBaaSBackup().
 		Named(data.Name.ValueString()).

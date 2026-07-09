@@ -508,6 +508,13 @@ func (r *DBaaSResource) Update(ctx context.Context, req resource.UpdateRequest, 
 		return
 	}
 
+	// engine_id is not returned by the GET response (see Read), but the UPDATE
+	// API uses it for catalog product validation. Re-inject it from state so
+	// the PUT body carries a valid engineId and the lookup succeeds.
+	if !state.EngineID.IsNull() && state.EngineID.ValueString() != "" {
+		dbaas.OfEngine(aruba.DatabaseEngine(state.EngineID.ValueString()))
+	}
+
 	dbaas.Named(data.Name.ValueString())
 	if tags != nil {
 		dbaas.RetaggedAs(tags...)
