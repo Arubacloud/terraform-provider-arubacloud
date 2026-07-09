@@ -72,7 +72,7 @@ Two workflows are available, both triggerable manually from any branch:
 | `test_filter` | _(all `^TestAcc`)_ | Go `-run` filter, e.g. `TestAccVpcResource` |
 | `timeout` | `120m` | Test timeout passed to `go test` |
 
-The workflow also runs automatically on every push to `main`.
+The Terraform workflow also runs automatically on every push to `main`.
 
 ## Environment Variables
 
