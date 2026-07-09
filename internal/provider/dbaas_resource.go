@@ -508,13 +508,6 @@ func (r *DBaaSResource) Update(ctx context.Context, req resource.UpdateRequest, 
 		return
 	}
 
-	// engine_id is not returned by the GET response (see Read), but the UPDATE
-	// API uses it for catalog product validation. Re-inject it from state so
-	// the PUT body carries a valid engineId and the lookup succeeds.
-	if !state.EngineID.IsNull() && state.EngineID.ValueString() != "" {
-		dbaas.OfEngine(aruba.DatabaseEngine(state.EngineID.ValueString()))
-	}
-
 	dbaas.Named(data.Name.ValueString())
 	if tags != nil {
 		dbaas.RetaggedAs(tags...)
@@ -522,11 +515,22 @@ func (r *DBaaSResource) Update(ctx context.Context, req resource.UpdateRequest, 
 		dbaas.RetaggedAs(dbaas.Tags()...)
 	}
 
-	// Update storage size if changed.
+	// Update storage size only when it actually changed. Calling SizedGB with the
+	// same value as state triggers a catalog product validation in the UPDATE endpoint
+	// that fails when the flavor is absent from the update catalog ("Product not found
+	// in catalog"). Skip it for name/tag-only updates.
 	if !data.Storage.IsNull() {
 		storageAttrs := data.Storage.Attributes()
 		if sizeAttr, ok := storageAttrs["size_gb"].(types.Int64); ok && !sizeAttr.IsNull() {
-			dbaas.SizedGB(int(sizeAttr.ValueInt64()))
+			var stateSize int64
+			if !state.Storage.IsNull() {
+				if sv, ok2 := state.Storage.Attributes()["size_gb"].(types.Int64); ok2 && !sv.IsNull() {
+					stateSize = sv.ValueInt64()
+				}
+			}
+			if sizeAttr.ValueInt64() != stateSize {
+				dbaas.SizedGB(int(sizeAttr.ValueInt64()))
+			}
 		}
 		// Update autoscaling if provided.
 		if asAttr, ok := storageAttrs["autoscaling"]; ok {
