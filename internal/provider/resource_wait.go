@@ -384,6 +384,11 @@ func DeleteResourceWithRetry(
 				tflog.Info(ctx, fmt.Sprintf("%s %s already deleted (404)", resourceType, resourceID))
 				return nil
 			}
+			// Semantic errors (validation failures such as "cannot delete default VPC")
+			// are permanent — retrying with the same inputs will never succeed.
+			if ErrorIsSemantic(err) {
+				return err
+			}
 
 			// Before waiting and retrying, check if the resource is already gone
 			// via GET. This handles APIs that return 400 on a second DELETE of an

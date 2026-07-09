@@ -116,7 +116,7 @@ Canonical pattern (`cloudserver_resource.go:187-434`, `backup_resource.go:108-26
 2. Extract nested objects and validate required IDs
 3. Build SDK request struct (e.g., `sdktypes.CloudServerRequest`, `sdktypes.StorageBackupRequest`)
 4. Call SDK `Create()`
-5. Check `response.IsError()` → call `FormatAPIError()` → `resp.Diagnostics.AddError()`
+5. Check error via `CheckResponseErr()` → `resp.Diagnostics.AddError()`
 6. Extract `*response.Data.Metadata.ID` → set `data.Id`
 7. **Wait**: call `WaitForResourceActive()` with a checker closure that calls `Get()` and returns `*response.Data.Status.State`
 8. On timeout: save partial state (with ID) so destroy can clean up
@@ -217,23 +217,27 @@ This allows `DeleteResourceWithRetry` to work with any SDK response type without
 
 ---
 
-## API Error Formatting — FormatAPIError
+## API Error Handling — CheckResponseErr
 
-`error_helper.go:14-78` — formats API errors for user-facing diagnostics:
+`provider_error.go` — wraps SDK errors into a structured `*ProviderError` with category classification:
 
 ```go
-FormatAPIError(ctx, response.Error, "Failed to create backup", map[string]interface{}{
-    "project_id": projectID,
-})
+if provErr := CheckResponseErr("create", "Backup", err); provErr != nil {
+    resp.Diagnostics.AddError("API Error", provErr.Error())
+    return
+}
 ```
 
-**Processing**:
-1. Appends `Title` and `Detail` into a readable message
-2. Extracts field-level validation errors from `Extensions["errors"]` array:
-   - Each entry: `{fieldName: "...", errorMessage: "..."}`
-   - Formats as: `"\n  - fieldName: errorMessage"`
-3. Falls back to dumping all `Extensions` keys if not in validation format
-4. Logs full JSON response via `tflog.Error()` for debugging
+**Error categories** (`ProviderErrorCategory`):
+- `Semantic` — HTTP 4xx with field-level validation errors; permanent, never retried
+- `Transient` — HTTP 4xx without validation details; dependency not ready yet, retried by `CreateWithTransientRetry`
+- `Technical` — network/transport failure or HTTP 5xx; retried by `DeleteResourceWithRetry`
+
+**Helpers**:
+- `IsNotFound(err)` — true when status code is 404
+- `ErrorIsSemantic(err)` — true for permanent validation failures; stops delete retry immediately
+- `ErrorIsTransient(err)` — true for transient 4xx; used by `CreateWithTransientRetry`
+- `CheckResponseErrAsError(...)` — returns plain `error` (avoids typed-nil pitfall in closures)
 
 ---
 

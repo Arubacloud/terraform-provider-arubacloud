@@ -94,6 +94,7 @@ resource "arubacloud_blockstorage" "boot" {
   type           = "Standard"
   bootable       = true
   image          = %[2]q
+  timeout        = "2h"
 }
 
 resource "arubacloud_cloudserver" "test" {
