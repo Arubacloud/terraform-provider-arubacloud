@@ -231,15 +231,21 @@ resp.Diagnostics.AddAttributeError(
 )
 ```
 
-**API error**:
+**API error** (use `CheckResponseErr` from `provider_error.go`):
 ```go
-if response != nil && response.IsError() && response.Error != nil {
-    errorMsg := FormatAPIError(ctx, response.Error, "Failed to create backup", map[string]interface{}{
-        "project_id": projectID,
-    })
-    resp.Diagnostics.AddError("API Error", errorMsg)
+if provErr := CheckResponseErr("create", "Backup", err); provErr != nil {
+    resp.Diagnostics.AddError("API Error", provErr.Error())
     return
 }
+```
+
+Use `CheckResponseErrAsError` in closures passed to `DeleteResourceWithRetry` or `CreateWithTransientRetry`
+to avoid the typed-nil interface bug:
+```go
+err := DeleteResourceWithRetry(ctx, func() error {
+    return CheckResponseErrAsError("delete", "Backup",
+        r.client.Client.FromStorage().Backups().Delete(ctx, ref))
+}, "Backup", backupID, r.client.ResourceTimeout)
 ```
 
 **404 handling in Read** (removes resource from state):
