@@ -262,3 +262,12 @@ func ErrorIsTechnical(err error) bool {
 	var provErr *ProviderError
 	return errors.As(err, &provErr) && provErr != nil && provErr.Category == ProviderErrorCategoryTechnical
 }
+
+// ErrorIsTransportFailure reports whether err is a network-level failure with no
+// HTTP status code (e.g. EOF, connection reset). StatusCode == 0 means no response
+// was received, so the server almost certainly never processed the request and
+// retrying the same POST is safe.
+func ErrorIsTransportFailure(err error) bool {
+	var provErr *ProviderError
+	return errors.As(err, &provErr) && provErr != nil && provErr.StatusCode == 0
+}
