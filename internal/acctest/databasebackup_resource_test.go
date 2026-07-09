@@ -96,6 +96,7 @@ resource "arubacloud_database" "dbbackup_prereq" {
   name       = "testaccdbbackupdb"
   project_id = %[1]q
   dbaas_id   = %[2]q
+  timeout    = "15m"
 }
 
 resource "arubacloud_databasebackup" "test" {

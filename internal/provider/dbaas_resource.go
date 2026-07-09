@@ -334,6 +334,12 @@ func (r *DBaaSResource) Create(ctx context.Context, req resource.CreateRequest, 
 
 	data.Id = types.StringValue(dbaas.ID())
 	data.Uri = strVal(dbaas.URI())
+	// Resolve unknown billing_period to null before saving partial state so that
+	// if WaitUntilReady times out (exits with a warning) the state never holds an
+	// unknown value, which Terraform rejects ("all values must be known after apply").
+	if data.BillingPeriod.IsUnknown() {
+		data.BillingPeriod = types.StringNull()
+	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 	if resp.Diagnostics.HasError() {

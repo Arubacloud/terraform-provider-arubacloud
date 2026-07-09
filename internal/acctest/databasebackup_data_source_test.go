@@ -81,6 +81,7 @@ resource "arubacloud_dbaas" "test" {
   engine_id  = "mysql-8.0"
   flavor     = "DBO2A4"
   tags       = ["acceptance-test"]
+  timeout    = "10m"
 
   storage = {
     size_gb = 20
