@@ -1,14 +1,15 @@
-# Terraform Provider for ArubaCloud
+# Terraform / OpenTofu Provider for ArubaCloud
 
 [![GitHub release](https://img.shields.io/github/tag/arubacloud/terraform-provider-arubacloud.svg?label=release)](https://github.com/arubacloud/terraform-provider-arubacloud/releases/latest)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/arubacloud/terraform-provider-arubacloud?logo=go)](https://go.dev/doc/install)
 [![Build](https://github.com/arubacloud/terraform-provider-arubacloud/actions/workflows/build.yml/badge.svg)](https://github.com/arubacloud/terraform-provider-arubacloud/actions/workflows/build.yml)
 [![Tests](https://github.com/arubacloud/terraform-provider-arubacloud/actions/workflows/test.yml/badge.svg)](https://github.com/arubacloud/terraform-provider-arubacloud/actions/workflows/test.yml)
 [![Acceptance Tests](https://github.com/arubacloud/terraform-provider-arubacloud/actions/workflows/acceptance.yml/badge.svg)](https://github.com/arubacloud/terraform-provider-arubacloud/actions/workflows/acceptance.yml)
+[![Acceptance Tests (OpenTofu)](https://github.com/arubacloud/terraform-provider-arubacloud/actions/workflows/acceptance-opentofu.yml/badge.svg)](https://github.com/arubacloud/terraform-provider-arubacloud/actions/workflows/acceptance-opentofu.yml)
 [![Release](https://github.com/arubacloud/terraform-provider-arubacloud/actions/workflows/release.yml/badge.svg)](https://github.com/arubacloud/terraform-provider-arubacloud/actions/workflows/release.yml)
 [![codecov](https://codecov.io/gh/Arubacloud/terraform-provider-arubacloud/graph/badge.svg)](https://codecov.io/gh/Arubacloud/terraform-provider-arubacloud)
 
-Manage your [ArubaCloud](https://arubacloud.com/) infrastructure with Terraform — a European cloud platform offering virtual machines, managed Kubernetes, managed databases, private networking, block storage, and security services.
+Manage your [ArubaCloud](https://arubacloud.com/) infrastructure with Terraform or OpenTofu — a European cloud platform offering virtual machines, managed Kubernetes, managed databases, private networking, block storage, and security services.
 
 ## Resources
 
@@ -26,15 +27,18 @@ Manage your [ArubaCloud](https://arubacloud.com/) infrastructure with Terraform 
 ## Documentation
 
 - [Terraform Registry](https://registry.terraform.io/providers/Arubacloud/arubacloud/latest/docs) — full provider reference
+- [OpenTofu Registry](https://registry.opentofu.org/providers/Arubacloud/arubacloud) — same docs, OpenTofu source
 - [examples/](examples/) — complete working examples for all resources
 - [docs/](docs/) — generated reference for all resources and data sources
 
 ## Requirements
 
-- [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.0
+- [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.0 **or** [OpenTofu](https://opentofu.org/docs/intro/install/) >= 1.6
 - [Go](https://go.dev/doc/install) >= 1.24 (only needed to build from source)
 
 ## Installation
+
+### Terraform
 
 Add the provider to your Terraform configuration and run `terraform init`:
 
@@ -54,22 +58,41 @@ provider "arubacloud" {
 }
 ```
 
-Credentials can also be supplied via environment variables:
+### OpenTofu
+
+Use the OpenTofu Registry source and run `tofu init`:
+
+```hcl
+terraform {
+  required_providers {
+    arubacloud = {
+      source  = "registry.opentofu.org/Arubacloud/arubacloud"
+      version = ">= 0.3.0"
+    }
+  }
+}
+
+provider "arubacloud" {
+  client_id     = var.arubacloud_client_id
+  client_secret = var.arubacloud_client_secret
+}
+```
+
+Credentials can also be supplied via environment variables (for both Terraform and OpenTofu):
 
 ```bash
 export ARUBACLOUD_CLIENT_ID="your-client-id"
 export ARUBACLOUD_CLIENT_SECRET="your-client-secret"
-terraform plan
+terraform plan   # or: tofu plan
 ```
 
 ## Quick Start
 
-A full end-to-end example (project → keypair → VPC → subnet → security group → boot disk → CloudServer) is in [`examples/provider/quick-start.tf`](examples/provider/quick-start.tf).
+A full end-to-end example (project → keypair → VPC → subnet → security group → boot disk → CloudServer) is in [`examples/provider/quick-start.tf`](examples/provider/quick-start.tf) (Terraform) or [`examples/provider/quick-start-opentofu.tf`](examples/provider/quick-start-opentofu.tf) (OpenTofu).
 
 ```bash
-terraform init
-terraform plan
-terraform apply
+terraform init && terraform plan && terraform apply   # Terraform
+tofu init && tofu plan && tofu apply                  # OpenTofu
 ```
 
 See [`examples/test/`](examples/test/) for more complete scenario-based examples.
