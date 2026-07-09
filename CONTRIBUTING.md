@@ -6,6 +6,7 @@
 |---|---|---|
 | Go | ≥ 1.24 | `go.mod` pins the exact minimum |
 | Terraform | any recent | Required only for `make generate` (doc regeneration) |
+| OpenTofu | ≥ 1.6 | Optional — needed only to run OpenTofu acceptance tests locally |
 | golangci-lint | v2+ | `make lint` auto-installs if missing |
 
 **Windows note:** `make generate` needs Terraform in PATH. Git Bash typically does not have it; run from **WSL** instead. `make fmt` and `make lint` also behave more reliably from WSL on Windows.
@@ -57,8 +58,11 @@ export ARUBACLOUD_CLIENT_ID=<your-client-id>
 export ARUBACLOUD_CLIENT_SECRET=<your-client-secret>
 export ARUBACLOUD_PROJECT_ID=<an-existing-project-id>
 
-# Run all acceptance tests (slow — provisions real infra)
+# Run all acceptance tests against Terraform (slow — provisions real infra)
 go test -v -timeout=120m ./internal/provider/... -run '^TestAcc'
+
+# Run all acceptance tests against OpenTofu
+TF_ACC_TERRAFORM_PATH=$(which tofu) go test -v -timeout=120m ./internal/provider/... -run '^TestAcc'
 
 # Run a single resource
 go test -v -timeout=30m ./internal/provider/... -run '^TestAccKeypairResource$'
@@ -69,7 +73,7 @@ go test -v -timeout=30m ./internal/provider/... -run '^TestAccKeypairResource$'
 
 ### CI — manual trigger
 
-Go to **Actions → Acceptance Tests → Run workflow** and optionally fill in:
+Go to **Actions → Acceptance Tests → Run workflow** (Terraform) or **Actions → Acceptance Tests (OpenTofu) → Run workflow** (OpenTofu), and optionally fill in:
 
 | Input | Default | Example |
 |---|---|---|

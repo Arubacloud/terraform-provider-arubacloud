@@ -14,7 +14,7 @@ Acceptance tests exercise the real ArubaCloud API — they provision, read, upda
 ## Prerequisites
 
 - Go ≥ 1.24
-- Terraform CLI in `PATH` (acceptance tests download and drive Terraform internally)
+- Terraform CLI **or** OpenTofu CLI in `PATH` (acceptance tests drive whichever binary you point them at)
 - A valid ArubaCloud account with API credentials
 - An existing project to scope resource creation (`ARUBACLOUD_PROJECT_ID`)
 
@@ -26,12 +26,17 @@ export ARUBACLOUD_CLIENT_ID=<your-api-key>
 export ARUBACLOUD_CLIENT_SECRET=<your-api-secret>
 export ARUBACLOUD_PROJECT_ID=<an-existing-project-id>
 
-# Run all acceptance tests
+# Run all acceptance tests against Terraform (default)
 go test -v -timeout=120m ./internal/provider/... -run '^TestAcc'
+
+# Run all acceptance tests against OpenTofu
+TF_ACC_TERRAFORM_PATH=$(which tofu) go test -v -timeout=120m ./internal/provider/... -run '^TestAcc'
 
 # Run a single resource test
 go test -v -timeout=30m ./internal/provider/... -run '^TestAccKeypairResource$'
 ```
+
+`TF_ACC_TERRAFORM_PATH` tells the test harness which binary to invoke. Point it at `terraform` or `tofu` interchangeably — the provider is compatible with both.
 
 A convenience wrapper is available that accepts credentials and fixture IDs as flags:
 
@@ -57,14 +62,17 @@ A convenience wrapper is available that accepts credentials and fixture IDs as f
 
 ## CI — Manual Trigger
 
-The [Acceptance Tests workflow](https://github.com/Arubacloud/terraform-provider-arubacloud/actions/workflows/acceptance.yml) can be triggered manually from any branch via **Actions → Acceptance Tests → Run workflow**.
+Two workflows are available, both triggerable manually from any branch:
+
+- **Terraform**: [Acceptance Tests](https://github.com/Arubacloud/terraform-provider-arubacloud/actions/workflows/acceptance.yml) — runs tests with the `terraform` binary.
+- **OpenTofu**: [Acceptance Tests (OpenTofu)](https://github.com/Arubacloud/terraform-provider-arubacloud/actions/workflows/acceptance-opentofu.yml) — runs the same tests with the `tofu` binary.
 
 | Input | Default | Description |
 |---|---|---|
 | `test_filter` | _(all `^TestAcc`)_ | Go `-run` filter, e.g. `TestAccVpcResource` |
 | `timeout` | `120m` | Test timeout passed to `go test` |
 
-The workflow also runs automatically on every push to `main`.
+The Terraform workflow also runs automatically on every push to `main`.
 
 ## Environment Variables
 

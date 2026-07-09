@@ -1,0 +1,70 @@
+name: Acceptance Tests (OpenTofu)
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_filter:
+        description: 'Go test -run filter. Defaults to the self-contained data source suite.'
+        required: false
+        default: '^TestAcc(Vpc|Subnet|Keypair|Securitygroup|Securityrule|Blockstorage|Snapshot|Backup|Elasticip|Kms|Schedulejob)DataSource$'
+      timeout:
+        description: 'Test timeout (e.g. 60m, 120m)'
+        required: false
+        default: '120m'
+
+permissions:
+  contents: read
+
+jobs:
+  acceptance-opentofu:
+    name: Acceptance Tests (OpenTofu)
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_wrapper: false
+
+      - name: Resolve tofu binary path
+        run: echo "TF_ACC_TERRAFORM_PATH=$(which tofu)" >> "$GITHUB_ENV"
+
+      - run: go mod download
+
+      - name: Run acceptance tests
+        env:
+          TF_ACC: "1"
+          ARUBACLOUD_API_KEY: ${{ secrets.ARUBACLOUD_API_KEY }}
+          ARUBACLOUD_API_SECRET: ${{ secrets.ARUBACLOUD_API_SECRET }}
+          ARUBACLOUD_PROJECT_ID: ${{ secrets.ARUBACLOUD_PROJECT_ID }}
+          ARUBACLOUD_CLOUDSERVER_ID: ${{ secrets.ARUBACLOUD_CLOUDSERVER_ID }}
+        run: |
+          FILTER="${{ github.event.inputs.test_filter }}"
+          TIMEOUT="${{ github.event.inputs.timeout }}"
+          if [ -n "$FILTER" ]; then
+            go test -v -coverprofile=coverage-acceptance-opentofu.out -timeout="${TIMEOUT}" ./internal/provider/... -run "${FILTER}"
+          else
+            go test -v -coverprofile=coverage-acceptance-opentofu.out -timeout="${TIMEOUT}" ./internal/provider/... -run '^TestAcc'
+          fi
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          if [ -f coverage-acceptance-opentofu.out ]; then
+            echo "## Acceptance Test Coverage (OpenTofu)" >> "$GITHUB_STEP_SUMMARY"
+            go tool cover -func=coverage-acceptance-opentofu.out | tail -1 >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: coverage-acceptance-opentofu-${{ github.run_id }}
+          path: coverage-acceptance-opentofu.out
+          retention-days: 30
