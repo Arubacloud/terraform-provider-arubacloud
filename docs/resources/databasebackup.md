@@ -35,7 +35,6 @@ The following arguments are supported:
 - `database` (String) Name of the logical database within the DBaaS cluster to back up.
 - `dbaas_id` (String) ID of the DBaaS cluster or database to back up.
 - `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).
-- `name` (String) Display name for the database backup.
 - `project_id` (String) ID of the project that owns this resource.
 - `zone` (String) Availability zone within the region where the backup is stored.
 
@@ -51,6 +50,7 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) Computed by the API. Unique identifier for the resource.
+- `name` (String) Auto-generated backup name assigned by the API (e.g. `mysql_wordpress_20260713140736`). The value provided in config is not used — the API always generates its own name.
 - `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources.
 
 
