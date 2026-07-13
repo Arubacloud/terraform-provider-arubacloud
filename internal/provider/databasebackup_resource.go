@@ -70,8 +70,11 @@ func (r *DatabaseBackupResource) Schema(ctx context.Context, req resource.Schema
 				Required:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Display name for the database backup.",
-				Required:            true,
+				MarkdownDescription: "Auto-generated backup name assigned by the API (e.g. `mysql_wordpress_20260713140736`). The value provided in config is not used — the API always generates its own name.",
+				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"location": schema.StringAttribute{
 				MarkdownDescription: "Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center).",
@@ -182,10 +185,11 @@ func (r *DatabaseBackupResource) Create(ctx context.Context, req resource.Create
 		}
 	}
 
-	// The backup API may take additional time to index the database even after
-	// Databases.Get() succeeds. Retry Create on "Database name not found" errors.
-	const backupRetryInterval = 10 * time.Second
-	const backupMaxRetries = 18 // additional 180 s
+	// The backup API indexes databases separately from Databases.Get() and can lag
+	// by 20–30 min after the database becomes visible. Retry until the effective
+	// resource timeout is exhausted rather than capping at a fixed count.
+	const backupRetryInterval = 15 * time.Second
+	backupDeadline := time.Now().Add(effectiveTimeout(data.Timeout, r.client.ResourceTimeout))
 
 	backupBuilder := aruba.NewDBaaSBackup().
 		Named(data.Name.ValueString()).
@@ -199,7 +203,7 @@ func (r *DatabaseBackupResource) Create(ctx context.Context, req resource.Create
 
 	var backup *aruba.DBaaSBackup
 	var lastProvErr error
-	for attempt := 0; attempt <= backupMaxRetries; attempt++ {
+	for attempt := 0; ; attempt++ {
 		var createErr error
 		backup, createErr = r.client.Client.FromDatabase().Backups().Create(ctx, backupBuilder)
 		pe := CheckResponseErr("create", "DatabaseBackup", createErr)
@@ -208,13 +212,16 @@ func (r *DatabaseBackupResource) Create(ctx context.Context, req resource.Create
 			break
 		}
 		lastProvErr = pe
-		if !strings.Contains(pe.Error(), "Database name is not found") {
-			break // not a propagation-related error; stop retrying
-		}
-		if attempt == backupMaxRetries {
+		// Retry transient 400s (dependency not yet ready) and transport failures
+		// (EOF / connection reset, StatusCode == 0). Semantic errors (wrong database
+		// name, invalid billing period, etc.) are permanent — break immediately.
+		if !ErrorIsTransient(pe) && !ErrorIsTransportFailure(pe) {
 			break
 		}
-		tflog.Info(ctx, "database not yet visible to backup API, retrying", map[string]interface{}{
+		if time.Now().After(backupDeadline) {
+			break
+		}
+		tflog.Info(ctx, "backup dependency not yet ready, retrying", map[string]interface{}{
 			"database": databaseName,
 			"attempt":  attempt + 1,
 		})
@@ -232,6 +239,11 @@ func (r *DatabaseBackupResource) Create(ctx context.Context, req resource.Create
 
 	data.Id = types.StringValue(backup.ID())
 	data.Uri = strVal(backup.URI())
+	// The API auto-generates the backup name (ignoring the requested name).
+	// Hydrate from the response so state never drifts on subsequent refreshes.
+	if n := backup.Name(); n != "" {
+		data.Name = types.StringValue(n)
+	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
@@ -302,7 +314,16 @@ func (r *DatabaseBackupResource) Read(ctx context.Context, req resource.ReadRequ
 	if bp := billingPeriodFromAPI(string(backup.BillingPeriod())); bp != "" {
 		data.BillingPeriod = types.StringValue(bp)
 	}
-	// DBaaSID and Database are preserved from state (not in API response directly).
+	// dbaas_id: extract from the dbaas URI returned in the response
+	// (e.g. "/projects/.../dbaas/{id}").
+	if dbaasURI := backup.DBaaSURI(); dbaasURI != "" {
+		if idx := strings.LastIndex(dbaasURI, "/dbaas/"); idx >= 0 {
+			data.DBaaSID = types.StringValue(dbaasURI[idx+len("/dbaas/"):])
+		}
+	}
+	if dbName := backup.DatabaseName(); dbName != "" {
+		data.Database = types.StringValue(dbName)
+	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

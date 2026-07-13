@@ -296,7 +296,10 @@ func CreateWithTransientRetry(
 		if err == nil {
 			return nil
 		}
-		if !ErrorIsTransient(err) {
+		// Retry transient 4xx (dependency not ready) and pure transport failures
+		// (EOF / connection reset — StatusCode == 0 means the server never processed
+		// the request so retrying the POST is safe).
+		if !ErrorIsTransient(err) && !ErrorIsTransportFailure(err) {
 			return err
 		}
 

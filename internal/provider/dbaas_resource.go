@@ -334,6 +334,12 @@ func (r *DBaaSResource) Create(ctx context.Context, req resource.CreateRequest, 
 
 	data.Id = types.StringValue(dbaas.ID())
 	data.Uri = strVal(dbaas.URI())
+	// Resolve unknown billing_period to null before saving partial state so that
+	// if WaitUntilReady times out (exits with a warning) the state never holds an
+	// unknown value, which Terraform rejects ("all values must be known after apply").
+	if data.BillingPeriod.IsUnknown() {
+		data.BillingPeriod = types.StringNull()
+	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
@@ -502,6 +508,21 @@ func (r *DBaaSResource) Update(ctx context.Context, req resource.UpdateRequest, 
 		return
 	}
 
+	// fromResponse hydrates d.engine from Engine.Type ("mysql"), not the catalog ID
+	// ("mysql-8.0"), so the PUT body would contain engine.id="mysql" which the
+	// UPDATE catalog lookup rejects with "Product not found in catalog".
+	// Override from state which holds the correct engine_id value.
+	if !state.EngineID.IsNull() && state.EngineID.ValueString() != "" {
+		dbaas.OfEngine(aruba.DatabaseEngine(state.EngineID.ValueString()))
+	}
+	// fromResponse never calls inZone (only inRegion), so d.zone = nil and the PUT
+	// body omits properties.dataCenter. The API treats an absent zone in a PUT as
+	// "change to null" and rejects with "DataCenter cannot be modified".
+	// Re-inject from state to keep the zone unchanged.
+	if !state.Zone.IsNull() && state.Zone.ValueString() != "" {
+		dbaas.InZone(aruba.Zone(state.Zone.ValueString()))
+	}
+
 	dbaas.Named(data.Name.ValueString())
 	if tags != nil {
 		dbaas.RetaggedAs(tags...)
@@ -509,11 +530,22 @@ func (r *DBaaSResource) Update(ctx context.Context, req resource.UpdateRequest, 
 		dbaas.RetaggedAs(dbaas.Tags()...)
 	}
 
-	// Update storage size if changed.
+	// Update storage size only when it actually changed. Calling SizedGB with the
+	// same value as state triggers a catalog product validation in the UPDATE endpoint
+	// that fails when the flavor is absent from the update catalog ("Product not found
+	// in catalog"). Skip it for name/tag-only updates.
 	if !data.Storage.IsNull() {
 		storageAttrs := data.Storage.Attributes()
 		if sizeAttr, ok := storageAttrs["size_gb"].(types.Int64); ok && !sizeAttr.IsNull() {
-			dbaas.SizedGB(int(sizeAttr.ValueInt64()))
+			var stateSize int64
+			if !state.Storage.IsNull() {
+				if sv, ok2 := state.Storage.Attributes()["size_gb"].(types.Int64); ok2 && !sv.IsNull() {
+					stateSize = sv.ValueInt64()
+				}
+			}
+			if sizeAttr.ValueInt64() != stateSize {
+				dbaas.SizedGB(int(sizeAttr.ValueInt64()))
+			}
 		}
 		// Update autoscaling if provided.
 		if asAttr, ok := storageAttrs["autoscaling"]; ok {

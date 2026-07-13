@@ -18,8 +18,9 @@ import (
 func TestAccDatabasebackupResource(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
 	dbaasID := os.Getenv("ARUBACLOUD_DBAAS_ID")
-	if projectID == "" || dbaasID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_DBAAS_ID must be set for acceptance tests")
+	databaseName := os.Getenv("ARUBACLOUD_DATABASE_NAME")
+	if projectID == "" || dbaasID == "" || databaseName == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID, ARUBACLOUD_DBAAS_ID and ARUBACLOUD_DATABASE_NAME must be set for acceptance tests")
 	}
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { PreCheck(t) },
@@ -27,12 +28,12 @@ func TestAccDatabasebackupResource(t *testing.T) {
 		CheckDestroy:             testCheckDatabasebackupDestroyed,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccDatabasebackupResourceConfig(projectID, dbaasID, "test-databasebackup"),
+				Config: testAccDatabasebackupResourceConfig(projectID, dbaasID, databaseName),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_databasebackup.test",
 						tfjsonpath.New("name"),
-						knownvalue.StringExact("test-databasebackup"),
+						knownvalue.NotNull(),
 					),
 					statecheck.ExpectKnownValue(
 						"arubacloud_databasebackup.test",
@@ -53,12 +54,14 @@ func TestAccDatabasebackupResource(t *testing.T) {
 				ImportStateIdFunc: ImportIDFromAttrs("arubacloud_databasebackup.test", "project_id", "id"),
 			},
 			{
-				Config: testAccDatabasebackupResourceConfig(projectID, dbaasID, "test-databasebackup-updated"),
+				// Backup Update is a no-op (API has no update endpoint); verify
+				// the resource stays stable on a second apply.
+				Config: testAccDatabasebackupResourceConfig(projectID, dbaasID, databaseName),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_databasebackup.test",
 						tfjsonpath.New("name"),
-						knownvalue.StringExact("test-databasebackup-updated"),
+						knownvalue.NotNull(),
 					),
 				},
 			},
@@ -90,22 +93,15 @@ func testCheckDatabasebackupDestroyed(s *terraform.State) error {
 	return nil
 }
 
-func testAccDatabasebackupResourceConfig(projectID, dbaasID, name string) string {
+func testAccDatabasebackupResourceConfig(projectID, dbaasID, databaseName string) string {
 	return fmt.Sprintf(`
-resource "arubacloud_database" "dbbackup_prereq" {
-  name       = "testaccdbbackupdb"
-  project_id = %[1]q
-  dbaas_id   = %[2]q
-}
-
 resource "arubacloud_databasebackup" "test" {
-  name           = %[3]q
   project_id     = %[1]q
   location       = "ITBG-Bergamo"
   zone           = "ITBG-1"
   dbaas_id       = %[2]q
-  database       = arubacloud_database.dbbackup_prereq.name
+  database       = %[3]q
   billing_period = "Hour"
 }
-`, projectID, dbaasID, name)
+`, projectID, dbaasID, databaseName)
 }
