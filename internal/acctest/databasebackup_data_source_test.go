@@ -14,8 +14,9 @@ import (
 func TestAccDatabasebackupDataSource(t *testing.T) {
 	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
 	dbaasID := os.Getenv("ARUBACLOUD_DBAAS_ID")
-	if projectID == "" || dbaasID == "" {
-		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_DBAAS_ID must be set for acceptance tests")
+	databaseName := os.Getenv("ARUBACLOUD_DATABASE_NAME")
+	if projectID == "" || dbaasID == "" || databaseName == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID, ARUBACLOUD_DBAAS_ID and ARUBACLOUD_DATABASE_NAME must be set for acceptance tests")
 	}
 
 	resource.Test(t, resource.TestCase{
@@ -23,7 +24,7 @@ func TestAccDatabasebackupDataSource(t *testing.T) {
 		ProtoV6ProviderFactories: ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccDatabasebackupDataSourceConfig(projectID, dbaasID),
+				Config: testAccDatabasebackupDataSourceConfig(projectID, dbaasID, databaseName),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"data.arubacloud_databasebackup.test",
@@ -51,22 +52,14 @@ func TestAccDatabasebackupDataSource(t *testing.T) {
 	})
 }
 
-func testAccDatabasebackupDataSourceConfig(projectID, dbaasID string) string {
+func testAccDatabasebackupDataSourceConfig(projectID, dbaasID, databaseName string) string {
 	return fmt.Sprintf(`
-resource "arubacloud_database" "test" {
-  name       = "testaccbackupds"
-  project_id = %[1]q
-  dbaas_id   = %[2]q
-  timeout    = "15m"
-}
-
 resource "arubacloud_databasebackup" "test" {
-  name           = "test-ds-databasebackup"
   project_id     = %[1]q
   location       = "ITBG-Bergamo"
   zone           = "ITBG-1"
   dbaas_id       = %[2]q
-  database       = arubacloud_database.test.name
+  database       = %[3]q
   billing_period = "Hour"
   tags           = ["acceptance-test"]
 }
@@ -75,5 +68,5 @@ data "arubacloud_databasebackup" "test" {
   id         = arubacloud_databasebackup.test.id
   project_id = %[1]q
 }
-`, projectID, dbaasID)
+`, projectID, dbaasID, databaseName)
 }

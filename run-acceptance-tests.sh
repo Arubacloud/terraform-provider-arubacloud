@@ -17,7 +17,8 @@
 #   ARUBACLOUD_KAAS_NODE_INSTANCE   TestAccKaasResource, TestAccKaasDataSource
 #   ARUBACLOUD_OS_IMAGE_ID          TestAccCloudserverResource, TestAccBlockStorageResource_Bootable,
 #                                   TestAccCloudserverDataSource, TestAccSchedulejobDataSource
-#   ARUBACLOUD_DBAAS_ID             TestAccDatabaseResource
+#   ARUBACLOUD_DBAAS_ID             TestAccDatabaseResource, TestAccDatabasebackupDataSource, TestAccDatabasebackupResource
+#   ARUBACLOUD_DATABASE_NAME        TestAccDatabasebackupDataSource, TestAccDatabasebackupResource
 #   ARUBACLOUD_VPNTUNNEL_ID         TestAccVpntunnelDataSource, TestAccVpnrouteDataSource
 #   ARUBACLOUD_VPNROUTE_ID          TestAccVpnrouteDataSource
 #
@@ -99,6 +100,7 @@ OPT_VAR_NAMES=(
     ARUBACLOUD_KAAS_NODE_INSTANCE
     ARUBACLOUD_OS_IMAGE_ID
     ARUBACLOUD_DBAAS_ID
+    ARUBACLOUD_DATABASE_NAME
     ARUBACLOUD_VPNTUNNEL_ID
     ARUBACLOUD_VPNROUTE_ID
 )
@@ -107,7 +109,8 @@ OPT_VAR_TESTS=(
     "TestAccKaasResource, TestAccKaasDataSource"
     "TestAccKaasResource, TestAccKaasDataSource"
     "TestAccCloudserverResource, TestAccBlockStorageResource_Bootable, TestAccCloudserverDataSource, TestAccSchedulejobDataSource"
-    "TestAccDatabaseResource"
+    "TestAccDatabaseResource, TestAccDatabasebackupDataSource, TestAccDatabasebackupResource"
+    "TestAccDatabasebackupDataSource, TestAccDatabasebackupResource"
     "TestAccVpntunnelDataSource, TestAccVpnrouteDataSource"
     "TestAccVpnrouteDataSource"
 )

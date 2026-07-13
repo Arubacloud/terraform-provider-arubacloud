@@ -81,3 +81,5 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/utils v0.0.0-20260507154919-ff6756f316d2 // indirect
 )
+
+replace github.com/Arubacloud/sdk-go => ../sdk-go

@@ -273,7 +273,7 @@ func TestDatabaseBackupRead_WithProperties(t *testing.T) {
 		`"uri":"/backups/test-id","location":{"value":"test-loc"},` +
 		`"tags":["env:test"]},` +
 		`"status":{"state":"Active"},` +
-		`"properties":{"billingPeriod":"Hour","dbaas":{"uri":"/dbaas/test"},"database":{"uri":"/db/test"}}}`
+		`"properties":{"billingPeriod":"Hour","dbaas":{"uri":"/dbaas/test"},"database":{"name":"testdb"}}}`
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
