@@ -321,8 +321,7 @@ func (r *DatabaseBackupResource) Read(ctx context.Context, req resource.ReadRequ
 			data.DBaaSID = types.StringValue(dbaasURI[idx+len("/dbaas/"):])
 		}
 	}
-	// database: the SDK now stores the plain name in DatabaseURI() after our fix.
-	if dbName := backup.DatabaseURI(); dbName != "" {
+	if dbName := backup.DatabaseName(); dbName != "" {
 		data.Database = types.StringValue(dbName)
 	}
 
