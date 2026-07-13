@@ -3,7 +3,7 @@ module github.com/Arubacloud/terraform-provider-arubacloud
 go 1.24.0
 
 require (
-	github.com/Arubacloud/sdk-go v1.0.4
+	github.com/Arubacloud/sdk-go v1.0.5
 	github.com/hashicorp/terraform-plugin-framework v1.16.1
 	github.com/hashicorp/terraform-plugin-framework-validators v0.19.0
 	github.com/hashicorp/terraform-plugin-go v0.29.0
@@ -81,5 +81,3 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/utils v0.0.0-20260507154919-ff6756f316d2 // indirect
 )
-
-replace github.com/Arubacloud/sdk-go => ../sdk-go
