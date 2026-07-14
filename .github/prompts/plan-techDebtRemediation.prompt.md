@@ -27,7 +27,7 @@ Tackle all 29 tech debt items across 5 phases. TD-003 (ImportState) is intention
   - `NewTransportError` — wraps network/SDK errors
   - `IsNotFound`, `ErrorIsSemantic`, `ErrorIsTransient`, `ErrorIsTechnical` — typed helpers via `errors.As`
   - Validation errors inlined into `Detail`; `Error()` is pure (no side effects)
-- `error_helper.go`: `FormatAPIError` deleted; file reduced to `package provider`
+- `error_helper.go`: deleted entirely (`FormatAPIError` removed, file gone)
 - `resource_wait.go`: `ExtractSDKError` (reflection) deleted; `DeleteResourceWithRetry` now accepts `func() error` — caller wraps SDK call + `CheckResponse`/`NewTransportError`
 - All 27 resource files + all data source files migrated to `CheckResponse` + `NewTransportError`
 - `vpc_resource.go`: deleted `extractVPCDelError` + `extractErrorFunc` (TD-018); `reflect` import removed
@@ -126,7 +126,7 @@ Tackle all 29 tech debt items across 5 phases. TD-003 (ImportState) is intention
 
 - `main.go` — TD-002 ✅, TD-022, TD-023
 - `internal/provider/provider_error.go` (new) — TD-005 ✅, TD-018 ✅
-- `internal/provider/error_helper.go` — TD-005 ✅ (gutted)
+- `internal/provider/error_helper.go` — TD-005 ✅ (deleted)
 - `internal/provider/resource_wait.go` — TD-004 ✅, TD-005 ✅, TD-007, TD-019 ✅
 - `internal/provider/vpc_resource.go` — TD-018 ✅
 - `internal/provider/cloudserver_resource.go` — TD-006, TD-008
