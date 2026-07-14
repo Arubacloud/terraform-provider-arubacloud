@@ -8,8 +8,8 @@ All provider logic lives in `internal/provider/`.
 
 ## Key Shared Files
 
-- `internal/provider/resource_wait.go` — polling utility
-- `internal/provider/error_helper.go` — API error formatting utility
+- `internal/provider/resource_wait.go` — polling utility (`WaitForResourceActive`, `DeleteResourceWithRetry`)
+- `internal/provider/provider_error.go` — typed error handling (`CheckResponseErr`, `ProviderError`, `IsNotFound`)
 
 ## Resource Coverage
 

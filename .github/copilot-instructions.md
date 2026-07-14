@@ -27,8 +27,7 @@ For deeper reference, load the relevant file from `ai/` based on your task:
 ### Key Shared Utilities
 
 - `internal/provider/resource_wait.go` — polling helper `WaitForResourceActive()`
-- `internal/provider/provider_error.go` — typed error handling: `CheckResponse[T]`, `NewTransportError`, `ProviderError`
-- `internal/provider/error_helper.go` — legacy `FormatAPIError()` (being phased out)
+- `internal/provider/provider_error.go` — typed error handling: `CheckResponseErr`, `NewTransportError`, `ProviderError`
 
 ---
 
@@ -71,7 +70,7 @@ type BackupResource struct {
 
 **Read lifecycle**: Read state → Call `Get()` → If 404 call `resp.State.RemoveResource(ctx)` → Map fields → Set state.
 
-**Error handling**: Use `CheckResponse[T]()` from `provider_error.go`; fall back to `FormatAPIError()` only in legacy code.
+**Error handling**: Use `CheckResponseErr()` (or `CheckResponseErrAsError()` in closures) from `provider_error.go`.
 
 ---
 

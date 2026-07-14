@@ -147,11 +147,11 @@ return fmt.Errorf("status check failed for %s %s after %d consecutive errors: %w
 
 ### TD-012 — No Unit Tests for Helper Functions
 
-**Affected files:** `resource_wait.go`, `error_helper.go`
+**Affected files:** `resource_wait.go`, `provider_error.go`
 
-**Issue:** Complex logic like `WaitForResourceActive`, `DeleteResourceWithRetry`, `ExtractSDKError`, and `FormatAPIError` has zero unit test coverage. Bugs in these helpers affect all 27 resources.
+**Issue:** Complex logic like `WaitForResourceActive`, `DeleteResourceWithRetry`, and `CheckResponseErr` has zero unit test coverage. Bugs in these helpers affect all 27 resources.
 
-**Fix:** Add `resource_wait_test.go` and `error_helper_test.go` with table-driven tests. Use mock checker functions and mock SDK responses.
+**Fix:** Add `resource_wait_test.go` and `provider_error_test.go` with table-driven tests. Use mock checker functions and mock SDK responses.
 
 ---
 
