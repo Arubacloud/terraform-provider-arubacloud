@@ -51,7 +51,7 @@ The following arguments are supported:
 #### Required
 
 - `location` (String) Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). Changing this value forces a new resource.
-- `name` (String) Display name for the CloudServer.
+- `name` (String) Display name for the CloudServer. Changing this value forces a new resource.
 - `network` (Attributes) Network configuration for the CloudServer. (see [below for nested schema](#nestedatt--network))
 - `project_id` (String) ID of the project that owns this resource. Changing this value forces a new resource.
 - `settings` (Attributes) Compute and access settings for the CloudServer. (see [below for nested schema](#nestedatt--settings))
@@ -60,7 +60,7 @@ The following arguments are supported:
 
 #### Optional
 
-- `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
+- `tags` (List of String) List of string tags attached to the resource for filtering and organisation. Changing this value forces a new resource.
 - `timeout` (String) Per-resource timeout override (e.g. `"15m"`, `"1h"`). Overrides the provider-level `resource_timeout` for this resource's Create and Delete operations. Uses Go duration syntax.
 
 ### Attributes Reference
@@ -91,11 +91,11 @@ Optional:
 
 Required:
 
-- `flavor_name` (String) Compute flavour name (e.g., `CSO4A8` for 4 vCPU / 8 GB RAM). See [available flavours](https://api.arubacloud.com/docs/metadata/#cloudserver-flavors).
+- `flavor_name` (String) Compute flavour name (e.g., `CSO4A8` for 4 vCPU / 8 GB RAM). See [available flavours](https://api.arubacloud.com/docs/metadata/#cloudserver-flavors). Changing this value forces a new resource.
 
 Optional:
 
-- `key_pair_uri_ref` (String) URI of the SSH key pair to inject at boot. Reference the `uri` attribute of an `arubacloud_keypair` resource.
+- `key_pair_uri_ref` (String) URI of the SSH key pair to inject at boot. Reference the `uri` attribute of an `arubacloud_keypair` resource. Changing this value forces a new resource.
 - `user_data` (String, Sensitive) Cloud-Init configuration passed verbatim to the instance at first boot (raw YAML or shell-script). Write-only — this value is sent to the API but is not returned in subsequent read responses. Changing this value forces a new resource.
 
 
