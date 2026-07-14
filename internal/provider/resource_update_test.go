@@ -70,9 +70,10 @@ func updateSuccessHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // resourcesWithAPIUpdate is the subset of allResources25 whose Update()
-// makes at least one SDK API call.  DatabaseBackup.Update() is a documented
-// no-op (adds a warning and saves state unchanged) so it is excluded from
-// error-path assertions that expect an error diagnostic.
+// makes at least one SDK API call.  Excluded resources:
+//   - databasebackup: documented no-op (adds a warning and saves state unchanged)
+//   - cloudserver:    all API-backed fields carry RequiresReplace(); Update() is a
+//     local-only no-op that never calls the API (see #270)
 var resourcesWithAPIUpdate = []struct {
 	name string
 	newR func() resource.Resource
@@ -89,7 +90,6 @@ var resourcesWithAPIUpdate = []struct {
 	{"restore", NewRestoreResource},
 	{"kms", NewKMSResource},
 	{"project", NewProjectResource},
-	{"cloudserver", NewCloudServerResource},
 	{"vpcpeering", NewVpcPeeringResource},
 	{"vpcpeeringroute", NewVpcPeeringRouteResource},
 	{"vpntunnel", NewVPNTunnelResource},
