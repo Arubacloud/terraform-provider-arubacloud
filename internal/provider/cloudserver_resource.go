@@ -84,8 +84,11 @@ func (r *CloudServerResource) Schema(ctx context.Context, req resource.SchemaReq
 				},
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Display name for the CloudServer.",
+				MarkdownDescription: "Display name for the CloudServer. Changing this value forces a new resource.",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"location": schema.StringAttribute{
 				MarkdownDescription: "Region identifier for the resource (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). Changing this value forces a new resource.",
@@ -110,8 +113,11 @@ func (r *CloudServerResource) Schema(ctx context.Context, req resource.SchemaReq
 			},
 			"tags": schema.ListAttribute{
 				ElementType:         types.StringType,
-				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation.",
+				MarkdownDescription: "List of string tags attached to the resource for filtering and organisation. Changing this value forces a new resource.",
 				Optional:            true,
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.RequiresReplace(),
+				},
 			},
 			"network": schema.SingleNestedAttribute{
 				MarkdownDescription: "Network configuration for the CloudServer.",
@@ -156,14 +162,18 @@ func (r *CloudServerResource) Schema(ctx context.Context, req resource.SchemaReq
 				Required:            true,
 				Attributes: map[string]schema.Attribute{
 					"flavor_name": schema.StringAttribute{
-						MarkdownDescription: "Compute flavour name (e.g., `CSO4A8` for 4 vCPU / 8 GB RAM). See [available flavours](https://api.arubacloud.com/docs/metadata/#cloudserver-flavors).",
+						MarkdownDescription: "Compute flavour name (e.g., `CSO4A8` for 4 vCPU / 8 GB RAM). See [available flavours](https://api.arubacloud.com/docs/metadata/#cloudserver-flavors). Changing this value forces a new resource.",
 						Required:            true,
+						PlanModifiers: []planmodifier.String{
+							stringplanmodifier.RequiresReplace(),
+						},
 					},
 					"key_pair_uri_ref": schema.StringAttribute{
-						MarkdownDescription: "URI of the SSH key pair to inject at boot. Reference the `uri` attribute of an `arubacloud_keypair` resource.",
+						MarkdownDescription: "URI of the SSH key pair to inject at boot. Reference the `uri` attribute of an `arubacloud_keypair` resource. Changing this value forces a new resource.",
 						Optional:            true,
 						PlanModifiers: []planmodifier.String{
 							stringplanmodifier.UseStateForUnknown(),
+							stringplanmodifier.RequiresReplace(),
 						},
 					},
 					"user_data": schema.StringAttribute{
@@ -536,128 +546,15 @@ func csStorageAttrTypes() map[string]attr.Type {
 func (r *CloudServerResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var data CloudServerResourceModel
 	var state CloudServerResourceModel
-
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	// Extract nested plan models for state reconstruction.
-	var planNetworkModel CloudServerNetworkModel
-	resp.Diagnostics.Append(data.Network.As(ctx, &planNetworkModel, basetypes.ObjectAsOptions{})...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-	var planSettingsModel CloudServerSettingsModel
-	resp.Diagnostics.Append(data.Settings.As(ctx, &planSettingsModel, basetypes.ObjectAsOptions{})...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-	var planStorageModel CloudServerStorageModel
-	resp.Diagnostics.Append(data.Storage.As(ctx, &planStorageModel, basetypes.ObjectAsOptions{})...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	tags := ListToTags(ctx, data.Tags, &resp.Diagnostics)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	// Fetch-mutate-update: get current wrapper, apply name/tag mutations, submit.
-	server, err := r.client.Client.FromCompute().CloudServers().Get(ctx, cloudServerRef(&state))
-	if provErr := CheckResponseErr("read", "CloudServer", err); provErr != nil {
-		resp.Diagnostics.AddError("API Error", provErr.Error())
-		return
-	}
-
-	server.Named(data.Name.ValueString())
-	if tags != nil {
-		server.RetaggedAs(tags...)
-	} else {
-		server.RetaggedAs(server.Tags()...)
-	}
-
-	// Subnets and security groups are not returned by the API on Get, so the
-	// server object would send null for both fields without these explicit calls,
-	// causing a 400 "subnet/securityGroup cannot be null" error.
-	if !planNetworkModel.SubnetUriRefs.IsNull() && !planNetworkModel.SubnetUriRefs.IsUnknown() {
-		var subnetURIs []string
-		resp.Diagnostics.Append(planNetworkModel.SubnetUriRefs.ElementsAs(ctx, &subnetURIs, false)...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		subnetRefs := make([]aruba.Ref, len(subnetURIs))
-		for i, u := range subnetURIs {
-			subnetRefs[i] = aruba.URI(u)
-		}
-		server.OnSubnets(subnetRefs...)
-	}
-
-	if !planNetworkModel.SecurityGroupUriRefs.IsNull() && !planNetworkModel.SecurityGroupUriRefs.IsUnknown() {
-		var sgURIs []string
-		resp.Diagnostics.Append(planNetworkModel.SecurityGroupUriRefs.ElementsAs(ctx, &sgURIs, false)...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		sgRefs := make([]aruba.Ref, len(sgURIs))
-		for i, u := range sgURIs {
-			sgRefs[i] = aruba.URI(u)
-		}
-		server.WithSecurityGroups(sgRefs...)
-	}
-
-	updated, err := r.client.Client.FromCompute().CloudServers().Update(ctx, server)
-	if provErr := CheckResponseErr("update", "CloudServer", err); provErr != nil {
-		resp.Diagnostics.AddError("API Error", provErr.Error())
-		return
-	}
-
-	if waitErr := updated.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
-		ReportWaitResult(&resp.Diagnostics, waitErr, "CloudServer", state.Id.ValueString())
-		return
-	}
-
-	if n := updated.Name(); n != "" {
-		data.Name = types.StringValue(n)
-	}
-	data.Tags = TagsToListPreserveNull(updated.Tags(), data.Tags)
-
-	// Preserve immutable fields from state.
+	// All API-backed fields carry RequiresReplace; Update() is only reached
+	// when the local-only `timeout` field changes. Preserve computed fields.
 	data.Id = state.Id
 	data.Uri = state.Uri
-	data.ProjectID = state.ProjectID
-	data.Zone = state.Zone
-
-	// Rebuild nested objects from plan values.
-	networkAttrs := map[string]attr.Value{
-		"vpc_uri_ref":            planNetworkModel.VpcUriRef,
-		"elastic_ip_uri_ref":     planNetworkModel.ElasticIpUriRef,
-		"subnet_uri_refs":        planNetworkModel.SubnetUriRefs,
-		"securitygroup_uri_refs": planNetworkModel.SecurityGroupUriRefs,
-	}
-	networkObj, d := types.ObjectValue(csNetworkAttrTypes(), networkAttrs)
-	resp.Diagnostics.Append(d...)
-	data.Network = networkObj
-
-	settingsAttrs := map[string]attr.Value{
-		"flavor_name":      planSettingsModel.FlavorName,
-		"key_pair_uri_ref": planSettingsModel.KeyPairUriRef,
-		"user_data":        planSettingsModel.UserData,
-	}
-	settingsObj, d := types.ObjectValue(csSettingsAttrTypes(), settingsAttrs)
-	resp.Diagnostics.Append(d...)
-	data.Settings = settingsObj
-
-	storageAttrs := map[string]attr.Value{"boot_volume_uri_ref": planStorageModel.BootVolumeUriRef}
-	storageObj, d := types.ObjectValue(csStorageAttrTypes(), storageAttrs)
-	resp.Diagnostics.Append(d...)
-	data.Storage = storageObj
-
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
