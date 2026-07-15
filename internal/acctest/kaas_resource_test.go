@@ -65,9 +65,9 @@ func TestAccKaasResource(t *testing.T) {
 			},
 			// ImportState testing
 			{
-				ResourceName:            "arubacloud_kaas.test",
-				ImportState:             true,
-				ImportStateVerify:       true,
+				ResourceName:      "arubacloud_kaas.test",
+				ImportState:       true,
+				ImportStateVerify: true,
 				ImportStateVerifyIgnore: []string{
 					"kubeconfig",
 					// The API does not return these on GET; they are only
@@ -76,7 +76,7 @@ func TestAccKaasResource(t *testing.T) {
 					"network.security_group_name",
 					"settings.node_pools",
 				},
-				ImportStateIdFunc:       ImportIDFromAttrs("arubacloud_kaas.test", "project_id", "id"),
+				ImportStateIdFunc: ImportIDFromAttrs("arubacloud_kaas.test", "project_id", "id"),
 			},
 			// Update and Read testing
 			{
