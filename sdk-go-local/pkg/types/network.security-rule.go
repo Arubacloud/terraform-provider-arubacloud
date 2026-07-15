@@ -1,6 +1,9 @@
 package types
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // FlexPort unmarshals the security-rule port field from either a plain JSON
 // string ("80") or an object ({"value":"80"}) — the Update endpoint returns
@@ -20,7 +23,7 @@ func (fp *FlexPort) UnmarshalJSON(data []byte) error {
 		*fp = FlexPort(obj.Value)
 		return nil
 	}
-	return nil // best-effort: ignore unrecognised port formats
+	return fmt.Errorf("FlexPort: cannot unmarshal %s: expected a JSON string or {\"value\":\"...\"} object", data)
 }
 
 func (fp FlexPort) MarshalJSON() ([]byte, error) { return json.Marshal(string(fp)) }
