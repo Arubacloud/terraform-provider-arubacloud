@@ -126,7 +126,7 @@ resource "arubacloud_securityrule" "test" {
     protocol  = "TCP"
     port      = "80"
     target = {
-      kind  = "Ip"
+      kind  = "IP"
       value = "0.0.0.0/0"
     }
   }

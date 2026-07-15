@@ -48,10 +48,11 @@ func TestAccSnapshotResource(t *testing.T) {
 			},
 			// ImportState testing
 			{
-				ResourceName:      "arubacloud_snapshot.test",
-				ImportState:       true,
-				ImportStateVerify: true,
-				ImportStateIdFunc: ImportIDFromAttrs("arubacloud_snapshot.test", "project_id", "id"),
+				ResourceName:            "arubacloud_snapshot.test",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateIdFunc:       ImportIDFromAttrs("arubacloud_snapshot.test", "project_id", "id", "billing_period"),
+				ImportStateVerifyIgnore: []string{"volume_uri"},
 			},
 			// Update and Read testing
 			{

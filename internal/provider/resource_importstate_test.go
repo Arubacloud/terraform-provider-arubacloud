@@ -17,7 +17,7 @@ var compositeImportIDs = map[string]string{
 	"backup":            "test-proj/test-bkp",
 	"vpc":               "test-proj/test-vpc",
 	"blockstorage":      "test-proj/test-vol",
-	"snapshot":          "test-proj/test-snap",
+	"snapshot":          "test-proj/test-snap/Hour",
 	"dbaas":             "test-proj/test-dbaas",
 	"databasebackup":    "test-proj/test-dbbackup",
 	"kaas":              "test-proj/test-kaas",

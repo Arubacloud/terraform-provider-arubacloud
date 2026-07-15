@@ -80,7 +80,7 @@ func testCheckElasticipDestroyed(s *terraform.State) error {
 			continue
 		}
 		projectID := rs.Primary.Attributes["project_id"]
-		ref := aruba.URI("/projects/" + projectID + "/network/elasticIPs/" + rs.Primary.ID)
+		ref := aruba.ElasticIPRef(projectID, rs.Primary.ID)
 		_, err = client.Client.FromNetwork().ElasticIPs().Get(ctx, ref)
 		if provErr := provider.CheckResponseErr("get", "Elasticip", err); provErr != nil {
 			if provider.IsNotFound(provErr) {
