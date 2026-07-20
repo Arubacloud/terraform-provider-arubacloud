@@ -1,3 +1,9 @@
+## 0.5.2 (July 20, 2026)
+
+BUG FIXES:
+
+* provider: Fixed release signing to use the correct GPG key (`42A7DE3F298D6FB8`, "Arubacloud CLI <community@arubacloud.com>"). Prior releases were signed with a key that was not registered with the OpenTofu Registry, causing `tofu init` to fail with "the provider is not signed with a valid signing key". No functional or provider behaviour changes; this is a re-release for signature verification only
+  
 ## 0.5.1 (July 20, 2026)
 
 FEATURES:
