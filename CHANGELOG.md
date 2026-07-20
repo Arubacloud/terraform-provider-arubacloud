@@ -1,3 +1,26 @@
+## 0.5.1 (July 20, 2026)
+
+FEATURES:
+
+* **OpenTofu compatibility**: The provider is now compatible with OpenTofu in addition to Terraform. No configuration changes are required ([#309](https://github.com/Arubacloud/terraform-provider-arubacloud/issues/309), [#310](https://github.com/Arubacloud/terraform-provider-arubacloud/issues/310), [#311](https://github.com/Arubacloud/terraform-provider-arubacloud/issues/311)).
+
+BUG FIXES:
+
+* `arubacloud_blockstorage`: Extended the default destroy timeout and surfaced semantic delete errors that were previously swallowed ([#293](https://github.com/Arubacloud/terraform-provider-arubacloud/issues/293), [#295](https://github.com/Arubacloud/terraform-provider-arubacloud/issues/295)).
+* `arubacloud_cloudserver`: Marked all API-backed mutable fields as `RequiresReplace`. The API has no update endpoint; Terraform now correctly proposes destroy-and-recreate instead of attempting unsupported in-place updates ([#270](https://github.com/Arubacloud/terraform-provider-arubacloud/issues/270)).
+* `arubacloud_containerregistry`: `Delete` now retries when the API returns a semantic 400 while the registry is still in a transitional state ([#292](https://github.com/Arubacloud/terraform-provider-arubacloud/issues/292)).
+* `arubacloud_dbaas`: Fixed `billing_period` showing as unknown after apply and resolved a cleanup hang at the end of destroy ([#294](https://github.com/Arubacloud/terraform-provider-arubacloud/issues/294)).
+* `arubacloud_dbaas`: Fixed catalog and DataCenter errors on `Update` by injecting `engine_id` and `zone` into the request body.
+* `arubacloud_databasebackup`: Corrected the wire format and import behaviour for backup resources ([#294](https://github.com/Arubacloud/terraform-provider-arubacloud/issues/294)).
+* `arubacloud_elasticip`: Fixed unknown computed fields when `WaitUntilReady` returns an error.
+* `arubacloud_securityrule`: Fixed a `Location Invalid 400` error on `Update` by clearing the region field before sending the request.
+* provider: Added retry logic for transient TCP EOF failures in `CreateWithTransientRetry` and backup polling loops.
+
+INTERNAL:
+
+* Bumped `sdk-go` to v1.0.7.
+* Fixed 5 acceptance-test failures ([#317](https://github.com/Arubacloud/terraform-provider-arubacloud/issues/317), [#318](https://github.com/Arubacloud/terraform-provider-arubacloud/issues/318), [#319](https://github.com/Arubacloud/terraform-provider-arubacloud/issues/319), [#320](https://github.com/Arubacloud/terraform-provider-arubacloud/issues/320), [#321](https://github.com/Arubacloud/terraform-provider-arubacloud/issues/321), [#323](https://github.com/Arubacloud/terraform-provider-arubacloud/pull/323)).
+
 ## 0.5.0 (July 6, 2026)
 
 NOTES:
