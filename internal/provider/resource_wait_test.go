@@ -416,6 +416,68 @@ func TestDeleteResourceWithRetry_ExistsCheckerShortCircuitsAfterFailedDelete(t *
 	}
 }
 
+func TestDeleteResourceWithRetry_SemanticErrorNoCheckerFailsImmediately(t *testing.T) {
+	withFastDeleteRetry(t)
+
+	// hasValidationErrors=true → Semantic category
+	semantic := newResponseError("delete", "kaas", 400, "One or more validation errors occurred.", "Validation: errorMessage: Invalid status, fieldName: Status", "", true)
+	var calls int32
+	deleteFunc := func() error {
+		atomic.AddInt32(&calls, 1)
+		return semantic
+	}
+
+	err := DeleteResourceWithRetry(context.Background(), deleteFunc, "kaas", "abc", 5*time.Second)
+	if err == nil {
+		t.Fatal("expected error for semantic 400 without existsChecker, got nil")
+	}
+	if got := atomic.LoadInt32(&calls); got != 1 {
+		t.Fatalf("expected exactly 1 call (no retry), got %d", got)
+	}
+}
+
+func TestDeleteResourceWithRetry_SemanticErrorResourceExistsRetries(t *testing.T) {
+	withFastDeleteRetry(t)
+
+	// Simulates: DELETE → 400 "Invalid status" (resource in Updating state) twice,
+	// then succeeds once the resource stabilises.
+	semantic := newResponseError("delete", "kaas", 400, "One or more validation errors occurred.", "Validation: errorMessage: Invalid status, fieldName: Status", "", true)
+	var deleteCalls int32
+	deleteFunc := func() error {
+		n := atomic.AddInt32(&deleteCalls, 1)
+		if n < 3 {
+			return semantic
+		}
+		return nil
+	}
+	// existsChecker: resource still exists for the first two rounds, gone after.
+	var checkerCalls int32
+	existsChecker := func(ctx context.Context) (bool, error) {
+		n := atomic.AddInt32(&checkerCalls, 1)
+		return n > 2, nil // gone on 3rd check
+	}
+
+	if err := DeleteResourceWithRetry(context.Background(), deleteFunc, "kaas", "abc", 5*time.Second, existsChecker); err != nil {
+		t.Fatalf("expected nil after semantic-error retries, got %v", err)
+	}
+	if got := atomic.LoadInt32(&deleteCalls); got < 3 {
+		t.Fatalf("expected at least 3 delete calls, got %d", got)
+	}
+}
+
+func TestDeleteResourceWithRetry_SemanticErrorCheckerReportsGone(t *testing.T) {
+	withFastDeleteRetry(t)
+
+	// existsChecker reports the resource is already gone → treat as success immediately.
+	semantic := newResponseError("delete", "kaas", 400, "One or more validation errors occurred.", "Validation: errorMessage: Invalid status, fieldName: Status", "", true)
+	deleteFunc := func() error { return semantic }
+	existsChecker := func(ctx context.Context) (bool, error) { return true, nil }
+
+	if err := DeleteResourceWithRetry(context.Background(), deleteFunc, "kaas", "abc", 5*time.Second, existsChecker); err != nil {
+		t.Fatalf("expected nil when existsChecker reports gone after semantic error, got %v", err)
+	}
+}
+
 // ── isFailedState ────────────────────────────────────────────────────────────
 
 func TestIsFailedState(t *testing.T) {

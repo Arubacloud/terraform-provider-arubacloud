@@ -120,6 +120,7 @@ func (r *KaaSResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 			"management_ip": schema.StringAttribute{
 				MarkdownDescription: "Computed by the API. Management IP address of the cluster control plane, available once the cluster is active.",
 				Computed:            true,
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"kubeconfig": schema.StringAttribute{
 				MarkdownDescription: "Kubeconfig YAML for `kubectl` access. Populated automatically when the cluster becomes active. Sensitive — stored in Terraform state but redacted from plan output.",
@@ -614,13 +615,12 @@ func (r *KaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 			networkAttrs["node_cidr"] = nodeCIDRObj
 		}
 	}
-	if v := kaas.PodCIDR(); v != "" {
-		networkAttrs["pod_cidr"] = types.StringValue(v)
-	} else if !originalState.Network.IsNull() {
-		// API does not reliably return pod_cidr after initial provisioning;
-		// fall back to the state value to avoid perpetual drift.
+	// pod_cidr is Optional (not Computed): the user is in full control.
+	// Never update it from the API — the API applies a default that would clobber
+	// a user-unset null and cause perpetual drift. Always preserve from state.
+	if !originalState.Network.IsNull() {
 		var origNet KaaSNetworkModel
-		if dd := originalState.Network.As(ctx, &origNet, basetypes.ObjectAsOptions{}); !dd.HasError() && !origNet.PodCIDR.IsNull() {
+		if dd := originalState.Network.As(ctx, &origNet, basetypes.ObjectAsOptions{}); !dd.HasError() {
 			networkAttrs["pod_cidr"] = origNet.PodCIDR
 		}
 	}

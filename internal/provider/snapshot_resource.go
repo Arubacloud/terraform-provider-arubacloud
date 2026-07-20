@@ -356,11 +356,12 @@ func (r *SnapshotResource) Delete(ctx context.Context, req resource.DeleteReques
 }
 
 func (r *SnapshotResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	parts, err := parseImportID(req.ID, "<project_id>/<snapshot_id>", "proj-abc/snap-xyz", 2)
+	parts, err := parseImportID(req.ID, "<project_id>/<snapshot_id>/<billing_period>", "proj-abc/snap-xyz/Hour", 3)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid Import ID", err.Error())
 		return
 	}
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("project_id"), parts[0])...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), parts[1])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("billing_period"), parts[2])...)
 }

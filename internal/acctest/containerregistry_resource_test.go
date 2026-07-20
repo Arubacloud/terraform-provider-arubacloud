@@ -79,7 +79,7 @@ func testCheckContainerregistryDestroyed(s *terraform.State) error {
 			continue
 		}
 		projectID := rs.Primary.Attributes["project_id"]
-		ref := aruba.URI("/projects/" + projectID + "/providers/Aruba.Container/containerRegistries/" + rs.Primary.ID)
+		ref := aruba.URI("/projects/" + projectID + "/providers/Aruba.Container/registries/" + rs.Primary.ID)
 		_, err = client.Client.FromContainer().ContainerRegistry().Get(ctx, ref)
 		if provErr := provider.CheckResponseErr("get", "Containerregistry", err); provErr != nil {
 			if provider.IsNotFound(provErr) {

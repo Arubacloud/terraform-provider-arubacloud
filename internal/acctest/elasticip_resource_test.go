@@ -2,6 +2,7 @@ package acctest
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"os"
 	"testing"
@@ -21,6 +22,9 @@ func TestAccElasticipResource(t *testing.T) {
 	if projectID == "" || location == "" {
 		t.Skip("ARUBACLOUD_PROJECT_ID and ARUBACLOUD_LOCATION must be set for acceptance tests")
 	}
+	var sfxBytes [3]byte
+	rand.Read(sfxBytes[:]) //nolint:errcheck
+	sfx := fmt.Sprintf("%x", sfxBytes)
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { PreCheck(t) },
 		ProtoV6ProviderFactories: ProtoV6ProviderFactories,
@@ -28,12 +32,12 @@ func TestAccElasticipResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccElasticipResourceConfig(projectID, location, "test-elasticip"),
+				Config: testAccElasticipResourceConfig(projectID, location, "test-eip-"+sfx),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_elasticip.test",
 						tfjsonpath.New("name"),
-						knownvalue.StringExact("test-elasticip"),
+						knownvalue.StringExact("test-eip-"+sfx),
 					),
 					statecheck.ExpectKnownValue(
 						"arubacloud_elasticip.test",
@@ -56,12 +60,12 @@ func TestAccElasticipResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccElasticipResourceConfig(projectID, location, "test-elasticip-updated"),
+				Config: testAccElasticipResourceConfig(projectID, location, "test-eip-upd-"+sfx),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_elasticip.test",
 						tfjsonpath.New("name"),
-						knownvalue.StringExact("test-elasticip-updated"),
+						knownvalue.StringExact("test-eip-upd-"+sfx),
 					),
 				},
 			},
@@ -80,7 +84,7 @@ func testCheckElasticipDestroyed(s *terraform.State) error {
 			continue
 		}
 		projectID := rs.Primary.Attributes["project_id"]
-		ref := aruba.URI("/projects/" + projectID + "/network/elasticIPs/" + rs.Primary.ID)
+		ref := aruba.ElasticIPRef(projectID, rs.Primary.ID)
 		_, err = client.Client.FromNetwork().ElasticIPs().Get(ctx, ref)
 		if provErr := provider.CheckResponseErr("get", "Elasticip", err); provErr != nil {
 			if provider.IsNotFound(provErr) {

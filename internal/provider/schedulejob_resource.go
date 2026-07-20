@@ -17,6 +17,15 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
+// normalizeRFC3339 parses s as RFC3339 and returns it in canonical UTC form
+// ("Z" suffix). Returns s unchanged if parsing fails.
+func normalizeRFC3339(s string) string {
+	if t, err := time.Parse(time.RFC3339, s); err == nil {
+		return t.UTC().Format(time.RFC3339)
+	}
+	return s
+}
+
 type ScheduleJobResourceModel struct {
 	Id         types.String `tfsdk:"id"`
 	Uri        types.String `tfsdk:"uri"`
@@ -311,10 +320,10 @@ func applyJobToModel(job *aruba.Job, data *ScheduleJobResourceModel, diagnostics
 		"steps":             stepsListValue,
 	}
 	if raw.Properties.ScheduleAt != nil {
-		propertiesAttrs["schedule_at"] = types.StringValue(*raw.Properties.ScheduleAt)
+		propertiesAttrs["schedule_at"] = types.StringValue(normalizeRFC3339(*raw.Properties.ScheduleAt))
 	}
 	if raw.Properties.ExecuteUntil != nil {
-		propertiesAttrs["execute_until"] = types.StringValue(*raw.Properties.ExecuteUntil)
+		propertiesAttrs["execute_until"] = types.StringValue(normalizeRFC3339(*raw.Properties.ExecuteUntil))
 	}
 	if raw.Properties.Cron != nil {
 		propertiesAttrs["cron"] = types.StringValue(*raw.Properties.Cron)

@@ -387,15 +387,29 @@ func DeleteResourceWithRetry(
 				tflog.Info(ctx, fmt.Sprintf("%s %s already deleted (404)", resourceType, resourceID))
 				return nil
 			}
-			// Semantic errors (validation failures such as "cannot delete default VPC")
-			// are permanent — retrying with the same inputs will never succeed.
+			// Semantic errors are usually permanent (field validation failures such as
+			// "cannot delete default VPC"). Exception: the API also returns a semantic
+			// 400 with fieldName="Status" when the resource is in a transitional state
+			// (e.g. "Updating") that prevents deletion — this resolves on its own.
+			// When an existsChecker is available, fall through so the checker block
+			// below can either confirm the resource is gone (return nil) or confirm it
+			// still exists (retry). Without a checker we cannot distinguish transient
+			// from permanent, so fail immediately.
 			if ErrorIsSemantic(err) {
-				return err
+				if len(existsChecker) == 0 || existsChecker[0] == nil {
+					return err
+				}
+				tflog.Info(ctx, fmt.Sprintf(
+					"%s %s: semantic delete error, checking resource state (attempt %d): %s",
+					resourceType, resourceID, attempt, err))
 			}
 
 			// Before waiting and retrying, check if the resource is already gone
-			// via GET. This handles APIs that return 400 on a second DELETE of an
-			// already-deleted (or still-deleting) resource instead of 404.
+			// via GET. This handles:
+			//   • APIs that return 400 on a second DELETE of an already-deleted
+			//     resource instead of 404.
+			//   • Semantic-400 due to transitional state: if the resource is gone we
+			//     return nil; if it still exists we fall through to retry.
 			if len(existsChecker) > 0 && existsChecker[0] != nil {
 				if deleted, _ := existsChecker[0](ctx); deleted {
 					tflog.Info(ctx, fmt.Sprintf("%s %s confirmed gone via GET — treating as deleted", resourceType, resourceID))

@@ -81,12 +81,20 @@ func testCheckSchedulejobDestroyed(s *terraform.State) error {
 		}
 		projectID := rs.Primary.Attributes["project_id"]
 		ref := aruba.URI("/projects/" + projectID + "/providers/Aruba.Schedule/jobs/" + rs.Primary.ID)
-		_, err = client.Client.FromSchedule().Jobs().Get(ctx, ref)
+		job, err := client.Client.FromSchedule().Jobs().Get(ctx, ref)
 		if provErr := provider.CheckResponseErr("get", "Schedulejob", err); provErr != nil {
 			if provider.IsNotFound(provErr) {
 				continue
 			}
 			return provErr
+		}
+		// Mirror the provider's deletionChecker: the API returns HTTP 200 with
+		// state=Deleted or state=Deleting instead of 404 for recently-deleted jobs.
+		if job != nil {
+			st := string(job.State())
+			if st == "Deleted" || st == "Deleting" {
+				continue
+			}
 		}
 		return fmt.Errorf("ScheduleJob %s still exists", rs.Primary.ID)
 	}

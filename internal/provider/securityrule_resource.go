@@ -494,6 +494,9 @@ func (r *SecurityRuleResource) Update(ctx context.Context, req resource.UpdateRe
 	} else {
 		rule.RetaggedAs(rule.Tags()...)
 	}
+	// The API rejects Update requests that include a non-empty location value.
+	// Reset the region so the SDK serialises location as {"value":""}.
+	rule.InRegion("")
 
 	updated, err := r.client.Client.FromNetwork().SecurityGroupRules().Update(ctx, rule)
 	if provErr := CheckResponseErr("update", "SecurityRule", err); provErr != nil {

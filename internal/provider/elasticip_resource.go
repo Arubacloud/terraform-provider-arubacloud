@@ -148,10 +148,21 @@ func (r *ElasticIPResource) Create(ctx context.Context, req resource.CreateReque
 
 	if waitErr := eip.WaitUntilReady(ctx, sdkWaitOptions(effectiveTimeout(data.Timeout, r.client.ResourceTimeout))...); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "ElasticIP", data.Id.ValueString())
+		// Resolve unknown computed fields so Terraform doesn't error with
+		// "Provider returned invalid result object after apply".
+		if fresh, freshErr := r.client.Client.FromNetwork().ElasticIPs().Get(ctx, eipRef(&data)); freshErr == nil {
+			applyEIPToModel(fresh, &data)
+		} else {
+			data.Address = types.StringNull()
+			if data.BillingPeriod.IsUnknown() {
+				data.BillingPeriod = types.StringValue(billingPeriod)
+			}
+		}
+		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 		return
 	}
 
-	fresh, freshErr := r.client.Client.FromNetwork().ElasticIPs().Get(ctx, aruba.URI(eip.URI()))
+	fresh, freshErr := r.client.Client.FromNetwork().ElasticIPs().Get(ctx, eipRef(&data))
 	if freshErr == nil {
 		applyEIPToModel(fresh, &data)
 	}
