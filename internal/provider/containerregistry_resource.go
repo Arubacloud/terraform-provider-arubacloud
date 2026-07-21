@@ -303,7 +303,14 @@ func (r *ContainerRegistryResource) Create(ctx context.Context, req resource.Cre
 		return
 	}
 
-	if waitErr := registry.WaitUntilReady(ctx, sdkWaitOptions(effectiveTimeout(data.Timeout, r.client.ResourceTimeout))...); waitErr != nil {
+	crChecker := func(ctx context.Context) (string, error) {
+		reg, getErr := r.client.Client.FromContainer().ContainerRegistry().Get(ctx, containerRegistryRef(&data))
+		if provErr := CheckResponseErr("read", "ContainerRegistry", getErr); provErr != nil {
+			return "", provErr
+		}
+		return string(reg.State()), nil
+	}
+	if waitErr := WaitForResourceActive(ctx, crChecker, "ContainerRegistry", data.Id.ValueString(), effectiveTimeout(data.Timeout, r.client.ResourceTimeout)); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "ContainerRegistry", data.Id.ValueString())
 		return
 	}
@@ -352,7 +359,14 @@ func (r *ContainerRegistryResource) Read(ctx context.Context, req resource.ReadR
 			fmt.Sprintf("ContainerRegistry %q is in a terminal failure state (%s). "+
 				"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", data.Id.ValueString(), st))
 	case IsCreatingState(st):
-		if waitErr := registry.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
+		crChecker := func(ctx context.Context) (string, error) {
+			reg, getErr := r.client.Client.FromContainer().ContainerRegistry().Get(ctx, containerRegistryRef(&data))
+			if provErr := CheckResponseErr("read", "ContainerRegistry", getErr); provErr != nil {
+				return "", provErr
+			}
+			return string(reg.State()), nil
+		}
+		if waitErr := WaitForResourceActive(ctx, crChecker, "ContainerRegistry", data.Id.ValueString(), r.client.ResourceTimeout); waitErr != nil {
 			ReportWaitResult(&resp.Diagnostics, waitErr, "ContainerRegistry", data.Id.ValueString())
 			return
 		}
