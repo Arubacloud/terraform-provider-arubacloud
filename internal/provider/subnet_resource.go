@@ -540,11 +540,12 @@ func (r *SubnetResource) Create(ctx context.Context, req resource.CreateRequest,
 	}
 
 	subnetChecker := func(ctx context.Context) (string, error) {
-		fresh, getErr := r.client.Client.FromNetwork().Subnets().Get(ctx, subnetRef(&data))
+		ref := aruba.SubnetRef(data.ProjectId.ValueString(), data.VpcId.ValueString(), data.Id.ValueString())
+		s, getErr := r.client.Client.FromNetwork().Subnets().Get(ctx, ref)
 		if provErr := CheckResponseErr("read", "Subnet", getErr); provErr != nil {
 			return "", provErr
 		}
-		return string(fresh.State()), nil
+		return string(s.State()), nil
 	}
 	if waitErr := WaitForResourceActive(ctx, subnetChecker, "Subnet", data.Id.ValueString(), effectiveTimeout(data.Timeout, r.client.ResourceTimeout)); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "Subnet", data.Id.ValueString())
@@ -598,11 +599,12 @@ func (r *SubnetResource) Read(ctx context.Context, req resource.ReadRequest, res
 				"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", data.Id.ValueString(), st))
 	case IsCreatingState(st):
 		subnetChecker := func(ctx context.Context) (string, error) {
-			fresh, getErr := r.client.Client.FromNetwork().Subnets().Get(ctx, subnetRef(&data))
+			ref := aruba.SubnetRef(data.ProjectId.ValueString(), data.VpcId.ValueString(), data.Id.ValueString())
+			s, getErr := r.client.Client.FromNetwork().Subnets().Get(ctx, ref)
 			if provErr := CheckResponseErr("read", "Subnet", getErr); provErr != nil {
 				return "", provErr
 			}
-			return string(fresh.State()), nil
+			return string(s.State()), nil
 		}
 		if waitErr := WaitForResourceActive(ctx, subnetChecker, "Subnet", data.Id.ValueString(), r.client.ResourceTimeout); waitErr != nil {
 			ReportWaitResult(&resp.Diagnostics, waitErr, "Subnet", data.Id.ValueString())
