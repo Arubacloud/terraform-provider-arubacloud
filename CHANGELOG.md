@@ -1,3 +1,18 @@
+## 1.0.0 (July 22, 2026)
+
+NOTES:
+
+* This is the first stable release of the ArubaCloud Terraform Provider. The v1.0.0 designation signals that the provider's resource schema, import formats, and provider configuration attributes are now considered stable. Upgrade from any 0.x release is fully backward-compatible — no configuration or state changes are required.
+
+BUG FIXES:
+
+* `arubacloud_containerregistry`: Fixed `Create` and `Read` hanging when `WaitUntilReady` is called. The SDK's internal polling callback stores the API URI (`/providers/Aruba.Container/containerRegistries/...`) but the SDK's ID extractor only recognises the `registries` path segment, causing every poll to fail with "cannot determine registry ID from Ref". The provider now uses its own `WaitForResourceActive` loop backed by an explicit ID-based `Get` call, bypassing the broken callback ([#292](https://github.com/Arubacloud/terraform-provider-arubacloud/issues/292)).
+* `arubacloud_subnet`: Fixed `Create` and `Read` potentially running longer than expected when the subnet reaches an unrecognised settled state. The SDK's `async.WaitFor` continued retrying when `check()` returned a terminal result paired with an error, exhausting all retry attempts instead of stopping immediately. The provider now uses its own `WaitForResourceActive` loop which correctly terminates on any terminal state ([#322](https://github.com/Arubacloud/terraform-provider-arubacloud/issues/322)).
+
+INTERNAL:
+
+* provider: All HTTP requests now carry a `User-Agent` header identifying the provider version (`terraform-provider-arubacloud@<version>`), consistent with the pattern used by other ArubaCloud clients.
+
 ## 0.5.2 (July 20, 2026)
 
 BUG FIXES:
