@@ -159,6 +159,7 @@ func (p *ArubaCloudProvider) Configure(ctx context.Context, req provider.Configu
 	// Create SDK client with credentials using DefaultOptions
 	options := aruba.DefaultOptions(clientID, clientSecret)
 	options = options.WithCustomLogger(newSDKLogAdapter(ctx, logLevel))
+	options = options.WithUserAgent(fmt.Sprintf("terraform-provider-arubacloud@%s", p.version))
 
 	// Optionally override base URL and token issuer
 	if !config.BaseURL.IsNull() && config.BaseURL.ValueString() != "" {
