@@ -539,7 +539,15 @@ func (r *SubnetResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
-	if waitErr := subnet.WaitUntilReady(ctx, sdkWaitOptions(effectiveTimeout(data.Timeout, r.client.ResourceTimeout))...); waitErr != nil {
+	subnetChecker := func(ctx context.Context) (string, error) {
+		ref := aruba.SubnetRef(data.ProjectId.ValueString(), data.VpcId.ValueString(), data.Id.ValueString())
+		s, getErr := r.client.Client.FromNetwork().Subnets().Get(ctx, ref)
+		if provErr := CheckResponseErr("read", "Subnet", getErr); provErr != nil {
+			return "", provErr
+		}
+		return string(s.State()), nil
+	}
+	if waitErr := WaitForResourceActive(ctx, subnetChecker, "Subnet", data.Id.ValueString(), effectiveTimeout(data.Timeout, r.client.ResourceTimeout)); waitErr != nil {
 		ReportWaitResult(&resp.Diagnostics, waitErr, "Subnet", data.Id.ValueString())
 		return
 	}
@@ -590,7 +598,15 @@ func (r *SubnetResource) Read(ctx context.Context, req resource.ReadRequest, res
 			fmt.Sprintf("Subnet %q is in a terminal failure state (%s). "+
 				"Run `terraform destroy` to clean it up, or `terraform apply -replace=<address>` to recreate it.", data.Id.ValueString(), st))
 	case IsCreatingState(st):
-		if waitErr := subnet.WaitUntilReady(ctx, sdkWaitOptions(r.client.ResourceTimeout)...); waitErr != nil {
+		subnetChecker := func(ctx context.Context) (string, error) {
+			ref := aruba.SubnetRef(data.ProjectId.ValueString(), data.VpcId.ValueString(), data.Id.ValueString())
+			s, getErr := r.client.Client.FromNetwork().Subnets().Get(ctx, ref)
+			if provErr := CheckResponseErr("read", "Subnet", getErr); provErr != nil {
+				return "", provErr
+			}
+			return string(s.State()), nil
+		}
+		if waitErr := WaitForResourceActive(ctx, subnetChecker, "Subnet", data.Id.ValueString(), r.client.ResourceTimeout); waitErr != nil {
 			ReportWaitResult(&resp.Diagnostics, waitErr, "Subnet", data.Id.ValueString())
 			return
 		}

@@ -190,9 +190,9 @@ func TestResourceCreate_Success_ComplexResources(t *testing.T) {
 		{"securityrule", NewSecurityRuleResource, createSuccessHandler},
 		// dbaas: needs full plan (storage + network objects non-null).
 		{"dbaas", NewDBaaSResource, createSuccessHandler},
-		// containerregistry is excluded: its SDK WaitUntilReady uses a poll interval
-		// of several minutes (matching the 20-40 min provisioning time), which
-		// exceeds unit-test timeouts.  The Create path is covered by acceptance tests.
+		// containerregistry: Create now uses WaitForResourceActive (fast, overridable
+		// poll interval) instead of the SDK's WaitUntilReady, so it's safe here.
+		{"containerregistry", NewContainerRegistryResource, createSuccessHandler},
 		// schedulejob: needs full plan (properties object with schedule_job_type).
 		{"schedulejob", NewScheduleJobResource, createSuccessHandler},
 		// vpnroute: needs full plan (properties object with cloud_subnet).
