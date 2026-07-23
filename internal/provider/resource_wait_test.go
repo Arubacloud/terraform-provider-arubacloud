@@ -677,7 +677,7 @@ func TestCreateWithTransientRetry_SucceedsImmediately(t *testing.T) {
 		atomic.AddInt32(&calls, 1)
 		return nil
 	}
-	err := CreateWithTransientRetry(context.Background(), createFunc, "vpc", "abc", time.Minute)
+	err := CreateWithTransientRetry(t.Context(), createFunc, "vpc", "abc", time.Minute)
 	if err != nil {
 		t.Fatalf("expected nil, got %v", err)
 	}
@@ -698,7 +698,7 @@ func TestCreateWithTransientRetry_NonTransientErrorReturnedImmediately(t *testin
 		atomic.AddInt32(&calls, 1)
 		return semantic
 	}
-	err := CreateWithTransientRetry(context.Background(), createFunc, "vpc", "abc", time.Minute)
+	err := CreateWithTransientRetry(t.Context(), createFunc, "vpc", "abc", time.Minute)
 	if err == nil {
 		t.Fatal("expected non-nil error, got nil")
 	}
@@ -721,11 +721,113 @@ func TestCreateWithTransientRetry_TransientErrorTimesOut(t *testing.T) {
 
 	// A negative timeout means the deadline is already in the past: the function
 	// detects the timeout immediately after the first transient error.
-	err := CreateWithTransientRetry(context.Background(), createFunc, "vpc", "abc", -time.Second)
+	err := CreateWithTransientRetry(t.Context(), createFunc, "vpc", "abc", -time.Second)
 	if err == nil {
 		t.Fatal("expected timeout error, got nil")
 	}
 	if n := atomic.LoadInt32(&calls); n < 1 {
 		t.Fatal("expected createFunc to be called at least once")
+	}
+}
+
+func TestWaitForResourceActive_TransientNotFoundBeforeFirstSighting_DoesNotFailFast(t *testing.T) {
+	origInterval := waitForActivePollInterval
+	waitForActivePollInterval = 1 * time.Millisecond
+	defer func() { waitForActivePollInterval = origInterval }()
+
+	notFoundErr := newResponseError("get", "vpc", 404, "Not Found", "Resource not found", "", false)
+
+	attempts := 0
+	checker := func(ctx context.Context) (string, error) {
+		attempts++
+		if attempts <= 2 {
+			return "", notFoundErr // 404 before first sighting — should retry, not fail-fast immediately
+		}
+		return "Active", nil
+	}
+
+	err := WaitForResourceActive(t.Context(), checker, "vpc", "abc", 1*time.Second)
+	if err != nil {
+		t.Fatalf("expected success after transient 404, got: %v", err)
+	}
+	if attempts != 3 {
+		t.Fatalf("expected 3 attempts, got %d", attempts)
+	}
+}
+
+func TestWaitForResourceActive_NotFoundAfterFirstSighting_FailsFast(t *testing.T) {
+	origInterval := waitForActivePollInterval
+	waitForActivePollInterval = 1 * time.Millisecond
+	defer func() { waitForActivePollInterval = origInterval }()
+
+	notFoundErr := newResponseError("get", "vpc", 404, "Not Found", "Resource not found", "", false)
+
+	attempts := 0
+	checker := func(ctx context.Context) (string, error) {
+		attempts++
+		if attempts == 1 {
+			return "Provisioning", nil // First sighting — hasSeenResource becomes true
+		}
+		return "", notFoundErr // 404 after first sighting — must fail-fast immediately
+	}
+
+	err := WaitForResourceActive(t.Context(), checker, "vpc", "abc", 1*time.Second)
+	if err == nil {
+		t.Fatal("expected immediate fail-fast error on 404 after first sighting, got nil")
+	}
+	if attempts != 2 {
+		t.Fatalf("expected fail-fast at attempt 2, got %d attempts", attempts)
+	}
+}
+
+func TestWaitForResourceActive_RateLimited_BackoffsWithoutFailing(t *testing.T) {
+	origInterval := waitForActivePollInterval
+	waitForActivePollInterval = 1 * time.Millisecond
+	defer func() { waitForActivePollInterval = origInterval }()
+
+	rateLimitErr := newResponseError("get", "vpc", 429, "Too Many Requests", "Rate limit exceeded", "", false)
+
+	attempts := 0
+	checker := func(ctx context.Context) (string, error) {
+		attempts++
+		if attempts == 1 {
+			return "", rateLimitErr // 429 Rate limited — should back off without failing
+		}
+		return "Active", nil
+	}
+
+	err := WaitForResourceActive(t.Context(), checker, "vpc", "abc", 2*time.Second)
+	if err != nil {
+		t.Fatalf("expected success after rate limiting backoff, got: %v", err)
+	}
+	if attempts != 2 {
+		t.Fatalf("expected 2 attempts, got %d", attempts)
+	}
+}
+
+func TestCreateWithTransientRetry_PartialFailure_DoesNotDuplicate(t *testing.T) {
+	transientErr := newResponseError("create", "vpc", 400, "Transient", "Dependency not ready", "", false)
+
+	createCalls := 0
+	createFunc := func() error {
+		createCalls++
+		return transientErr
+	}
+
+	existsCalls := 0
+	existsChecker := func(ctx context.Context) (string, error) {
+		existsCalls++
+		return "Active", nil // Pre-retry GET confirms resource was actually created
+	}
+
+	err := CreateWithTransientRetry(t.Context(), createFunc, "vpc", "abc", 1*time.Second, existsChecker)
+	if err != nil {
+		t.Fatalf("expected success via pre-retry GET check, got: %v", err)
+	}
+	if createCalls != 1 {
+		t.Fatalf("expected createFunc called once, got %d", createCalls)
+	}
+	if existsCalls != 1 {
+		t.Fatalf("expected existsChecker called once, got %d", existsCalls)
 	}
 }

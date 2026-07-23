@@ -107,7 +107,10 @@ func WaitForResourceActive(ctx context.Context, checker ResourceStateChecker, re
 
 	tflog.Info(ctx, fmt.Sprintf("Waiting for %s %s to become active", resourceType, resourceID))
 
+	hasSeenResource := false
 	consecutiveErrors := 0
+	rateLimitAttempts := 0
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -119,6 +122,27 @@ func WaitForResourceActive(ctx context.Context, checker ResourceStateChecker, re
 
 			state, err := checker(ctx)
 			if err != nil {
+				if IsAuthError(err) || (IsNotFound(err) && hasSeenResource) {
+					return fmt.Errorf("permanent error checking %s %s status: %w", resourceType, resourceID, err)
+				}
+				if IsRateLimited(err) {
+					rateLimitAttempts++
+					sleepShift := rateLimitAttempts - 1
+					if sleepShift > 5 {
+						sleepShift = 5
+					}
+					waitTime := time.Duration(1<<sleepShift) * time.Second
+					if waitTime > 30*time.Second {
+						waitTime = 30 * time.Second
+					}
+					tflog.Warn(ctx, fmt.Sprintf("Rate limited checking %s %s status (attempt %d). Backing off for %v", resourceType, resourceID, rateLimitAttempts, waitTime))
+					select {
+					case <-ctx.Done():
+						return fmt.Errorf("context cancelled during rate limit backoff for %s %s", resourceType, resourceID)
+					case <-time.After(waitTime):
+					}
+					continue
+				}
 				consecutiveErrors++
 				tflog.Warn(ctx, fmt.Sprintf("Error checking %s %s status (attempt %d): %v", resourceType, resourceID, consecutiveErrors, err))
 				if consecutiveErrors >= 3 {
@@ -126,7 +150,12 @@ func WaitForResourceActive(ctx context.Context, checker ResourceStateChecker, re
 				}
 				continue
 			}
+
 			consecutiveErrors = 0
+			rateLimitAttempts = 0
+			if state != "" {
+				hasSeenResource = true
+			}
 
 			// Check if resource reached a terminal failure state.
 			if isFailedState(state) {
@@ -264,15 +293,14 @@ func WaitForResourceDeleted(ctx context.Context, checker ResourceDeletedChecker,
 // returns an ErrorIsTransient error (e.g. HTTP 400 with category "transient").
 // This handles the case where a child resource is created while its parent is
 // still provisioning: the API returns a transient 400 until the parent is active.
-//
-// Non-transient errors (semantic validation failures, transport errors) are
-// returned immediately without retrying. A timeout error is returned if the
-// deadline is exceeded before a non-transient result is observed.
+// An optional existsChecker can be supplied to check if the resource was already
+// created by a previous POST attempt before retrying.
 func CreateWithTransientRetry(
 	ctx context.Context,
 	createFunc func() error,
 	resourceType, resourceID string,
 	timeout time.Duration,
+	existsChecker ...ResourceStateChecker,
 ) error {
 	deadline := time.Now().Add(timeout)
 	maxRetryInterval := 30 * time.Second
@@ -306,6 +334,18 @@ func CreateWithTransientRetry(
 		if time.Now().After(deadline) {
 			return fmt.Errorf("timeout waiting to create %s %s after %d transient failures (timeout: %v): %w",
 				resourceType, resourceID, attempt, timeout, err)
+		}
+
+		// Check if resource already exists before retrying
+		if len(existsChecker) > 0 && existsChecker[0] != nil {
+			if state, chkErr := existsChecker[0](ctx); chkErr == nil && state != "" && !IsNotFound(chkErr) {
+				tflog.Info(ctx, "resource confirmed created on pre-retry GET check — skipping POST retry", map[string]interface{}{
+					"resource_type": resourceType,
+					"resource_id":   resourceID,
+					"state":         state,
+				})
+				return nil
+			}
 		}
 
 		waitTime := time.Duration(5*attempt) * time.Second
