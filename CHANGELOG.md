@@ -1,3 +1,9 @@
+## 1.0.1 (Unreleased)
+
+FEATURES & HARDENING:
+
+* **Security & Supply Chain Hardening**: Added dedicated `security-scan` job running `govulncheck` in CI, pinned all GitHub Actions to full 40-character commit SHAs with `check-latest: true`, enabled SLSA v1 build provenance attestations in release workflow, and added `SECURITY.md` vulnerability disclosure policy.
+
 ## 1.0.0 (July 22, 2026)
 
 NOTES:

@@ -26,6 +26,7 @@ jobs:
       - uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
         with:
           go-version-file: 'go.mod'
+          check-latest: true
           cache: true
       - run: go mod download
       - run: go build -v .
@@ -35,6 +36,23 @@ jobs:
           version: latest
           verify: false
 
+  security-scan:
+    name: Vulnerability Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
+        with:
+          go-version-file: 'go.mod'
+          check-latest: true
+          cache: true
+      - uses: golang/govulncheck-action@b86c23348005391d4e414c77d079d8544c9b3117 # v1.0.4
+        with:
+          go-version-file: 'go.mod'
+
   generate:
     runs-on: ubuntu-latest
     steps:
@@ -42,6 +60,7 @@ jobs:
       - uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
         with:
           go-version-file: 'go.mod'
+          check-latest: true
           cache: true
       # We need the latest version of Terraform for our documentation generation to use
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
@@ -66,6 +85,7 @@ jobs:
       - uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
         with:
           go-version-file: 'go.mod'
+          check-latest: true
           cache: true
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
