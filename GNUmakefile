@@ -17,22 +17,13 @@ install: build
 	go install -v ./...
 
 lint:
-	@GOLANGCI_LINT=$$(command -v golangci-lint 2>/dev/null || echo ""); \
-	GOPATH_BIN=$$(go env GOPATH)/bin; \
-	if [ -z "$$GOLANGCI_LINT" ]; then \
-		echo "golangci-lint not found. Installing latest version..."; \
-		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$GOPATH_BIN latest; \
-		GOLANGCI_LINT=$$GOPATH_BIN/golangci-lint; \
-	fi; \
-	if ! $$GOLANGCI_LINT version 2>/dev/null | grep -qE "(version 2\.|v2\.)"; then \
-		echo "Installed version may not support config v2. Testing..."; \
-		if ! $$GOLANGCI_LINT run --help 2>&1 >/dev/null; then \
-			echo "Reinstalling latest version..."; \
-			curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$GOPATH_BIN latest; \
-			GOLANGCI_LINT=$$GOPATH_BIN/golangci-lint; \
-		fi; \
-	fi; \
-	$$GOLANGCI_LINT run
+	@if command -v golangci-lint >/dev/null 2>&1 && \
+	    golangci-lint version --format short 2>/dev/null | grep -qE '^2\.'; then \
+		golangci-lint run; \
+	else \
+		echo "golangci-lint v2 not available. Running via go run..."; \
+		go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2 run; \
+	fi
 
 fmt:
 	gofmt -s -w -e .
@@ -102,14 +93,7 @@ ci-test:
 	@echo "✓ Build successful"
 	@echo ""
 	@echo "3. Running linter..."
-	@GOLANGCI_LINT=$$(command -v golangci-lint 2>/dev/null || echo ""); \
-	GOPATH_BIN=$$(go env GOPATH)/bin; \
-	if [ -z "$$GOLANGCI_LINT" ]; then \
-		echo "golangci-lint not found. Installing latest version..."; \
-		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$GOPATH_BIN latest; \
-		GOLANGCI_LINT=$$GOPATH_BIN/golangci-lint; \
-	fi; \
-	$$GOLANGCI_LINT run || (echo "✗ Linter failed"; exit 1); \
+	@make lint || (echo "✗ Linter failed"; exit 1); \
 	echo "✓ Linter passed"
 	@echo ""
 	@echo "4. Running make generate..."

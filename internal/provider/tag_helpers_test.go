@@ -1,7 +1,6 @@
 package provider
 
 import (
-	"context"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -71,14 +70,14 @@ func TestTagsToList(t *testing.T) {
 			if got.IsUnknown() {
 				t.Fatal("expected non-unknown list, got unknown")
 			}
-			if got.ElementType(context.Background()) != types.StringType {
-				t.Fatalf("expected element type StringType, got %T", got.ElementType(context.Background()))
+			if got.ElementType(t.Context()) != types.StringType {
+				t.Fatalf("expected element type StringType, got %T", got.ElementType(t.Context()))
 			}
 			if len(got.Elements()) != tc.wantLen {
 				t.Fatalf("expected %d elements, got %d", tc.wantLen, len(got.Elements()))
 			}
 			var tags []string
-			got.ElementsAs(context.Background(), &tags, false)
+			got.ElementsAs(t.Context(), &tags, false)
 			for i, want := range tc.wantTags {
 				if tags[i] != want {
 					t.Errorf("element[%d]: got %q, want %q", i, tags[i], want)
@@ -89,17 +88,9 @@ func TestTagsToList(t *testing.T) {
 }
 
 func TestTagsToListPreserveNull(t *testing.T) {
-	makeList := func(tags ...string) types.List {
-		vals := make([]attr.Value, len(tags))
-		for i, tag := range tags {
-			vals[i] = types.StringValue(tag)
-		}
-		return types.ListValueMust(types.StringType, vals)
-	}
-
-	cases := []struct {
+	tests := []struct {
 		name     string
-		apiTags  []string
+		tags     []string
 		prior    types.List
 		wantNull bool
 		wantLen  int
@@ -107,52 +98,51 @@ func TestTagsToListPreserveNull(t *testing.T) {
 	}{
 		{
 			name:     "API empty + prior null → null (no phantom diff for omitted attribute)",
-			apiTags:  nil,
+			tags:     nil,
 			prior:    types.ListNull(types.StringType),
 			wantNull: true,
 		},
 		{
 			name:     "API empty slice + prior null → null",
-			apiTags:  []string{},
+			tags:     []string{},
 			prior:    types.ListNull(types.StringType),
 			wantNull: true,
 		},
 		{
 			name:     "API empty + prior empty list → empty list (user set tags = [])",
-			apiTags:  nil,
-			prior:    makeList(),
+			tags:     nil,
+			prior:    types.ListValueMust(types.StringType, []attr.Value{}),
 			wantNull: false,
 			wantLen:  0,
-			wantTags: []string{},
 		},
 		{
 			name:     "API empty + prior had tags → empty list (tags cleared)",
-			apiTags:  nil,
-			prior:    makeList("env:prod"),
+			tags:     nil,
+			prior:    TagsToList([]string{"old-tag"}),
 			wantNull: false,
 			wantLen:  0,
-			wantTags: []string{},
 		},
 		{
 			name:     "API has tags + prior null → list with tags",
-			apiTags:  []string{"env:prod"},
+			tags:     []string{"new-tag"},
 			prior:    types.ListNull(types.StringType),
 			wantNull: false,
 			wantLen:  1,
-			wantTags: []string{"env:prod"},
+			wantTags: []string{"new-tag"},
 		},
 		{
 			name:     "API has tags + prior matches → list with tags",
-			apiTags:  []string{"env:prod", "team:platform"},
-			prior:    makeList("env:prod", "team:platform"),
+			tags:     []string{"tag-a", "tag-b"},
+			prior:    TagsToList([]string{"tag-a", "tag-b"}),
 			wantNull: false,
 			wantLen:  2,
-			wantTags: []string{"env:prod", "team:platform"},
+			wantTags: []string{"tag-a", "tag-b"},
 		},
 	}
-	for _, tc := range cases {
+
+	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := TagsToListPreserveNull(tc.apiTags, tc.prior)
+			got := TagsToListPreserveNull(tc.tags, tc.prior)
 			if tc.wantNull {
 				if !got.IsNull() {
 					t.Fatalf("expected null list, got %v", got)
@@ -166,7 +156,7 @@ func TestTagsToListPreserveNull(t *testing.T) {
 				t.Fatalf("expected %d elements, got %d", tc.wantLen, len(got.Elements()))
 			}
 			var tags []string
-			got.ElementsAs(context.Background(), &tags, false)
+			got.ElementsAs(t.Context(), &tags, false)
 			for i, want := range tc.wantTags {
 				if tags[i] != want {
 					t.Errorf("element[%d]: got %q, want %q", i, tags[i], want)
@@ -177,7 +167,7 @@ func TestTagsToListPreserveNull(t *testing.T) {
 }
 
 func TestListToTags(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	makeList := func(tags ...string) types.List {
 		vals := make([]attr.Value, len(tags))

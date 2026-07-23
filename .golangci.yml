@@ -1,6 +1,12 @@
-# Copyright (c) Aruba S.p.A.
+# Copyright (c) HashiCorp, Inc.
+# Portions Copyright (c) Aruba S.p.A.
 
 version: "2"
+
+run:
+  timeout: 5m
+  go: '1.24'
+
 linters:
   default: none
   enable:
@@ -18,7 +24,8 @@ linters:
     - unconvert
     - unparam
     - unused
-    - usetesting
+    # `usetesting` disabled: acceptance tests spawn goroutines that outlive the *testing.T,
+    # so t.Context() would return a canceled context. Migration deferred.
     - govet
   exclusions:
     generated: lax

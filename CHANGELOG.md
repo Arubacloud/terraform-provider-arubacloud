@@ -1,3 +1,15 @@
+## 1.0.1 (Unreleased)
+
+FEATURES & HARDENING:
+
+* **Strict Composite Import Parsing**: `parseImportID` now uses an exact-segment-count match instead of `strings.SplitN`, and rejects empty IDs, leading/trailing slashes, and whitespace-only segments. Extra path segments (e.g. `proj/vpc/sub/extra` for a 3-part import) now produce a clear error instead of silently corrupting the trailing segment.
+
+INTERNAL:
+
+* **Linter modernized**: `.golangci.yml` migrated to schema `version: 2` with explicit `run.timeout: 5m` and `go: '1.24'`; dual `HashiCorp, Inc.` + `Aruba S.p.A.` copyright preserving upstream scaffold attribution.
+* **Lint bootstrap without `curl | sh`**: `GNUmakefile` `lint` target now checks for a local `golangci-lint` v2 installation and falls back to `go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2` when absent. Removes the previous unverified `curl | sh` install step.
+* **Test suite modernized**: `context.Background()` / `context.TODO()` calls migrated to `t.Context()` in the touched test files. Broader migration deferred pending resolution of goroutine-lifetime concerns flagged by `usetesting` (documented in `.golangci.yml`).
+
 ## 1.0.0 (July 22, 2026)
 
 NOTES:
