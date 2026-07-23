@@ -8,6 +8,7 @@ updates:
     schedule:
       # Check for updates to Go modules every weekday
       interval: "daily"
+    open-pull-requests-limit: 5
     groups:
       # Group all terraform-plugin-(go|sdk|framework|testing) dependencies together
       "terraform-plugin":
@@ -17,8 +18,10 @@ updates:
     directory: "/tools"
     schedule:
       interval: "daily"
+    open-pull-requests-limit: 5
   - package-ecosystem: "github-actions"
     directory: "/"
+    open-pull-requests-limit: 5
     groups:
       "github-actions":
         patterns:
