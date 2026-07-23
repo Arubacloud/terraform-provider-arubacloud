@@ -1,7 +1,6 @@
 package provider
 
 import (
-	"context"
 	"testing"
 )
 
@@ -80,7 +79,7 @@ func TestLogLevelOrdering(t *testing.T) {
 func TestSDKLogAdapterLevel(t *testing.T) {
 	// Verify that newSDKLogAdapter stores the level correctly.
 	for _, level := range []LogLevel{LogLevelOff, LogLevelError, LogLevelWarn, LogLevelInfo, LogLevelDebug, LogLevelTrace} {
-		a := newSDKLogAdapter(context.TODO(), level)
+		a := newSDKLogAdapter(t.Context(), level)
 		if a.level != level {
 			t.Errorf("newSDKLogAdapter(level=%v): adapter.level = %v", level, a.level)
 		}
@@ -107,7 +106,7 @@ func TestSDKLogAdapterGating(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		a := newSDKLogAdapter(context.TODO(), tc.level)
+		a := newSDKLogAdapter(t.Context(), tc.level)
 		if got := a.level >= LogLevelDebug; got != tc.debugFires {
 			t.Errorf("level=%v: Debugf fires=%v, want %v", tc.level, got, tc.debugFires)
 		}
