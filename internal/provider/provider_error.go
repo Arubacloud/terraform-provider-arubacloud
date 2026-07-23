@@ -242,25 +242,38 @@ func CheckResponseErrAsError(operation, resource string, err error) error {
 // IsNotFound reports whether err (or any error in its chain) represents a 404 Not Found response.
 func IsNotFound(err error) bool {
 	var provErr *ProviderError
-	return errors.As(err, &provErr) && provErr != nil && provErr.StatusCode == 404
+	return errors.As(err, &provErr) && provErr.StatusCode == 404
+}
+
+// IsAuthError reports whether err (or any error in its chain) represents a 401 Unauthorized or 403 Forbidden response.
+func IsAuthError(err error) bool {
+	var provErr *ProviderError
+	return errors.As(err, &provErr) && (provErr.StatusCode == 401 || provErr.StatusCode == 403)
+}
+
+// IsRateLimited reports whether err represents an HTTP 429 (Too Many Requests).
+// 429 is transient: honour any Retry-After hint and retry, do not fail-fast.
+func IsRateLimited(err error) bool {
+	var provErr *ProviderError
+	return errors.As(err, &provErr) && provErr.StatusCode == 429
 }
 
 // ErrorIsSemantic reports whether err is a *ProviderError with category Semantic.
 func ErrorIsSemantic(err error) bool {
 	var provErr *ProviderError
-	return errors.As(err, &provErr) && provErr != nil && provErr.Category == ProviderErrorCategorySemantic
+	return errors.As(err, &provErr) && provErr.Category == ProviderErrorCategorySemantic
 }
 
 // ErrorIsTransient reports whether err is a *ProviderError with category Transient.
 func ErrorIsTransient(err error) bool {
 	var provErr *ProviderError
-	return errors.As(err, &provErr) && provErr != nil && provErr.Category == ProviderErrorCategoryTransient
+	return errors.As(err, &provErr) && provErr.Category == ProviderErrorCategoryTransient
 }
 
 // ErrorIsTechnical reports whether err is a *ProviderError with category Technical.
 func ErrorIsTechnical(err error) bool {
 	var provErr *ProviderError
-	return errors.As(err, &provErr) && provErr != nil && provErr.Category == ProviderErrorCategoryTechnical
+	return errors.As(err, &provErr) && provErr.Category == ProviderErrorCategoryTechnical
 }
 
 // ErrorIsTransportFailure reports whether err is a network-level failure with no
@@ -269,5 +282,5 @@ func ErrorIsTechnical(err error) bool {
 // retrying the same POST is safe.
 func ErrorIsTransportFailure(err error) bool {
 	var provErr *ProviderError
-	return errors.As(err, &provErr) && provErr != nil && provErr.StatusCode == 0
+	return errors.As(err, &provErr) && provErr.StatusCode == 0
 }
