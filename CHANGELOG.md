@@ -1,3 +1,13 @@
+## 1.0.1 (July 28, 2026)
+
+BUG FIXES:
+
+* `arubacloud_dbaasuser`: Fixed `Create` and `Update` always failing with HTTP 400 `"Password does not match the minimum requirements"`. The underlying SDK was base64-encoding the password before sending it to the API, causing the encoded string (which contains only alphanumeric characters) to fail the API's password policy. Fixed by upgrading to `sdk-go` v1.0.9, which sends the password as plain text ([#351](https://github.com/Arubacloud/sdk-go/issues/351), [sdk-go#352](https://github.com/Arubacloud/sdk-go/pull/352)).
+
+INTERNAL:
+
+* Bumped `sdk-go` to v1.0.9.
+
 ## 1.0.0 (July 22, 2026)
 
 NOTES:
