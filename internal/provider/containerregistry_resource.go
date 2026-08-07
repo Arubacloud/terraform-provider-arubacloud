@@ -106,8 +106,8 @@ func (r *ContainerRegistryResource) Schema(ctx context.Context, req resource.Sch
 				Required:            true,
 				Attributes: map[string]schema.Attribute{
 					"public_ip_uri_ref": schema.StringAttribute{
-						MarkdownDescription: "URI of the Elastic IP that exposes the registry endpoint (e.g., `arubacloud_elasticip.example.uri`).",
-						Required:            true,
+						MarkdownDescription: "URI of the Elastic IP that exposes the registry endpoint (e.g., `arubacloud_elasticip.example.uri`). It can be omitted if not necessary",
+						Optional:            true,
 						PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 					},
 					"vpc_uri_ref": schema.StringAttribute{
@@ -208,7 +208,7 @@ func applyContainerRegistryToModel(reg *aruba.ContainerRegistry, data *Container
 			"security_group_uri_ref": types.StringType,
 		},
 		map[string]attr.Value{
-			"public_ip_uri_ref":      types.StringValue(reg.ElasticIP()),
+			"public_ip_uri_ref":      strVal(reg.ElasticIP()),
 			"vpc_uri_ref":            types.StringValue(reg.VPC()),
 			"subnet_uri_ref":         types.StringValue(reg.Subnet()),
 			"security_group_uri_ref": types.StringValue(reg.SecurityGroup()),
@@ -265,11 +265,14 @@ func (r *ContainerRegistryResource) Create(ctx context.Context, req resource.Cre
 		InProject(aruba.URI("/projects/" + projectID)).
 		InRegion(aruba.Region(data.Location.ValueString())).
 		Tagged(tags...).
-		WithElasticIP(aruba.URI(networkModel.PublicIpUriRef.ValueString())).
 		WithVPC(aruba.URI(networkModel.VpcUriRef.ValueString())).
 		WithSubnet(aruba.URI(networkModel.SubnetUriRef.ValueString())).
 		WithSecurityGroup(aruba.URI(networkModel.SecurityGroupUriRef.ValueString())).
 		WithBlockStorage(aruba.URI(storageModel.BlockStorageUriRef.ValueString()))
+
+	if !networkModel.PublicIpUriRef.IsNull() && networkModel.PublicIpUriRef.ValueString() != "" {
+		builder = builder.WithElasticIP(aruba.URI(networkModel.PublicIpUriRef.ValueString()))
+	}
 
 	if !data.BillingPeriod.IsNull() && !data.BillingPeriod.IsUnknown() {
 		builder = builder.BilledBy(aruba.BillingPeriod(data.BillingPeriod.ValueString()))
@@ -421,8 +424,10 @@ func (r *ContainerRegistryResource) Update(ctx context.Context, req resource.Upd
 		if resp.Diagnostics.HasError() {
 			return
 		}
-		registry.WithElasticIP(aruba.URI(networkModel.PublicIpUriRef.ValueString())).
-			WithVPC(aruba.URI(networkModel.VpcUriRef.ValueString())).
+		if !networkModel.PublicIpUriRef.IsNull() && networkModel.PublicIpUriRef.ValueString() != "" {
+			registry.WithElasticIP(aruba.URI(networkModel.PublicIpUriRef.ValueString()))
+		}
+		registry.WithVPC(aruba.URI(networkModel.VpcUriRef.ValueString())).
 			WithSubnet(aruba.URI(networkModel.SubnetUriRef.ValueString())).
 			WithSecurityGroup(aruba.URI(networkModel.SecurityGroupUriRef.ValueString()))
 	}

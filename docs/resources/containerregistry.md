@@ -82,10 +82,13 @@ In addition to all arguments above, the following attributes are exported:
 
 Required:
 
-- `public_ip_uri_ref` (String) URI of the Elastic IP that exposes the registry endpoint (e.g., `arubacloud_elasticip.example.uri`).
 - `security_group_uri_ref` (String) URI of the security group controlling registry traffic (e.g., `arubacloud_securitygroup.example.uri`).
 - `subnet_uri_ref` (String) URI of the subnet within the VPC (e.g., `arubacloud_subnet.example.uri`).
 - `vpc_uri_ref` (String) URI of the VPC that hosts the registry (e.g., `arubacloud_vpc.example.uri`).
+
+Optional:
+
+- `public_ip_uri_ref` (String) URI of the Elastic IP that exposes the registry endpoint (e.g., `arubacloud_elasticip.example.uri`). It can be omitted if not necessary
 
 
 <a id="nestedatt--settings"></a>
