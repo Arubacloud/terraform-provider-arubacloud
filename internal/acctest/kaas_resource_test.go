@@ -231,6 +231,7 @@ data "arubacloud_kaas" "test" {
 data "arubacloud_securitygroup" "kaas_sg" {
   id         = arubacloud_kaas.test.network.security_group_id
   project_id = %[1]q
+  vpc_id     = arubacloud_vpc.test.id
 }
 `, projectID, location, zone, nodeInstance, k8sVersion, sfx)
 }
