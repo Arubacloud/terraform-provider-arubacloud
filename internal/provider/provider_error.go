@@ -264,10 +264,35 @@ func ErrorIsSemantic(err error) bool {
 	return errors.As(err, &provErr) && provErr.Category == ProviderErrorCategorySemantic
 }
 
-// ErrorIsTransient reports whether err is a *ProviderError with category Transient.
+// ErrorIsTransient reports whether err is a *ProviderError with category Transient
+// AND is safe for callers to retry with a plain backoff.
+//
+// newResponseError classifies any 4xx without validation errors as Transient
+// (see [newResponseError]), which is correct for most 4xx but wrong for a few:
+//
+//   - HTTP 401 / 403 (see [IsAuthError]) never resolve on their own — a
+//     caller that keeps retrying will burn its whole timeout window on
+//     credentials that will not become valid.
+//   - HTTP 429 (see [IsRateLimited]) IS transient but MUST honour a
+//     rate-limit-specific backoff (typically exponential, capped) rather
+//     than a plain retry cadence, so callers should branch on IsRateLimited
+//     first.
+//
+// This guard keeps the classification consistent for every retry loop in the
+// provider without requiring each call site to reproduce the exclusion.
 func ErrorIsTransient(err error) bool {
 	var provErr *ProviderError
-	return errors.As(err, &provErr) && provErr.Category == ProviderErrorCategoryTransient
+	if !errors.As(err, &provErr) {
+		return false
+	}
+	if provErr.Category != ProviderErrorCategoryTransient {
+		return false
+	}
+	switch provErr.StatusCode {
+	case 401, 403, 429:
+		return false
+	}
+	return true
 }
 
 // ErrorIsTechnical reports whether err is a *ProviderError with category Technical.

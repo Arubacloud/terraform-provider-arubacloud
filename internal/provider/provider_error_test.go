@@ -303,6 +303,38 @@ func TestErrorCategoryHelpers(t *testing.T) {
 	}
 }
 
+// TestErrorIsTransient_ExcludesAuthAndRateLimit verifies that ErrorIsTransient
+// treats HTTP 401, 403, and 429 as non-transient even though newResponseError
+// tags every 4xx-without-validation-errors as ProviderErrorCategoryTransient.
+// This is what stops CreateWithTransientRetry (and any other loop that gates
+// on ErrorIsTransient) from retrying auth failures indefinitely or ignoring
+// rate-limit backoff semantics.
+func TestErrorIsTransient_ExcludesAuthAndRateLimit(t *testing.T) {
+	cases := []struct {
+		name        string
+		statusCode  int
+		wantTransient bool
+	}{
+		{"400 stays transient", 400, true},
+		{"401 excluded (auth)", 401, false},
+		{"403 excluded (auth)", 403, false},
+		{"404 stays transient (delete flows treat 404 as gone)", 404, true},
+		{"429 excluded (rate limit needs dedicated backoff)", 429, false},
+		{"408 stays transient (request timeout — safe to retry)", 408, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := &ProviderError{
+				Category:   ProviderErrorCategoryTransient,
+				StatusCode: tc.statusCode,
+			}
+			if got := ErrorIsTransient(err); got != tc.wantTransient {
+				t.Errorf("ErrorIsTransient(status=%d) = %v, want %v", tc.statusCode, got, tc.wantTransient)
+			}
+		})
+	}
+}
+
 // ── sanitizeAPIString ─────────────────────────────────────────────────────────
 
 func TestSanitizeAPIString(t *testing.T) {
