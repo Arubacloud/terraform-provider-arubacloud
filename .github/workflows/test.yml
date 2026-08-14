@@ -49,7 +49,7 @@ jobs:
           go-version-file: 'go.mod'
           check-latest: true
           cache: true
-      - uses: golang/govulncheck-action@b86c23348005391d4e414c77d079d8544c9b3117 # v1.0.4
+      - uses: golang/govulncheck-action@b625fbe08f3bccbe446d94fbf87fcc875a4f50ee # v1.0.4
         with:
           go-version-file: 'go.mod'
 
