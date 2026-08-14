@@ -61,6 +61,12 @@ func TestAccKaasResource(t *testing.T) {
 						tfjsonpath.New("settings").AtMapKey("node_pools").AtSliceIndex(0).AtMapKey("zone"),
 						knownvalue.NotNull(),
 					),
+					// Verify security_group_id is populated after provisioning (issue #333).
+					statecheck.ExpectKnownValue(
+						"arubacloud_kaas.test",
+						tfjsonpath.New("network").AtMapKey("security_group_id"),
+						knownvalue.NotNull(),
+					),
 				},
 			},
 			// ImportState testing
@@ -115,6 +121,118 @@ func testCheckKaasDestroyed(s *terraform.State) error {
 		return fmt.Errorf("KaaS %s still exists", rs.Primary.ID)
 	}
 	return nil
+}
+
+// TestAccKaas_SecurityGroupID verifies that arubacloud_kaas exposes a non-null
+// network.security_group_id after provisioning, and that this ID can be used
+// to look up the auto-generated security group via the arubacloud_securitygroup
+// data source (end-to-end validation of the fix for issue #333).
+func TestAccKaas_SecurityGroupID(t *testing.T) {
+	projectID := os.Getenv("ARUBACLOUD_PROJECT_ID")
+	location := os.Getenv("ARUBACLOUD_LOCATION")
+	zone := os.Getenv("ARUBACLOUD_ZONE")
+	nodeInstance := os.Getenv("ARUBACLOUD_KAAS_NODE_INSTANCE")
+	if projectID == "" || location == "" || zone == "" || nodeInstance == "" {
+		t.Skip("ARUBACLOUD_PROJECT_ID, ARUBACLOUD_LOCATION, ARUBACLOUD_ZONE, and ARUBACLOUD_KAAS_NODE_INSTANCE must be set for acceptance tests")
+	}
+	var sfxBytes [3]byte
+	rand.Read(sfxBytes[:]) //nolint:errcheck
+	sfx := fmt.Sprintf("%x", sfxBytes)
+	k8sVersion := testAccKaasK8sVersion()
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { PreCheck(t) },
+		ProtoV6ProviderFactories: ProtoV6ProviderFactories,
+		CheckDestroy:             testCheckKaasDestroyed,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccKaasSecurityGroupIDConfig(projectID, location, zone, nodeInstance, k8sVersion, sfx),
+				ConfigStateChecks: []statecheck.StateCheck{
+					// 1. security_group_id must be a non-null, non-empty string.
+					statecheck.ExpectKnownValue(
+						"arubacloud_kaas.test",
+						tfjsonpath.New("network").AtMapKey("security_group_id"),
+						knownvalue.NotNull(),
+					),
+					// 2. The arubacloud_securitygroup data source lookup by that ID must succeed.
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_securitygroup.kaas_sg",
+						tfjsonpath.New("id"),
+						knownvalue.NotNull(),
+					),
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_securitygroup.kaas_sg",
+						tfjsonpath.New("uri"),
+						knownvalue.NotNull(),
+					),
+					// 3. The data source's security_group_id in kaas data source must also be populated.
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_kaas.test",
+						tfjsonpath.New("security_group_id"),
+						knownvalue.NotNull(),
+					),
+				},
+			},
+		},
+	})
+}
+
+func testAccKaasSecurityGroupIDConfig(projectID, location, zone, nodeInstance, k8sVersion, sfx string) string {
+	return fmt.Sprintf(`
+resource "arubacloud_vpc" "test" {
+  name       = "test-sgid-vpc-%[6]s"
+  location   = %[2]q
+  project_id = %[1]q
+}
+
+resource "arubacloud_subnet" "test" {
+  name       = "test-sgid-subnet-%[6]s"
+  location   = %[2]q
+  project_id = %[1]q
+  vpc_id     = arubacloud_vpc.test.id
+  type       = "Basic"
+}
+
+resource "arubacloud_kaas" "test" {
+  name           = "test-sgid-%[6]s"
+  location       = %[2]q
+  project_id     = %[1]q
+  billing_period = "Hour"
+
+  network = {
+    vpc_uri_ref         = arubacloud_vpc.test.uri
+    subnet_uri_ref      = arubacloud_subnet.test.uri
+    security_group_name = "kaas-sgid-%[6]s"
+    node_cidr = {
+      address = "10.0.1.0/24"
+      name    = "node-cidr-%[6]s"
+    }
+  }
+
+  settings = {
+    kubernetes_version = %[5]q
+    ha                 = false
+    node_pools = [
+      {
+        name     = "default"
+        nodes    = 1
+        instance = %[4]q
+        zone     = %[3]q
+      }
+    ]
+  }
+}
+
+data "arubacloud_kaas" "test" {
+  id         = arubacloud_kaas.test.id
+  project_id = %[1]q
+}
+
+data "arubacloud_securitygroup" "kaas_sg" {
+  id         = arubacloud_kaas.test.network.security_group_id
+  project_id = %[1]q
+}
+`, projectID, location, zone, nodeInstance, k8sVersion, sfx)
 }
 
 // testAccKaasResourceConfig builds the HCL for the KaaS resource acceptance test.

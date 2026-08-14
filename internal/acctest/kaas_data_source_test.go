@@ -47,6 +47,11 @@ func TestAccKaasDataSource(t *testing.T) {
 						tfjsonpath.New("project_id"),
 						knownvalue.StringExact(projectID),
 					),
+					statecheck.ExpectKnownValue(
+						"data.arubacloud_kaas.test",
+						tfjsonpath.New("security_group_id"),
+						knownvalue.NotNull(),
+					),
 				},
 			},
 		},
