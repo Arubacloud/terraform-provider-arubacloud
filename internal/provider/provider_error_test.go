@@ -311,8 +311,8 @@ func TestErrorCategoryHelpers(t *testing.T) {
 // rate-limit backoff semantics.
 func TestErrorIsTransient_ExcludesAuthAndRateLimit(t *testing.T) {
 	cases := []struct {
-		name        string
-		statusCode  int
+		name          string
+		statusCode    int
 		wantTransient bool
 	}{
 		{"400 stays transient", 400, true},
