@@ -78,6 +78,7 @@ func buildKaaSCreateReqWithNodePool(ctx context.Context, t *testing.T) resource.
 			"name":    tftypes.NewValue(tftypes.String, "test-cidr"),
 		}),
 		"security_group_name": tftypes.NewValue(tftypes.String, "test-sg"),
+		"security_group_id":   tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
 		"pod_cidr":            tftypes.NewValue(tftypes.String, nil),
 	})
 

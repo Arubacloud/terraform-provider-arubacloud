@@ -38,6 +38,7 @@ type KaaSDataSourceModel struct {
 	NodeCIDRAddress   types.String `tfsdk:"node_cidr_address"`
 	NodeCIDRName      types.String `tfsdk:"node_cidr_name"`
 	SecurityGroupName types.String `tfsdk:"security_group_name"`
+	SecurityGroupId   types.String `tfsdk:"security_group_id"`
 	PodCIDR           types.String `tfsdk:"pod_cidr"`
 	// Settings fields (flattened)
 	KubernetesVersion types.String `tfsdk:"kubernetes_version"`
@@ -119,6 +120,10 @@ func (d *KaaSDataSource) Schema(ctx context.Context, req datasource.SchemaReques
 			},
 			"security_group_name": schema.StringAttribute{
 				MarkdownDescription: "Name of the security group applied to cluster nodes.",
+				Computed:            true,
+			},
+			"security_group_id": schema.StringAttribute{
+				MarkdownDescription: "Unique identifier of the security group created by the KaaS cluster. Use this value as the `id` input to the `arubacloud_securitygroup` data source.",
 				Computed:            true,
 			},
 			"pod_cidr": schema.StringAttribute{
@@ -250,6 +255,11 @@ func (d *KaaSDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 		data.SecurityGroupName = types.StringValue(v)
 	} else {
 		data.SecurityGroupName = types.StringNull()
+	}
+	if raw != nil && raw.Properties.SecurityGroup.URI != nil && *raw.Properties.SecurityGroup.URI != "" {
+		data.SecurityGroupId = types.StringValue(idFromURI(*raw.Properties.SecurityGroup.URI))
+	} else {
+		data.SecurityGroupId = types.StringNull()
 	}
 	if v := kaas.PodCIDR(); v != "" {
 		data.PodCIDR = types.StringValue(v)
