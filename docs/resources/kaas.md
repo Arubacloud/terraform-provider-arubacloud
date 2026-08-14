@@ -118,6 +118,10 @@ Optional:
 
 - `pod_cidr` (String) CIDR block used for pod networking within the cluster (e.g., `10.0.3.0/24`).
 
+Read-Only:
+
+- `security_group_id` (String) Computed by the API. Unique identifier of the security group created by the KaaS cluster. Use this value as the `id` input to the `arubacloud_securitygroup` data source to look up the full security group and obtain its URI.
+
 <a id="nestedatt--network--node_cidr"></a>
 ### Nested Schema for `network.node_cidr`
 
