@@ -93,6 +93,7 @@ In addition to all arguments above, the following attributes are exported:
 - `node_cidr_name` (String) Human-readable label for the node CIDR block.
 - `node_pools` (Attributes List) Node pools that make up the cluster worker fleet. (see [below for nested schema](#nestedatt--node_pools))
 - `pod_cidr` (String) CIDR block used for pod networking within the cluster.
+- `security_group_id` (String) Unique identifier of the security group created by the KaaS cluster. Use this value as the `id` input to the `arubacloud_securitygroup` data source.
 - `security_group_name` (String) Name of the security group applied to cluster nodes.
 - `subnet_uri_ref` (String) URI of the subnet within the VPC.
 - `tags` (List of String) List of string tags attached to the resource for filtering and organisation.

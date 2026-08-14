@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"strings"
 	"time"
 
 	aruba "github.com/Arubacloud/sdk-go/pkg/aruba"
@@ -66,6 +67,7 @@ type KaaSNetworkModel struct {
 	SubnetUriRef      types.String `tfsdk:"subnet_uri_ref"`
 	NodeCIDR          types.Object `tfsdk:"node_cidr"`
 	SecurityGroupName types.String `tfsdk:"security_group_name"`
+	SecurityGroupId   types.String `tfsdk:"security_group_id"`
 	PodCIDR           types.String `tfsdk:"pod_cidr"`
 }
 
@@ -159,6 +161,11 @@ func (r *KaaSResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 						MarkdownDescription: "Name of the security group applied to cluster nodes.",
 						Required:            true,
 					},
+					"security_group_id": schema.StringAttribute{
+						MarkdownDescription: "Computed by the API. Unique identifier of the security group created by the KaaS cluster. Use this value as the `id` input to the `arubacloud_securitygroup` data source to look up the full security group and obtain its URI.",
+						Computed:            true,
+						PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+					},
 					"pod_cidr": schema.StringAttribute{
 						MarkdownDescription: "CIDR block used for pod networking within the cluster (e.g., `10.0.3.0/24`).",
 						Optional:            true,
@@ -236,6 +243,51 @@ func (r *KaaSResource) Configure(ctx context.Context, req resource.ConfigureRequ
 		return
 	}
 	r.client = client
+}
+
+// kaasNetworkAttrTypes returns the attr.Type map for the network nested object.
+func kaasNetworkAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"vpc_uri_ref":         types.StringType,
+		"subnet_uri_ref":      types.StringType,
+		"node_cidr":           types.ObjectType{AttrTypes: map[string]attr.Type{"address": types.StringType, "name": types.StringType}},
+		"security_group_name": types.StringType,
+		"security_group_id":   types.StringType,
+		"pod_cidr":            types.StringType,
+	}
+}
+
+// idFromURI extracts the last path segment of a URI as the resource ID.
+// Returns "" for empty or malformed URIs.
+func idFromURI(uri string) string {
+	uri = strings.TrimRight(uri, "/")
+	if i := strings.LastIndex(uri, "/"); i >= 0 {
+		return uri[i+1:]
+	}
+	return uri
+}
+
+// kaasNetworkWithSGID returns a copy of networkObj with security_group_id set from sgURI.
+// If sgURI is nil or empty the existing value is preserved.
+func kaasNetworkWithSGID(networkObj types.Object, sgURI *string) types.Object {
+	if sgURI == nil || *sgURI == "" {
+		return networkObj
+	}
+	sgID := idFromURI(*sgURI)
+	if sgID == "" {
+		return networkObj
+	}
+	attrs := networkObj.Attributes()
+	newAttrs := make(map[string]attr.Value, len(attrs))
+	for k, v := range attrs {
+		newAttrs[k] = v
+	}
+	newAttrs["security_group_id"] = types.StringValue(sgID)
+	updated, diags := types.ObjectValue(kaasNetworkAttrTypes(), newAttrs)
+	if diags.HasError() {
+		return networkObj
+	}
+	return updated
 }
 
 func kaasRef(data *KaaSResourceModel) aruba.Ref {
@@ -424,6 +476,7 @@ func (r *KaaSResource) Create(ctx context.Context, req resource.CreateRequest, r
 		"vpc_uri_ref":         types.StringValue(networkModel.VpcUriRef.ValueString()),
 		"subnet_uri_ref":      types.StringValue(networkModel.SubnetUriRef.ValueString()),
 		"security_group_name": types.StringValue(networkModel.SecurityGroupName.ValueString()),
+		"security_group_id":   types.StringNull(), // populated after wait from fresh read
 	}
 	if !networkModel.PodCIDR.IsNull() {
 		networkAttrs["pod_cidr"] = types.StringValue(networkModel.PodCIDR.ValueString())
@@ -440,11 +493,7 @@ func (r *KaaSResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 	networkAttrs["node_cidr"] = nodeCIDRObj
-	networkObj, d := types.ObjectValue(map[string]attr.Type{
-		"vpc_uri_ref": types.StringType, "subnet_uri_ref": types.StringType,
-		"node_cidr":           types.ObjectType{AttrTypes: map[string]attr.Type{"address": types.StringType, "name": types.StringType}},
-		"security_group_name": types.StringType, "pod_cidr": types.StringType,
-	}, networkAttrs)
+	networkObj, d := types.ObjectValue(kaasNetworkAttrTypes(), networkAttrs)
 	resp.Diagnostics.Append(d...)
 	if !resp.Diagnostics.HasError() {
 		data.Network = networkObj
@@ -481,7 +530,7 @@ func (r *KaaSResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
-	// Re-read to get management IP.
+	// Re-read to get management IP and security group ID.
 	fresh, freshErr := r.client.Client.FromContainer().KaaS().Get(ctx, kaasRef(&data))
 	if freshErr == nil {
 		raw := fresh.Raw()
@@ -491,6 +540,9 @@ func (r *KaaSResource) Create(ctx context.Context, req resource.CreateRequest, r
 			data.ManagementIP = types.StringNull()
 		}
 		data.Kubeconfig = downloadKubeconfig(ctx, fresh)
+		if raw != nil {
+			data.Network = kaasNetworkWithSGID(data.Network, raw.Properties.SecurityGroup.URI)
+		}
 	} else {
 		data.ManagementIP = types.StringNull()
 		data.Kubeconfig = types.StringNull()
@@ -577,6 +629,7 @@ func (r *KaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		"subnet_uri_ref":      types.StringNull(),
 		"node_cidr":           types.ObjectNull(map[string]attr.Type{"address": types.StringType, "name": types.StringType}),
 		"security_group_name": types.StringNull(),
+		"security_group_id":   types.StringNull(),
 		"pod_cidr":            types.StringNull(),
 	}
 	if v := kaas.VPC(); v != "" {
@@ -591,6 +644,14 @@ func (r *KaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		var origNet KaaSNetworkModel
 		if dd := originalState.Network.As(ctx, &origNet, basetypes.ObjectAsOptions{}); !dd.HasError() && !origNet.SecurityGroupName.IsNull() {
 			networkAttrs["security_group_name"] = origNet.SecurityGroupName
+		}
+	}
+	if sgURI := raw.Properties.SecurityGroup.URI; sgURI != nil && *sgURI != "" {
+		networkAttrs["security_group_id"] = types.StringValue(idFromURI(*sgURI))
+	} else if !originalState.Network.IsNull() {
+		var origNet KaaSNetworkModel
+		if dd := originalState.Network.As(ctx, &origNet, basetypes.ObjectAsOptions{}); !dd.HasError() && !origNet.SecurityGroupId.IsNull() {
+			networkAttrs["security_group_id"] = origNet.SecurityGroupId
 		}
 	}
 	nodeCIDRAddress := raw.Properties.NodeCIDR.Address
@@ -624,11 +685,7 @@ func (r *KaaSResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 			networkAttrs["pod_cidr"] = origNet.PodCIDR
 		}
 	}
-	networkObj, dNet := types.ObjectValue(map[string]attr.Type{
-		"vpc_uri_ref": types.StringType, "subnet_uri_ref": types.StringType,
-		"node_cidr":           types.ObjectType{AttrTypes: map[string]attr.Type{"address": types.StringType, "name": types.StringType}},
-		"security_group_name": types.StringType, "pod_cidr": types.StringType,
-	}, networkAttrs)
+	networkObj, dNet := types.ObjectValue(kaasNetworkAttrTypes(), networkAttrs)
 	resp.Diagnostics.Append(dNet...)
 	if !resp.Diagnostics.HasError() {
 		data.Network = networkObj
