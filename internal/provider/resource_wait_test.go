@@ -806,12 +806,16 @@ func TestWaitForResourceActive_RateLimited_BackoffsWithoutFailing(t *testing.T) 
 }
 
 func TestCreateWithTransientRetry_PartialFailure_DoesNotDuplicate(t *testing.T) {
-	transientErr := newResponseError("create", "vpc", 400, "Transient", "Dependency not ready", "", false)
+	// The idempotency guard applies to transport-level failures (StatusCode==0):
+	// the POST may already have been processed server-side but the response was
+	// lost, so retrying would create a duplicate. NewTransportError produces a
+	// *ProviderError with StatusCode==0 that satisfies ErrorIsTransportFailure.
+	transportErr := NewTransportError("create", "vpc", errors.New("connection reset by peer"))
 
 	createCalls := 0
 	createFunc := func() error {
 		createCalls++
-		return transientErr
+		return transportErr
 	}
 
 	existsCalls := 0
@@ -829,5 +833,38 @@ func TestCreateWithTransientRetry_PartialFailure_DoesNotDuplicate(t *testing.T) 
 	}
 	if existsCalls != 1 {
 		t.Fatalf("expected existsChecker called once, got %d", existsCalls)
+	}
+}
+
+// TestCreateWithTransientRetry_TransientErrorDoesNotConsultExistsChecker verifies
+// that a transient 4xx (server explicitly rejected the request) does NOT trigger
+// the existsChecker — the server saw the request, no duplicate is possible.
+func TestCreateWithTransientRetry_TransientErrorDoesNotConsultExistsChecker(t *testing.T) {
+	transientErr := newResponseError("create", "vpc", 400, "Transient", "Dependency not ready", "", false)
+
+	createCalls := 0
+	createFunc := func() error {
+		createCalls++
+		if createCalls == 1 {
+			return transientErr
+		}
+		return nil
+	}
+
+	existsCalls := 0
+	existsChecker := func(ctx context.Context) (string, error) {
+		existsCalls++
+		return "Active", nil
+	}
+
+	err := CreateWithTransientRetry(t.Context(), createFunc, "vpc", "abc", 30*time.Second, existsChecker)
+	if err != nil {
+		t.Fatalf("expected success after retry, got: %v", err)
+	}
+	if existsCalls != 0 {
+		t.Fatalf("existsChecker must NOT be consulted for transient 4xx errors, got %d calls", existsCalls)
+	}
+	if createCalls != 2 {
+		t.Fatalf("expected 2 createFunc calls (1 fail + 1 retry), got %d", createCalls)
 	}
 }

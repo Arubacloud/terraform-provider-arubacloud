@@ -126,6 +126,11 @@ func WaitForResourceActive(ctx context.Context, checker ResourceStateChecker, re
 					return fmt.Errorf("permanent error checking %s %s status: %w", resourceType, resourceID, err)
 				}
 				if IsRateLimited(err) {
+					// 429 uses its own backoff schedule and is isolated from the
+					// consecutive-error budget: reset consecutiveErrors so a rate-limit
+					// spike interleaved with unrelated transient errors cannot fail-fast
+					// the loop with a non-consecutive count.
+					consecutiveErrors = 0
 					rateLimitAttempts++
 					sleepShift := rateLimitAttempts - 1
 					if sleepShift > 5 {
@@ -336,9 +341,13 @@ func CreateWithTransientRetry(
 				resourceType, resourceID, attempt, timeout, err)
 		}
 
-		// Check if resource already exists before retrying
-		if len(existsChecker) > 0 && existsChecker[0] != nil {
-			if state, chkErr := existsChecker[0](ctx); chkErr == nil && state != "" && !IsNotFound(chkErr) {
+		// After a transport-level failure (StatusCode == 0, e.g. EOF or connection
+		// reset) the server MAY have processed the POST before the response was
+		// lost, so a naive retry would create a duplicate resource. Consult
+		// existsChecker before retrying. Transient 4xx errors mean the server
+		// explicitly rejected the request — no duplicate is possible, skip the check.
+		if ErrorIsTransportFailure(err) && len(existsChecker) > 0 && existsChecker[0] != nil {
+			if state, chkErr := existsChecker[0](ctx); chkErr == nil && state != "" {
 				tflog.Info(ctx, "resource confirmed created on pre-retry GET check — skipping POST retry", map[string]interface{}{
 					"resource_type": resourceType,
 					"resource_id":   resourceID,

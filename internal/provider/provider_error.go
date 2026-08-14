@@ -252,7 +252,9 @@ func IsAuthError(err error) bool {
 }
 
 // IsRateLimited reports whether err represents an HTTP 429 (Too Many Requests).
-// 429 is transient: honour any Retry-After hint and retry, do not fail-fast.
+// 429 is transient but callers should back off exponentially rather than retry
+// immediately. ProviderError does not currently expose the Retry-After hint
+// from the response; extend CheckResponseErr if honouring the hint is needed.
 func IsRateLimited(err error) bool {
 	var provErr *ProviderError
 	return errors.As(err, &provErr) && provErr.StatusCode == 429
