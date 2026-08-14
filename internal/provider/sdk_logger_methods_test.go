@@ -17,7 +17,7 @@ func registerSDKSubsystem(ctx context.Context) context.Context {
 // TestSDKLogAdapter_Debugf verifies that Debugf emits a log entry when the
 // adapter's level is LogLevelDebug and suppresses it when the level is below.
 func TestSDKLogAdapter_Debugf(t *testing.T) {
-	ctx := registerSDKSubsystem(context.Background())
+	ctx := registerSDKSubsystem(t.Context())
 
 	// Level == Debug: SubsystemDebug is called (no panic).
 	a := newSDKLogAdapter(ctx, LogLevelDebug)
@@ -31,7 +31,7 @@ func TestSDKLogAdapter_Debugf(t *testing.T) {
 // TestSDKLogAdapter_Infof verifies that Infof emits when level >= Info and
 // is suppressed when level > Info.
 func TestSDKLogAdapter_Infof(t *testing.T) {
-	ctx := registerSDKSubsystem(context.Background())
+	ctx := registerSDKSubsystem(t.Context())
 
 	a := newSDKLogAdapter(ctx, LogLevelInfo)
 	a.Infof("test info message %d", 42)
@@ -42,7 +42,7 @@ func TestSDKLogAdapter_Infof(t *testing.T) {
 
 // TestSDKLogAdapter_Warnf verifies that Warnf emits when level >= Warn.
 func TestSDKLogAdapter_Warnf(t *testing.T) {
-	ctx := registerSDKSubsystem(context.Background())
+	ctx := registerSDKSubsystem(t.Context())
 
 	a := newSDKLogAdapter(ctx, LogLevelWarn)
 	a.Warnf("test warn message %v", true)
@@ -54,7 +54,7 @@ func TestSDKLogAdapter_Warnf(t *testing.T) {
 // TestSDKLogAdapter_Errorf verifies that Errorf emits when level >= Error
 // and is suppressed when level is Off.
 func TestSDKLogAdapter_Errorf(t *testing.T) {
-	ctx := registerSDKSubsystem(context.Background())
+	ctx := registerSDKSubsystem(t.Context())
 
 	a := newSDKLogAdapter(ctx, LogLevelError)
 	a.Errorf("test error message: %s", "oops")
