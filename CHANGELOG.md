@@ -1,3 +1,9 @@
+## 1.0.2 (Unreleased)
+
+FEATURES & HARDENING:
+
+* **Authentication Fail-Fast & Rate-Limit Backoff**: Added `IsAuthError` and `IsRateLimited` error classifiers, and taught `ErrorIsTransient` to exclude HTTP 401/403/429 from the transient bucket so ALL existing retry loops (not just the ones updated in this PR) stop retrying auth failures and start honouring rate-limit semantics. Resource polling in `WaitForResourceActive` now returns immediately on permanent HTTP 401/403 errors, exponentially backs off on HTTP 429 responses without consuming the consecutive-error budget, and only treats 404 as terminal after the resource has been observed at least once (preserves eventual-consistency tolerance for the initial post-Create window). `CreateWithTransientRetry` accepts an optional `existsChecker` that avoids duplicate POSTs when a transport-level failure loses the response of an already-processed request.
+
 ## 1.0.1 (July 28, 2026)
 
 BUG FIXES:
