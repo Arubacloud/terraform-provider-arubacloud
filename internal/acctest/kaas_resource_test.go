@@ -44,12 +44,12 @@ func TestAccKaasResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccKaasResourceConfig(projectID, location, zone, nodeInstance, k8sVersion, sfx, "test-kaas"),
+				Config: testAccKaasResourceConfig(projectID, location, zone, nodeInstance, k8sVersion, sfx, "test-kaas-"+sfx),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_kaas.test",
 						tfjsonpath.New("name"),
-						knownvalue.StringExact("test-kaas"),
+						knownvalue.StringExact("test-kaas-"+sfx),
 					),
 					statecheck.ExpectKnownValue(
 						"arubacloud_kaas.test",
@@ -86,12 +86,12 @@ func TestAccKaasResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccKaasResourceConfig(projectID, location, zone, nodeInstance, k8sVersion, sfx, "test-kaas-updated"),
+				Config: testAccKaasResourceConfig(projectID, location, zone, nodeInstance, k8sVersion, sfx, "test-kaas-"+sfx+"-upd"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(
 						"arubacloud_kaas.test",
 						tfjsonpath.New("name"),
-						knownvalue.StringExact("test-kaas-updated"),
+						knownvalue.StringExact("test-kaas-"+sfx+"-upd"),
 					),
 				},
 			},
