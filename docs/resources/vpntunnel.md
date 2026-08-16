@@ -140,8 +140,8 @@ Optional:
 
 Optional:
 
-- `cloud_site` (String) Pre-shared key for the ArubaCloud side of the tunnel.
-- `on_prem_site` (String) Pre-shared key for the on-premises side of the tunnel.
+- `cloud_site` (String) IKE identity of the ArubaCloud side of the tunnel ("PSK ID Aruba Side" in the control panel). This is an **identifier**, not a key — the pre-shared key itself goes into `secret`. Equivalent to `leftid`/`rightid` in strongSwan or the local/remote ID in a Fortinet phase-1 configuration.
+- `on_prem_site` (String) IKE identity of the on-premises side of the tunnel ("PSK ID On Prem Side" in the control panel). This is an **identifier**, not a key — the pre-shared key itself goes into `secret`. With some firewalls (e.g. Fortinet) this must be set to the public IP of the on-premises gateway.
 - `secret` (String) Shared secret used to authenticate the VPN tunnel. Write-only — this value is sent to the API but is not returned in subsequent read responses.
 
 
