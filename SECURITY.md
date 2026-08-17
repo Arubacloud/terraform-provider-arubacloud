@@ -15,10 +15,7 @@ Aruba S.p.A. takes the security of our software products and services seriously.
 
 Please do **NOT** report security vulnerabilities through public GitHub issues or public discussions.
 
-Instead, please report security vulnerabilities via:
-
-- **GitHub Private Vulnerability Reporting**: Navigate to the [Security tab](https://github.com/Arubacloud/terraform-provider-arubacloud/security/advisories/new) of this repository and click "Report a vulnerability".
-- **Email**: Send an email to `security@aruba.it`.
+Instead, please report security vulnerabilities via **GitHub Private Vulnerability Reporting**: navigate to the [Security tab](https://github.com/Arubacloud/terraform-provider-arubacloud/security/advisories/new) of this repository and click "Report a vulnerability".
 
 Include a detailed description of the issue, steps to reproduce, and any relevant proof-of-concept code.
 
