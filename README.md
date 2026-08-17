@@ -163,6 +163,10 @@ export TF_CLI_CONFIG_FILE="$PWD/terraform.tfrc"
 terraform plan   # will warn about dev overrides — that's expected
 ```
 
+## Security
+
+Please report any security vulnerabilities responsibly. See [SECURITY.md](SECURITY.md) for our vulnerability disclosure policy and security contact information.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow: formatting, linting, doc regeneration, and the PR checklist.
