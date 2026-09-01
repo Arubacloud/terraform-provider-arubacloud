@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -161,8 +162,10 @@ func (r *SecurityRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 						},
 					},
 					"port": schema.StringAttribute{
-						MarkdownDescription: "Port or port range for TCP/UDP (e.g., `80` or `8080-8090`). Use `0` for ICMP or ANY. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
+						MarkdownDescription: "Port or port range for TCP/UDP (e.g., `80` or `8080-8090`). Defaults to `*` (all ports) when omitted — the API normalises an omitted port to `*`, so the default keeps plan and state consistent. (Immutable — changing this value forces the resource to be destroyed and re-created.)",
 						Optional:            true,
+						Computed:            true,
+						Default:             stringdefault.StaticString("*"),
 						PlanModifiers: []planmodifier.String{
 							stringplanmodifier.RequiresReplace(),
 						},
@@ -375,7 +378,10 @@ func (r *SecurityRuleResource) Create(ctx context.Context, req resource.CreateRe
 		WithDirection(aruba.RuleDirection(direction)).
 		WithProtocol(aruba.RuleProtocol(protocol))
 
-	if port != "" {
+	// "*" is the schema default (= all ports) and also what the API returns
+	// for an omitted port — do not send it, mirroring the previous behaviour
+	// for empty/cleared ports.
+	if port != "" && port != "*" {
 		builder = builder.WithPort(port)
 	}
 
