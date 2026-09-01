@@ -3,7 +3,7 @@ module github.com/Arubacloud/terraform-provider-arubacloud
 go 1.25.8
 
 require (
-	github.com/Arubacloud/sdk-go v1.0.9
+	github.com/Arubacloud/sdk-go v1.1.0
 	github.com/hashicorp/terraform-plugin-framework v1.19.0
 	github.com/hashicorp/terraform-plugin-framework-validators v0.19.0
 	github.com/hashicorp/terraform-plugin-go v0.31.0

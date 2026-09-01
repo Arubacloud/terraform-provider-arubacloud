@@ -3,6 +3,11 @@ output "elastic_ip_address" {
   description = "The public IP address of the Elastic IP (may be null until assigned)"
 }
 
+output "cloudserver_private_ip" {
+  value       = arubacloud_cloudserver.test.private_ip
+  description = "DHCP-assigned private IPv4 address of the CloudServer"
+}
+
 output "nginx_test_command" {
   value       = arubacloud_elasticip.test.address != null ? format("curl http://%s:80", arubacloud_elasticip.test.address) : "curl http://<elastic-ip-address>:80 (address will be available after apply)"
   description = "Command to test nginx on the cloud server"
