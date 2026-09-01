@@ -1,3 +1,22 @@
+## 1.1.0 (September 1, 2026)
+
+FEATURES:
+
+* `arubacloud_cloudserver` (resource and data source): Added `private_ip` computed attribute exposing the DHCP-assigned private IPv4 address returned by the API under `properties.privateIp`. The value is populated after `Create` and on every `Read`; it is preserved across `Update` and stable on subsequent plans ([#341](https://github.com/Arubacloud/terraform-provider-arubacloud/issues/341)).
+
+BUG FIXES:
+
+* `arubacloud_blockstorage`: Shrinking `size_gb` now correctly proposes a destroy-and-recreate instead of an in-place update that the API rejects with `Validation: Size: invalid`. Growing the volume is still applied in place ([#344](https://github.com/Arubacloud/terraform-provider-arubacloud/pull/344)).
+* `arubacloud_securityrule`: Creating a rule with `protocol = "Any"` or `"ICMP"` and no `port` no longer fails with *"Provider produced inconsistent result after apply"*. The `port` attribute now defaults to `"*"` (matching what the API normalises an omitted port to), so plan and state agree at every phase. The default is not sent to the API ([#339](https://github.com/Arubacloud/terraform-provider-arubacloud/issues/339), [#340](https://github.com/Arubacloud/terraform-provider-arubacloud/pull/340)).
+
+INTERNAL:
+
+* Bumped `sdk-go` to v1.1.0.
+
+DOCS:
+
+* `arubacloud_vpntunnel`: Corrected the descriptions of `vpn_client_settings.psk.cloud_site` and `vpn_client_settings.psk.on_prem_site`. These attributes are IKE identities (`leftid`/`rightid`), not key material — the pre-shared key itself goes into `secret`. The previous wording caused IKE phase-1 failures with no diagnostic pointing back at the configuration ([#342](https://github.com/Arubacloud/terraform-provider-arubacloud/pull/342)).
+
 ## 1.0.1 (July 28, 2026)
 
 BUG FIXES:
