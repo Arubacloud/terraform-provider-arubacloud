@@ -211,11 +211,11 @@ func (r *VPNTunnelResource) Schema(ctx context.Context, req resource.SchemaReque
 								Optional:            true,
 								Attributes: map[string]schema.Attribute{
 									"cloud_site": schema.StringAttribute{
-										MarkdownDescription: "Pre-shared key for the ArubaCloud side of the tunnel.",
+										MarkdownDescription: "IKE identity of the ArubaCloud side of the tunnel (\"PSK ID Aruba Side\" in the control panel). This is an **identifier**, not a key — the pre-shared key itself goes into `secret`. Equivalent to `leftid`/`rightid` in strongSwan or the local/remote ID in a Fortinet phase-1 configuration.",
 										Optional:            true,
 									},
 									"on_prem_site": schema.StringAttribute{
-										MarkdownDescription: "Pre-shared key for the on-premises side of the tunnel.",
+										MarkdownDescription: "IKE identity of the on-premises side of the tunnel (\"PSK ID On Prem Side\" in the control panel). This is an **identifier**, not a key — the pre-shared key itself goes into `secret`. With some firewalls (e.g. Fortinet) this must be set to the public IP of the on-premises gateway.",
 										Optional:            true,
 									},
 									"secret": schema.StringAttribute{
