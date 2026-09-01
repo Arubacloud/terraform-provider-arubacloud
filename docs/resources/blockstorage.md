@@ -54,7 +54,7 @@ The following arguments are supported:
 - `location` (String) Region identifier (e.g., `ITBG-Bergamo`). See the [available locations and zones](https://api.arubacloud.com/docs/metadata/#location-and-data-center). (Immutable — changing this value forces the resource to be destroyed and re-created.)
 - `name` (String) Display name for the block storage volume.
 - `project_id` (String) ID of the project that owns this resource. (Immutable — changing this value forces the resource to be destroyed and re-created.)
-- `size_gb` (Number) Size of the block storage volume in GiB. Must be a positive integer.
+- `size_gb` (Number) Size of the block storage volume in GiB. Must be a positive integer. Growing a volume is applied in place; **shrinking forces the volume to be destroyed and re-created**, because the API rejects a smaller size (`Validation: Size: invalid`). A replacement discards the volume's contents — check the plan before applying.
 - `type` (String) Storage type. Accepted values: `Standard`, `Performance`. (Immutable — changing this value forces the resource to be destroyed and re-created.)
 
 #### Optional

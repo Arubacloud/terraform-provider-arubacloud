@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -82,8 +83,29 @@ func (r *BlockStorageResource) Schema(ctx context.Context, req resource.SchemaRe
 				},
 			},
 			"size_gb": schema.Int64Attribute{
-				MarkdownDescription: "Size of the block storage volume in GiB. Must be a positive integer.",
-				Required:            true,
+				MarkdownDescription: "Size of the block storage volume in GiB. Must be a positive integer. " +
+					"Growing a volume is applied in place; **shrinking forces the volume to be destroyed and re-created**, " +
+					"because the API rejects a smaller size (`Validation: Size: invalid`). A replacement discards the " +
+					"volume's contents — check the plan before applying.",
+				Required: true,
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.RequiresReplaceIf(
+						func(ctx context.Context, req planmodifier.Int64Request, resp *int64planmodifier.RequiresReplaceIfFuncResponse) {
+							// Only a shrink needs replacement. The API grows a volume
+							// happily but rejects any smaller size, so without this the
+							// plan shows an in-place update that can never succeed —
+							// the apply fails and the configuration stays unappliable.
+							if req.StateValue.IsNull() || req.PlanValue.IsNull() || req.PlanValue.IsUnknown() {
+								return
+							}
+							if req.PlanValue.ValueInt64() < req.StateValue.ValueInt64() {
+								resp.RequiresReplace = true
+							}
+						},
+						"Shrinking a block storage volume requires it to be replaced.",
+						"Shrinking a block storage volume requires it to be replaced (the API rejects a smaller size).",
+					),
+				},
 			},
 			"billing_period": schema.StringAttribute{
 				MarkdownDescription: "Billing cycle. Accepted values: `Hour`, `Month`, `Year`.",
