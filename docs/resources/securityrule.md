@@ -94,7 +94,7 @@ Required:
 
 Optional:
 
-- `port` (String) Port or port range for TCP/UDP (e.g., `80` or `8080-8090`). Use `0` for ICMP or ANY. (Immutable — changing this value forces the resource to be destroyed and re-created.)
+- `port` (String) Port or port range for TCP/UDP (e.g., `80` or `8080-8090`). Defaults to `*` (all ports) when omitted — the API normalises an omitted port to `*`, so the default keeps plan and state consistent. (Immutable — changing this value forces the resource to be destroyed and re-created.)
 
 <a id="nestedatt--properties--target"></a>
 ### Nested Schema for `properties.target`
