@@ -22,6 +22,7 @@ import (
 type CloudServerResourceModel struct {
 	Id        types.String `tfsdk:"id"`
 	Uri       types.String `tfsdk:"uri"`
+	PrivateIP types.String `tfsdk:"private_ip"`
 	Name      types.String `tfsdk:"name"`
 	Location  types.String `tfsdk:"location"`
 	ProjectID types.String `tfsdk:"project_id"`
@@ -78,6 +79,13 @@ func (r *CloudServerResource) Schema(ctx context.Context, req resource.SchemaReq
 			},
 			"uri": schema.StringAttribute{
 				MarkdownDescription: "Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).",
+				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"private_ip": schema.StringAttribute{
+				MarkdownDescription: "DHCP-assigned private IPv4 address of the CloudServer, as returned by the API.",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
@@ -424,6 +432,11 @@ func (r *CloudServerResource) applyServerToState(
 	} else {
 		data.Uri = types.StringNull()
 	}
+	if ip := server.PrivateIP(); ip != "" {
+		data.PrivateIP = types.StringValue(ip)
+	} else {
+		data.PrivateIP = types.StringNull()
+	}
 	data.Name = types.StringValue(server.Name())
 	data.Tags = TagsToListPreserveNull(server.Tags(), data.Tags)
 
@@ -555,6 +568,7 @@ func (r *CloudServerResource) Update(ctx context.Context, req resource.UpdateReq
 	// when the local-only `timeout` field changes. Preserve computed fields.
 	data.Id = state.Id
 	data.Uri = state.Uri
+	data.PrivateIP = state.PrivateIP
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 

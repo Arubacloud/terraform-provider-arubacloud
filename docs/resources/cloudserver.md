@@ -70,6 +70,7 @@ In addition to all arguments above, the following attributes are exported:
 #### Read-Only
 
 - `id` (String) Computed by the API. Unique identifier for the resource.
+- `private_ip` (String) DHCP-assigned private IPv4 address of the CloudServer, as returned by the API.
 - `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).
 
 <a id="nestedatt--network"></a>

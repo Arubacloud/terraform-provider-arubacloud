@@ -15,6 +15,7 @@ import (
 type CloudServerDataSourceModel struct {
 	Id        types.String `tfsdk:"id"`
 	Uri       types.String `tfsdk:"uri"`
+	PrivateIP types.String `tfsdk:"private_ip"`
 	Name      types.String `tfsdk:"name"`
 	Location  types.String `tfsdk:"location"`
 	ProjectID types.String `tfsdk:"project_id"`
@@ -57,6 +58,10 @@ func (d *CloudServerDataSource) Schema(ctx context.Context, req datasource.Schem
 			},
 			"uri": schema.StringAttribute{
 				MarkdownDescription: "Computed by the API. Full resource URI.",
+				Computed:            true,
+			},
+			"private_ip": schema.StringAttribute{
+				MarkdownDescription: "DHCP-assigned private IPv4 address of the CloudServer, as returned by the API.",
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
@@ -159,6 +164,11 @@ func (d *CloudServerDataSource) Read(ctx context.Context, req datasource.ReadReq
 		data.Uri = types.StringValue(uri)
 	} else {
 		data.Uri = types.StringNull()
+	}
+	if ip := server.PrivateIP(); ip != "" {
+		data.PrivateIP = types.StringValue(ip)
+	} else {
+		data.PrivateIP = types.StringNull()
 	}
 	data.Name = types.StringValue(server.Name())
 	data.ProjectID = types.StringValue(projectID)

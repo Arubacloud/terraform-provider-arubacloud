@@ -82,6 +82,7 @@ In addition to all arguments above, the following attributes are exported:
 - `key_pair_uri_ref` (String) URI of the SSH key pair injected at boot.
 - `location` (String) Region identifier for the resource (e.g., `ITBG-Bergamo`).
 - `name` (String) Display name for the CloudServer.
+- `private_ip` (String) DHCP-assigned private IPv4 address of the CloudServer, as returned by the API.
 - `securitygroup_uri_refs` (List of String) List of security group URIs applied to this CloudServer.
 - `subnet_uri_refs` (List of String) List of subnet URIs attached to this CloudServer.
 - `tags` (List of String) List of string tags attached to the resource for filtering and organisation.
