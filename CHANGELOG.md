@@ -1,4 +1,4 @@
-## 1.1.1 (Unreleased)
+## 1.1.1 (September 7, 2026)
 
 FEATURES:
 
