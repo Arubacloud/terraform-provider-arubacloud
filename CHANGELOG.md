@@ -1,3 +1,9 @@
+## 1.1.1 (Unreleased)
+
+FEATURES:
+
+* `arubacloud_cloudserver`: Added `public_ip` computed attribute exposing the public IP address of the Elastic IP associated with the server via `network.elastic_ip_uri_ref`. The value is resolved with a secondary `ElasticIPs.Get` call during `Read` and `Create`, so callers no longer need to reference the `arubacloud_elasticip` resource separately to obtain the server's public address. When no Elastic IP is attached, or the address has not yet been assigned, the attribute is `null`.
+
 ## 1.1.0 (September 1, 2026)
 
 FEATURES:

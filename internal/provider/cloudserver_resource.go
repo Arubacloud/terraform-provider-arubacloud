@@ -23,6 +23,7 @@ type CloudServerResourceModel struct {
 	Id        types.String `tfsdk:"id"`
 	Uri       types.String `tfsdk:"uri"`
 	PrivateIP types.String `tfsdk:"private_ip"`
+	PublicIP  types.String `tfsdk:"public_ip"`
 	Name      types.String `tfsdk:"name"`
 	Location  types.String `tfsdk:"location"`
 	ProjectID types.String `tfsdk:"project_id"`
@@ -87,6 +88,16 @@ func (r *CloudServerResource) Schema(ctx context.Context, req resource.SchemaReq
 			"private_ip": schema.StringAttribute{
 				MarkdownDescription: "DHCP-assigned private IPv4 address of the CloudServer, as returned by the API.",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"public_ip": schema.StringAttribute{
+				MarkdownDescription: "Public IP address assigned to this CloudServer via the associated Elastic IP " +
+					"(`network.elastic_ip_uri_ref`). Populated only when an Elastic IP is attached and has been " +
+					"assigned an address. Equivalent to the `address` attribute of the associated " +
+					"`arubacloud_elasticip` resource.",
+				Computed: true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
@@ -525,6 +536,25 @@ func (r *CloudServerResource) applyServerToState(
 	storageObj, d := types.ObjectValue(csStorageAttrTypes(), storageAttrs)
 	diags.Append(d...)
 	data.Storage = storageObj
+
+	// ── Public IP (resolved from the associated Elastic IP) ───────────────────
+	// The CloudServer API does not return the Elastic IP address directly — only
+	// the URI reference is stored. We look it up via a second call so callers
+	// can read public_ip without having to reference the arubacloud_elasticip
+	// resource separately (equivalent to the elastic_ip_address Terraform output).
+	data.PublicIP = types.StringNull()
+	if !origNetwork.ElasticIpUriRef.IsNull() && !origNetwork.ElasticIpUriRef.IsUnknown() {
+		if eipURI := origNetwork.ElasticIpUriRef.ValueString(); eipURI != "" {
+			eip, err := r.client.Client.FromNetwork().ElasticIPs().Get(ctx, aruba.URI(eipURI))
+			if err == nil {
+				if addr := eip.Address(); addr != "" {
+					data.PublicIP = types.StringValue(addr)
+				}
+			}
+			// If the lookup fails (EIP not yet assigned, transient error), leave
+			// public_ip null — the next Read will retry automatically.
+		}
+	}
 }
 
 // firstString is a tiny helper to safely read a field from an optional state pointer.
@@ -569,6 +599,7 @@ func (r *CloudServerResource) Update(ctx context.Context, req resource.UpdateReq
 	data.Id = state.Id
 	data.Uri = state.Uri
 	data.PrivateIP = state.PrivateIP
+	data.PublicIP = state.PublicIP
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
