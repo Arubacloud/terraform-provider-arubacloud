@@ -71,6 +71,7 @@ In addition to all arguments above, the following attributes are exported:
 
 - `id` (String) Computed by the API. Unique identifier for the resource.
 - `private_ip` (String) DHCP-assigned private IPv4 address of the CloudServer, as returned by the API.
+- `public_ip` (String) Public IP address assigned to this CloudServer via the associated Elastic IP (`network.elastic_ip_uri_ref`). Populated only when an Elastic IP is attached and has been assigned an address. Equivalent to the `address` attribute of the associated `arubacloud_elasticip` resource.
 - `uri` (String) Computed by the API. Full resource URI used as a reference value in other resources (e.g., as a `*_uri_ref` attribute).
 
 <a id="nestedatt--network"></a>
