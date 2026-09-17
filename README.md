@@ -27,7 +27,7 @@ Manage your [ArubaCloud](https://arubacloud.com/) infrastructure with Terraform 
 ## Documentation
 
 - [Terraform Registry](https://registry.terraform.io/providers/Arubacloud/arubacloud/latest/docs) — full provider reference
-- [OpenTofu Registry](https://registry.opentofu.org/providers/Arubacloud/arubacloud) — same docs, OpenTofu source
+- [OpenTofu Registry](https://search.opentofu.org/provider/arubacloud/arubacloud/latest) — same docs, OpenTofu source
 - [examples/](examples/) — complete working examples for all resources
 - [docs/](docs/) — generated reference for all resources and data sources
 
